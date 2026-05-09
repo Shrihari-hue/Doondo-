@@ -1,0 +1,22 @@
+{
+  "name": "@doondo/tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Doondo design tokens — single source of visual truth.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./colors": "./src/colors.ts",
+    "./typography": "./src/typography.ts",
+    "./spacing": "./src/spacing.ts",
+    "./radii": "./src/radii.ts",
+    "./motion": "./src/motion.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

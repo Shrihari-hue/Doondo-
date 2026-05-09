@@ -1,0 +1,389 @@
+/**
+ * User — the core identity model.
+ *
+ * Phase 1 was minimal (just identity + auth). Phase 2 grows the model
+ * with seeker profile fields: skills, bio, geo location, availability,
+ * experience, preferred job types, and saved-jobs bookmarks. None of
+ * the new fields are required, so existing accounts stay valid.
+ *
+ * Why we live on User and not a separate SeekerProfile collection:
+ *   - 1:1 relationship between user and profile — no need for a join.
+ *   - Single source of truth for "who is this person".
+ *   - Mongoose `select: false` lets us hide fields where not needed.
+ *
+ * Phase 3 employer fields will land here too (companyName, gstin, etc.)
+ * so we don't fragment the identity model.
+ */
+
+import { Schema, model, type Model, type HydratedDocument } from 'mongoose';
+import type { UserRole } from '@/lib/jwt';
+
+// ─── Subdocuments ───────────────────────────────────────────────────────────
+
+export const AVAILABILITIES = ['immediate', 'within_1_week', 'within_1_month', 'flexible'] as const;
+export type Availability = (typeof AVAILABILITIES)[number];
+
+export const PREFERRED_JOB_TYPES = [
+  'full_time',
+  'part_time',
+  'gig',
+  'shift',
+  'contract',
+] as const;
+export type PreferredJobType = (typeof PREFERRED_JOB_TYPES)[number];
+
+export const WORK_TYPES = ['solo', 'team'] as const;
+export type WorkType = (typeof WORK_TYPES)[number];
+
+export const BUSINESS_TYPES = [
+  'individual',
+  'shop',
+  'restaurant',
+  'salon',
+  'agency',
+  'startup',
+  'enterprise',
+  'other',
+] as const;
+export type BusinessType = (typeof BUSINESS_TYPES)[number];
+
+export interface UserLocation {
+  city?: string | null;
+  area?: string | null;
+  pincode?: string | null;
+  geo?: {
+    type: 'Point';
+    coordinates: [number, number]; // [lng, lat]
+  } | null;
+}
+
+export const VERIFICATION_STATUSES = ['unverified', 'pending', 'verified', 'rejected'] as const;
+export type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
+
+export interface User {
+  email: string;
+  passwordHash: string;
+  role: UserRole;
+  name: string;
+  phone?: string | null;
+  /**
+   * High-level "is this account verified" flag. Flipped to `true` once the
+   * Phase 5 verification flow completes (phone OTP + selfie + GSTIN format
+   * for employers). Stays in lockstep with `verifiedAt` — both set together,
+   * both cleared together.
+   */
+  isVerified: boolean;
+  /**
+   * Granular state machine for the verification flow.
+   *   unverified — never started, or rejected and reset
+   *   pending    — phone confirmed, waiting on selfie / final review
+   *   verified   — full pass; isVerified === true
+   *   rejected   — manually rejected by an admin (selfie didn't match etc.)
+   */
+  verificationStatus: VerificationStatus;
+  /** When the phone OTP step was passed. Null until the user proves the number. */
+  phoneVerifiedAt?: Date | null;
+  /**
+   * Selfie captured during verification, kept on the user record for
+   * dispute review. Stored as a base64 data URL like `photoUrl` (cap ~350KB
+   * after client-side compression). Hidden from peer profile responses.
+   */
+  selfiePhotoUrl?: string | null;
+  /** Timestamp when verification fully passed. Null when not verified. */
+  verifiedAt?: Date | null;
+  isActive: boolean;
+  lastLoginAt?: Date | null;
+  // ─── Seeker profile (Phase 2) ───────────────────────────────────────────
+  skills: string[];
+  bio?: string | null;
+  experienceYears?: number | null;
+  availability?: Availability | null;
+  preferredJobTypes: PreferredJobType[];
+  /** "solo" = one person looking, "team" = a small group looking together. */
+  workType?: WorkType | null;
+  /** Members in the team. Required when workType === 'team'. 2..50. */
+  teamSize?: number | null;
+  location?: UserLocation | null;
+  /**
+   * Profile photo, stored as a base64 data URL for now (max ~250KB after
+   * client-side compression). Phase 5 swaps this for a CDN-hosted URL
+   * once we add proper file storage. Both shapes work for clients —
+   * `Image source={{ uri }}` accepts both `data:image/...` and `https://`.
+   */
+  photoUrl?: string | null;
+  /** Bookmarked Job IDs — small array, denormalised on the user. */
+  savedJobs: Schema.Types.ObjectId[];
+  /**
+   * Expo push tokens. Multiple supported (one per device). Tokens are
+   * registered on app launch + after every login; we de-dupe before
+   * pushing. Cleared on logout via clearPushToken.
+   */
+  expoPushTokens: string[];
+  // ─── Employer profile (Phase 3) ─────────────────────────────────────────
+  /** Trading / brand name shown on job posts. */
+  companyName?: string | null;
+  businessType?: BusinessType | null;
+  /** GST identification number (India). 15 chars; format-validated lightly. */
+  gstin?: string | null;
+  /** Where the business operates from. Different from a seeker's home location. */
+  employerLocation?: UserLocation | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type UserDocument = HydratedDocument<User>;
+
+interface UserMethods {
+  toPublicJSON(): PublicUser;
+}
+
+export interface PublicUser {
+  id: string;
+  email: string;
+  role: UserRole;
+  name: string;
+  phone: string | null;
+  isVerified: boolean;
+  /** Granular verification state — drives the ProfileScreen verification card. */
+  verificationStatus: VerificationStatus;
+  /** Whether the phone OTP step has been completed. */
+  phoneVerified: boolean;
+  /** ISO timestamp when verification fully passed; null otherwise. */
+  verifiedAt: string | null;
+  // ─── Seeker profile (Phase 2) ───────────────────────────────────────────
+  skills: string[];
+  bio: string | null;
+  experienceYears: number | null;
+  availability: Availability | null;
+  preferredJobTypes: PreferredJobType[];
+  workType: WorkType | null;
+  teamSize: number | null;
+  location: {
+    city: string | null;
+    area: string | null;
+    pincode: string | null;
+    coordinates: [number, number] | null;
+  } | null;
+  photoUrl: string | null;
+  // Employer-only (null for seekers)
+  companyName: string | null;
+  businessType: BusinessType | null;
+  gstin: string | null;
+  employerLocation: {
+    city: string | null;
+    area: string | null;
+    pincode: string | null;
+    coordinates: [number, number] | null;
+  } | null;
+  /** Profile-completion percent (0..100). Computed, not stored. */
+  profileCompletion: number;
+  createdAt: string;
+}
+
+type UserModel = Model<User, Record<string, never>, UserMethods>;
+
+// ─── Sub-schemas ────────────────────────────────────────────────────────────
+// Defined separately so Mongoose doesn't choke on inline nested-with-default
+// patterns (Mongoose treats `type:` as a reserved key inside a path spec).
+
+const geoPointSchema = new Schema(
+  {
+    type: { type: String, enum: ['Point'], default: 'Point' },
+    coordinates: {
+      type: [Number],
+      validate: {
+        validator: (v: number[]) =>
+          Array.isArray(v) &&
+          v.length === 2 &&
+          v[0]! >= -180 &&
+          v[0]! <= 180 &&
+          v[1]! >= -90 &&
+          v[1]! <= 90,
+        message: 'coordinates must be [lng, lat] with valid ranges',
+      },
+    },
+  },
+  { _id: false },
+);
+
+const userLocationSchema = new Schema(
+  {
+    city: { type: String, default: null, trim: true, maxlength: 80 },
+    area: { type: String, default: null, trim: true, maxlength: 80 },
+    pincode: { type: String, default: null, trim: true, maxlength: 12 },
+    geo: { type: geoPointSchema, default: null },
+  },
+  { _id: false },
+);
+
+const userSchema = new Schema<User, UserModel, UserMethods>(
+  {
+    email: {
+      type: String,
+      required: true,
+      lowercase: true,
+      trim: true,
+      unique: true,
+      index: true,
+      match: [/^[^@\s]+@[^@\s]+\.[^@\s]+$/, 'Invalid email'],
+    },
+    passwordHash: {
+      type: String,
+      required: true,
+      select: false, // never return the hash unless explicitly selected
+    },
+    role: {
+      type: String,
+      required: true,
+      enum: ['seeker', 'employer', 'admin'],
+      index: true,
+    },
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      minlength: 1,
+      maxlength: 120,
+    },
+    phone: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    isVerified: { type: Boolean, default: false },
+    verificationStatus: {
+      type: String,
+      enum: VERIFICATION_STATUSES,
+      default: 'unverified',
+      index: true,
+    },
+    phoneVerifiedAt: { type: Date, default: null },
+    // Selfies need more bytes than the avatar photoUrl (face detail matters
+    // for verification review). select:false so peer-profile reads never
+    // accidentally leak the selfie outside the verification flow.
+    selfiePhotoUrl: {
+      type: String,
+      default: null,
+      maxlength: 900_000,
+      select: false,
+    },
+    verifiedAt: { type: Date, default: null },
+    isActive: { type: Boolean, default: true },
+    lastLoginAt: { type: Date, default: null },
+    // ─── Seeker profile (Phase 2) ─────────────────────────────────────────
+    skills: { type: [String], default: [] },
+    bio: { type: String, default: null, trim: true, maxlength: 500 },
+    experienceYears: { type: Number, default: null, min: 0, max: 60 },
+    availability: { type: String, enum: AVAILABILITIES, default: null },
+    preferredJobTypes: {
+      type: [{ type: String, enum: PREFERRED_JOB_TYPES }],
+      default: [],
+    },
+    workType: { type: String, enum: WORK_TYPES, default: null },
+    teamSize: { type: Number, default: null, min: 2, max: 50 },
+    location: { type: userLocationSchema, default: null },
+    // Stored as a base64 data URL (data:image/jpeg;base64,...). Cap at
+    // ~350KB after the trailing prefix — clients should compress before send.
+    photoUrl: { type: String, default: null, maxlength: 360_000 },
+    // Employer-only (Phase 3) — left null on seeker accounts.
+    companyName: { type: String, default: null, trim: true, maxlength: 120 },
+    businessType: { type: String, enum: BUSINESS_TYPES, default: null },
+    // 15-char GSTIN (lenient — full Luhn-style validation is admin's job).
+    gstin: {
+      type: String,
+      default: null,
+      trim: true,
+      uppercase: true,
+      match: [/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[0-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GSTIN'],
+    },
+    employerLocation: { type: userLocationSchema, default: null },
+    savedJobs: {
+      type: [{ type: Schema.Types.ObjectId, ref: 'Job' }],
+      default: [],
+    },
+    expoPushTokens: { type: [String], default: [] },
+  },
+  { timestamps: true },
+);
+
+// 2dsphere on the seeker's saved location lets Phase 4 do "jobs near YOUR
+// home" recommendations without re-asking permission every session.
+userSchema.index({ 'location.geo': '2dsphere' });
+
+userSchema.method('toPublicJSON', function (this: UserDocument): PublicUser {
+  const flatLoc = (loc: UserLocation | null | undefined) =>
+    loc && (loc.city || loc.area || loc.pincode || loc.geo)
+      ? {
+          city: loc.city ?? null,
+          area: loc.area ?? null,
+          pincode: loc.pincode ?? null,
+          coordinates: loc.geo?.coordinates ?? null,
+        }
+      : null;
+
+  const locOut = flatLoc(this.location);
+  const empLocOut = flatLoc(this.employerLocation);
+
+  return {
+    id: this._id.toString(),
+    email: this.email,
+    role: this.role,
+    name: this.name,
+    phone: this.phone ?? null,
+    isVerified: this.isVerified,
+    verificationStatus: this.verificationStatus ?? 'unverified',
+    phoneVerified: Boolean(this.phoneVerifiedAt),
+    verifiedAt: this.verifiedAt ? this.verifiedAt.toISOString() : null,
+    skills: this.skills ?? [],
+    bio: this.bio ?? null,
+    experienceYears: this.experienceYears ?? null,
+    availability: this.availability ?? null,
+    preferredJobTypes: this.preferredJobTypes ?? [],
+    workType: this.workType ?? null,
+    teamSize: this.teamSize ?? null,
+    location: locOut,
+    photoUrl: this.photoUrl ?? null,
+    companyName: this.companyName ?? null,
+    businessType: this.businessType ?? null,
+    gstin: this.gstin ?? null,
+    employerLocation: empLocOut,
+    profileCompletion: computeProfileCompletion(this),
+    createdAt: this.createdAt.toISOString(),
+  };
+});
+
+/**
+ * Lightweight scoring of "how complete is this profile". 7 fields each
+ * worth ~14%, summing to 100. Used in the mobile profile screen to show
+ * a "Profile 60% complete" progress orb that motivates filling more in.
+ *
+ * Each missing field gives the seeker a concrete next step rather than
+ * an abstract "do more". The 3D progress orb on Profile reads this number.
+ */
+function computeProfileCompletion(u: UserDocument): number {
+  // Different signals matter for seekers vs employers. Each role's checks
+  // tally to ~14% per field so the percent maxes near 100.
+  const seekerChecks = [
+    Boolean(u.name && u.name.trim()),
+    Boolean(u.phone && u.phone.trim()),
+    Boolean(u.bio && u.bio.trim()),
+    (u.skills?.length ?? 0) > 0,
+    u.experienceYears != null,
+    Boolean(u.availability),
+    Boolean(u.location?.city),
+  ];
+  const employerChecks = [
+    Boolean(u.name && u.name.trim()),
+    Boolean(u.phone && u.phone.trim()),
+    Boolean(u.companyName && u.companyName.trim()),
+    Boolean(u.businessType),
+    Boolean(u.bio && u.bio.trim()),
+    Boolean(u.gstin && u.gstin.trim()),
+    Boolean(u.employerLocation?.city),
+  ];
+  const checks = u.role === 'employer' ? employerChecks : seekerChecks;
+  const filled = checks.filter(Boolean).length;
+  return Math.round((filled / checks.length) * 100);
+}
+
+export const UserModel = model<User, UserModel>('User', userSchema);

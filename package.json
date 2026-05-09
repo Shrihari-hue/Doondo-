@@ -1,0 +1,27 @@
+{
+  "name": "doondo-v2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Doondo — local hiring platform. Premium mobile app + backend.",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:mobile": "node scripts/sync-mobile-env.cjs && pnpm --filter @doondo/mobile dev",
+    "dev:mobile:tunnel": "node scripts/sync-mobile-env.cjs && pnpm --filter @doondo/mobile dev:tunnel",
+    "dev:backend": "pnpm --filter @doondo/backend dev",
+    "sync-env": "node scripts/sync-mobile-env.cjs",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "clean": "pnpm -r clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4"
+  }
+}

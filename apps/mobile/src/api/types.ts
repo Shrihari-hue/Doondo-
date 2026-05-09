@@ -1,0 +1,252 @@
+/**
+ * Shared API envelope types — match the backend's response shape exactly.
+ * If you change the backend envelope, change this file too. Eventually we'll
+ * move these to packages/shared so both ends import from one source.
+ */
+
+export interface ApiSuccess<T> {
+  ok: true;
+  data: T;
+  requestId: string;
+}
+
+export interface ApiErrorEnvelope {
+  ok: false;
+  error: {
+    code: ApiErrorCode;
+    message: string;
+    details: unknown;
+  };
+  requestId: string;
+}
+
+export type ApiErrorCode =
+  | 'AUTH_INVALID_CREDENTIALS'
+  | 'AUTH_EMAIL_TAKEN'
+  | 'AUTH_TOKEN_INVALID'
+  | 'AUTH_TOKEN_EXPIRED'
+  | 'AUTH_REFRESH_REUSED'
+  | 'AUTH_REFRESH_REVOKED'
+  | 'AUTH_UNAUTHORIZED'
+  | 'AUTH_FORBIDDEN'
+  | 'VALIDATION_FAILED'
+  | 'NOT_FOUND'
+  | 'CONFLICT'
+  | 'RATE_LIMITED'
+  | 'INTERNAL_ERROR'
+  | 'NETWORK_ERROR'
+  | 'UNKNOWN_ERROR'
+  // Phase 2
+  | 'JOB_NOT_FOUND'
+  | 'JOB_NOT_OPEN'
+  | 'APPLICATION_NOT_FOUND'
+  | 'APPLICATION_ALREADY_EXISTS'
+  | 'APPLICATION_INVALID_TRANSITION'
+  // Phase 5 — verification
+  | 'VERIFICATION_OTP_INVALID'
+  | 'VERIFICATION_OTP_EXPIRED'
+  | 'VERIFICATION_OTP_TOO_MANY'
+  | 'VERIFICATION_OTP_NOT_FOUND'
+  | 'VERIFICATION_PHONE_REQUIRED'
+  | 'VERIFICATION_SELFIE_REQUIRED'
+  | 'VERIFICATION_GSTIN_REQUIRED'
+  | 'VERIFICATION_ALREADY_VERIFIED';
+
+export interface ValidationIssue {
+  path: (string | number)[];
+  message: string;
+  code: string;
+}
+
+// Auth-specific shapes
+export type UserRole = 'seeker' | 'employer' | 'admin';
+
+export type Availability =
+  | 'immediate'
+  | 'within_1_week'
+  | 'within_1_month'
+  | 'flexible';
+
+export type JobType = 'full_time' | 'part_time' | 'gig' | 'shift' | 'contract';
+
+export type WorkType = 'solo' | 'team';
+
+export type PayPeriod = 'hour' | 'day' | 'week' | 'month' | 'fixed';
+
+export type JobStatus = 'active' | 'paused' | 'filled' | 'expired';
+
+export type ApplicationStatus =
+  | 'pending'
+  | 'viewed'
+  | 'shortlisted'
+  | 'rejected'
+  | 'hired'
+  | 'withdrawn';
+
+export type VerificationStatus =
+  | 'unverified'
+  | 'pending'
+  | 'verified'
+  | 'rejected';
+
+export interface PublicUser {
+  id: string;
+  email: string;
+  role: UserRole;
+  name: string;
+  phone: string | null;
+  isVerified: boolean;
+  /** Granular verification state — drives the ProfileScreen card. */
+  verificationStatus: VerificationStatus;
+  /** Whether the phone OTP step has been completed. */
+  phoneVerified: boolean;
+  /** ISO timestamp when verification fully passed; null otherwise. */
+  verifiedAt: string | null;
+  // Phase 2 seeker profile
+  skills: string[];
+  bio: string | null;
+  experienceYears: number | null;
+  availability: Availability | null;
+  preferredJobTypes: JobType[];
+  workType: WorkType | null;
+  teamSize: number | null;
+  location: {
+    city: string | null;
+    area: string | null;
+    pincode: string | null;
+    coordinates: [number, number] | null;
+  } | null;
+  /** Base64 data URL or external URL. Null if not set. */
+  photoUrl: string | null;
+  // Employer (Phase 3)
+  companyName: string | null;
+  businessType:
+    | 'individual'
+    | 'shop'
+    | 'restaurant'
+    | 'salon'
+    | 'agency'
+    | 'startup'
+    | 'enterprise'
+    | 'other'
+    | null;
+  gstin: string | null;
+  employerLocation: {
+    city: string | null;
+    area: string | null;
+    pincode: string | null;
+    coordinates: [number, number] | null;
+  } | null;
+  profileCompletion: number;
+  createdAt: string;
+}
+
+export type BusinessType = NonNullable<PublicUser['businessType']>;
+
+// ─── Jobs ────────────────────────────────────────────────────────────────────
+
+export interface PublicJob {
+  id: string;
+  title: string;
+  description: string;
+  type: JobType;
+  pay: {
+    amount: number;
+    amountMax: number | null;
+    period: PayPeriod;
+    currency: string;
+  };
+  location: {
+    address: string;
+    city: string;
+    area: string | null;
+    pincode: string | null;
+    coordinates: [number, number]; // [lng, lat]
+  };
+  skills: string[];
+  schedule: {
+    days?: number[];
+    startTime?: string | null;
+    endTime?: string | null;
+    hoursPerDay?: number | null;
+  } | null;
+  status: JobStatus;
+  applicantsCount: number;
+  /** Filled by /jobs/nearby. */
+  distanceMeters?: number;
+  employer?: {
+    id: string;
+    name: string;
+    isVerified: boolean;
+    photoUrl?: string | null;
+    companyName?: string | null;
+  };
+  createdAt: string;
+}
+
+// ─── Applications ────────────────────────────────────────────────────────────
+
+// ─── Chat ────────────────────────────────────────────────────────────────────
+
+export type MessageKind = 'text' | 'system';
+
+export interface PublicConversation {
+  id: string;
+  employerId: string;
+  seekerId: string;
+  jobId: string;
+  lastMessageAt: string;
+  lastMessagePreview: string | null;
+  lastSenderId: string | null;
+  unread: number;
+  createdAt: string;
+  /** Hydrated by listMine / detail. */
+  counterpart?: {
+    id: string;
+    name: string;
+    photoUrl: string | null;
+    isVerified: boolean;
+    companyName?: string | null;
+  };
+  job?: { id: string; title: string };
+}
+
+export interface PublicMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  kind: MessageKind;
+  body: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface PublicApplication {
+  id: string;
+  jobId: string;
+  status: ApplicationStatus;
+  coverNote: string | null;
+  timeline: {
+    appliedAt: string;
+    viewedAt: string | null;
+    shortlistedAt: string | null;
+    rejectedAt: string | null;
+    hiredAt: string | null;
+    withdrawnAt: string | null;
+  };
+  /** Hydrated by listMine / detail. */
+  job?: PublicJob;
+  createdAt: string;
+}
+
+export interface TokenPair {
+  accessToken: string;
+  refreshToken: string;
+  accessExpiresIn: string;
+  refreshExpiresIn: string;
+}
+
+export interface AuthSuccess {
+  user: PublicUser;
+  tokens: TokenPair;
+}

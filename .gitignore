@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.yarn/
+
+# Build artifacts
+dist/
+build/
+.expo/
+.expo-shared/
+.next/
+out/
+
+# Native
+ios/Pods/
+ios/build/
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# EAS
+.easignore
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TS
+*.tsbuildinfo
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+.cache/
+tmp/
+temp/

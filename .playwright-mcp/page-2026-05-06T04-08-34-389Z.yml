@@ -1,0 +1,85 @@
+- generic [ref=e2]:
+  - generic [ref=e13]:
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e17]: D
+        - generic [ref=e18]: DOONDO
+      - generic [ref=e19]:
+        - generic [ref=e20] [cursor=pointer]:
+          - generic [ref=e21]: 
+          - generic [ref=e22]: EN
+        - generic [ref=e24] [cursor=pointer]: 
+        - generic [ref=e26] [cursor=pointer]: Sign in
+    - generic [ref=e27]:
+      - generic [ref=e29]: LOCAL HIRING, BETTER TASTE
+      - generic [ref=e30]: Choose your side.
+      - generic [ref=e31]: One clean start for finding work or building a team nearby.
+    - generic [ref=e32]:
+      - generic [ref=e34]:
+        - generic [ref=e36]: 
+        - generic [ref=e38]: FOR JOB SEEKERS
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - generic [ref=e42]: Find work
+            - generic [ref=e43]: near you.
+          - generic [ref=e44]: Discover local jobs that match your skills, schedule, and lifestyle.
+          - generic [ref=e45]:
+            - generic [ref=e46]:
+              - generic [ref=e48]: 
+              - generic [ref=e49]:
+                - generic [ref=e50]: Nearby jobs
+                - generic [ref=e51]: Find opportunities close to home.
+            - generic [ref=e52]:
+              - generic [ref=e54]: 
+              - generic [ref=e55]:
+                - generic [ref=e56]: Quick hiring
+                - generic [ref=e57]: Connect and get hired faster.
+            - generic [ref=e58]:
+              - generic [ref=e60]: 
+              - generic [ref=e61]:
+                - generic [ref=e62]: Trusted employers
+                - generic [ref=e63]: Work with verified businesses.
+        - generic [ref=e67]:
+          - generic [ref=e70]: 
+          - generic [ref=e71] [cursor=pointer]:
+            - generic [ref=e72]: I want to find work
+            - generic [ref=e73]: 
+          - generic [ref=e74]:
+            - generic [ref=e75]: 
+            - generic [ref=e76]: Safe. Simple. Local.
+      - generic [ref=e78]:
+        - generic [ref=e80]: 
+        - generic [ref=e82]: FOR EMPLOYERS
+        - generic [ref=e84]:
+          - generic [ref=e85]:
+            - generic [ref=e86]: Hire local
+            - generic [ref=e87]: talent.
+          - generic [ref=e88]: Find reliable people nearby and hire faster without the usual friction.
+          - generic [ref=e89]:
+            - generic [ref=e90]:
+              - generic [ref=e92]: 
+              - generic [ref=e93]:
+                - generic [ref=e94]: Post a job in minutes
+                - generic [ref=e95]: Create and publish jobs quickly and easily.
+            - generic [ref=e96]:
+              - generic [ref=e98]: 
+              - generic [ref=e99]:
+                - generic [ref=e100]: Get local applicants
+                - generic [ref=e101]: Connect with nearby, relevant candidates.
+            - generic [ref=e102]:
+              - generic [ref=e104]: 
+              - generic [ref=e105]:
+                - generic [ref=e106]: Hire with confidence
+                - generic [ref=e107]: Review verified profiles before you decide.
+        - generic [ref=e111]:
+          - generic [ref=e112]:
+            - generic [ref=e114]: 
+            - generic [ref=e115]: Build your team from your neighborhood.
+          - generic [ref=e116] [cursor=pointer]:
+            - generic [ref=e117]: I want to hire workers
+            - generic [ref=e118]: 
+          - generic [ref=e119]:
+            - generic [ref=e120]: 
+            - generic [ref=e121]: Safe. Simple. Local.
+  - generic:
+    - img

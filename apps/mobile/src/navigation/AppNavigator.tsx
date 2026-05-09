@@ -1,0 +1,112 @@
+/**
+ * AppNavigator — shown when the user is authenticated.
+ *
+ * Routes by user.role:
+ *   - seeker   → SeekerTabNavigator
+ *   - employer → EmployerTabNavigator
+ *
+ * Modal screens (JobDetail, JobApplicants, ApplicantDetail, PostJob,
+ * EditProfile) stack on top of whichever tab host is active.
+ */
+
+import { useEffect } from 'react';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useTheme } from '@/theme/useTheme';
+import { useAuth } from '@/hooks/useAuth';
+import { useApplicationSocket } from '@/hooks/useApplicationSocket';
+import { useChatSocket } from '@/hooks/useChatSocket';
+import {
+  registerForPushNotifications,
+  setupNotificationHandlers,
+} from '@/lib/push';
+import { SeekerTabNavigator } from './SeekerTabNavigator';
+import { EmployerTabNavigator } from './EmployerTabNavigator';
+import { JobDetailScreen } from '@/screens/seeker/JobDetailScreen';
+import { EditProfileScreen } from '@/screens/seeker/EditProfileScreen';
+import { JobApplicantsScreen } from '@/screens/employer/JobApplicantsScreen';
+import { ApplicantDetailScreen } from '@/screens/employer/ApplicantDetailScreen';
+import { PostJobScreen } from '@/screens/employer/PostJobScreen';
+import { ConversationScreen } from '@/screens/chat/ConversationScreen';
+import { VerificationFlowScreen } from '@/screens/verification/VerificationFlowScreen';
+import type { AppStackParamList } from './types';
+
+const Stack = createNativeStackNavigator<AppStackParamList>();
+
+export function AppNavigator() {
+  const { theme } = useTheme();
+  const { user } = useAuth();
+  const isEmployer = user?.role === 'employer';
+
+  // Live application status updates + chat events over Socket.IO.
+  // Mounted here so the listeners follow the full authenticated session.
+  useApplicationSocket();
+  useChatSocket();
+
+  // Push notifications — request permission and register the Expo token
+  // with the backend. Tap-to-deep-link will land in a follow-up; for v1
+  // the notification banner shows and the user opens the app manually
+  // (which lands on the right screen via unread badges).
+  useEffect(() => {
+    void setupNotificationHandlers();
+    void registerForPushNotifications();
+  }, []);
+
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: theme.bg.canvas },
+        animation: 'fade',
+      }}
+    >
+      {isEmployer ? (
+        <Stack.Screen name="EmployerTabs" component={EmployerTabNavigator} />
+      ) : (
+        <Stack.Screen name="SeekerTabs" component={SeekerTabNavigator} />
+      )}
+
+      {/* Seeker modals */}
+      <Stack.Screen
+        name="JobDetail"
+        component={JobDetailScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+
+      {/* Employer modals */}
+      <Stack.Screen
+        name="JobApplicants"
+        component={JobApplicantsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="ApplicantDetail"
+        component={ApplicantDetailScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="PostJob"
+        component={PostJobScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+
+      {/* Chat modal — shared by both roles */}
+      <Stack.Screen
+        name="Conversation"
+        component={ConversationScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_right' }}
+      />
+
+      {/* Shared modals */}
+      <Stack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Verification"
+        component={VerificationFlowScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+    </Stack.Navigator>
+  );
+}

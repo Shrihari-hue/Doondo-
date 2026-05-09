@@ -1,0 +1,66 @@
+/**
+ * JWT helpers — access tokens (short-lived) and refresh tokens (long-lived).
+ *
+ * Two separate secrets so a leak of one doesn't compromise the other. Both
+ * are HS256 — symmetric is fine because both signing and verifying happen
+ * inside the backend.
+ *
+ * Refresh tokens carry only the minimum needed to look them up: the user
+ * ID and a familyId. The actual token string is hashed and stored in the
+ * RefreshToken collection so we can revoke and detect reuse.
+ */
+
+import jwt from 'jsonwebtoken';
+import { env } from '@/config/env';
+import { errors } from './errors';
+
+export type UserRole = 'seeker' | 'employer' | 'admin';
+
+export interface AccessTokenPayload {
+  sub: string; // userId
+  role: UserRole;
+  type: 'access';
+}
+
+export interface RefreshTokenPayload {
+  sub: string; // userId
+  fid: string; // familyId — same across rotations of the same login session
+  jti: string; // unique per token; matches RefreshToken._id
+  type: 'refresh';
+}
+
+export function signAccessToken(payload: Omit<AccessTokenPayload, 'type'>): string {
+  return jwt.sign({ ...payload, type: 'access' }, env.JWT_ACCESS_SECRET, {
+    expiresIn: env.JWT_ACCESS_TTL as jwt.SignOptions['expiresIn'],
+  });
+}
+
+export function signRefreshToken(payload: Omit<RefreshTokenPayload, 'type'>): string {
+  return jwt.sign({ ...payload, type: 'refresh' }, env.JWT_REFRESH_SECRET, {
+    expiresIn: env.JWT_REFRESH_TTL as jwt.SignOptions['expiresIn'],
+  });
+}
+
+export function verifyAccessToken(token: string): AccessTokenPayload {
+  try {
+    const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as AccessTokenPayload;
+    if (decoded.type !== 'access') throw errors.tokenInvalid();
+    return decoded;
+  } catch (err) {
+    if (err instanceof jwt.TokenExpiredError) throw errors.tokenExpired();
+    if (err instanceof jwt.JsonWebTokenError) throw errors.tokenInvalid();
+    throw err;
+  }
+}
+
+export function verifyRefreshToken(token: string): RefreshTokenPayload {
+  try {
+    const decoded = jwt.verify(token, env.JWT_REFRESH_SECRET) as RefreshTokenPayload;
+    if (decoded.type !== 'refresh') throw errors.tokenInvalid();
+    return decoded;
+  } catch (err) {
+    if (err instanceof jwt.TokenExpiredError) throw errors.tokenExpired();
+    if (err instanceof jwt.JsonWebTokenError) throw errors.tokenInvalid();
+    throw err;
+  }
+}

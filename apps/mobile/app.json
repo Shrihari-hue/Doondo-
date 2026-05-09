@@ -1,0 +1,78 @@
+{
+  "expo": {
+    "name": "Doondo",
+    "slug": "doondo",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "doondo",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+    "backgroundColor": "#0C0A0E",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0C0A0E",
+      "dark": {
+        "image": "./assets/splash-icon.png",
+        "backgroundColor": "#0C0A0E"
+      }
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.doondo.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Doondo uses your location to find work near you.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Doondo uses your location to share live location with safety contacts when you choose to.",
+        "NSCameraUsageDescription": "Doondo uses your camera for intro videos and verification.",
+        "NSMicrophoneUsageDescription": "Doondo uses your microphone for video calls and intro videos.",
+        "NSPhotoLibraryUsageDescription": "Doondo uses your photos to set your profile picture and resume.",
+        "NSContactsUsageDescription": "Doondo uses contacts so you can pick safety contacts."
+      }
+    },
+    "android": {
+      "package": "com.doondo.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0C0A0E"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_CONTACTS"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-secure-store",
+      "expo-video",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Doondo needs access to your photos to set your profile picture."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#C8533A"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "extra": {
+      "eas": {
+        "projectId": "de88667b-29a8-4447-9a10-ef68ae6b0bd2"
+      }
+    },
+    "owner": "shrihari23"
+  }
+}
