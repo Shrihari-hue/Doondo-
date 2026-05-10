@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "scheme": "doondo",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "backgroundColor": "#0C0A0E",
     "icon": "./assets/icon.png",
     "splash": {
