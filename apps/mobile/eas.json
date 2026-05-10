@@ -4,13 +4,6 @@
     "appVersionSource": "remote"
   },
   "build": {
-    "_comments": [
-      "development — dev-client build for local Metro debugging.",
-      "preview     — internal-distribution build for testers (Android APK,",
-      "              iOS adhoc/simulator). Share the install URL with friends.",
-      "production  — App Store / Play Store ready build (Android AAB, iOS",
-      "              app-store distribution). Used by `eas submit`."
-    ],
     "development": {
       "developmentClient": true,
       "distribution": "internal",

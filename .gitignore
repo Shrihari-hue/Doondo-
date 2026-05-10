@@ -3,6 +3,12 @@ node_modules/
 .pnpm-store/
 .yarn/
 
+# Lockfiles from other package managers — this repo uses pnpm only.
+# Stray npm/yarn lockfiles confuse Railway, EAS, and other CI that
+# auto-detect the package manager from the lockfile.
+package-lock.json
+yarn.lock
+
 # Build artifacts
 dist/
 build/
