@@ -65,6 +65,7 @@ export type AppStackParamList = {
       | 'location'
       | 'skills'
       | 'preferences'
+      | 'resume'
       | 'business_basics'
       | 'business_location';
   };

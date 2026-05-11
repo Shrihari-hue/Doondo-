@@ -55,6 +55,7 @@ export function EditProfileScreen() {
     location: 'Set your area',
     skills: 'Your skills',
     preferences: 'Work preferences',
+    resume: 'Your resume',
     business_basics: 'Business details',
     business_location: 'Business address',
   };
@@ -93,6 +94,7 @@ export function EditProfileScreen() {
           {route.params.section === 'location' && <LocationForm user={user} />}
           {route.params.section === 'skills' && <SkillsForm user={user} />}
           {route.params.section === 'preferences' && <PreferencesForm user={user} />}
+          {route.params.section === 'resume' && <ResumeForm user={user} />}
           {route.params.section === 'business_basics' && <BusinessBasicsForm user={user} />}
           {route.params.section === 'business_location' && (
             <BusinessLocationForm user={user} />
@@ -160,6 +162,191 @@ function BasicsForm({ user }: { user: PublicUser }) {
       />
     </View>
   );
+}
+
+// ─── Resume: pick a PDF/DOCX, replace, or remove ────────────────────────────
+
+function ResumeForm({ user }: { user: PublicUser }) {
+  const navigation = useNavigation<Nav>();
+  const { theme } = useTheme();
+  const setUser = useAuthStore.setState;
+
+  const [error, setError] = useState<string | null>(null);
+
+  const hasResume = Boolean(user.resumeUploadedAt);
+
+  const pickAndUploadMutation = useMutation({
+    mutationFn: async () => {
+      // Lazy-load expo-document-picker so the bundle doesn't pay for it
+      // when the user never touches Resume. The dynamic import also makes
+      // it easy to swallow the case where the package isn't installed yet
+      // and surface a friendly error instead of a metro-time crash.
+      const picker = await import('expo-document-picker').catch(() => null);
+      if (!picker) {
+        throw new Error(
+          'Resume picker not installed. Run: pnpm add expo-document-picker',
+        );
+      }
+      const result = await picker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/msword',
+        ],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result.canceled || !result.assets?.[0]) {
+        throw new Error('No file picked');
+      }
+      const file = result.assets[0];
+
+      // Cap raw size at ~900KB so the base64 payload (~1.2MB) stays under
+      // the express body limit comfortably.
+      if (file.size != null && file.size > 900_000) {
+        throw new Error('Resume must be under 900KB. Try compressing the PDF.');
+      }
+
+      // Read the file as base64 and build a data URL.
+      // expo-document-picker returns a file:// uri; we read it via fetch.
+      const res = await fetch(file.uri);
+      const blob = await res.blob();
+      const base64 = await blobToBase64(blob);
+      const mimeType = (file.mimeType ?? 'application/pdf') as
+        | 'application/pdf'
+        | 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        | 'application/msword';
+      const dataUrl = `data:${mimeType};base64,${base64}`;
+
+      return meApi.uploadResume({
+        dataUrl,
+        filename: file.name ?? 'resume.pdf',
+        mimeType,
+        sizeBytes: file.size ?? Math.round((dataUrl.length * 3) / 4),
+      });
+    },
+    onSuccess: ({ user: updated }) => {
+      haptic('success');
+      setUser((s) => ({ ...s, user: updated }));
+    },
+    onError: (err) => {
+      haptic('error');
+      setError(err instanceof Error ? err.message : 'Could not upload resume');
+    },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: () => meApi.removeResume(),
+    onSuccess: ({ user: updated }) => {
+      haptic('success');
+      setUser((s) => ({ ...s, user: updated }));
+    },
+    onError: (err) => {
+      haptic('error');
+      setError(err instanceof Error ? err.message : 'Could not remove resume');
+    },
+  });
+
+  return (
+    <View style={{ gap: spacing.lg }}>
+      <FormError message={error} />
+
+      <Text variant="body" tone="secondary">
+        Add a PDF or DOCX so employers can review your background. You can
+        replace it anytime — only your latest resume is shared.
+      </Text>
+
+      {/* Current state card */}
+      <View
+        style={{
+          padding: spacing.lg,
+          borderRadius: radii.lg,
+          borderWidth: 0.5,
+          borderColor: hasResume ? theme.premium.hairline : theme.border.default,
+          backgroundColor: theme.bg.surface,
+          gap: spacing.xs,
+        }}
+      >
+        {hasResume ? (
+          <>
+            <Text variant="bodyLarge" weight="medium" numberOfLines={1}>
+              {user.resumeFilename ?? 'resume'}
+            </Text>
+            <Text variant="footnote" tone="secondary">
+              {formatFileSize(user.resumeSizeBytes)} ·{' '}
+              {formatRelativeDate(user.resumeUploadedAt)}
+            </Text>
+          </>
+        ) : (
+          <>
+            <Text variant="bodyLarge" weight="medium" tone="secondary">
+              No resume uploaded yet
+            </Text>
+            <Text variant="footnote" tone="tertiary">
+              PDF or DOCX, up to 900KB.
+            </Text>
+          </>
+        )}
+      </View>
+
+      <View style={{ gap: spacing.sm }}>
+        <Button
+          label={
+            pickAndUploadMutation.isPending
+              ? hasResume
+                ? 'Uploading…'
+                : 'Uploading…'
+              : hasResume
+                ? 'Replace resume'
+                : 'Upload resume'
+          }
+          onPress={() => pickAndUploadMutation.mutate()}
+          disabled={pickAndUploadMutation.isPending || removeMutation.isPending}
+        />
+        {hasResume && (
+          <Button
+            label={removeMutation.isPending ? 'Removing…' : 'Remove resume'}
+            variant="danger"
+            onPress={() => removeMutation.mutate()}
+            disabled={removeMutation.isPending || pickAndUploadMutation.isPending}
+          />
+        )}
+        <Button label="Done" variant="ghost" onPress={() => navigation.goBack()} />
+      </View>
+    </View>
+  );
+}
+
+/** Convert a Blob to a base64 string (sans the data URL prefix). */
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = reader.result as string;
+      // Strip the "data:...;base64," prefix.
+      const idx = dataUrl.indexOf(',');
+      resolve(idx >= 0 ? dataUrl.slice(idx + 1) : dataUrl);
+    };
+    reader.onerror = () => reject(reader.error ?? new Error('Could not read file'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function formatFileSize(bytes: number | null | undefined): string {
+  if (bytes == null) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatRelativeDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const ms = Date.now() - new Date(iso).getTime();
+  const d = Math.floor(ms / 86_400_000);
+  if (d < 1) return 'today';
+  if (d < 7) return `${d}d ago`;
+  if (d < 30) return `${Math.floor(d / 7)}w ago`;
+  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
 // ─── Location: city/area + GPS detect ────────────────────────────────────────

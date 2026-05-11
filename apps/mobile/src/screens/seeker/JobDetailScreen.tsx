@@ -137,6 +137,7 @@ export function JobDetailScreen() {
             {job.title}
           </Text>
           <View style={{ flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' }}>
+            {job.urgent && <Pill label="Urgent" tone="warning" leading="●" />}
             <Pill label={formatPay(job.pay)} tone="warning" />
             {job.distanceMeters != null && (
               <Pill

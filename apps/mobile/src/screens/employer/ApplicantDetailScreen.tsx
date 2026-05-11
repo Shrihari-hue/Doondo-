@@ -17,14 +17,14 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { spacing } from '@doondo/tokens';
-import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState } from '@/components';
+import { spacing, radii } from '@doondo/tokens';
+import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, TextField, FormError } from '@/components';
 import { useTheme } from '@/theme/useTheme';
-import { applicationsApi, type ApplicantEntry } from '@/api/applications.api';
+import { applicationsApi, type ApplicantEntry, type SchedulePayload } from '@/api/applications.api';
 import { haptic } from '@/lib/haptics';
 import { ApplyCelebration } from '../seeker/apply-moment/ApplyCelebration';
 import type { AppStackParamList } from '@/navigation/types';
-import type { ApplicationStatus } from '@/api/types';
+import type { ApplicationStatus, InterviewMode, PublicInterview } from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'ApplicantDetail'>;
 type Route = RouteProp<AppStackParamList, 'ApplicantDetail'>;
@@ -227,11 +227,338 @@ export function ApplicantDetailScreen() {
           </View>
         )}
 
+        {/* Interview scheduling */}
+        <InterviewPanel applicationId={applicant.id} interview={applicant.interview ?? null} />
+
         {/* Actions */}
         <ActionPanel applicant={applicant} onAction={(t) => transition.mutate(t)} pending={transition.isPending} />
       </ScrollView>
     </Screen>
   );
+}
+
+// ─── Interview scheduling panel ─────────────────────────────────────────────
+
+interface InterviewPanelProps {
+  applicationId: string;
+  interview: PublicInterview | null;
+}
+
+const MODE_OPTIONS: Array<{ key: InterviewMode; label: string }> = [
+  { key: 'in_person', label: 'In-person' },
+  { key: 'video', label: 'Video' },
+  { key: 'phone', label: 'Phone' },
+];
+
+/**
+ * Inline scheduling card on the applicant detail. Shows the current
+ * interview when one exists, or the schedule form when not.
+ *
+ * Date entry uses a plain TextField that accepts a permissive format
+ * (YYYY-MM-DD HH:mm). When time-pickers ship for the seeker screen we
+ * swap this out — keeping the API surface flat means the swap is local.
+ */
+function InterviewPanel({ applicationId, interview }: InterviewPanelProps) {
+  const { theme } = useTheme();
+  const queryClient = useQueryClient();
+  const active = interview && interview.status === 'scheduled' ? interview : null;
+  const [editing, setEditing] = useState(false);
+
+  const scheduleMutation = useMutation({
+    mutationFn: (body: SchedulePayload) =>
+      applicationsApi.scheduleInterview(applicationId, body),
+    onSuccess: () => {
+      haptic('success');
+      setEditing(false);
+      void queryClient.invalidateQueries({ queryKey: ['applicants'] });
+    },
+    onError: () => haptic('error'),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: () => applicationsApi.cancelInterview(applicationId),
+    onSuccess: () => {
+      haptic('success');
+      void queryClient.invalidateQueries({ queryKey: ['applicants'] });
+    },
+    onError: () => haptic('error'),
+  });
+
+  if (active && !editing) {
+    return (
+      <View style={{ gap: spacing.sm }}>
+        <Text
+          variant="footnote"
+          weight="medium"
+          tone="secondary"
+          style={{ letterSpacing: 1.0 }}
+        >
+          INTERVIEW
+        </Text>
+        <Card premium>
+          <View style={{ gap: spacing.xs }}>
+            <Text variant="bodyLarge" weight="medium">
+              {formatWhen(active.scheduledFor)}
+            </Text>
+            <Text variant="footnote" tone="secondary">
+              {modeLabel(active.mode)}
+              {active.mode === 'in_person' && active.location ? ` · ${active.location}` : ''}
+              {active.mode === 'video' && active.meetingLink ? ` · ${active.meetingLink}` : ''}
+            </Text>
+            {active.notes ? (
+              <Text variant="footnote" tone="tertiary" style={{ marginTop: spacing.xs }}>
+                {active.notes}
+              </Text>
+            ) : null}
+          </View>
+        </Card>
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          <View style={{ flex: 1 }}>
+            <Button label="Reschedule" variant="secondary" onPress={() => setEditing(true)} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button
+              label={cancelMutation.isPending ? 'Cancelling…' : 'Cancel'}
+              variant="danger"
+              onPress={() => cancelMutation.mutate()}
+              disabled={cancelMutation.isPending}
+            />
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Text
+        variant="footnote"
+        weight="medium"
+        tone="secondary"
+        style={{ letterSpacing: 1.0 }}
+      >
+        INTERVIEW
+      </Text>
+      {!editing ? (
+        <Card>
+          <View style={{ gap: spacing.sm }}>
+            <Text variant="body" tone="secondary">
+              Set a time and the applicant gets a push, a chat note, and a card on
+              their application.
+            </Text>
+            <Button
+              label="Schedule interview"
+              variant="primary"
+              onPress={() => setEditing(true)}
+            />
+          </View>
+        </Card>
+      ) : (
+        <ScheduleForm
+          initial={active}
+          submitting={scheduleMutation.isPending}
+          onCancel={() => setEditing(false)}
+          onSubmit={(body) => scheduleMutation.mutate(body)}
+        />
+      )}
+    </View>
+  );
+}
+
+interface ScheduleFormProps {
+  initial: PublicInterview | null;
+  submitting: boolean;
+  onCancel: () => void;
+  onSubmit: (body: SchedulePayload) => void;
+}
+
+function ScheduleForm({ initial, submitting, onCancel, onSubmit }: ScheduleFormProps) {
+  const { theme } = useTheme();
+  const [mode, setMode] = useState<InterviewMode>(initial?.mode ?? 'in_person');
+  // ISO entry — permissive: accept "YYYY-MM-DD HH:mm" or full ISO and we'll
+  // normalise. Date pickers come later; this keeps the form one screen tall.
+  const [whenText, setWhenText] = useState(
+    initial ? toLocalEntry(initial.scheduledFor) : '',
+  );
+  const [location, setLocation] = useState(initial?.location ?? '');
+  const [meetingLink, setMeetingLink] = useState(initial?.meetingLink ?? '');
+  const [notes, setNotes] = useState(initial?.notes ?? '');
+  const [error, setError] = useState<string | null>(null);
+
+  function submit() {
+    const iso = parseLocalEntry(whenText);
+    if (!iso) {
+      setError('Use a format like 2026-05-12 15:00.');
+      return;
+    }
+    if (new Date(iso).getTime() <= Date.now()) {
+      setError('Pick a future date and time.');
+      return;
+    }
+    if (mode === 'in_person' && !location.trim()) {
+      setError('Add a location for in-person interviews.');
+      return;
+    }
+    if (mode === 'video' && !meetingLink.trim()) {
+      setError('Add a meeting link for video interviews.');
+      return;
+    }
+    setError(null);
+    const body: SchedulePayload = { scheduledFor: iso, mode };
+    if (mode === 'in_person' && location.trim()) body.location = location.trim();
+    if (mode === 'video' && meetingLink.trim()) body.meetingLink = meetingLink.trim();
+    if (notes.trim()) body.notes = notes.trim();
+    onSubmit(body);
+  }
+
+  return (
+    <Card>
+      <View style={{ gap: spacing.lg }}>
+        <FormError message={error} />
+
+        {/* Mode selector */}
+        <View style={{ gap: spacing.xs }}>
+          <Text variant="footnote" weight="medium" tone="secondary">
+            How
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+            {MODE_OPTIONS.map((o) => {
+              const active = mode === o.key;
+              return (
+                <Pressable
+                  key={o.key}
+                  onPress={() => {
+                    haptic('selection');
+                    setMode(o.key);
+                  }}
+                  style={{
+                    paddingHorizontal: spacing.md,
+                    paddingVertical: spacing.xs,
+                    borderRadius: radii.pill,
+                    borderWidth: 0.5,
+                    borderColor: active ? theme.brand.hero : theme.border.default,
+                    backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                  }}
+                >
+                  <Text
+                    variant="footnote"
+                    weight={active ? 'medium' : 'regular'}
+                    style={{ color: active ? theme.brand.hero : theme.text.secondary }}
+                  >
+                    {o.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <TextField
+          label="When"
+          value={whenText}
+          onChangeText={setWhenText}
+          placeholder="2026-05-12 15:00"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+
+        {mode === 'in_person' && (
+          <TextField
+            label="Location"
+            value={location}
+            onChangeText={setLocation}
+            placeholder="Third Wave Coffee, Indiranagar 12th Main"
+          />
+        )}
+        {mode === 'video' && (
+          <TextField
+            label="Meeting link"
+            value={meetingLink}
+            onChangeText={setMeetingLink}
+            placeholder="https://meet.google.com/..."
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
+        )}
+
+        <TextField
+          label="Note (optional)"
+          value={notes}
+          onChangeText={setNotes}
+          placeholder="Bring an ID, ask for Sneha at reception."
+          multiline
+          numberOfLines={3}
+        />
+
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          <View style={{ flex: 1 }}>
+            <Button label="Cancel" variant="ghost" onPress={onCancel} disabled={submitting} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button
+              label={submitting ? 'Scheduling…' : initial ? 'Reschedule' : 'Schedule'}
+              onPress={submit}
+              disabled={submitting}
+            />
+          </View>
+        </View>
+      </View>
+    </Card>
+  );
+}
+
+function modeLabel(m: InterviewMode): string {
+  return m === 'in_person' ? 'In-person' : m === 'video' ? 'Video call' : 'Phone call';
+}
+
+function formatWhen(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+/** Pretty-print an ISO datetime in local form for the text input. */
+function toLocalEntry(iso: string): string {
+  const d = new Date(iso);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+}
+
+/**
+ * Parse a permissive local datetime entry into ISO. Accepts:
+ *   2026-05-12 15:00
+ *   2026-05-12T15:00
+ *   2026-05-12 3:00 pm (case-insensitive)
+ * Returns null if it can't be parsed.
+ */
+function parseLocalEntry(text: string): string | null {
+  const cleaned = text.trim();
+  if (!cleaned) return null;
+  // Normalise: replace 'T' with space, lowercase am/pm.
+  let s = cleaned.replace('T', ' ').toLowerCase();
+  // Convert "h:mm am/pm" to 24h.
+  s = s.replace(
+    /(\d{1,2}):(\d{2})\s*(am|pm)/,
+    (_m, h: string, mi: string, ampm: string) => {
+      const hh = Number(h) % 12 + (ampm === 'pm' ? 12 : 0);
+      return `${String(hh).padStart(2, '0')}:${mi}`;
+    },
+  );
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})$/.exec(s);
+  if (!m) return null;
+  const [, y, mo, da, hh, mi] = m;
+  const d = new Date(Number(y), Number(mo) - 1, Number(da), Number(hh), Number(mi), 0, 0);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
 }
 
 function ActionPanel({

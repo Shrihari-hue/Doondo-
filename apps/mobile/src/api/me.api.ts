@@ -30,6 +30,19 @@ export interface UpdateLocationPayload {
   lng: number;
 }
 
+export type ResumeMimeType =
+  | 'application/pdf'
+  | 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  | 'application/msword';
+
+export interface UploadResumePayload {
+  /** data:application/pdf;base64,... or DOCX equivalent */
+  dataUrl: string;
+  filename: string;
+  mimeType: ResumeMimeType;
+  sizeBytes: number;
+}
+
 export const meApi = {
   updateProfile: (body: UpdateProfilePayload) =>
     apiRequest<{ user: PublicUser }>(`/me/profile`, { method: 'PATCH', body }),
@@ -51,4 +64,10 @@ export const meApi = {
       method: 'DELETE',
       body: { token },
     }),
+
+  uploadResume: (body: UploadResumePayload) =>
+    apiRequest<{ user: PublicUser }>(`/me/resume`, { method: 'POST', body }),
+
+  removeResume: () =>
+    apiRequest<{ user: PublicUser }>(`/me/resume`, { method: 'DELETE' }),
 };

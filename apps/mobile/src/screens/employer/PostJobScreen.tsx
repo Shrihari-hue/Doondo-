@@ -79,6 +79,7 @@ export function PostJobScreen() {
   const [detecting, setDetecting] = useState(false);
   const [skills, setSkills] = useState<string[]>([]);
   const [skillDraft, setSkillDraft] = useState('');
+  const [urgent, setUrgent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
@@ -107,6 +108,7 @@ export function PostJobScreen() {
           lng: c.lng,
         },
         skills,
+        urgent,
       };
       return jobsApi.create(body);
     },
@@ -354,6 +356,52 @@ export function PostJobScreen() {
               </View>
             )}
           </View>
+
+          {/* Urgent toggle */}
+          <Pressable
+            onPress={() => {
+              haptic('selection');
+              setUrgent((v) => !v);
+            }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+              gap: spacing.md,
+              padding: spacing.lg,
+              borderRadius: radii.lg,
+              borderWidth: 0.5,
+              borderColor: urgent ? theme.status.warningBorder : theme.border.default,
+              backgroundColor: urgent ? theme.status.warningSubtle : theme.bg.surface,
+            }}
+          >
+            <View
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 6,
+                borderWidth: 1.5,
+                borderColor: urgent ? theme.status.warning : theme.border.strong,
+                backgroundColor: urgent ? theme.status.warning : 'transparent',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 2,
+              }}
+            >
+              {urgent ? (
+                <Text variant="footnote" weight="medium" style={{ color: '#FFFFFF', lineHeight: 16 }}>
+                  ✓
+                </Text>
+              ) : null}
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text variant="bodyLarge" weight="medium" tone={urgent ? 'warning' : 'primary'}>
+                Mark as urgent
+              </Text>
+              <Text variant="footnote" tone="secondary">
+                Urgent jobs sort ahead of others and notify nearby seekers. Use sparingly so it stays meaningful.
+              </Text>
+            </View>
+          </Pressable>
 
           <Button
             label={mutation.isPending ? 'Posting…' : 'Post job'}

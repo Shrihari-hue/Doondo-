@@ -107,9 +107,11 @@ function Section({ title, apps }: { title: string; apps: PublicApplication[] }) 
 
 function ApplicationCard({ app }: { app: PublicApplication }) {
   // Hired = the rare, magical outcome. Highlight with the champagne hairline
-  // border so it stands out from the rest of the list.
+  // border so it stands out from the rest of the list. An active interview
+  // also earns the premium border so the moment feels meaningful.
+  const hasActiveInterview = app.interview?.status === 'scheduled';
   return (
-    <Card premium={app.status === 'hired'}>
+    <Card premium={app.status === 'hired' || hasActiveInterview}>
       <View style={{ gap: spacing.sm }}>
         <View
           style={{
@@ -132,8 +134,34 @@ function ApplicationCard({ app }: { app: PublicApplication }) {
         <Text variant="footnote" tone="tertiary">
           {timeSince(app.timeline.appliedAt)}
         </Text>
+        {hasActiveInterview ? <InterviewNote interview={app.interview!} /> : null}
       </View>
     </Card>
+  );
+}
+
+function InterviewNote({ interview }: { interview: NonNullable<PublicApplication['interview']> }) {
+  const when = new Date(interview.scheduledFor).toLocaleString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  const where =
+    interview.mode === 'in_person'
+      ? interview.location
+        ? ` at ${interview.location}`
+        : ''
+      : interview.mode === 'video'
+        ? interview.meetingLink
+          ? ' (video — link in chat)'
+          : ' (video)'
+        : ' (phone)';
+  return (
+    <View style={{ marginTop: spacing.xs }}>
+      <Pill label={`Interview · ${when}${where}`} tone="premium" leading="★" />
+    </View>
   );
 }
 

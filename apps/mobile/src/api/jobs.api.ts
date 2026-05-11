@@ -105,4 +105,6 @@ export interface CreateJobPayload {
     endTime?: string | null;
     hoursPerDay?: number | null;
   } | null;
+  /** Mark the post as time-sensitive. Defaults to false. */
+  urgent?: boolean;
 }

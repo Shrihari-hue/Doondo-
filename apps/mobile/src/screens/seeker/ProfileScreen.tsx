@@ -56,7 +56,9 @@ export function ProfileScreen() {
 
   if (!user) return null;
 
-  const goEdit = (section: 'basics' | 'location' | 'skills' | 'preferences') => {
+  const goEdit = (
+    section: 'basics' | 'location' | 'skills' | 'preferences' | 'resume',
+  ) => {
     haptic('selection');
     navigation.navigate('EditProfile', { section });
   };
@@ -210,6 +212,22 @@ export function ProfileScreen() {
             buildPreferencesSummary(user)
           }
           onPress={() => goEdit('preferences')}
+        />
+
+        {/* Resume — PDF/DOCX with replace + remove */}
+        <SectionCard
+          label="RESUME"
+          title={
+            user.resumeFilename
+              ? user.resumeFilename
+              : 'Upload your resume'
+          }
+          subtitle={
+            user.resumeUploadedAt
+              ? 'Tap to replace or remove'
+              : 'PDF or DOCX, up to 900KB. Boosts profile completion.'
+          }
+          onPress={() => goEdit('resume')}
         />
 
         {/* Verification — tap to enter the OTP+selfie flow.

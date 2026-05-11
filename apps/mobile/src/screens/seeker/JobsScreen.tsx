@@ -18,6 +18,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -30,15 +31,18 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { spacing, radii, coral, champagne } from '@doondo/tokens';
-import { Screen, Text, Pill, Card, LoadingSpinner, SkeletonCard, Avatar, EmptyState } from '@/components';
+import { Screen, Text, Pill, Card, LoadingSpinner, SkeletonCard, Avatar, EmptyState, Button } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { jobsApi } from '@/api/jobs.api';
+import { applicationsApi, type MassApplyResult } from '@/api/applications.api';
 import { getCurrentCoords, type Coords } from '@/lib/location';
 import { haptic } from '@/lib/haptics';
 import { useAuth } from '@/hooks/useAuth';
 import { JobsMapView } from './jobs-map/JobsMapView';
 import type { PublicJob, JobType } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
+
+const MAX_MASS_APPLY = 20;
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -128,10 +132,67 @@ export function JobsScreen() {
     },
   });
 
+  // ─── Multi-select / mass-apply ─────────────────────────────────────────────
+  // Long-press a card to enter selection mode; tap others to add. The bottom
+  // bar appears with "Apply to N". Cap at 20 (server hard limit too).
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  function exitSelection() {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }
+
+  function enterSelectionWith(jobId: string) {
+    haptic('medium');
+    setSelectionMode(true);
+    setSelectedIds(new Set([jobId]));
+  }
+
+  function toggleSelection(jobId: string) {
+    haptic('selection');
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(jobId)) {
+        next.delete(jobId);
+      } else if (next.size < MAX_MASS_APPLY) {
+        next.add(jobId);
+      }
+      // Auto-exit if user deselected the last one.
+      if (next.size === 0) setSelectionMode(false);
+      return next;
+    });
+  }
+
+  const massApplyMutation = useMutation({
+    mutationFn: (jobIds: string[]) => applicationsApi.massApply(jobIds),
+    onSuccess: (result) => {
+      haptic('success');
+      exitSelection();
+      void queryClient.invalidateQueries({ queryKey: ['applications', 'me'] });
+      Alert.alert('Applied', summarizeMassApply(result), [{ text: 'OK' }]);
+    },
+    onError: (err) => {
+      haptic('error');
+      Alert.alert(
+        "Couldn't apply",
+        err instanceof Error ? err.message : 'Please try again.',
+      );
+    },
+  });
+
   const jobs = query.data?.jobs ?? [];
 
   return (
     <Screen edges={['top']}>
+      {selectionMode && (
+        <SelectionBar
+          count={selectedIds.size}
+          submitting={massApplyMutation.isPending}
+          onCancel={exitSelection}
+          onApply={() => massApplyMutation.mutate([...selectedIds])}
+        />
+      )}
       {view === 'list' ? (
         <FlatList
           data={jobs}
@@ -192,10 +253,25 @@ export function JobsScreen() {
             <JobCard
               job={item}
               saved={savedIds.has(item.id)}
+              selected={selectedIds.has(item.id)}
+              selectionMode={selectionMode}
               onToggleSave={() =>
                 saveMutation.mutate({ jobId: item.id, saved: savedIds.has(item.id) })
               }
-              onPress={() => navigation.navigate('JobDetail', { jobId: item.id })}
+              onPress={() => {
+                if (selectionMode) {
+                  toggleSelection(item.id);
+                } else {
+                  navigation.navigate('JobDetail', { jobId: item.id });
+                }
+              }}
+              onLongPress={() => {
+                if (selectionMode) {
+                  toggleSelection(item.id);
+                } else {
+                  enterSelectionWith(item.id);
+                }
+              }}
             />
           )}
           refreshControl={
@@ -517,8 +593,13 @@ function Header({
 interface JobCardProps {
   job: PublicJob;
   saved: boolean;
+  /** True when this card is part of the multi-select set. */
+  selected?: boolean;
+  /** True when JobsScreen is in selection mode (changes tap behaviour). */
+  selectionMode?: boolean;
   onToggleSave: () => void;
   onPress: () => void;
+  onLongPress?: () => void;
 }
 
 /**
@@ -526,11 +607,19 @@ interface JobCardProps {
  *   [avatar]  [title / company]              [time-ago]   [bookmark]
  *             [pills row: pay, type, area, distance]
  *
- * Avatar uses the employer's photoUrl if set, else initials in a coral
- * gem gradient. Verified employers get a champagne hairline ring on the
- * card itself (via Card premium prop) — layered subtle premium touch.
+ * In selection mode (multi-select for mass-apply), the card outline turns
+ * coral and a checkmark appears in the top-right corner instead of the
+ * heart. Tapping toggles selection; long-press also toggles.
  */
-function JobCard({ job, saved, onToggleSave, onPress }: JobCardProps) {
+function JobCard({
+  job,
+  saved,
+  selected = false,
+  selectionMode = false,
+  onToggleSave,
+  onPress,
+  onLongPress,
+}: JobCardProps) {
   const { theme } = useTheme();
 
   const distance = job.distanceMeters != null
@@ -540,7 +629,20 @@ function JobCard({ job, saved, onToggleSave, onPress }: JobCardProps) {
     : null;
 
   return (
-    <Pressable onPress={onPress} android_ripple={{ color: theme.bg.muted }}>
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={350}
+      android_ripple={{ color: theme.bg.muted }}
+      style={{
+        // When selected, give the card an extra coral ring outside the Card
+        // border — visible without changing the Card component's contract.
+        borderRadius: radii.lg,
+        ...(selected
+          ? { borderWidth: 2, borderColor: theme.brand.hero }
+          : { borderWidth: 0, borderColor: 'transparent' }),
+      }}
+    >
       <Card premium={job.employer?.isVerified}>
         <View style={{ gap: spacing.sm }}>
           {/* Top row: avatar + title block + (time-ago + bookmark) */}
@@ -569,24 +671,52 @@ function JobCard({ job, saved, onToggleSave, onPress }: JobCardProps) {
               <Text variant="caption" tone="tertiary">
                 {timeAgo(job.createdAt)}
               </Text>
-              <Pressable
-                onPress={onToggleSave}
-                hitSlop={10}
-                style={{ paddingHorizontal: 4 }}
-              >
-                <Text
+              {selectionMode ? (
+                // Checkmark badge instead of heart when selecting jobs to apply.
+                <View
                   style={{
-                    fontSize: 18,
-                    color: saved ? coral[500] : theme.text.tertiary,
+                    width: 22,
+                    height: 22,
+                    borderRadius: 11,
+                    borderWidth: 1.5,
+                    borderColor: selected ? theme.brand.hero : theme.border.strong,
+                    backgroundColor: selected ? theme.brand.hero : 'transparent',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                 >
-                  {saved ? '♥' : '♡'}
-                </Text>
-              </Pressable>
+                  {selected ? (
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: '#FFFFFF',
+                        lineHeight: 16,
+                      }}
+                    >
+                      ✓
+                    </Text>
+                  ) : null}
+                </View>
+              ) : (
+                <Pressable
+                  onPress={onToggleSave}
+                  hitSlop={10}
+                  style={{ paddingHorizontal: 4 }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 18,
+                      color: saved ? coral[500] : theme.text.tertiary,
+                    }}
+                  >
+                    {saved ? '♥' : '♡'}
+                  </Text>
+                </Pressable>
+              )}
             </View>
           </View>
 
-          {/* Pills row: pay (gold), type (neutral), location, distance */}
+          {/* Pills row: urgent (warning) → pay (gold) → type → area → distance → verified */}
           <View
             style={{
               flexDirection: 'row',
@@ -595,6 +725,7 @@ function JobCard({ job, saved, onToggleSave, onPress }: JobCardProps) {
               gap: spacing.xs,
             }}
           >
+            {job.urgent && <Pill label="Urgent" tone="warning" leading="●" />}
             <Pill label={formatPay(job.pay)} tone="warning" />
             <Pill label={formatType(job.type)} tone="neutral" />
             {job.location.area && (
@@ -657,4 +788,97 @@ function formatType(t: JobType): string {
       contract: 'Contract',
     } as const
   )[t];
+}
+
+// ─── Mass-apply UI helpers ───────────────────────────────────────────────────
+
+interface SelectionBarProps {
+  count: number;
+  submitting: boolean;
+  onCancel: () => void;
+  onApply: () => void;
+}
+
+/**
+ * Sticky top bar shown while the user is multi-selecting jobs. Stays at the
+ * top so the FlatList still scrolls under it without nudging the safe-area
+ * insets we already paid for in the parent <Screen>.
+ */
+function SelectionBar({ count, submitting, onCancel, onApply }: SelectionBarProps) {
+  const { theme } = useTheme();
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: spacing.md,
+        paddingHorizontal: spacing.xl,
+        paddingVertical: spacing.md,
+        borderBottomWidth: 0.5,
+        borderBottomColor: theme.border.default,
+        backgroundColor: theme.bg.elevated,
+      }}
+    >
+      <Pressable onPress={onCancel} hitSlop={8} disabled={submitting}>
+        <Text variant="footnote" weight="medium" tone="secondary">
+          Cancel
+        </Text>
+      </Pressable>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Text variant="bodyLarge" weight="medium">
+          {count} selected
+        </Text>
+        <Text variant="caption" tone="tertiary">
+          Long-press to add or remove
+        </Text>
+      </View>
+      <Pressable
+        onPress={onApply}
+        disabled={submitting || count === 0}
+        style={({ pressed }) => ({
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.lg,
+          borderRadius: radii.md,
+          backgroundColor: pressed ? theme.brand.heroPressed : theme.brand.hero,
+          opacity: count === 0 ? 0.5 : 1,
+        })}
+      >
+        <Text variant="footnote" weight="medium" style={{ color: '#FFFFFF' }}>
+          {submitting ? 'Applying…' : `Apply to ${count}`}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+/**
+ * Build the human-readable summary the result Alert shows after mass-apply.
+ * Speaks to "what happened to your batch" without leaking server lingo.
+ */
+function summarizeMassApply(result: MassApplyResult): string {
+  const lines: string[] = [];
+  if (result.applied > 0) {
+    lines.push(
+      `${result.applied} application${result.applied === 1 ? '' : 's'} sent.`,
+    );
+  }
+  if (result.alreadyApplied > 0) {
+    lines.push(
+      `${result.alreadyApplied} you'd already applied to.`,
+    );
+  }
+  const closed = result.results.filter((r) => r.status === 'job_not_open').length;
+  if (closed > 0) {
+    lines.push(`${closed} closed before we could send.`);
+  }
+  const missing = result.results.filter((r) => r.status === 'job_not_found').length;
+  if (missing > 0) {
+    lines.push(`${missing} no longer available.`);
+  }
+  const failed = result.results.filter((r) => r.status === 'failed').length;
+  if (failed > 0) {
+    lines.push(`${failed} couldn't be sent — please try again.`);
+  }
+  return lines.length ? lines.join('\n') : 'No applications sent.';
 }

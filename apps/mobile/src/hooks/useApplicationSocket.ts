@@ -19,13 +19,24 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth.store';
 import { connectSocket, disconnectSocket } from '@/lib/socket';
-import type { ApplicationStatus, PublicApplication } from '@/api/types';
+import type {
+  ApplicationStatus,
+  PublicApplication,
+  PublicInterview,
+} from '@/api/types';
 
 interface StatusChangedPayload {
   applicationId: string;
   jobId: string;
   status: ApplicationStatus;
   timestamp: string;
+}
+
+interface InterviewPayload {
+  applicationId: string;
+  kind: 'scheduled' | 'rescheduled' | 'cancelled';
+  /** Null when kind === 'cancelled'. */
+  interview: PublicInterview | null;
 }
 
 export function useApplicationSocket() {
@@ -66,10 +77,31 @@ export function useApplicationSocket() {
       );
     };
 
+    const onInterview = (payload: InterviewPayload) => {
+      // Patch the application's interview field in both list + detail caches.
+      const patch = (a: PublicApplication): PublicApplication =>
+        a.id === payload.applicationId
+          ? { ...a, interview: payload.kind === 'cancelled' ? null : payload.interview }
+          : a;
+
+      queryClient.setQueryData<{ applications: PublicApplication[] } | undefined>(
+        ['applications', 'me'],
+        (prev) =>
+          prev ? { applications: prev.applications.map(patch) } : prev,
+      );
+      queryClient.setQueryData<{ application: PublicApplication } | undefined>(
+        ['application', payload.applicationId],
+        (prev) =>
+          prev ? { application: patch(prev.application) } : prev,
+      );
+    };
+
     socket.on('application:status_changed', onStatusChanged);
+    socket.on('application:interview', onInterview);
 
     return () => {
       socket.off('application:status_changed', onStatusChanged);
+      socket.off('application:interview', onInterview);
     };
   }, [accessToken, status, queryClient]);
 }

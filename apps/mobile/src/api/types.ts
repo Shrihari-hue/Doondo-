@@ -118,6 +118,12 @@ export interface PublicUser {
   } | null;
   /** Base64 data URL or external URL. Null if not set. */
   photoUrl: string | null;
+  // Resume (seeker) — base64 data URL of a PDF/DOCX, plus metadata
+  resumeUrl: string | null;
+  resumeFilename: string | null;
+  resumeMimeType: string | null;
+  resumeSizeBytes: number | null;
+  resumeUploadedAt: string | null;
   // Employer (Phase 3)
   companyName: string | null;
   businessType:
@@ -171,6 +177,8 @@ export interface PublicJob {
     hoursPerDay?: number | null;
   } | null;
   status: JobStatus;
+  /** True when the employer marked this posting as time-sensitive. */
+  urgent: boolean;
   applicantsCount: number;
   /** Filled by /jobs/nearby. */
   distanceMeters?: number;
@@ -221,6 +229,20 @@ export interface PublicMessage {
   createdAt: string;
 }
 
+export type InterviewMode = 'in_person' | 'video' | 'phone';
+export type InterviewStatus = 'scheduled' | 'cancelled' | 'completed';
+
+export interface PublicInterview {
+  scheduledFor: string;
+  mode: InterviewMode;
+  location: string | null;
+  meetingLink: string | null;
+  notes: string | null;
+  status: InterviewStatus;
+  scheduledAt: string;
+  cancelledAt: string | null;
+}
+
 export interface PublicApplication {
   id: string;
   jobId: string;
@@ -234,6 +256,8 @@ export interface PublicApplication {
     hiredAt: string | null;
     withdrawnAt: string | null;
   };
+  /** Latest interview if scheduled, null otherwise. */
+  interview: PublicInterview | null;
   /** Hydrated by listMine / detail. */
   job?: PublicJob;
   createdAt: string;
