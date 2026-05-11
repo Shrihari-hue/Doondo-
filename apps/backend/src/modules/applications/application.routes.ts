@@ -18,6 +18,8 @@ import * as controller from './application.controller';
 import {
   applicationIdParamsSchema,
   listApplicationsQuerySchema,
+  massApplySchema,
+  scheduleInterviewSchema,
 } from './application.schemas';
 
 const router = Router();
@@ -40,6 +42,17 @@ router.get(
   requireRole('employer'),
   validate(listApplicationsQuerySchema),
   controller.listApplicantsForEmployer,
+);
+
+// Seeker — submit a batch of applications in one shot. Capped at 20/call.
+// Lives under /applications/mass-apply (not /jobs/.../apply) because the
+// payload spans multiple job IDs.
+router.post(
+  '/mass-apply',
+  requireAuth,
+  requireRole('seeker'),
+  validate(massApplySchema),
+  controller.massApply,
 );
 
 // ─── /:id routes — must come after static paths ─────────────────────────────
@@ -88,6 +101,23 @@ router.post(
   requireRole('employer'),
   validate(applicationIdParamsSchema),
   controller.hire,
+);
+
+// Interview scheduling — upsert pattern. POST schedules/reschedules,
+// DELETE cancels. Both are employer-only.
+router.post(
+  '/:id/interview',
+  requireAuth,
+  requireRole('employer'),
+  validate(scheduleInterviewSchema),
+  controller.scheduleInterview,
+);
+router.delete(
+  '/:id/interview',
+  requireAuth,
+  requireRole('employer'),
+  validate(applicationIdParamsSchema),
+  controller.cancelInterview,
 );
 
 export default router;

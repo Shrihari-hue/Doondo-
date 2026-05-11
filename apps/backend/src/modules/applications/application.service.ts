@@ -24,13 +24,17 @@ import { Types } from 'mongoose';
 import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { emitToUser } from '@/sockets/bus';
-import { sendApplicationStatusPush } from '@/lib/push';
+import { sendApplicationStatusPush, sendInterviewPush } from '@/lib/push';
 import { JobModel, type PublicJob } from '@/modules/jobs/job.model';
 import { UserModel } from '@/modules/users/user.model';
-import { getOrCreateForApplication } from '@/modules/chat/chat.service';
+import {
+  getOrCreateForApplication,
+  postSystemMessage,
+} from '@/modules/chat/chat.service';
 import {
   ApplicationModel,
   type ApplicationStatus,
+  type InterviewMode,
   type PublicApplication,
 } from './application.model';
 
@@ -77,6 +81,111 @@ export async function apply(input: ApplyInput): Promise<PublicApplication> {
     if (isDuplicateKey(err)) throw errors.applicationAlreadyExists();
     throw err;
   }
+}
+
+// ─── Mass-apply ─────────────────────────────────────────────────────────────
+
+export type MassApplyOutcome =
+  | { jobId: string; status: 'applied'; application: PublicApplication }
+  | { jobId: string; status: 'already_applied' }
+  | { jobId: string; status: 'job_not_found' }
+  | { jobId: string; status: 'job_not_open' }
+  | { jobId: string; status: 'failed'; reason: string };
+
+export interface MassApplyResult {
+  total: number;
+  applied: number;
+  alreadyApplied: number;
+  skipped: number;
+  results: MassApplyOutcome[];
+}
+
+interface MassApplyInput {
+  seekerId: string;
+  jobIds: string[];
+  coverNote?: string | null;
+}
+
+/**
+ * Mass-apply — submit one application per jobId. Partial success is normal:
+ * any single job that's missing, closed, or already applied to lands in
+ * `results` with its own status code. The caller renders the outcome sheet
+ * from that array.
+ *
+ * We process serially rather than in parallel so duplicate-key races on
+ * the same seekerId are deterministic (rare but possible if the same job
+ * is in the list twice, which we also de-dupe defensively).
+ */
+export async function massApply(input: MassApplyInput): Promise<MassApplyResult> {
+  const uniqueJobIds = [...new Set(input.jobIds)];
+
+  const jobs = await JobModel.find({
+    _id: { $in: uniqueJobIds.map((id) => new Types.ObjectId(id)) },
+  }).select('_id status employerId');
+  const jobById = new Map(jobs.map((j) => [j._id.toString(), j]));
+
+  const results: MassApplyOutcome[] = [];
+
+  for (const jobId of uniqueJobIds) {
+    const job = jobById.get(jobId);
+    if (!job) {
+      results.push({ jobId, status: 'job_not_found' });
+      continue;
+    }
+    if (job.status !== 'active') {
+      results.push({ jobId, status: 'job_not_open' });
+      continue;
+    }
+    try {
+      const app = await ApplicationModel.create({
+        seekerId: new Types.ObjectId(input.seekerId),
+        jobId: job._id,
+        employerId: job.employerId,
+        coverNote: input.coverNote ?? null,
+        status: 'pending',
+        appliedAt: new Date(),
+      });
+      void JobModel.updateOne({ _id: job._id }, { $inc: { applicantsCount: 1 } });
+      emitToUser(input.seekerId, 'application:status_changed', {
+        applicationId: app.id,
+        jobId,
+        status: 'pending' as ApplicationStatus,
+        timestamp: app.appliedAt.toISOString(),
+      });
+      results.push({ jobId, status: 'applied', application: app.toPublicJSON() });
+    } catch (err) {
+      if (isDuplicateKey(err)) {
+        results.push({ jobId, status: 'already_applied' });
+        continue;
+      }
+      logger.error(
+        { err, jobId, seekerId: input.seekerId },
+        'mass-apply: single job failed',
+      );
+      results.push({
+        jobId,
+        status: 'failed',
+        reason: err instanceof Error ? err.message : 'unknown',
+      });
+    }
+  }
+
+  const applied = results.filter((r) => r.status === 'applied').length;
+  const alreadyApplied = results.filter((r) => r.status === 'already_applied').length;
+  const skipped = results.length - applied - alreadyApplied;
+
+  logger.info(
+    { seekerId: input.seekerId, total: results.length, applied, alreadyApplied, skipped },
+    'mass-apply complete',
+  );
+
+  return {
+    total: results.length,
+    applied,
+    alreadyApplied,
+    skipped,
+    results,
+  };
 }
 
 export async function listMine(
@@ -295,7 +404,7 @@ export async function transitionByEmployer(
 }
 
 interface ApplicantListEntry extends PublicApplication {
-  /** Hydrated seeker summary (name, photo, skills, location). */
+  /** Hydrated seeker summary (name, photo, skills, location, resume). */
   seeker?: {
     id: string;
     name: string;
@@ -303,6 +412,12 @@ interface ApplicantListEntry extends PublicApplication {
     skills: string[];
     isVerified: boolean;
     location: { city: string | null; area: string | null } | null;
+    /** Resume metadata + download URL (present when uploaded). */
+    resumeUrl: string | null;
+    resumeFilename: string | null;
+    resumeMimeType: string | null;
+    resumeSizeBytes: number | null;
+    resumeUploadedAt: string | null;
   };
 }
 
@@ -328,7 +443,7 @@ export async function listApplicantsForEmployer(
 
   const [seekers, jobs] = await Promise.all([
     UserModel.find({ _id: { $in: seekerIds } })
-      .select('name photoUrl skills isVerified location')
+      .select('name photoUrl skills isVerified location resumeFilename resumeMimeType resumeSizeBytes resumeUploadedAt +resumeUrl')
       .lean(),
     JobModel.find({ _id: { $in: jobIds } }),
   ]);
@@ -344,6 +459,13 @@ export async function listApplicantsForEmployer(
         isVerified: Boolean(s.isVerified),
         location: s.location
           ? { city: s.location.city ?? null, area: s.location.area ?? null }
+          : null,
+        resumeUrl: s.resumeUrl ?? null,
+        resumeFilename: s.resumeFilename ?? null,
+        resumeMimeType: s.resumeMimeType ?? null,
+        resumeSizeBytes: s.resumeSizeBytes ?? null,
+        resumeUploadedAt: s.resumeUploadedAt
+          ? (s.resumeUploadedAt as Date).toISOString()
           : null,
       },
     ]),
@@ -380,7 +502,7 @@ export async function listApplicantsForJob(
 
   const seekerIds = [...new Set(apps.map((a) => a.seekerId.toString()))];
   const seekers = await UserModel.find({ _id: { $in: seekerIds } })
-    .select('name photoUrl skills isVerified location')
+    .select('name photoUrl skills isVerified location resumeFilename resumeMimeType resumeSizeBytes resumeUploadedAt +resumeUrl')
     .lean();
   const seekerMap = new Map(
     seekers.map((s) => [
@@ -394,6 +516,13 @@ export async function listApplicantsForJob(
         location: s.location
           ? { city: s.location.city ?? null, area: s.location.area ?? null }
           : null,
+        resumeUrl: s.resumeUrl ?? null,
+        resumeFilename: s.resumeFilename ?? null,
+        resumeMimeType: s.resumeMimeType ?? null,
+        resumeSizeBytes: s.resumeSizeBytes ?? null,
+        resumeUploadedAt: s.resumeUploadedAt
+          ? (s.resumeUploadedAt as Date).toISOString()
+          : null,
       },
     ]),
   );
@@ -402,6 +531,161 @@ export async function listApplicantsForJob(
     ...a.toPublicJSON(),
     seeker: seekerMap.get(a.seekerId.toString()),
   }));
+}
+
+// ─── Interview scheduling (employer) ────────────────────────────────────────
+
+interface ScheduleInterviewInput {
+  employerId: string;
+  applicationId: string;
+  scheduledFor: string; // ISO
+  mode: InterviewMode;
+  location?: string | null;
+  meetingLink?: string | null;
+  notes?: string | null;
+}
+
+/**
+ * Upsert the interview on an application. First call schedules; subsequent
+ * calls reschedule. Side effects (all best-effort, parallel):
+ *   - Push notification to the seeker
+ *   - System message into the chat thread
+ *   - Live socket event so the seeker's app updates without a fetch
+ *
+ * The application's status is NOT auto-bumped to 'shortlisted' — interviews
+ * can happen at any stage (already shortlisted, even reopened). The employer
+ * controls status separately.
+ */
+export async function scheduleInterview(
+  input: ScheduleInterviewInput,
+): Promise<PublicApplication> {
+  const app = await ApplicationModel.findById(input.applicationId);
+  if (!app) throw errors.applicationNotFound();
+  if (app.employerId.toString() !== input.employerId) throw errors.forbidden();
+
+  const isReschedule = Boolean(app.interview && app.interview.status === 'scheduled');
+
+  app.interview = {
+    scheduledFor: new Date(input.scheduledFor),
+    mode: input.mode,
+    location: input.location ?? null,
+    meetingLink: input.meetingLink ?? null,
+    notes: input.notes ?? null,
+    status: 'scheduled',
+    scheduledAt: new Date(),
+    cancelledAt: null,
+  };
+  await app.save();
+
+  // Side effects fire in parallel so we don't block the response on push/chat.
+  void hydrateAndNotifyInterview(app, isReschedule ? 'rescheduled' : 'scheduled');
+
+  return app.toPublicJSON();
+}
+
+/**
+ * Cancel the currently-scheduled interview. No-op if there's nothing to
+ * cancel. Fires the same side-effect trio so the seeker knows immediately.
+ */
+export async function cancelInterview(
+  employerId: string,
+  applicationId: string,
+): Promise<PublicApplication> {
+  const app = await ApplicationModel.findById(applicationId);
+  if (!app) throw errors.applicationNotFound();
+  if (app.employerId.toString() !== employerId) throw errors.forbidden();
+  if (!app.interview || app.interview.status !== 'scheduled') {
+    // Idempotent — nothing to cancel.
+    return app.toPublicJSON();
+  }
+
+  app.interview = {
+    ...app.interview,
+    status: 'cancelled',
+    cancelledAt: new Date(),
+  };
+  await app.save();
+
+  void hydrateAndNotifyInterview(app, 'cancelled');
+
+  return app.toPublicJSON();
+}
+
+/**
+ * Side-effect orchestrator. Looks up the job + employer summaries so the
+ * push, system message, and socket payload all read humanly.
+ */
+async function hydrateAndNotifyInterview(
+  app: import('./application.model').ApplicationDocument,
+  kind: 'scheduled' | 'rescheduled' | 'cancelled',
+): Promise<void> {
+  try {
+    const [job, employer, conversation] = await Promise.all([
+      JobModel.findById(app.jobId).select('title employerId').lean(),
+      UserModel.findById(app.employerId).select('name companyName').lean(),
+      // Conversation is created lazily on shortlist — get-or-create here
+      // guarantees there's a thread even if the employer skipped that step.
+      getOrCreateForApplication({
+        employerId: app.employerId as unknown as Types.ObjectId,
+        seekerId: app.seekerId as unknown as Types.ObjectId,
+        jobId: app.jobId as unknown as Types.ObjectId,
+      }),
+    ]);
+    const employerLabel = employer?.companyName ?? employer?.name ?? 'The employer';
+    const jobTitle = job?.title ?? 'this role';
+    const interview = app.interview!;
+    const whenIso = interview.scheduledFor.toISOString();
+    const whenStr = interview.scheduledFor.toLocaleString(undefined, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+
+    const modeLabel =
+      interview.mode === 'in_person'
+        ? 'In-person'
+        : interview.mode === 'video'
+          ? 'Video'
+          : 'Phone';
+
+    const locationLine =
+      interview.mode === 'in_person' && interview.location
+        ? ` at ${interview.location}`
+        : interview.mode === 'video' && interview.meetingLink
+          ? ` — ${interview.meetingLink}`
+          : '';
+
+    const systemBody =
+      kind === 'cancelled'
+        ? `${employerLabel} cancelled the interview for ${jobTitle}.`
+        : kind === 'rescheduled'
+          ? `${employerLabel} rescheduled the interview for ${jobTitle}. ${modeLabel} interview on ${whenStr}${locationLine}.`
+          : `${employerLabel} scheduled an interview for ${jobTitle}. ${modeLabel} interview on ${whenStr}${locationLine}.`;
+
+    void postSystemMessage(conversation.id, systemBody).catch((err: unknown) => {
+      logger.warn({ err }, 'interview system message failed');
+    });
+
+    void sendInterviewPush({
+      recipientId: app.seekerId.toString(),
+      kind,
+      jobTitle,
+      whenIso,
+      applicationId: app.id,
+    }).catch((err: unknown) => {
+      logger.warn({ err }, 'interview push failed');
+    });
+
+    emitToUser(app.seekerId.toString(), 'application:interview', {
+      applicationId: app.id,
+      kind,
+      interview: kind === 'cancelled' ? null : app.toPublicJSON().interview,
+    });
+  } catch (err) {
+    logger.warn({ err, applicationId: app.id }, 'interview side-effects failed');
+  }
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

@@ -81,6 +81,8 @@ export const createJobSchema = z.object({
       location: locationSchema,
       skills: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
       schedule: scheduleSchema,
+      /** Time-sensitive posting. Defaults to false. */
+      urgent: z.boolean().default(false),
     })
     .strict(),
 });
@@ -96,6 +98,7 @@ export const updateJobSchema = z.object({
       location: locationSchema.optional(),
       skills: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
       schedule: scheduleSchema,
+      urgent: z.boolean().optional(),
     })
     .strict(),
 });

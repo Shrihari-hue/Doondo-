@@ -15,6 +15,7 @@ import {
   updateEmployerLocationSchema,
   updateLocationSchema,
   updateProfileSchema,
+  uploadResumeSchema,
 } from './me.schemas';
 
 const router = Router();
@@ -50,5 +51,16 @@ router.delete(
   validate(pushTokenSchema),
   controller.clearPushToken,
 );
+
+// Resume — seeker-only because employers don't have a resume of their own.
+// Replace by re-POSTing; remove via DELETE.
+router.post(
+  '/resume',
+  requireAuth,
+  requireRole('seeker'),
+  validate(uploadResumeSchema),
+  controller.uploadResume,
+);
+router.delete('/resume', requireAuth, requireRole('seeker'), controller.removeResume);
 
 export default router;

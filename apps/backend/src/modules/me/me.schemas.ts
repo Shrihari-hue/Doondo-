@@ -77,6 +77,37 @@ export const pushTokenSchema = z.object({
   }),
 });
 
+/**
+ * Resume upload — base64 data URL of a PDF or DOCX, plus metadata.
+ *
+ * Mobile is responsible for capping at ~900KB raw before encoding so the
+ * encoded payload stays under the express body limit.
+ */
+export const RESUME_MIME_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+] as const;
+
+const resumeDataUrl = z
+  .string()
+  .max(1_300_000)
+  .regex(
+    /^data:(application\/pdf|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|application\/msword);base64,/i,
+    'Resume must be a PDF or DOCX data URL',
+  );
+
+export const uploadResumeSchema = z.object({
+  body: z
+    .object({
+      dataUrl: resumeDataUrl,
+      filename: z.string().trim().min(1).max(200),
+      mimeType: z.enum(RESUME_MIME_TYPES),
+      sizeBytes: z.number().int().min(1).max(5_000_000),
+    })
+    .strict(),
+});
+
 export const updateEmployerLocationSchema = z.object({
   body: z
     .object({

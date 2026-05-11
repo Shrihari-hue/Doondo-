@@ -51,6 +51,18 @@ export async function findNearby(query: NearbyQuery): Promise<{
         query: baseMatch,
       },
     },
+    // Sort urgent jobs first within each ~500m distance bucket so a 2km
+    // urgent job still beats a 200m non-urgent job, but a 200m urgent job
+    // still wins overall. distanceBucket is computed inline so it doesn't
+    // need to live on the document.
+    {
+      $addFields: {
+        distanceBucket: { $floor: { $divide: ['$distanceMeters', 500] } },
+        urgentRank: { $cond: [{ $eq: ['$urgent', true] }, 0, 1] },
+      },
+    },
+    { $sort: { distanceBucket: 1, urgentRank: 1, distanceMeters: 1 } },
+    { $project: { distanceBucket: 0, urgentRank: 0 } },
     { $limit: query.limit + 1 }, // +1 to detect "has more" without a count query
     {
       $lookup: {
@@ -188,6 +200,7 @@ export async function createJob(
     skills: input.skills ?? [],
     schedule: input.schedule ?? null,
     status: 'active',
+    urgent: input.urgent ?? false,
   });
   return job.toPublicJSON();
 }
@@ -230,6 +243,7 @@ export async function updateJob(
   }
   if (input.skills !== undefined) job.skills = input.skills;
   if (input.schedule !== undefined) job.schedule = input.schedule ?? null;
+  if (input.urgent !== undefined) job.urgent = input.urgent;
 
   await job.save();
   return job.toPublicJSON();
@@ -323,6 +337,7 @@ function formatRawJob(r: Record<string, unknown>): PublicJob {
     skills: (r.skills as string[]) ?? [],
     schedule: (r.schedule as PublicJob['schedule']) ?? null,
     status: r.status as PublicJob['status'],
+    urgent: Boolean(r.urgent),
     applicantsCount: (r.applicantsCount as number) ?? 0,
     createdAt: (r.createdAt as Date).toISOString(),
   };

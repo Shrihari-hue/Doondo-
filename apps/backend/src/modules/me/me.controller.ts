@@ -79,3 +79,31 @@ export async function updateEmployerLocation(
     next(err);
   }
 }
+
+export async function uploadResume(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const user = await meService.uploadResume(req.user.id, req.body);
+    ok(req, res, 200, { user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function removeResume(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const user = await meService.removeResume(req.user.id);
+    ok(req, res, 200, { user });
+  } catch (err) {
+    next(err);
+  }
+}

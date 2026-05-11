@@ -280,6 +280,44 @@ export async function sendMessage(
   return messageJson;
 }
 
+/**
+ * Post a kind:'system' message into a conversation. Used by the
+ * applications module for interview scheduling/cancelling events so the
+ * chat thread reads as a continuous timeline.
+ *
+ * No participant check — caller is trusted (it's a server-internal helper).
+ * No unread bump — system messages aren't directed at anyone in particular.
+ */
+export async function postSystemMessage(
+  conversationId: string,
+  body: string,
+): Promise<PublicMessage> {
+  const conversation = await ConversationModel.findById(conversationId);
+  if (!conversation) throw errors.conversationNotFound();
+
+  const sentAt = new Date();
+  const msg = await MessageModel.create({
+    conversationId: conversation._id,
+    // System messages have no sender — use the employer as the "from" so
+    // the schema's required senderId stays valid. The kind: 'system' is
+    // the discriminator clients render off.
+    senderId: conversation.employerId,
+    body: body.trim().slice(0, 500),
+    kind: 'system',
+  });
+
+  conversation.lastMessageAt = sentAt;
+  conversation.lastMessagePreview = preview(body);
+  await conversation.save();
+
+  // Both participants get the live update.
+  const json = msg.toPublicJSON();
+  emitToUser(conversation.employerId.toString(), 'chat:message_received', json);
+  emitToUser(conversation.seekerId.toString(), 'chat:message_received', json);
+
+  return json;
+}
+
 export async function markRead(
   userId: string,
   conversationId: string,

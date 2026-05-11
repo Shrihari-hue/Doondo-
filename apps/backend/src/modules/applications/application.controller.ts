@@ -24,6 +24,63 @@ export async function apply(req: Request, res: Response, next: NextFunction): Pr
   }
 }
 
+export async function massApply(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const result = await applicationService.massApply({
+      seekerId: req.user.id,
+      jobIds: req.body.jobIds,
+      coverNote: req.body?.coverNote ?? null,
+    });
+    ok(req, res, 200, result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function scheduleInterview(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const application = await applicationService.scheduleInterview({
+      employerId: req.user.id,
+      applicationId: req.params.id!,
+      scheduledFor: req.body.scheduledFor,
+      mode: req.body.mode,
+      location: req.body.location ?? null,
+      meetingLink: req.body.meetingLink ?? null,
+      notes: req.body.notes ?? null,
+    });
+    ok(req, res, 200, { application });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function cancelInterview(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const application = await applicationService.cancelInterview(
+      req.user.id,
+      req.params.id!,
+    );
+    ok(req, res, 200, { application });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function listMine(
   req: Request,
   res: Response,

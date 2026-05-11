@@ -83,6 +83,14 @@ export interface Job {
   skills: string[];
   schedule?: Schedule | null;
   status: JobStatus;
+  /**
+   * Marks the job as time-sensitive. Effects:
+   *   - Sorts ahead of non-urgent in nearby results (after distance bucket).
+   *   - Renders an "Urgent" pill on cards and detail screens.
+   *   - Triggers an opt-in push notification to nearby seekers when first set.
+   * Toggleable by the employer at any time before the job is filled/expired.
+   */
+  urgent: boolean;
   /** Counts maintained denormalised for cheap list rendering. */
   applicantsCount: number;
   viewsCount: number;
@@ -121,6 +129,8 @@ export interface PublicJob {
   skills: string[];
   schedule: Schedule | null;
   status: JobStatus;
+  /** True if the employer has marked this posting as time-sensitive. */
+  urgent: boolean;
   applicantsCount: number;
   /** Distance from query point in meters. Set by the nearby query, undefined elsewhere. */
   distanceMeters?: number;
@@ -212,6 +222,7 @@ const jobSchema = new Schema<Job, JobModelType, JobMethods>(
       default: 'active',
       index: true,
     },
+    urgent: { type: Boolean, default: false, index: true },
     applicantsCount: { type: Number, default: 0, min: 0 },
     viewsCount: { type: Number, default: 0, min: 0 },
     expiresAt: { type: Date, default: null, index: true },
@@ -247,6 +258,7 @@ jobSchema.method('toPublicJSON', function (this: JobDocument): PublicJob {
     skills: this.skills,
     schedule: this.schedule ?? null,
     status: this.status,
+    urgent: Boolean(this.urgent),
     applicantsCount: this.applicantsCount,
     createdAt: this.createdAt.toISOString(),
   };

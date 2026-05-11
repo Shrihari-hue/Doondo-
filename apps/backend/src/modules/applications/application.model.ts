@@ -25,7 +25,7 @@
 
 import { Schema, model, type Model, type HydratedDocument } from 'mongoose';
 
-// ─── Enum ───────────────────────────────────────────────────────────────────
+// ─── Enums ──────────────────────────────────────────────────────────────────
 
 export const APPLICATION_STATUSES = [
   'pending',
@@ -36,6 +36,26 @@ export const APPLICATION_STATUSES = [
   'withdrawn',
 ] as const;
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
+
+export const INTERVIEW_MODES = ['in_person', 'video', 'phone'] as const;
+export type InterviewMode = (typeof INTERVIEW_MODES)[number];
+
+export const INTERVIEW_STATUSES = ['scheduled', 'cancelled', 'completed'] as const;
+export type InterviewStatus = (typeof INTERVIEW_STATUSES)[number];
+
+export interface Interview {
+  scheduledFor: Date;
+  mode: InterviewMode;
+  /** Physical address for in_person, optional otherwise. */
+  location?: string | null;
+  /** Video meeting URL for video, optional otherwise. */
+  meetingLink?: string | null;
+  /** Free-form note from the employer (what to bring, who to ask for, etc). */
+  notes?: string | null;
+  status: InterviewStatus;
+  scheduledAt: Date;
+  cancelledAt?: Date | null;
+}
 
 // ─── Document interface ─────────────────────────────────────────────────────
 
@@ -53,8 +73,21 @@ export interface Application {
   rejectedAt?: Date | null;
   hiredAt?: Date | null;
   withdrawnAt?: Date | null;
+  /** Latest interview attached to this application, if any. */
+  interview?: Interview | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface PublicInterview {
+  scheduledFor: string;
+  mode: InterviewMode;
+  location: string | null;
+  meetingLink: string | null;
+  notes: string | null;
+  status: InterviewStatus;
+  scheduledAt: string;
+  cancelledAt: string | null;
 }
 
 export type ApplicationDocument = HydratedDocument<Application>;
@@ -76,6 +109,8 @@ export interface PublicApplication {
     hiredAt: string | null;
     withdrawnAt: string | null;
   };
+  /** Latest interview, if scheduled. Surfaces in both employer + seeker views. */
+  interview: PublicInterview | null;
   /** Hydrated by the service when listing for the seeker. */
   job?: import('@/modules/jobs/job.model').PublicJob;
   createdAt: string;
@@ -118,6 +153,22 @@ const applicationSchema = new Schema<Application, ApplicationModel, ApplicationM
     rejectedAt: { type: Date, default: null },
     hiredAt: { type: Date, default: null },
     withdrawnAt: { type: Date, default: null },
+    interview: {
+      type: new Schema<Interview>(
+        {
+          scheduledFor: { type: Date, required: true },
+          mode: { type: String, enum: INTERVIEW_MODES, required: true },
+          location: { type: String, default: null, trim: true, maxlength: 240 },
+          meetingLink: { type: String, default: null, trim: true, maxlength: 500 },
+          notes: { type: String, default: null, trim: true, maxlength: 1000 },
+          status: { type: String, enum: INTERVIEW_STATUSES, default: 'scheduled' },
+          scheduledAt: { type: Date, default: Date.now },
+          cancelledAt: { type: Date, default: null },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
   },
   { timestamps: true },
 );
@@ -145,6 +196,20 @@ applicationSchema.method('toPublicJSON', function (
       hiredAt: this.hiredAt ? this.hiredAt.toISOString() : null,
       withdrawnAt: this.withdrawnAt ? this.withdrawnAt.toISOString() : null,
     },
+    interview: this.interview
+      ? {
+          scheduledFor: this.interview.scheduledFor.toISOString(),
+          mode: this.interview.mode,
+          location: this.interview.location ?? null,
+          meetingLink: this.interview.meetingLink ?? null,
+          notes: this.interview.notes ?? null,
+          status: this.interview.status,
+          scheduledAt: this.interview.scheduledAt.toISOString(),
+          cancelledAt: this.interview.cancelledAt
+            ? this.interview.cancelledAt.toISOString()
+            : null,
+        }
+      : null,
     createdAt: this.createdAt.toISOString(),
   };
 });

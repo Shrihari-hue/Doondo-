@@ -134,3 +134,50 @@ export async function updateLocation(
   await user.save();
   return user.toPublicJSON();
 }
+
+// ─── Resume ─────────────────────────────────────────────────────────────────
+
+interface UploadResumeInput {
+  dataUrl: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
+/**
+ * Upload (or replace) the user's resume. Single active resume per user;
+ * any existing one is overwritten. Idempotent at the DB level — same
+ * payload uploaded twice yields the same end state.
+ */
+export async function uploadResume(
+  userId: string,
+  input: UploadResumeInput,
+): Promise<PublicUser> {
+  const user = await UserModel.findById(userId).select('+resumeUrl');
+  if (!user) throw errors.notFound('User not found');
+
+  user.resumeUrl = input.dataUrl;
+  user.resumeFilename = input.filename;
+  user.resumeMimeType = input.mimeType;
+  user.resumeSizeBytes = input.sizeBytes;
+  user.resumeUploadedAt = new Date();
+  await user.save();
+  return user.toPublicJSON();
+}
+
+/**
+ * Remove the user's resume entirely. Clears all five fields so the
+ * "has resume" badge / profileCompletion drops back accordingly.
+ */
+export async function removeResume(userId: string): Promise<PublicUser> {
+  const user = await UserModel.findById(userId).select('+resumeUrl');
+  if (!user) throw errors.notFound('User not found');
+
+  user.resumeUrl = null;
+  user.resumeFilename = null;
+  user.resumeMimeType = null;
+  user.resumeSizeBytes = null;
+  user.resumeUploadedAt = null;
+  await user.save();
+  return user.toPublicJSON();
+}

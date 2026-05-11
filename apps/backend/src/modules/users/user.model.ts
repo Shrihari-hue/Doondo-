@@ -111,6 +111,17 @@ export interface User {
    * `Image source={{ uri }}` accepts both `data:image/...` and `https://`.
    */
   photoUrl?: string | null;
+  /**
+   * Resume — stored as a base64 data URL alongside metadata. Replaceable
+   * (POST /me/resume overwrites) and removable (DELETE /me/resume sets
+   * everything to null). PDFs and DOCX only; capped at ~900KB raw, ~1.2MB
+   * base64. Phase 5 swaps this for CDN storage when the file pipeline ships.
+   */
+  resumeUrl?: string | null;
+  resumeFilename?: string | null;
+  resumeMimeType?: string | null;
+  resumeSizeBytes?: number | null;
+  resumeUploadedAt?: Date | null;
   /** Bookmarked Job IDs — small array, denormalised on the user. */
   savedJobs: Schema.Types.ObjectId[];
   /**
@@ -165,6 +176,12 @@ export interface PublicUser {
     coordinates: [number, number] | null;
   } | null;
   photoUrl: string | null;
+  // Resume (seeker)
+  resumeUrl: string | null;
+  resumeFilename: string | null;
+  resumeMimeType: string | null;
+  resumeSizeBytes: number | null;
+  resumeUploadedAt: string | null;
   // Employer-only (null for seekers)
   companyName: string | null;
   businessType: BusinessType | null;
@@ -285,6 +302,13 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
     // Stored as a base64 data URL (data:image/jpeg;base64,...). Cap at
     // ~350KB after the trailing prefix — clients should compress before send.
     photoUrl: { type: String, default: null, maxlength: 360_000 },
+    // Resume — base64 data URL of a PDF/DOCX. ~1.2MB cap leaves room for
+    // the typical 200-500KB resume after base64 encoding overhead.
+    resumeUrl: { type: String, default: null, maxlength: 1_300_000, select: false },
+    resumeFilename: { type: String, default: null, trim: true, maxlength: 200 },
+    resumeMimeType: { type: String, default: null, trim: true, maxlength: 80 },
+    resumeSizeBytes: { type: Number, default: null, min: 0, max: 5_000_000 },
+    resumeUploadedAt: { type: Date, default: null },
     // Employer-only (Phase 3) — left null on seeker accounts.
     companyName: { type: String, default: null, trim: true, maxlength: 120 },
     businessType: { type: String, enum: BUSINESS_TYPES, default: null },
@@ -343,6 +367,14 @@ userSchema.method('toPublicJSON', function (this: UserDocument): PublicUser {
     teamSize: this.teamSize ?? null,
     location: locOut,
     photoUrl: this.photoUrl ?? null,
+    // Resume metadata is included for self-reads (/auth/me) and for
+    // employers viewing an applicant. The resumeUrl itself is select:false
+    // by default so it's only ever returned when explicitly requested.
+    resumeUrl: this.resumeUrl ?? null,
+    resumeFilename: this.resumeFilename ?? null,
+    resumeMimeType: this.resumeMimeType ?? null,
+    resumeSizeBytes: this.resumeSizeBytes ?? null,
+    resumeUploadedAt: this.resumeUploadedAt ? this.resumeUploadedAt.toISOString() : null,
     companyName: this.companyName ?? null,
     businessType: this.businessType ?? null,
     gstin: this.gstin ?? null,
@@ -371,6 +403,7 @@ function computeProfileCompletion(u: UserDocument): number {
     u.experienceYears != null,
     Boolean(u.availability),
     Boolean(u.location?.city),
+    Boolean(u.resumeUploadedAt),
   ];
   const employerChecks = [
     Boolean(u.name && u.name.trim()),

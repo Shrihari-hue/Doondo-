@@ -94,6 +94,65 @@ export async function sendApplicationStatusPush(input: {
   );
 }
 
+/**
+ * Push notification for interview scheduling events.
+ *
+ * `kind` controls the copy:
+ *   'scheduled'   → "Interview scheduled" — employer first sets one
+ *   'rescheduled' → "Interview rescheduled" — employer changes it
+ *   'cancelled'   → "Interview cancelled" — employer cancelled
+ */
+export async function sendInterviewPush(input: {
+  recipientId: string;
+  kind: 'scheduled' | 'rescheduled' | 'cancelled';
+  jobTitle?: string;
+  whenIso?: string;
+  applicationId: string;
+}): Promise<void> {
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  const titleMap = {
+    scheduled: 'Interview scheduled',
+    rescheduled: 'Interview rescheduled',
+    cancelled: 'Interview cancelled',
+  };
+  const title = titleMap[input.kind];
+  const when = input.whenIso
+    ? new Date(input.whenIso).toLocaleString(undefined, {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : null;
+  const body =
+    input.kind === 'cancelled'
+      ? input.jobTitle
+        ? `Your interview for "${input.jobTitle}" was cancelled.`
+        : 'Your interview was cancelled.'
+      : when
+        ? input.jobTitle
+          ? `${input.jobTitle} — ${when}`
+          : `Interview ${when}`
+        : 'Open Doondo for details.';
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'applications',
+      data: {
+        type: `interview:${input.kind}`,
+        applicationId: input.applicationId,
+      },
+    })),
+  );
+}
+
 export async function sendChatMessagePush(input: {
   recipientId: string;
   senderId: string;
