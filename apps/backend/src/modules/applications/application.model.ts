@@ -90,11 +90,11 @@ export interface PublicInterview {
   cancelledAt: string | null;
 }
 
-export type ApplicationDocument = HydratedDocument<Application>;
-
 interface ApplicationMethods {
   toPublicJSON(): PublicApplication;
 }
+
+export type ApplicationDocument = HydratedDocument<Application, ApplicationMethods>;
 
 export interface PublicApplication {
   id: string;

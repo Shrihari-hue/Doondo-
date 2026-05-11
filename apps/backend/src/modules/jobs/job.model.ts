@@ -100,11 +100,11 @@ export interface Job {
   updatedAt: Date;
 }
 
-export type JobDocument = HydratedDocument<Job>;
-
 interface JobMethods {
   toPublicJSON(): PublicJob;
 }
+
+export type JobDocument = HydratedDocument<Job, JobMethods>;
 
 /** Shape sent to the seeker mobile client. */
 export interface PublicJob {

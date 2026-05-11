@@ -142,11 +142,11 @@ export interface User {
   updatedAt: Date;
 }
 
-export type UserDocument = HydratedDocument<User>;
-
 interface UserMethods {
   toPublicJSON(): PublicUser;
 }
+
+export type UserDocument = HydratedDocument<User, UserMethods>;
 
 export interface PublicUser {
   id: string;
