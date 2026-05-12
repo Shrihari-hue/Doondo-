@@ -14,6 +14,12 @@ const passwordSchema = z
   .refine((v) => /[A-Za-z]/.test(v) && /\d/.test(v), {
     message: 'Password must include letters and numbers',
   });
+// Same shape the verification module uses — keep them aligned so a phone
+// that signs you up can later receive an OTP without re-validating.
+const phoneSchema = z
+  .string()
+  .trim()
+  .regex(/^\+?[0-9\s-]{6,20}$/, 'Enter a valid phone number');
 
 export const registerSchema = z.object({
   body: z
@@ -22,11 +28,11 @@ export const registerSchema = z.object({
       email: emailSchema,
       password: passwordSchema,
       role: z.enum(['seeker', 'employer']),
-      phone: z
-        .string()
-        .trim()
-        .regex(/^[+0-9\s-]{6,20}$/, 'Invalid phone number')
-        .optional(),
+      // Phone is required for new signups so password reset over SMS works
+      // for every fresh account. Existing accounts created before this
+      // change can still log in without a phone, and the add-phone flow in
+      // settings backfills them.
+      phone: phoneSchema,
       // Seeker-only: solo applicant or team. Carried from the role
       // picker so the user doesn't have to re-pick after signup.
       workType: z.enum(['solo', 'team']).optional(),
@@ -59,6 +65,48 @@ export const refreshSchema = z.object({
 
 export const logoutSchema = refreshSchema;
 
+// ─── Password reset (Phase 5) ─────────────────────────────────────────────
+// Three-step flow, modeled on the verification OTP pattern:
+//   1. forgotPassword     → user submits phone, we send an OTP (if a user
+//      with that phone exists). We always return success to avoid letting
+//      attackers enumerate registered numbers.
+//   2. verifyResetCode    → user submits phone + OTP, we mint a short-lived
+//      reset token JWT.
+//   3. resetPassword      → user submits the reset token + new password,
+//      we update the hash, clear the token, and revoke refresh tokens.
+
+export const forgotPasswordSchema = z.object({
+  body: z
+    .object({
+      phone: phoneSchema,
+    })
+    .strict(),
+});
+
+export const verifyResetCodeSchema = z.object({
+  body: z
+    .object({
+      phone: phoneSchema,
+      code: z
+        .string()
+        .trim()
+        .regex(/^[0-9]{6}$/, 'Enter the 6-digit code'),
+    })
+    .strict(),
+});
+
+export const resetPasswordSchema = z.object({
+  body: z
+    .object({
+      resetToken: z.string().min(1, 'Reset token is required'),
+      newPassword: passwordSchema,
+    })
+    .strict(),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>['body'];
 export type LoginInput = z.infer<typeof loginSchema>['body'];
 export type RefreshInput = z.infer<typeof refreshSchema>['body'];
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>['body'];
+export type VerifyResetCodeInput = z.infer<typeof verifyResetCodeSchema>['body'];
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>['body'];

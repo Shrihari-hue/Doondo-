@@ -179,6 +179,38 @@ export function EmployerProfileScreen() {
           onPress={() => goEdit('business_location')}
         />
 
+        {/* Recovery phone — shown only for accounts that signed up before
+            phone became required. Same OTP step the verification flow uses,
+            but doesn't gate on selfie or GSTIN. */}
+        {!user.phone ? (
+          <Pressable
+            onPress={() => {
+              haptic('selection');
+              navigation.navigate('AddRecoveryPhone');
+            }}
+          >
+            <Card>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <View style={{ gap: 2, flex: 1 }}>
+                  <Text variant="bodyLarge" weight="medium">
+                    Add recovery phone
+                  </Text>
+                  <Text variant="footnote" tone="secondary">
+                    Needed to reset your password if you ever forget it.
+                  </Text>
+                </View>
+                <Pill label="Add" tone="hero" />
+              </View>
+            </Card>
+          </Pressable>
+        ) : null}
+
         {/* Verification — tap to enter the OTP+selfie flow.
             Employers also need a valid GSTIN on file before the flow finalises. */}
         <Pressable

@@ -67,3 +67,44 @@ export async function me(req: Request, res: Response, next: NextFunction): Promi
     next(err);
   }
 }
+
+// ─── Password reset ──────────────────────────────────────────────────────
+
+export async function forgotPassword(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await authService.requestPasswordReset(req.body);
+    ok(req, res, 200, result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function verifyResetCode(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await authService.verifyResetCode(req.body);
+    ok(req, res, 200, result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function resetPassword(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    await authService.resetPassword(req.body);
+    ok(req, res, 200, { success: true });
+  } catch (err) {
+    next(err);
+  }
+}

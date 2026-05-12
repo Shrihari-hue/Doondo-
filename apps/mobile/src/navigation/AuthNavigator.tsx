@@ -3,6 +3,8 @@ import { RolePickerScreen } from '@/screens/auth/RolePickerScreen';
 import { LoginScreen } from '@/screens/auth/LoginScreen';
 import { SignupScreen } from '@/screens/auth/SignupScreen';
 import { ForgotPasswordScreen } from '@/screens/auth/ForgotPasswordScreen';
+import { ForgotPasswordCodeScreen } from '@/screens/auth/ForgotPasswordCodeScreen';
+import { ResetPasswordScreen } from '@/screens/auth/ResetPasswordScreen';
 import { useTheme } from '@/theme/useTheme';
 import type { AuthStackParamList } from './types';
 
@@ -23,6 +25,8 @@ export function AuthNavigator() {
       <Stack.Screen name="Signup" component={SignupScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="ForgotPasswordCode" component={ForgotPasswordCodeScreen} />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
     </Stack.Navigator>
   );
 }

@@ -57,6 +57,14 @@ export function SignupScreen() {
     else if (password.length < 8) errors.password = 'At least 8 characters';
     else if (!/[A-Za-z]/.test(password) || !/\d/.test(password))
       errors.password = 'Mix letters and numbers';
+    // Phone is mandatory now — it's our password-reset channel. We do a
+    // loose format check here and let the backend's full regex catch
+    // anything weirder.
+    if (!phone.trim()) {
+      errors.phone = "We'll use this to reset your password if you forget it";
+    } else if (!/^\+?[0-9\s-]{6,20}$/.test(phone.trim())) {
+      errors.phone = 'Enter a valid phone number';
+    }
     if (role === 'seeker' && workType === 'team') {
       const teamSize = Number(teamSizeText);
       if (!Number.isFinite(teamSize) || teamSize < 2) {
@@ -77,7 +85,7 @@ export function SignupScreen() {
         email: email.trim(),
         password,
         role,
-        ...(phone.trim() ? { phone: phone.trim() } : {}),
+        phone: phone.trim(),
         ...(role === 'seeker'
           ? {
               workType,
@@ -200,13 +208,17 @@ export function SignupScreen() {
               error={fieldErrors.password ?? null}
             />
             <TextField
-              label="Phone (optional)"
+              label="Phone"
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={(v) => {
+                setPhone(v);
+                if (fieldErrors.phone) setFieldErrors((s) => ({ ...s, phone: undefined }));
+              }}
               placeholder="+91 9876543210"
               autoComplete="tel"
               keyboardType="phone-pad"
               textContentType="telephoneNumber"
+              helper="Used to reset your password if you forget it."
               error={fieldErrors.phone ?? null}
             />
           </View>

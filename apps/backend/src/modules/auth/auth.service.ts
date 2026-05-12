@@ -28,13 +28,22 @@ import { logger } from '@/lib/logger';
 import {
   signAccessToken,
   signRefreshToken,
+  signResetToken,
   verifyRefreshToken,
+  verifyResetToken,
   type UserRole,
 } from '@/lib/jwt';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { UserModel, type PublicUser } from '@/modules/users/user.model';
 import { RefreshTokenModel } from '@/modules/users/refreshToken.model';
-import type { LoginInput, RegisterInput } from './auth.schemas';
+import { canonicalisePhone, issueOtp, verifyOtp } from '@/modules/verification/otp.service';
+import type {
+  ForgotPasswordInput,
+  LoginInput,
+  RegisterInput,
+  ResetPasswordInput,
+  VerifyResetCodeInput,
+} from './auth.schemas';
 
 export interface TokenPair {
   accessToken: string;
@@ -62,6 +71,11 @@ export async function register(
   const existing = await UserModel.findOne({ email: input.email }).lean();
   if (existing) throw errors.emailTaken();
 
+  // Phone is required at signup so password reset works for every new
+  // account. Canonicalise here so the value stored matches what the
+  // verification / reset flows look up (both go through canonicalisePhone).
+  const phone = canonicalisePhone(input.phone);
+
   const passwordHash = await hashPassword(input.password);
 
   const user = await UserModel.create({
@@ -69,7 +83,7 @@ export async function register(
     passwordHash,
     name: input.name,
     role: input.role,
-    phone: input.phone ?? null,
+    phone,
     // Solo/Team only applies to seekers — quietly ignore for employers.
     workType: input.role === 'seeker' ? (input.workType ?? null) : null,
     teamSize:
@@ -165,6 +179,116 @@ export async function getMe(userId: string): Promise<PublicUser> {
   const user = await UserModel.findById(userId);
   if (!user || !user.isActive) throw errors.notFound('User not found');
   return user.toPublicJSON();
+}
+
+// ─── Password reset ───────────────────────────────────────────────────────
+//
+// Three-step phone-OTP flow. The service is intentionally enumeration-safe:
+// `requestPasswordReset` returns the same shape whether or not a user is on
+// file, so an attacker can't probe for registered numbers by timing or
+// response code. The actual SMS is only sent when a matching, active user
+// exists.
+
+export interface RequestPasswordResetResult {
+  /** Canonical phone we'd send the OTP to. Echoed so the UI can display it. */
+  phone: string;
+  /** ISO timestamp; client should hint the user to retry after this. */
+  expiresAt: string;
+}
+
+export async function requestPasswordReset(
+  input: ForgotPasswordInput,
+): Promise<RequestPasswordResetResult> {
+  const phone = canonicalisePhone(input.phone);
+  // Even if there's no user with this phone, return the same envelope so
+  // we don't leak which numbers exist. We DO skip the SMS in that case —
+  // sending an OTP to a stranger's phone "from Doondo" would be worse than
+  // the enumeration risk it would prevent.
+  const user = await UserModel.findOne({ phone, isActive: true }).select('_id');
+
+  // Default expiry hint matches the SMS provider's TTL.
+  const expiresAt = new Date(Date.now() + env.OTP_TTL_SECONDS * 1000);
+
+  if (user) {
+    try {
+      await issueOtp(user.id, phone);
+    } catch (err) {
+      // Don't surface provider-specific failures to the unauthenticated
+      // caller — that would also leak existence. Log and pretend success.
+      logger.error({ err, phone }, 'password-reset OTP issue failed');
+    }
+  } else {
+    logger.info({ phone }, 'password-reset requested for unknown phone');
+  }
+
+  return { phone, expiresAt: expiresAt.toISOString() };
+}
+
+export interface VerifyResetCodeResult {
+  /** Short-lived JWT to present to /auth/reset-password. */
+  resetToken: string;
+  /** Seconds until the reset token expires — matches the JWT TTL. */
+  expiresIn: string;
+}
+
+export async function verifyResetCode(
+  input: VerifyResetCodeInput,
+): Promise<VerifyResetCodeResult> {
+  const phone = canonicalisePhone(input.phone);
+  const user = await UserModel.findOne({ phone, isActive: true }).select('_id');
+  // No matching user → treat the same as a wrong code. Same response,
+  // same status. Anything more specific would leak.
+  if (!user) throw errors.otpInvalid();
+
+  // Throws otpInvalid / otpExpired / otpTooMany on the corresponding
+  // failure modes. On success the OTP challenge is marked consumed.
+  await verifyOtp(user.id, phone, input.code);
+
+  // Mint a single-use reset token. We store the SHA-256 of its jti on the
+  // user; /auth/reset-password compares to detect reuse / forgery.
+  const jti = new Types.ObjectId().toHexString();
+  const resetToken = signResetToken({ sub: user.id, jti });
+
+  await UserModel.updateOne(
+    { _id: user._id },
+    { $set: { passwordResetTokenHash: sha256(jti) } },
+  );
+
+  return { resetToken, expiresIn: '15m' };
+}
+
+export async function resetPassword(input: ResetPasswordInput): Promise<void> {
+  // verifyResetToken throws AUTH_RESET_TOKEN_INVALID / _EXPIRED for us.
+  const payload = verifyResetToken(input.resetToken);
+
+  // Need +passwordResetTokenHash (select:false) for the single-use check
+  // and +passwordHash so we can confirm the hash actually rotates.
+  const user = await UserModel.findById(payload.sub).select(
+    '+passwordHash +passwordResetTokenHash',
+  );
+  if (!user || !user.isActive) throw errors.resetTokenInvalid();
+
+  const expectedHash = sha256(payload.jti);
+  if (!user.passwordResetTokenHash || user.passwordResetTokenHash !== expectedHash) {
+    // Either already consumed (cleared after a prior success) or forged
+    // (signed jti doesn't match our record). Both are "invalid".
+    throw errors.resetTokenInvalid();
+  }
+
+  user.passwordHash = await hashPassword(input.newPassword);
+  user.passwordResetTokenHash = null; // single-use: burn it now.
+  await user.save();
+
+  // Belt-and-braces: revoke every outstanding refresh token for this user.
+  // A successful reset implies "I've lost control of one device" — log all
+  // sessions out so an attacker who slipped a refresh token through can't
+  // continue. The user signs in fresh on the next screen.
+  await RefreshTokenModel.updateMany(
+    { userId: user._id, revokedAt: null },
+    { $set: { revokedAt: new Date() } },
+  );
+
+  logger.info({ userId: user.id }, 'password reset succeeded');
 }
 
 // ─── Internals ───────────────────────────────────────────────────────────────

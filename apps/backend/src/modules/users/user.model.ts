@@ -93,6 +93,14 @@ export interface User {
   verifiedAt?: Date | null;
   isActive: boolean;
   lastLoginAt?: Date | null;
+  /**
+   * SHA-256 hash of the currently-active password-reset token's `jti`.
+   * Set when /auth/verify-reset-code mints a reset JWT, cleared after the
+   * matching /auth/reset-password call succeeds. Storing the hash (not the
+   * jti itself) is consistent with how we treat refresh tokens — a leaked
+   * DB dump can't be turned into a working reset link.
+   */
+  passwordResetTokenHash?: string | null;
   // ─── Seeker profile (Phase 2) ───────────────────────────────────────────
   skills: string[];
   bio?: string | null;
@@ -287,6 +295,10 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
     verifiedAt: { type: Date, default: null },
     isActive: { type: Boolean, default: true },
     lastLoginAt: { type: Date, default: null },
+    // Hash of the active reset-token jti. select:false so it never leaks
+    // through accidental .toObject() calls; we read it explicitly when
+    // consuming the reset.
+    passwordResetTokenHash: { type: String, default: null, select: false },
     // ─── Seeker profile (Phase 2) ─────────────────────────────────────────
     skills: { type: [String], default: [] },
     bio: { type: String, default: null, trim: true, maxlength: 500 },

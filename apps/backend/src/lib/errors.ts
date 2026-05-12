@@ -19,6 +19,8 @@ export type ErrorCode =
   | 'AUTH_TOKEN_EXPIRED'
   | 'AUTH_REFRESH_REUSED'
   | 'AUTH_REFRESH_REVOKED'
+  | 'AUTH_RESET_TOKEN_INVALID'
+  | 'AUTH_RESET_TOKEN_EXPIRED'
   | 'AUTH_UNAUTHORIZED'
   | 'AUTH_FORBIDDEN'
   // Validation + general
@@ -115,6 +117,18 @@ export const errors = {
     new AppError({
       code: 'AUTH_REFRESH_REVOKED',
       message: 'Refresh token has been revoked.',
+      status: 401,
+    }),
+  resetTokenInvalid: () =>
+    new AppError({
+      code: 'AUTH_RESET_TOKEN_INVALID',
+      message: 'This reset link is invalid or has already been used.',
+      status: 401,
+    }),
+  resetTokenExpired: () =>
+    new AppError({
+      code: 'AUTH_RESET_TOKEN_EXPIRED',
+      message: 'This reset code has expired. Start over to get a new one.',
       status: 401,
     }),
   unauthorized: (message = 'Authentication required.') =>

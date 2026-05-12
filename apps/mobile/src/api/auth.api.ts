@@ -12,7 +12,11 @@ export interface RegisterPayload {
   email: string;
   password: string;
   role: UserRole;
-  phone?: string;
+  /**
+   * Required at signup so we have a recovery channel for password reset.
+   * The backend rejects registrations without it.
+   */
+  phone: string;
   /** Seeker-only: solo applicant or team. Carried from RolePicker. */
   workType?: 'solo' | 'team';
   /** Required when workType === 'team'. Numeric, 2..50. */
@@ -22,6 +26,20 @@ export interface RegisterPayload {
 export interface LoginPayload {
   email: string;
   password: string;
+}
+
+export interface ForgotPasswordResponse {
+  /** Canonical E.164 phone the OTP was sent to. */
+  phone: string;
+  /** ISO timestamp — the OTP is no longer valid past this. */
+  expiresAt: string;
+}
+
+export interface VerifyResetCodeResponse {
+  /** Short-lived JWT to pass to resetPassword. */
+  resetToken: string;
+  /** TTL hint ("15m") so the UI can show a countdown if desired. */
+  expiresIn: string;
 }
 
 export const authApi = {
@@ -54,4 +72,29 @@ export const authApi = {
     }),
 
   me: () => apiRequest<{ user: PublicUser }>('/auth/me'),
+
+  // ─── Password reset ────────────────────────────────────────────────────
+  // Three-step flow. Each is unauthenticated; the resetToken acts as the
+  // capability the user carries between steps two and three.
+
+  forgotPassword: (phone: string) =>
+    apiRequest<ForgotPasswordResponse>('/auth/forgot-password', {
+      method: 'POST',
+      body: { phone },
+      auth: false,
+    }),
+
+  verifyResetCode: (phone: string, code: string) =>
+    apiRequest<VerifyResetCodeResponse>('/auth/verify-reset-code', {
+      method: 'POST',
+      body: { phone, code },
+      auth: false,
+    }),
+
+  resetPassword: (resetToken: string, newPassword: string) =>
+    apiRequest<{ success: boolean }>('/auth/reset-password', {
+      method: 'POST',
+      body: { resetToken, newPassword },
+      auth: false,
+    }),
 };

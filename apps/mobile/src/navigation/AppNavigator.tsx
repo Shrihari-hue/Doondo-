@@ -28,6 +28,7 @@ import { ApplicantDetailScreen } from '@/screens/employer/ApplicantDetailScreen'
 import { PostJobScreen } from '@/screens/employer/PostJobScreen';
 import { ConversationScreen } from '@/screens/chat/ConversationScreen';
 import { VerificationFlowScreen } from '@/screens/verification/VerificationFlowScreen';
+import { AddRecoveryPhoneScreen } from '@/screens/settings/AddRecoveryPhoneScreen';
 import type { AppStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -105,6 +106,11 @@ export function AppNavigator() {
       <Stack.Screen
         name="Verification"
         component={VerificationFlowScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="AddRecoveryPhone"
+        component={AddRecoveryPhoneScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
     </Stack.Navigator>

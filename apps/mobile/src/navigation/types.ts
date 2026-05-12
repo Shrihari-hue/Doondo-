@@ -25,7 +25,12 @@ export type AuthStackParamList = {
         teamSize?: number;
       }
     | undefined;
+  /** Step 1 — user enters the phone we should send a reset OTP to. */
   ForgotPassword: undefined;
+  /** Step 2 — user enters the 6-digit OTP they received. */
+  ForgotPasswordCode: { phone: string; expiresAt: string };
+  /** Step 3 — user picks a new password. */
+  ResetPassword: { phone: string; resetToken: string };
 };
 
 export type SeekerTabParamList = {
@@ -71,6 +76,13 @@ export type AppStackParamList = {
   };
   /** Modal: phone-OTP + selfie verification flow (Phase 5). */
   Verification: undefined;
+  /**
+   * Modal: add (or replace) the recovery phone for accounts that signed up
+   * before phone became required at registration. Same OTP step as
+   * Verification, but stops short of the selfie — the only goal is to put
+   * a working number on file for password reset.
+   */
+  AddRecoveryPhone: undefined;
 };
 
 declare global {
