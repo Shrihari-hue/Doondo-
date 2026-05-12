@@ -9,9 +9,9 @@
       "distribution": "internal",
       "channel": "development",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://localhost:4000",
+        "EXPO_PUBLIC_API_URL": "https://api.doondo.app",
         "EXPO_PUBLIC_API_VERSION": "v1",
-        "EXPO_PUBLIC_SOCKET_URL": "http://localhost:4000"
+        "EXPO_PUBLIC_SOCKET_URL": "https://api.doondo.app"
       },
       "ios": {
         "simulator": true,
@@ -26,9 +26,9 @@
       "distribution": "internal",
       "channel": "preview",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://REPLACE-ME-WITH-YOUR-BACKEND.example.com",
+        "EXPO_PUBLIC_API_URL": "https://api.doondo.app",
         "EXPO_PUBLIC_API_VERSION": "v1",
-        "EXPO_PUBLIC_SOCKET_URL": "https://REPLACE-ME-WITH-YOUR-BACKEND.example.com"
+        "EXPO_PUBLIC_SOCKET_URL": "https://api.doondo.app"
       },
       "ios": {
         "simulator": false,
@@ -43,9 +43,9 @@
       "channel": "production",
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://REPLACE-ME-WITH-YOUR-BACKEND.example.com",
+        "EXPO_PUBLIC_API_URL": "https://api.doondo.app",
         "EXPO_PUBLIC_API_VERSION": "v1",
-        "EXPO_PUBLIC_SOCKET_URL": "https://REPLACE-ME-WITH-YOUR-BACKEND.example.com"
+        "EXPO_PUBLIC_SOCKET_URL": "https://api.doondo.app"
       },
       "ios": {
         "resourceClass": "m-medium"
