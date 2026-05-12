@@ -39,6 +39,7 @@ import { getCurrentCoords, type Coords } from '@/lib/location';
 import { haptic } from '@/lib/haptics';
 import { useAuth } from '@/hooks/useAuth';
 import { JobsMapView } from './jobs-map/JobsMapView';
+import { MapErrorBoundary } from './jobs-map/MapErrorBoundary';
 import type { PublicJob, JobType } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 
@@ -306,7 +307,9 @@ export function JobsScreen() {
             />
           </View>
           {coords ? (
-            <JobsMapView coords={coords} jobs={jobs} radiusKm={radiusKm} />
+            <MapErrorBoundary onError={() => setView('list')}>
+              <JobsMapView coords={coords} jobs={jobs} radiusKm={radiusKm} />
+            </MapErrorBoundary>
           ) : (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <LoadingSpinner />

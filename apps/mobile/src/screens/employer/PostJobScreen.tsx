@@ -146,12 +146,21 @@ export function PostJobScreen() {
     setSkills((arr) => arr.filter((x) => x !== s));
   }
 
-  const canSave =
-    title.trim().length >= 2 &&
-    description.trim().length >= 10 &&
-    Number(amount) > 0 &&
-    city.trim().length > 0 &&
-    !mutation.isPending;
+  // Surface the FIRST missing-field reason so the button can explain itself
+  // instead of silently sitting in a disabled state. Order is most-likely-empty
+  // first.
+  const validationReason: string | null =
+    title.trim().length < 2
+      ? 'Add a title (at least 2 characters)'
+      : description.trim().length < 10
+        ? 'Add a description (at least 10 characters)'
+        : !(Number(amount) > 0)
+          ? 'Enter the pay amount in rupees'
+          : city.trim().length === 0
+            ? 'Enter the city'
+            : null;
+
+  const canSave = validationReason === null && !mutation.isPending;
 
   return (
     <Screen>
@@ -403,11 +412,18 @@ export function PostJobScreen() {
             </View>
           </Pressable>
 
-          <Button
-            label={mutation.isPending ? 'Posting…' : 'Post job'}
-            onPress={() => mutation.mutate()}
-            disabled={!canSave}
-          />
+          <View style={{ gap: spacing.xs }}>
+            <Button
+              label={mutation.isPending ? 'Posting…' : 'Post job'}
+              onPress={() => mutation.mutate()}
+              disabled={!canSave}
+            />
+            {validationReason && !mutation.isPending && (
+              <Text variant="footnote" tone="tertiary" style={{ textAlign: 'center' }}>
+                {validationReason}
+              </Text>
+            )}
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
