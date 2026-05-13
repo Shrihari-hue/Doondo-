@@ -1,13 +1,21 @@
 /**
- * SeekerHomeScreen — the worker's tab-1 dashboard, blue palette.
+ * SeekerHomeScreen — the worker's tab-1 dashboard, premium blue palette.
  *
  * Sections, top to bottom:
- *   1. Header — Doondo wordmark + notification bell with live badge
+ *   1. Header — Doondo wordmark + notification bell with live badge,
+ *      sits below the system status bar with proper safe-area padding
  *   2. Location pill — current city + nearby-jobs count (real, from API)
- *   3. Voice search card — big "Find jobs through voice" CTA → VoiceSearch
- *   4. Job categories — 5 tile shortcuts (Lucide-free, emoji + colored bg)
+ *   3. Voice search card — gradient blue CTA → VoiceSearch
+ *   4. Job categories — 5 tile shortcuts with colored emoji backgrounds
  *   5. Nearby jobs — real /jobs/nearby data, capped to 6 here; full list
  *      lives in the Jobs tab.
+ *
+ * Premium touches:
+ *   - Safe-area aware top padding so nothing collides with the status bar
+ *   - LinearGradient on the voice card (blue → deeper blue) for depth
+ *   - Subtle drop shadow + hairline border on every job card
+ *   - Tightened typography hierarchy (display title is heavier)
+ *   - Champagne-gold pay amount for premium money-feel
  *
  * Every data point is real. No mock numbers, no hardcoded job cards.
  */
@@ -15,18 +23,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   RefreshControl,
   ScrollView,
+  StatusBar as RNStatusBar,
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 
-import { spacing, radii, categoryTints } from '@doondo/tokens';
-import { Screen, Text, Card, Pill, NotificationsBell } from '@/components';
+import { spacing, radii, categoryTints, blue } from '@doondo/tokens';
+import { Screen, Text, NotificationsBell } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { jobsApi } from '@/api/jobs.api';
@@ -61,6 +71,7 @@ export function SeekerHomeScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
 
   const [coords, setCoords] = useState<Coords | null>(null);
 
@@ -123,12 +134,17 @@ export function SeekerHomeScreen() {
     navigation.navigate('Notifications');
   }
 
+  // Top inset that respects the status bar. On Android, expo-status-bar's
+  // translucent=false reserves vertical space already, so we add a smaller
+  // pad. On iOS the safe-area inset gives us what we need.
+  const topPad = Math.max(insets.top, RNStatusBar.currentHeight ?? 0) + spacing.sm;
+
   return (
-    <Screen>
+    <Screen edges={[]}>
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: spacing.xl,
-          paddingTop: spacing.lg,
+          paddingTop: topPad,
           paddingBottom: spacing['5xl'],
           gap: spacing.xl,
         }}
@@ -140,28 +156,66 @@ export function SeekerHomeScreen() {
           />
         }
       >
-        {/* Header */}
+        {/* Header — Doondo wordmark + bell */}
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
+            paddingTop: spacing.sm,
+            paddingBottom: spacing.xs,
           }}
         >
-          <Text variant="title" weight="medium" style={{ color: theme.brand.hero }}>
+          <Text
+            style={{
+              fontSize: 26,
+              lineHeight: 30,
+              fontWeight: '700',
+              color: theme.brand.hero,
+              letterSpacing: -0.5,
+            }}
+          >
             Doondo
           </Text>
           <NotificationsBell onPress={openNotifications} />
         </View>
 
         {/* Location pill */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-          <Text style={{ fontSize: 16 }}>📍</Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.sm,
+            paddingHorizontal: spacing.xs,
+          }}
+        >
+          <View
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              backgroundColor: theme.brand.heroSubtle,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 16 }}>📍</Text>
+          </View>
           <View style={{ flex: 1 }}>
-            <Text variant="bodyLarge" weight="medium">
+            <Text
+              style={{
+                fontSize: 18,
+                lineHeight: 22,
+                fontWeight: '600',
+                color: theme.text.primary,
+              }}
+            >
               {cityLabel}
             </Text>
-            <Text variant="footnote" tone="secondary">
+            <Text
+              variant="footnote"
+              style={{ color: theme.text.secondary, marginTop: 1 }}
+            >
               {jobsQuery.isLoading
                 ? 'Finding nearby jobs…'
                 : `${nearbyCount} nearby ${nearbyCount === 1 ? 'job' : 'jobs'}`}
@@ -169,51 +223,63 @@ export function SeekerHomeScreen() {
           </View>
         </View>
 
-        {/* Voice search hero card */}
+        {/* Voice search hero card — gradient + shadow for premium depth */}
         <Pressable onPress={openVoice}>
-          <View
+          <LinearGradient
+            colors={[blue[600], blue[700], blue[800]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={{
               padding: spacing.lg,
               borderRadius: radii.xl,
-              backgroundColor: theme.brand.hero,
               flexDirection: 'row',
               alignItems: 'center',
               gap: spacing.md,
-              shadowColor: theme.brand.hero,
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.25,
-              shadowRadius: 14,
-              elevation: 6,
+              shadowColor: blue[700],
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.32,
+              shadowRadius: 22,
+              elevation: 10,
+              overflow: 'hidden',
             }}
           >
-            <View style={{ flex: 1, gap: 4 }}>
+            <View style={{ flex: 1, gap: 6 }}>
               <Text
-                variant="bodyLarge"
-                weight="medium"
-                style={{ color: '#FFFFFF' }}
+                style={{
+                  fontSize: 19,
+                  lineHeight: 24,
+                  fontWeight: '600',
+                  color: '#FFFFFF',
+                  letterSpacing: -0.2,
+                }}
               >
                 Find jobs through voice
               </Text>
               <Text
-                variant="footnote"
-                style={{ color: 'rgba(255,255,255,0.85)' }}
+                style={{
+                  fontSize: 13,
+                  lineHeight: 18,
+                  color: 'rgba(255,255,255,0.82)',
+                }}
               >
                 Tell us what work you want
               </Text>
             </View>
             <View
               style={{
-                width: 56,
-                height: 56,
-                borderRadius: 28,
-                backgroundColor: 'rgba(255,255,255,0.20)',
+                width: 60,
+                height: 60,
+                borderRadius: 30,
+                backgroundColor: 'rgba(255,255,255,0.22)',
                 alignItems: 'center',
                 justifyContent: 'center',
+                borderWidth: 0.5,
+                borderColor: 'rgba(255,255,255,0.35)',
               }}
             >
               <Text style={{ fontSize: 28, color: '#FFFFFF' }}>🎤</Text>
             </View>
-          </View>
+          </LinearGradient>
         </Pressable>
 
         {/* Categories */}
@@ -225,14 +291,28 @@ export function SeekerHomeScreen() {
               justifyContent: 'space-between',
             }}
           >
-            <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
+            <Text
+              style={{
+                fontSize: 11,
+                lineHeight: 14,
+                fontWeight: '600',
+                letterSpacing: 1.6,
+                color: theme.text.tertiary,
+              }}
+            >
               JOB CATEGORIES
             </Text>
             <Pressable
               hitSlop={6}
               onPress={() => navigation.navigate('SeekerTabs', { screen: 'Jobs' } as never)}
             >
-              <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: '600',
+                  color: theme.brand.hero,
+                }}
+              >
                 View all
               </Text>
             </Pressable>
@@ -245,22 +325,34 @@ export function SeekerHomeScreen() {
                 style={{
                   flex: 1,
                   alignItems: 'center',
-                  gap: 6,
+                  gap: 8,
                 }}
               >
                 <View
                   style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: radii.lg,
+                    width: 60,
+                    height: 60,
+                    borderRadius: 16,
                     backgroundColor: c.tint.bg,
                     alignItems: 'center',
                     justifyContent: 'center',
+                    shadowColor: c.tint.fg,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.12,
+                    shadowRadius: 6,
+                    elevation: 2,
                   }}
                 >
-                  <Text style={{ fontSize: 26 }}>{c.emoji}</Text>
+                  <Text style={{ fontSize: 28 }}>{c.emoji}</Text>
                 </View>
-                <Text variant="caption" weight="medium" numberOfLines={1}>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '500',
+                    color: theme.text.primary,
+                  }}
+                  numberOfLines={1}
+                >
                   {c.label}
                 </Text>
               </Pressable>
@@ -277,14 +369,28 @@ export function SeekerHomeScreen() {
               justifyContent: 'space-between',
             }}
           >
-            <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
+            <Text
+              style={{
+                fontSize: 11,
+                lineHeight: 14,
+                fontWeight: '600',
+                letterSpacing: 1.6,
+                color: theme.text.tertiary,
+              }}
+            >
               NEARBY JOBS
             </Text>
             <Pressable
               hitSlop={6}
               onPress={() => navigation.navigate('SeekerTabs', { screen: 'Jobs' } as never)}
             >
-              <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: '600',
+                  color: theme.brand.hero,
+                }}
+              >
                 See more
               </Text>
             </Pressable>
@@ -297,74 +403,140 @@ export function SeekerHomeScreen() {
           )}
 
           {!jobsQuery.isLoading && jobs.length === 0 && (
-            <Card>
+            <View
+              style={{
+                padding: spacing.lg,
+                borderRadius: radii.lg,
+                backgroundColor: theme.bg.surface,
+                borderWidth: 0.5,
+                borderColor: theme.border.default,
+              }}
+            >
               <Text variant="body" tone="secondary">
                 No jobs near you right now. Pull to refresh.
               </Text>
-            </Card>
+            </View>
           )}
 
           {jobs.map((j) => (
             <Pressable key={j.id} onPress={() => openJob(j)}>
-              <Card>
-                <View style={{ gap: spacing.sm }}>
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'flex-start',
-                      gap: spacing.md,
-                    }}
-                  >
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text variant="bodyLarge" weight="medium" numberOfLines={1}>
-                        {j.title}
-                      </Text>
-                      <Text variant="footnote" tone="secondary" numberOfLines={1}>
-                        {j.employer?.name ?? 'Doondo Employer'}
-                        {j.employer?.isVerified ? ' · ✓ Verified' : ''}
-                      </Text>
-                      <Text variant="footnote" tone="tertiary" numberOfLines={1}>
-                        {j.location.city}
-                        {j.distanceMeters != null
-                          ? ` · ${formatDistance(j.distanceMeters)}`
-                          : ''}
-                      </Text>
-                    </View>
-                    <Pill label={formatType(j.type)} tone="neutral" />
+              <View
+                style={{
+                  padding: spacing.lg,
+                  borderRadius: radii.lg,
+                  backgroundColor: theme.bg.surface,
+                  borderWidth: 0.5,
+                  borderColor: theme.border.subtle,
+                  gap: spacing.md,
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.06,
+                  shadowRadius: 12,
+                  elevation: 2,
+                }}
+              >
+                {/* Title row */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'flex-start',
+                    gap: spacing.md,
+                  }}
+                >
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text
+                      style={{
+                        fontSize: 17,
+                        lineHeight: 22,
+                        fontWeight: '600',
+                        color: theme.text.primary,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {j.title}
+                    </Text>
+                    <Text
+                      variant="footnote"
+                      style={{ color: theme.text.secondary }}
+                      numberOfLines={1}
+                    >
+                      {j.employer?.companyName ?? j.employer?.name ?? 'Doondo Employer'}
+                      {j.employer?.isVerified ? '  ✓' : ''}
+                    </Text>
+                    <Text
+                      variant="caption"
+                      style={{ color: theme.text.tertiary, marginTop: 2 }}
+                      numberOfLines={1}
+                    >
+                      {j.location.city}
+                      {j.distanceMeters != null
+                        ? ` · ${formatDistance(j.distanceMeters)}`
+                        : ''}
+                    </Text>
                   </View>
                   <View
                     style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
+                      paddingHorizontal: spacing.sm,
+                      paddingVertical: 4,
+                      borderRadius: radii.pill,
+                      backgroundColor: theme.bg.muted,
                     }}
                   >
                     <Text
-                      variant="bodyLarge"
-                      weight="medium"
-                      style={{ color: theme.accent.amber }}
-                    >
-                      {formatPay(j.pay)}
-                    </Text>
-                    <View
                       style={{
-                        paddingHorizontal: spacing.md,
-                        paddingVertical: 6,
-                        borderRadius: radii.pill,
-                        backgroundColor: theme.brand.hero,
+                        fontSize: 11,
+                        fontWeight: '500',
+                        color: theme.text.secondary,
                       }}
                     >
-                      <Text
-                        variant="footnote"
-                        weight="medium"
-                        style={{ color: '#FFFFFF' }}
-                      >
-                        Apply Now
-                      </Text>
-                    </View>
+                      {formatType(j.type)}
+                    </Text>
                   </View>
                 </View>
-              </Card>
+
+                {/* Pay + apply */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 18,
+                      lineHeight: 22,
+                      fontWeight: '700',
+                      color: theme.accent.amber,
+                    }}
+                  >
+                    {formatPay(j.pay)}
+                  </Text>
+                  <View
+                    style={{
+                      paddingHorizontal: spacing.md,
+                      paddingVertical: 8,
+                      borderRadius: radii.pill,
+                      backgroundColor: theme.brand.hero,
+                      shadowColor: theme.brand.hero,
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.28,
+                      shadowRadius: 8,
+                      elevation: 3,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: '600',
+                        color: '#FFFFFF',
+                      }}
+                    >
+                      Apply Now
+                    </Text>
+                  </View>
+                </View>
+              </View>
             </Pressable>
           ))}
         </View>

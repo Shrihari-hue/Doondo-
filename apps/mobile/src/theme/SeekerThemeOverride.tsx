@@ -17,6 +17,7 @@
  */
 
 import { useContext, useMemo, type ReactNode } from 'react';
+import { StatusBar } from 'expo-status-bar';
 import { themes } from '@doondo/tokens';
 import { ThemeContext } from './ThemeProvider';
 import type { ThemeContextValue } from './types';
@@ -41,5 +42,23 @@ export function SeekerThemeOverride({ children }: Props) {
     [parent?.setScheme, parent?.followSystem, parent?.isManual],
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>
+      {/*
+        Force the status bar (time / signal / battery glyphs) to render
+        dark-on-light. Without this they'd inherit the root provider's
+        'light' style and disappear against our F5F8FC background.
+
+        translucent + backgroundColor handles Android's painted status
+        bar so it tints to match the seeker canvas instead of staying
+        warm-black from the dark theme below.
+      */}
+      <StatusBar
+        style="dark"
+        translucent={false}
+        backgroundColor={themes.seekerLight.bg.canvas}
+      />
+      {children}
+    </ThemeContext.Provider>
+  );
 }

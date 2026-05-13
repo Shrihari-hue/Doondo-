@@ -1,36 +1,58 @@
 /**
- * ChatListScreen — premium chat inbox.
+ * ChatListScreen — conversations inbox, blue seeker design.
  *
- * Used by both seekers and employers. Fetches /conversations, hydrates
- * the OTHER side per row, and renders compact cards: avatar, counterpart
- * name, last-message preview (or "—" if no messages yet), time badge,
- * unread count chip on the right.
+ * Layout matches the seeker Phase-2 mockup:
+ *   - "Conversations" title
+ *   - Segmented tabs: All / Employers / Support
+ *   - List of conversation rows (avatar, name, last message, time, unread)
+ *   - Sticky "+ New Chat" button at the bottom
  *
- * Verified counterparts get a champagne hairline ring on the avatar.
- * Empty state explains the unlock rule so seekers understand why their
- * inbox is empty before they're shortlisted.
+ * Used by both seekers and employers. The seeker view is wrapped in
+ * SeekerThemeOverride; employers see the inherited dark palette since
+ * the wrapper is only mounted in the seeker tab navigator (this same
+ * file is also used in the EmployerTabNavigator — there the parent
+ * dark theme applies).
+ *
+ * Tab filter logic:
+ *   - All       → every conversation
+ *   - Employers → conversations whose counterpart.role === 'employer'
+ *   - Support   → reserved for future system/support threads. Empty for
+ *                 now; backend will mark them with a "kind: 'support'"
+ *                 flag once that flow ships.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, Avatar, SkeletonCard, Card, EmptyState as SharedEmptyState } from '@/components';
+import {
+  Screen,
+  Text,
+  Avatar,
+  SkeletonCard,
+  Card,
+  EmptyState as SharedEmptyState,
+  Button,
+} from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { chatApi } from '@/api/chat.api';
 import { useAuth } from '@/hooks/useAuth';
+import { haptic } from '@/lib/haptics';
 import type { PublicConversation } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
+type TabKey = 'all' | 'employers' | 'support';
+
 export function ChatListScreen() {
   const { isAuthenticated, user } = useAuth();
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
+  const [tab, setTab] = useState<TabKey>('all');
 
   const query = useQuery({
     queryKey: ['chat', 'conversations'],
@@ -38,49 +60,89 @@ export function ChatListScreen() {
     enabled: isAuthenticated,
   });
 
-  const conversations = query.data?.conversations ?? [];
-  const totalUnread = useMemo(
-    () => conversations.reduce((sum, c) => sum + (c.unread ?? 0), 0),
-    [conversations],
-  );
+  const all = query.data?.conversations ?? [];
+  const filtered = useMemo(() => filterByTab(all, tab), [all, tab]);
+  const isSeeker = user?.role !== 'employer';
+
+  function newChat() {
+    haptic('selection');
+    // Until a "compose new chat" flow ships, route the seeker back to
+    // applications (where chats unlock on shortlist) and employers to
+    // their applicants list. Real flow goes here in a follow-up.
+    if (isSeeker) {
+      navigation.navigate('SeekerTabs', { screen: 'Jobs' } as never);
+    } else {
+      navigation.navigate('EmployerTabs', { screen: 'Applicants' } as never);
+    }
+  }
 
   return (
     <Screen edges={['top']}>
       <ScrollView
         contentContainerStyle={{
-          padding: spacing.xl,
+          paddingHorizontal: spacing.xl,
           paddingTop: spacing['2xl'],
-          paddingBottom: spacing['4xl'],
+          paddingBottom: spacing['7xl'] + 80, // room for sticky New Chat
           gap: spacing.lg,
         }}
         refreshControl={
           <RefreshControl
             refreshing={query.isRefetching}
             onRefresh={() => void query.refetch()}
-            tintColor={theme.text.tertiary}
+            tintColor={theme.brand.hero}
           />
         }
       >
-        <View style={{ gap: spacing.xs }}>
-          <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-            CHAT
-          </Text>
-          <Text variant="display" weight="medium" display>
-            Conversations.
-          </Text>
-          <Text variant="footnote" tone="secondary">
-            {conversations.length === 0
-              ? user?.role === 'employer'
-                ? 'Shortlist a candidate to start a conversation.'
-                : 'Once an employer shortlists you, the chat opens here.'
-              : totalUnread > 0
-                ? `${totalUnread} unread message${totalUnread === 1 ? '' : 's'}`
-                : `${conversations.length} conversation${
-                    conversations.length === 1 ? '' : 's'
-                  }`}
-          </Text>
+        <Text variant="display" weight="medium" display>
+          Conversations
+        </Text>
+
+        {/* Segmented tabs */}
+        <View
+          style={{
+            flexDirection: 'row',
+            backgroundColor: theme.bg.surface,
+            borderRadius: radii.lg,
+            padding: 4,
+            borderWidth: 0.5,
+            borderColor: theme.border.default,
+          }}
+        >
+          {TABS.map((t) => {
+            const active = tab === t.key;
+            return (
+              <Pressable
+                key={t.key}
+                onPress={() => {
+                  haptic('selection');
+                  setTab(t.key);
+                }}
+                style={{
+                  flex: 1,
+                  paddingVertical: spacing.sm,
+                  borderRadius: radii.md,
+                  alignItems: 'center',
+                  backgroundColor: active ? theme.bg.canvas : 'transparent',
+                  // Soft inner shadow effect via border on inactive
+                  borderWidth: active ? 0.5 : 0,
+                  borderColor: theme.border.default,
+                }}
+              >
+                <Text
+                  variant="footnote"
+                  weight={active ? 'medium' : 'regular'}
+                  style={{
+                    color: active ? theme.brand.hero : theme.text.secondary,
+                  }}
+                >
+                  {t.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
+        {/* List body */}
         {query.isLoading ? (
           <View style={{ gap: spacing.md }}>
             <SkeletonCard lines={2} />
@@ -95,11 +157,11 @@ export function ChatListScreen() {
               Pull down to retry.
             </Text>
           </Card>
-        ) : conversations.length === 0 ? (
-          <EmptyState role={user?.role} />
+        ) : filtered.length === 0 ? (
+          <EmptyTab tab={tab} role={user?.role} />
         ) : (
           <View style={{ gap: spacing.sm }}>
-            {conversations.map((c) => (
+            {filtered.map((c) => (
               <ConversationRow
                 key={c.id}
                 conversation={c}
@@ -111,8 +173,51 @@ export function ChatListScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Sticky New Chat button */}
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          paddingHorizontal: spacing.xl,
+          paddingTop: spacing.md,
+          paddingBottom: spacing.xl,
+          backgroundColor: theme.bg.canvas,
+          borderTopWidth: 0.5,
+          borderTopColor: theme.border.default,
+        }}
+      >
+        <Button label="+ New Chat" onPress={newChat} />
+      </View>
     </Screen>
   );
+}
+
+// ─── Tabs metadata ───────────────────────────────────────────────────────────
+
+const TABS: Array<{ key: TabKey; label: string }> = [
+  { key: 'all', label: 'All' },
+  { key: 'employers', label: 'Employers' },
+  { key: 'support', label: 'Support' },
+];
+
+function filterByTab(
+  conversations: PublicConversation[],
+  tab: TabKey,
+): PublicConversation[] {
+  switch (tab) {
+    case 'all':
+      return conversations;
+    case 'employers':
+      return conversations.filter((c) => c.counterpart?.role === 'employer');
+    case 'support':
+      // Reserved for system/support threads — empty until that flow exists.
+      return conversations.filter(
+        (c) => c.counterpart?.role === 'admin' || (c as { kind?: string }).kind === 'support',
+      );
+  }
 }
 
 // ─── Row ─────────────────────────────────────────────────────────────────────
@@ -133,94 +238,118 @@ function ConversationRow({
 
   return (
     <Pressable onPress={onPress}>
-      <Card premium={counterpart?.isVerified}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-          <Avatar
-            name={displayName}
-            photoUrl={counterpart?.photoUrl ?? null}
-            size={52}
-            premium={counterpart?.isVerified}
-          />
-          <View style={{ flex: 1, gap: 2 }}>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: spacing.sm,
-              }}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.md,
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.sm,
+          borderBottomWidth: 0.5,
+          borderBottomColor: theme.border.subtle,
+        }}
+      >
+        <Avatar
+          name={displayName}
+          photoUrl={counterpart?.photoUrl ?? null}
+          size={52}
+          premium={counterpart?.isVerified}
+        />
+        <View style={{ flex: 1, gap: 2 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: spacing.sm,
+            }}
+          >
+            <Text
+              variant="bodyLarge"
+              weight={isUnread ? 'medium' : 'regular'}
+              numberOfLines={1}
+              style={{ flex: 1 }}
             >
-              <Text
-                variant="bodyLarge"
-                weight={isUnread ? 'medium' : 'regular'}
-                numberOfLines={1}
-                style={{ flex: 1 }}
-              >
-                {displayName}
-              </Text>
-              <Text
-                variant="footnote"
-                tone="tertiary"
-                style={{ marginLeft: spacing.xs }}
-              >
-                {timeShort(conversation.lastMessageAt)}
-              </Text>
-            </View>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: spacing.sm,
-              }}
+              {displayName}
+            </Text>
+            <Text variant="footnote" tone="tertiary">
+              {timeShort(conversation.lastMessageAt)}
+            </Text>
+          </View>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.sm,
+            }}
+          >
+            <Text
+              variant="footnote"
+              tone={isUnread ? 'primary' : 'secondary'}
+              weight={isUnread ? 'medium' : 'regular'}
+              numberOfLines={1}
+              style={{ flex: 1 }}
             >
-              <Text
-                variant="footnote"
-                tone={isUnread ? 'primary' : 'secondary'}
-                weight={isUnread ? 'medium' : 'regular'}
-                numberOfLines={1}
-                style={{ flex: 1 }}
+              {conversation.lastMessagePreview ?? 'Say hello.'}
+            </Text>
+            {isUnread && (
+              <View
+                style={{
+                  minWidth: 22,
+                  height: 22,
+                  paddingHorizontal: 8,
+                  borderRadius: 11,
+                  backgroundColor: theme.brand.hero,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
-                {conversation.lastMessagePreview ?? 'Say hello.'}
-              </Text>
-              {isUnread && (
-                <View
+                <Text
                   style={{
-                    minWidth: 22,
-                    height: 22,
-                    paddingHorizontal: 8,
-                    borderRadius: 11,
-                    backgroundColor: theme.brand.hero,
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    color: '#FFFFFF',
+                    fontSize: 11,
+                    fontWeight: '600',
                   }}
                 >
-                  <Text
-                    style={{
-                      color: '#FFFDF7',
-                      fontSize: 11,
-                      fontWeight: '600',
-                    }}
-                  >
-                    {conversation.unread > 99 ? '99+' : conversation.unread}
-                  </Text>
-                </View>
-              )}
-            </View>
-            {conversation.job?.title && (
-              <Text variant="caption" tone="tertiary" numberOfLines={1}>
-                re: {conversation.job.title}
-              </Text>
+                  {conversation.unread > 99 ? '99+' : conversation.unread}
+                </Text>
+              </View>
             )}
           </View>
         </View>
-      </Card>
+      </View>
     </Pressable>
   );
 }
 
-// ─── Empty state ─────────────────────────────────────────────────────────────
+// ─── Empty per-tab ───────────────────────────────────────────────────────────
 
-function EmptyState({ role }: { role?: string }) {
+function EmptyTab({ tab, role }: { tab: TabKey; role?: string }) {
+  if (tab === 'support') {
+    return (
+      <SharedEmptyState
+        glyph="🛟"
+        eyebrow="SUPPORT"
+        title="No support chats yet"
+        message="Doondo Support threads will show up here. Reach out to support anytime if you need help."
+      />
+    );
+  }
+  if (tab === 'employers') {
+    return (
+      <SharedEmptyState
+        glyph="✉"
+        eyebrow="NO EMPLOYER CHATS"
+        title="No employer chats yet"
+        message={
+          role === 'employer'
+            ? 'Employer-to-employer messaging will land here when networking ships.'
+            : 'Once an employer shortlists you for a job, the chat opens here.'
+        }
+      />
+    );
+  }
+  // 'all' tab
   return (
     <SharedEmptyState
       glyph="✉"
@@ -229,7 +358,7 @@ function EmptyState({ role }: { role?: string }) {
       title="No chats yet"
       message={
         role === 'employer'
-          ? 'Shortlist a candidate from the Applicants tab — a private chat opens automatically so you can talk before hiring.'
+          ? 'Shortlist a candidate from the Applicants tab — a private chat opens automatically.'
           : 'When an employer shortlists you for a job, you can chat with them right here. Apply to nearby jobs to get started.'
       }
       tall
@@ -243,9 +372,16 @@ function timeShort(iso: string): string {
   const d = new Date(iso);
   const now = Date.now();
   const ms = now - d.getTime();
-  if (ms < 60_000) return 'now';
-  if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m`;
-  if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h`;
-  if (ms < 7 * 86_400_000) return `${Math.floor(ms / 86_400_000)}d`;
+  // Same-day → time of day.
+  const day = 86_400_000;
+  if (ms < day && d.toDateString() === new Date(now).toDateString()) {
+    return d.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
+  if (ms < 2 * day) return 'Yesterday';
+  const days = Math.floor(ms / day);
+  if (days < 7) return `${days} days ago`;
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }

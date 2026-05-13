@@ -28,6 +28,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -42,6 +43,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { spacing, radii, champagne } from '@doondo/tokens';
 import { Screen, Text, Avatar, LoadingSpinner, Pill } from '@/components';
 import { useTheme } from '@/theme/useTheme';
+import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { useAuth } from '@/hooks/useAuth';
 import { chatApi } from '@/api/chat.api';
 import { haptic } from '@/lib/haptics';
@@ -51,7 +53,23 @@ import type { AppStackParamList } from '@/navigation/types';
 type Nav = NativeStackNavigationProp<AppStackParamList, 'Conversation'>;
 type Route = RouteProp<AppStackParamList, 'Conversation'>;
 
+/**
+ * Top-level export wraps in seekerLight palette ONLY when the current
+ * user is a seeker. Employers viewing chat keep their warm-dark theme.
+ */
 export function ConversationScreen() {
+  const { user } = useAuth();
+  if (user?.role === 'seeker') {
+    return (
+      <SeekerThemeOverride>
+        <ConversationScreenInner />
+      </SeekerThemeOverride>
+    );
+  }
+  return <ConversationScreenInner />;
+}
+
+function ConversationScreenInner() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { user } = useAuth();
@@ -261,7 +279,7 @@ export function ConversationScreen() {
           style={{
             flexDirection: 'row',
             alignItems: 'flex-end',
-            gap: spacing.sm,
+            gap: spacing.xs,
             paddingHorizontal: spacing.lg,
             paddingTop: spacing.sm,
             paddingBottom: Platform.OS === 'ios' ? spacing.md : spacing.lg,
@@ -270,6 +288,19 @@ export function ConversationScreen() {
             backgroundColor: theme.bg.canvas,
           }}
         >
+          {/* Attachment icon — image / video picker (coming soon) */}
+          <IconCircleButton
+            label="📎"
+            onPress={() => {
+              haptic('light');
+              Alert.alert(
+                'Attachments coming soon',
+                'Image and video sharing in chat is on the way. For now, send a text message.',
+              );
+            }}
+          />
+
+          {/* Text input */}
           <View
             style={{
               flex: 1,
@@ -279,7 +310,7 @@ export function ConversationScreen() {
               borderColor: theme.border.default,
               paddingHorizontal: spacing.md,
               paddingVertical: 6,
-              minHeight: 40,
+              minHeight: 44,
               maxHeight: 130,
             }}
           >
@@ -298,14 +329,63 @@ export function ConversationScreen() {
               }}
             />
           </View>
-          <SendButton
-            disabled={!draft.trim() || sendMutation.isPending}
-            onPress={onSend}
-            sending={sendMutation.isPending}
-          />
+
+          {/* Mic OR send — toggles based on whether there's text */}
+          {draft.trim().length === 0 ? (
+            <IconCircleButton
+              label="🎤"
+              filled
+              onPress={() => {
+                haptic('light');
+                Alert.alert(
+                  'Voice notes coming soon',
+                  'Recording voice messages in chat is on the way. For now, send a text message.',
+                );
+              }}
+            />
+          ) : (
+            <SendButton
+              disabled={sendMutation.isPending}
+              onPress={onSend}
+              sending={sendMutation.isPending}
+            />
+          )}
         </View>
       </KeyboardAvoidingView>
     </Screen>
+  );
+}
+
+// ─── Composer icon buttons ───────────────────────────────────────────────────
+
+function IconCircleButton({
+  label,
+  filled,
+  onPress,
+}: {
+  label: string;
+  filled?: boolean;
+  onPress: () => void;
+}) {
+  const { theme } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: filled ? theme.brand.hero : 'transparent',
+        borderWidth: filled ? 0 : 0.5,
+        borderColor: theme.border.default,
+      }}
+    >
+      <Text style={{ fontSize: 20, color: filled ? '#FFFFFF' : theme.text.secondary }}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
