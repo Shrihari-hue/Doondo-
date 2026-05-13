@@ -3,11 +3,18 @@ import { themes, type ThemeName } from '@doondo/tokens';
 type AppTheme = (typeof themes)[ThemeName];
 
 export interface ThemeContextValue {
-  /** The full token tree for the active scheme. */
+  /**
+   * The full token tree for the active palette.
+   *
+   * Three palettes:
+   *   - `dark`         — warm-dark luxe (employer side, default)
+   *   - `light`        — warm-cream light (legacy light mode)
+   *   - `seekerLight`  — royal-blue + white (Phase 2 seeker redesign)
+   */
   theme: AppTheme;
-  /** Active scheme name — currently 'dark' or 'light'. */
+  /** Active palette name. */
   scheme: ThemeName;
-  /** Manually set the scheme (overrides system preference). */
+  /** Manually set the palette (overrides system preference). */
   setScheme: (scheme: ThemeName) => void;
   /** Reset to following the system color scheme. */
   followSystem: () => void;

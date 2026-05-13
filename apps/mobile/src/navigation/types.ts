@@ -34,10 +34,13 @@ export type AuthStackParamList = {
 };
 
 export type SeekerTabParamList = {
-  Jobs: undefined;
-  Saved: undefined;
-  Applications: undefined;
+  /** Home dashboard — voice card, categories, nearby jobs preview. */
+  Home: undefined;
+  /** Full jobs list — accepts an initial query keyword from category tile / voice. */
+  Jobs: { initialQuery?: string } | undefined;
+  /** Conversations list. */
   Chat: undefined;
+  /** Profile — verified badge, rating, salary, skills, menu. */
   Profile: undefined;
 };
 
@@ -83,6 +86,20 @@ export type AppStackParamList = {
    * a working number on file for password reset.
    */
   AddRecoveryPhone: undefined;
+  /** Modal: voice-driven job search. Pushed by the center FAB mic. */
+  VoiceSearch: undefined;
+  /** Modal: list of ratings received by a user (defaults to self). */
+  Ratings: { userId?: string } | undefined;
+  /** Modal: leave a rating after a hire. */
+  LeaveRating: {
+    applicationId: string;
+    /** Display name of the person being rated. */
+    revieweeName: string;
+    /** Title of the job this rating is for. */
+    jobTitle: string;
+  };
+  /** Modal: notifications feed (bell icon target). */
+  Notifications: undefined;
 };
 
 declare global {

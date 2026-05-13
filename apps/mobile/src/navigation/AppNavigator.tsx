@@ -23,6 +23,10 @@ import { SeekerTabNavigator } from './SeekerTabNavigator';
 import { EmployerTabNavigator } from './EmployerTabNavigator';
 import { JobDetailScreen } from '@/screens/seeker/JobDetailScreen';
 import { EditProfileScreen } from '@/screens/seeker/EditProfileScreen';
+import { VoiceSearchScreen } from '@/screens/seeker/VoiceSearchScreen';
+import { RatingsScreen } from '@/screens/seeker/RatingsScreen';
+import { LeaveRatingScreen } from '@/screens/seeker/LeaveRatingScreen';
+import { NotificationsScreen } from '@/screens/seeker/NotificationsScreen';
 import { JobApplicantsScreen } from '@/screens/employer/JobApplicantsScreen';
 import { ApplicantDetailScreen } from '@/screens/employer/ApplicantDetailScreen';
 import { PostJobScreen } from '@/screens/employer/PostJobScreen';
@@ -111,6 +115,28 @@ export function AppNavigator() {
       <Stack.Screen
         name="AddRecoveryPhone"
         component={AddRecoveryPhoneScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+
+      {/* Seeker Phase 2 redesign modals */}
+      <Stack.Screen
+        name="VoiceSearch"
+        component={VoiceSearchScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Ratings"
+        component={RatingsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="LeaveRating"
+        component={LeaveRatingScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
     </Stack.Navigator>

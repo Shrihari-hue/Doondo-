@@ -1,15 +1,16 @@
 /**
- * SeekerTabNavigator — bottom tabs for the seeker role.
+ * SeekerTabNavigator — bottom tabs for the seeker role, new blue design.
  *
- * Custom tab bar so we control the look (champagne accent on active tab,
- * subtle scale animation, no default icon library). The tab icons are
- * single-character glyphs for now — Phase 2 polish swaps them for proper
- * SVG icons. Order matches the seeker mental model:
+ * Layout:
+ *   Home | Jobs | [Mic FAB] | Chat | Profile
  *
- *   Jobs  → Saved → Applications → Profile
+ * The mic in the center isn't a tab — it's a floating action button that
+ * pushes the VoiceSearch modal. Implemented inside the tab bar so it
+ * visually anchors the row; the BottomTab nav only knows about 4 real
+ * tabs.
  *
- * Lazy-loading tabs via `lazy: true` keeps cold start fast — only Jobs
- * mounts on first open; the others mount on first visit.
+ * Wrapped in SeekerThemeOverride so every tab inside this navigator gets
+ * the royal-blue palette without flipping the employer side.
  */
 
 import { Pressable, View } from 'react-native';
@@ -17,42 +18,45 @@ import {
   createBottomTabNavigator,
   type BottomTabBarProps,
 } from '@react-navigation/bottom-tabs';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 import { spacing } from '@doondo/tokens';
 import { Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
+import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
+import { SeekerHomeScreen } from '@/screens/seeker/SeekerHomeScreen';
 import { JobsScreen } from '@/screens/seeker/JobsScreen';
-import { SavedJobsScreen } from '@/screens/seeker/SavedJobsScreen';
-import { ApplicationsScreen } from '@/screens/seeker/ApplicationsScreen';
 import { ProfileScreen } from '@/screens/seeker/ProfileScreen';
 import { ChatListScreen } from '@/screens/chat/ChatListScreen';
-import type { SeekerTabParamList } from './types';
+import type { AppStackParamList, SeekerTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<SeekerTabParamList>();
 
 const TAB_META: Record<keyof SeekerTabParamList, { label: string; glyph: string }> = {
+  Home: { label: 'Home', glyph: '⌂' },
   Jobs: { label: 'Jobs', glyph: '◇' },
-  Saved: { label: 'Saved', glyph: '♡' },
-  Applications: { label: 'Status', glyph: '▤' },
   Chat: { label: 'Chat', glyph: '✦' },
-  Profile: { label: 'You', glyph: '◉' },
+  Profile: { label: 'Profile', glyph: '◉' },
 };
 
 export function SeekerTabNavigator() {
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        lazy: true,
-      }}
-      tabBar={(props) => <DoondoTabBar {...props} />}
-    >
-      <Tab.Screen name="Jobs" component={JobsScreen} />
-      <Tab.Screen name="Saved" component={SavedJobsScreen} />
-      <Tab.Screen name="Applications" component={ApplicationsScreen} />
-      <Tab.Screen name="Chat" component={ChatListScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
-    </Tab.Navigator>
+    <SeekerThemeOverride>
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          lazy: true,
+        }}
+        tabBar={(props) => <DoondoTabBar {...props} />}
+      >
+        <Tab.Screen name="Home" component={SeekerHomeScreen} />
+        <Tab.Screen name="Jobs" component={JobsScreen} />
+        <Tab.Screen name="Chat" component={ChatListScreen} />
+        <Tab.Screen name="Profile" component={ProfileScreen} />
+      </Tab.Navigator>
+    </SeekerThemeOverride>
   );
 }
 
@@ -60,6 +64,69 @@ export function SeekerTabNavigator() {
 
 function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { theme } = useTheme();
+  const appNav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+
+  const tabsBeforeMic: Array<keyof SeekerTabParamList> = ['Home', 'Jobs'];
+  const tabsAfterMic: Array<keyof SeekerTabParamList> = ['Chat', 'Profile'];
+
+  function renderTab(name: keyof SeekerTabParamList) {
+    const routeIndex = state.routes.findIndex((r) => r.name === name);
+    if (routeIndex === -1) return null;
+    const route = state.routes[routeIndex]!;
+    const isFocused = state.index === routeIndex;
+    const meta = TAB_META[name];
+    const { options } = descriptors[route.key]!;
+
+    const onPress = () => {
+      const event = navigation.emit({
+        type: 'tabPress',
+        target: route.key,
+        canPreventDefault: true,
+      });
+      if (!isFocused && !event.defaultPrevented) {
+        haptic('selection');
+        navigation.navigate(name as never);
+      }
+    };
+
+    return (
+      <Pressable
+        key={route.key}
+        accessibilityRole="button"
+        accessibilityState={isFocused ? { selected: true } : {}}
+        accessibilityLabel={options.tabBarAccessibilityLabel}
+        testID={options.tabBarButtonTestID}
+        onPress={onPress}
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: spacing.xs,
+          gap: 2,
+        }}
+      >
+        <Text
+          style={{
+            color: isFocused ? theme.brand.hero : theme.text.tertiary,
+            fontSize: 22,
+            lineHeight: 24,
+          }}
+        >
+          {meta.glyph}
+        </Text>
+        <Text
+          variant="caption"
+          weight={isFocused ? 'medium' : 'regular'}
+          style={{
+            fontSize: 11,
+            color: isFocused ? theme.brand.hero : theme.text.tertiary,
+          }}
+        >
+          {meta.label}
+        </Text>
+      </Pressable>
+    );
+  }
 
   return (
     <View
@@ -71,78 +138,50 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         paddingTop: spacing.xs,
         paddingBottom: spacing.lg,
         paddingHorizontal: spacing.sm,
+        alignItems: 'flex-end',
+        minHeight: 76,
       }}
     >
-      {state.routes.map((route, index) => {
-        const isFocused = state.index === index;
-        const meta = TAB_META[route.name as keyof SeekerTabParamList];
-        const { options } = descriptors[route.key]!;
+      {tabsBeforeMic.map(renderTab)}
 
-        const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
-          if (!isFocused && !event.defaultPrevented) {
+      {/* Center mic FAB — pushes VoiceSearch modal */}
+      <View
+        style={{
+          width: 64,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingBottom: 0,
+        }}
+      >
+        <Pressable
+          onPress={() => {
             haptic('selection');
-            // Tab routes have no params — cast through unknown to satisfy
-            // the TS inference for the polymorphic navigate signature.
-            navigation.navigate(route.name as never);
-          }
-        };
+            appNav.navigate('VoiceSearch');
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Voice search"
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: theme.brand.hero,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: -24,
+            shadowColor: theme.brand.hero,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.35,
+            shadowRadius: 8,
+            elevation: 6,
+            borderWidth: 3,
+            borderColor: theme.bg.surface,
+          }}
+        >
+          <Text style={{ fontSize: 24, color: '#FFFFFF' }}>🎤</Text>
+        </Pressable>
+      </View>
 
-        return (
-          <Pressable
-            key={route.key}
-            accessibilityRole="button"
-            accessibilityState={isFocused ? { selected: true } : {}}
-            accessibilityLabel={options.tabBarAccessibilityLabel}
-            testID={options.tabBarButtonTestID}
-            onPress={onPress}
-            style={{
-              flex: 1,
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingVertical: spacing.xs,
-              gap: 2,
-            }}
-          >
-            <Text
-              variant="bodyLarge"
-              style={{
-                color: isFocused ? theme.brand.hero : theme.text.tertiary,
-                fontSize: 18,
-                lineHeight: 22,
-              }}
-            >
-              {meta.glyph}
-            </Text>
-            <Text
-              variant="footnote"
-              weight={isFocused ? 'medium' : 'regular'}
-              style={{
-                fontSize: 11,
-                color: isFocused ? theme.brand.hero : theme.text.tertiary,
-              }}
-            >
-              {meta.label}
-            </Text>
-            {isFocused && (
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  width: 24,
-                  height: 1.5,
-                  backgroundColor: theme.brand.hero,
-                  borderRadius: 1,
-                }}
-              />
-            )}
-          </Pressable>
-        );
-      })}
+      {tabsAfterMic.map(renderTab)}
     </View>
   );
 }
