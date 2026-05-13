@@ -28,6 +28,12 @@ export interface ApplicantEntry extends PublicApplication {
     skills: string[];
     isVerified: boolean;
     location: { city: string | null; area: string | null } | null;
+    /** Resume metadata + data URL (present when the seeker uploaded one). */
+    resumeUrl: string | null;
+    resumeFilename: string | null;
+    resumeMimeType: string | null;
+    resumeSizeBytes: number | null;
+    resumeUploadedAt: string | null;
   };
 }
 

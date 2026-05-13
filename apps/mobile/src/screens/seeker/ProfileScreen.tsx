@@ -49,9 +49,18 @@ export function ProfileScreen() {
 
   async function onChangePhoto() {
     setPhotoError(null);
-    const picked = await pickProfilePhoto();
-    if (!picked) return;
-    photoMutation.mutate(picked.dataUrl);
+    try {
+      const picked = await pickProfilePhoto();
+      if (!picked) return;
+      photoMutation.mutate(picked.dataUrl);
+    } catch (err) {
+      haptic('error');
+      setPhotoError(
+        err instanceof Error
+          ? err.message
+          : 'Could not prepare that photo — try a different image.',
+      );
+    }
   }
 
   if (!user) return null;

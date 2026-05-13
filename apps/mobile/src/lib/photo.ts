@@ -5,9 +5,20 @@
  * proper multipart upload to S3/Cloudinary; for now the encoded image is
  * sent in the JSON body of PATCH /me/profile and stored on the user
  * document. The picker enforces a 1:1 aspect for clean avatars.
+ *
+ * Sizing pipeline:
+ *   1. ImagePicker grabs the source asset (no base64 — keep it light).
+ *   2. ImageManipulator resizes to a target width and re-encodes JPEG
+ *      with progressively lower quality until the base64 payload is
+ *      comfortably under the backend's 360KB cap on `photoUrl`.
+ *
+ * Without this resize step a typical iPhone JPEG (2–4MB) blows past
+ * the Zod `.max(360_000)` validator on the backend and the upload
+ * silently fails with a generic 400.
  */
 
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 export interface PickedPhoto {
   /** data:image/jpeg;base64,... */
@@ -16,10 +27,15 @@ export interface PickedPhoto {
   height: number;
 }
 
+/** Hard ceiling for the encoded data URL we send to the backend. */
+const MAX_PROFILE_DATA_URL_CHARS = 340_000; // ~250 KB of binary
+const PROFILE_TARGET_WIDTHS = [512, 384, 256] as const;
+const PROFILE_QUALITY_STEPS = [0.6, 0.45, 0.3] as const;
+
 /**
- * Open the OS image picker, let the user crop to a square, and return
- * a base64 data URL ready to send to the backend. Returns null if the
- * user cancels or denies permission.
+ * Open the OS image picker, let the user crop to a square, resize +
+ * recompress until the payload fits the backend cap, and return a
+ * base64 data URL. Returns null if the user cancels or denies permission.
  */
 export async function pickProfilePhoto(): Promise<PickedPhoto | null> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -31,22 +47,47 @@ export async function pickProfilePhoto(): Promise<PickedPhoto | null> {
     mediaTypes: ImagePicker.MediaTypeOptions.Images,
     allowsEditing: true,
     aspect: [1, 1],
-    // Strong compression — avatars don't need to be huge, and we cap the
-    // backend payload at ~350KB after base64 encoding.
-    quality: 0.55,
-    base64: true,
+    // Don't request base64 here — we recompress with ImageManipulator below.
+    quality: 1,
+    base64: false,
   });
 
   if (result.canceled || !result.assets?.length) return null;
   const asset = result.assets[0]!;
-  if (!asset.base64) return null;
+  return compressForProfile(asset.uri);
+}
 
-  const mime = asset.mimeType ?? 'image/jpeg';
-  return {
-    dataUrl: `data:${mime};base64,${asset.base64}`,
-    width: asset.width,
-    height: asset.height,
-  };
+/**
+ * Try a few width × quality combinations until the base64 payload fits
+ * under the backend cap. Throws if even the smallest preset is too big
+ * (which shouldn't happen for a 1:1 cropped avatar in practice).
+ */
+async function compressForProfile(uri: string): Promise<PickedPhoto> {
+  let lastError: unknown = null;
+  for (const width of PROFILE_TARGET_WIDTHS) {
+    for (const quality of PROFILE_QUALITY_STEPS) {
+      try {
+        const out = await ImageManipulator.manipulateAsync(
+          uri,
+          [{ resize: { width } }],
+          {
+            compress: quality,
+            format: ImageManipulator.SaveFormat.JPEG,
+            base64: true,
+          },
+        );
+        if (!out.base64) continue;
+        const dataUrl = `data:image/jpeg;base64,${out.base64}`;
+        if (dataUrl.length <= MAX_PROFILE_DATA_URL_CHARS) {
+          return { dataUrl, width: out.width, height: out.height };
+        }
+      } catch (err) {
+        lastError = err;
+      }
+    }
+  }
+  if (lastError) throw lastError;
+  throw new Error('Could not compress photo small enough — try a different image.');
 }
 
 /**

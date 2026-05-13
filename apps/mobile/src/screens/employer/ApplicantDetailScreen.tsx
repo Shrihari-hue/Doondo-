@@ -22,6 +22,7 @@ import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, Tex
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi, type ApplicantEntry, type SchedulePayload } from '@/api/applications.api';
 import { haptic } from '@/lib/haptics';
+import { openResume, formatResumeSize } from '@/lib/resume';
 import { ApplyCelebration } from '../seeker/apply-moment/ApplyCelebration';
 import type { AppStackParamList } from '@/navigation/types';
 import type { ApplicationStatus, InterviewMode, PublicInterview } from '@/api/types';
@@ -227,6 +228,9 @@ export function ApplicantDetailScreen() {
           </View>
         )}
 
+        {/* Resume */}
+        <ResumeRow seeker={applicant.seeker ?? null} />
+
         {/* Interview scheduling */}
         <InterviewPanel applicationId={applicant.id} interview={applicant.interview ?? null} />
 
@@ -234,6 +238,82 @@ export function ApplicantDetailScreen() {
         <ActionPanel applicant={applicant} onAction={(t) => transition.mutate(t)} pending={transition.isPending} />
       </ScrollView>
     </Screen>
+  );
+}
+
+// ─── Resume row ─────────────────────────────────────────────────────────────
+
+/**
+ * Inline resume card. Hidden when the seeker hasn't uploaded one.
+ * Tap → write the base64 payload to the OS share sheet so the employer can
+ * open it in Files / Drive / Mail / Preview. We can't use Linking.openURL
+ * for `data:` URIs — iOS / Android both reject them.
+ */
+function ResumeRow({
+  seeker,
+}: {
+  seeker: NonNullable<ApplicantEntry['seeker']> | null;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!seeker?.resumeUrl) return null;
+
+  const sizeStr = formatResumeSize(seeker.resumeSizeBytes);
+  const subtitleParts = [
+    seeker.resumeMimeType?.includes('pdf') ? 'PDF' : 'DOC',
+    sizeStr,
+  ].filter(Boolean);
+
+  async function handleOpen() {
+    setError(null);
+    setBusy(true);
+    try {
+      await openResume({
+        dataUrl: seeker!.resumeUrl!,
+        filename: seeker!.resumeFilename,
+        mimeType: seeker!.resumeMimeType,
+      });
+    } catch (err) {
+      haptic('error');
+      setError(err instanceof Error ? err.message : "Couldn't open resume");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Text
+        variant="footnote"
+        weight="medium"
+        tone="secondary"
+        style={{ letterSpacing: 1.0 }}
+      >
+        RESUME
+      </Text>
+      <Card>
+        <View style={{ gap: spacing.sm }}>
+          <View style={{ gap: spacing.xs }}>
+            <Text variant="bodyLarge" weight="medium" numberOfLines={1}>
+              {seeker.resumeFilename ?? 'Resume'}
+            </Text>
+            {subtitleParts.length > 0 && (
+              <Text variant="footnote" tone="secondary">
+                {subtitleParts.join(' · ')}
+              </Text>
+            )}
+          </View>
+          <Button
+            label={busy ? 'Opening…' : 'Open resume'}
+            variant="secondary"
+            onPress={handleOpen}
+            disabled={busy}
+          />
+          <FormError message={error} />
+        </View>
+      </Card>
+    </View>
   );
 }
 
