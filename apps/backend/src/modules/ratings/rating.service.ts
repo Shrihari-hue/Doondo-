@@ -56,7 +56,7 @@ export async function createRating(input: CreateInput): Promise<PublicRating> {
   }
   if (app.status !== 'hired') {
     throw new AppError({
-      code: 'INVALID_STATE',
+      code: 'CONFLICT',
       message: 'You can only rate someone after the application is hired',
       status: 409,
     });
@@ -77,7 +77,7 @@ export async function createRating(input: CreateInput): Promise<PublicRating> {
     role = 'seeker';
   } else {
     throw new AppError({
-      code: 'FORBIDDEN',
+      code: 'AUTH_FORBIDDEN',
       message: 'Only the seeker or employer on this application can rate',
       status: 403,
     });
@@ -86,7 +86,7 @@ export async function createRating(input: CreateInput): Promise<PublicRating> {
   if (reviewerIdStr === revieweeIdStr) {
     // Defensive — shouldn't happen given the branches above.
     throw new AppError({
-      code: 'INVALID_INPUT',
+      code: 'VALIDATION_FAILED',
       message: "You can't rate yourself",
       status: 400,
     });
@@ -132,7 +132,7 @@ export async function createRating(input: CreateInput): Promise<PublicRating> {
       (err as { code: number }).code === 11000
     ) {
       throw new AppError({
-        code: 'ALREADY_EXISTS',
+        code: 'CONFLICT',
         message: "You've already rated this job",
         status: 409,
       });
