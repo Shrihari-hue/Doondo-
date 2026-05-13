@@ -19,7 +19,7 @@ import { Types } from 'mongoose';
 import { ApplicationModel } from '@/modules/applications/application.model';
 import { JobModel } from '@/modules/jobs/job.model';
 import { UserModel } from '@/modules/users/user.model';
-import { ApiError } from '@/lib/errors';
+import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { sendRatingReceivedPush } from '@/lib/push';
 import {
@@ -48,14 +48,14 @@ export async function createRating(input: CreateInput): Promise<PublicRating> {
   // 1. Load the application + verify status + figure out direction.
   const app = await ApplicationModel.findById(applicationObjectId);
   if (!app) {
-    throw new ApiError({
+    throw new AppError({
       code: 'NOT_FOUND',
       message: 'Application not found',
       status: 404,
     });
   }
   if (app.status !== 'hired') {
-    throw new ApiError({
+    throw new AppError({
       code: 'INVALID_STATE',
       message: 'You can only rate someone after the application is hired',
       status: 409,
@@ -76,7 +76,7 @@ export async function createRating(input: CreateInput): Promise<PublicRating> {
     revieweeIdStr = seekerId;
     role = 'seeker';
   } else {
-    throw new ApiError({
+    throw new AppError({
       code: 'FORBIDDEN',
       message: 'Only the seeker or employer on this application can rate',
       status: 403,
@@ -85,7 +85,7 @@ export async function createRating(input: CreateInput): Promise<PublicRating> {
 
   if (reviewerIdStr === revieweeIdStr) {
     // Defensive — shouldn't happen given the branches above.
-    throw new ApiError({
+    throw new AppError({
       code: 'INVALID_INPUT',
       message: "You can't rate yourself",
       status: 400,
@@ -131,7 +131,7 @@ export async function createRating(input: CreateInput): Promise<PublicRating> {
       'code' in err &&
       (err as { code: number }).code === 11000
     ) {
-      throw new ApiError({
+      throw new AppError({
         code: 'ALREADY_EXISTS',
         message: "You've already rated this job",
         status: 409,
