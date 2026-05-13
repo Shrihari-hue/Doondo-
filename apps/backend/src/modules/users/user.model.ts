@@ -151,7 +151,12 @@ export interface User {
 }
 
 interface UserMethods {
-  toPublicJSON(): PublicUser;
+  /**
+   * Serialize to wire format. `opts.rating` lets the caller plug in a
+   * pre-computed rating summary (from ratingService.summarizeForUser) so
+   * the UI gets live numbers. Pass null (or omit) for "no ratings yet".
+   */
+  toPublicJSON(opts?: { rating?: { avg: number; count: number } | null }): PublicUser;
 }
 
 export type UserDocument = HydratedDocument<User, UserMethods>;
@@ -202,6 +207,17 @@ export interface PublicUser {
   } | null;
   /** Profile-completion percent (0..100). Computed, not stored. */
   profileCompletion: number;
+  /**
+   * Aggregated rating summary. Null when this user has zero ratings —
+   * lets the UI render "No ratings yet" rather than "0.0 ⭐". The avg
+   * is rounded to one decimal (e.g. 4.6).
+   *
+   * Populated on demand via ratingService.summarizeForUser(). Not stored
+   * on the document; computed at serialize time. For high-volume reads
+   * we can move to a denormalised counter, but for now O(1) aggregation
+   * keeps the source of truth in the Rating collection.
+   */
+  rating: { avg: number; count: number } | null;
   createdAt: string;
 }
 
@@ -346,7 +362,10 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
 // home" recommendations without re-asking permission every session.
 userSchema.index({ 'location.geo': '2dsphere' });
 
-userSchema.method('toPublicJSON', function (this: UserDocument): PublicUser {
+userSchema.method('toPublicJSON', function (
+  this: UserDocument,
+  opts?: { rating?: { avg: number; count: number } | null },
+): PublicUser {
   const flatLoc = (loc: UserLocation | null | undefined) =>
     loc && (loc.city || loc.area || loc.pincode || loc.geo)
       ? {
@@ -392,6 +411,7 @@ userSchema.method('toPublicJSON', function (this: UserDocument): PublicUser {
     gstin: this.gstin ?? null,
     employerLocation: empLocOut,
     profileCompletion: computeProfileCompletion(this),
+    rating: opts?.rating && opts.rating.count > 0 ? opts.rating : null,
     createdAt: this.createdAt.toISOString(),
   };
 });

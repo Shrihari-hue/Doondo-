@@ -6,6 +6,7 @@
  */
 
 import { Router } from 'express';
+import { z } from 'zod';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
 import authRouter from '@/modules/auth/auth.routes';
@@ -14,7 +15,10 @@ import applicationsRouter from '@/modules/applications/application.routes';
 import meRouter from '@/modules/me/me.routes';
 import chatRouter from '@/modules/chat/chat.routes';
 import verificationRouter from '@/modules/verification/verification.routes';
+import ratingsRouter from '@/modules/ratings/rating.routes';
+import notificationsRouter from '@/modules/notifications/notification.routes';
 import * as applicationsController from '@/modules/applications/application.controller';
+import * as ratingsController from '@/modules/ratings/rating.controller';
 import {
   applicantsForJobSchema,
   applyParamsSchema,
@@ -28,6 +32,27 @@ v1.use('/applications', applicationsRouter);
 v1.use('/me', meRouter);
 v1.use('/conversations', chatRouter);
 v1.use('/verification', verificationRouter);
+v1.use('/ratings', ratingsRouter);
+v1.use('/notifications', notificationsRouter);
+
+// Per-user ratings read endpoint — lives under /users/:id/ratings because
+// that's the natural URL for "this user's reviews".
+v1.get(
+  '/users/:id/ratings',
+  validate(
+    z.object({
+      params: z.object({
+        id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id'),
+      }),
+      query: z
+        .object({
+          limit: z.coerce.number().int().min(1).max(50).default(20),
+        })
+        .default({}),
+    }),
+  ),
+  ratingsController.listForUser,
+);
 
 // Apply lives URL-wise under /jobs/:id/apply (the natural place a client
 // looks for it) but its controller belongs to the applications module.

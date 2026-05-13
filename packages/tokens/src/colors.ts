@@ -114,14 +114,18 @@ export const red = {
   900: '#5C1414',
 } as const;
 
-/** Status — informational. */
+/** Status — informational. Also the seeker theme's hero color (royal blue). */
 export const blue = {
-  50: '#E6F1FB',
-  100: '#C7DAF2',
-  300: '#7FA8E0',
-  500: '#3D7AC7',
-  700: '#1E4F8F',
-  900: '#0F2E54',
+  50: '#EFF6FF',
+  100: '#DBEAFE',
+  200: '#BFDBFE',
+  300: '#93C5FD',
+  400: '#60A5FA',
+  500: '#3B82F6',
+  600: '#2563EB', // seeker hero — royal blue
+  700: '#1D4ED8',
+  800: '#1E40AF',
+  900: '#1E3A8A',
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -275,6 +279,97 @@ export const light = {
   },
 } as const;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Semantic aliases — seekerLight (Phase 2 redesign)
+//
+// Bright, accessible, voice-first palette for the worker side of the app.
+// Royal blue primary (#2563EB), white surfaces, dark slate text. Designed
+// to read as a familiar utility app for Karnataka workers rather than a
+// luxury product. The employer side stays on the warm-dark `dark` theme.
+//
+// Shape matches `dark` and `light` exactly so any component can pick up
+// the right tokens automatically; we just swap which theme object is
+// passed via ThemeProvider when the seeker tree mounts.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const seekerLight = {
+  bg: {
+    canvas: '#F5F8FC',   // very soft blue-tinted off-white — less harsh than pure white
+    surface: gray[0],     // white cards
+    elevated: gray[0],
+    muted: '#EEF3FA',
+    inverse: '#0F172A',   // slate-900 — for dark overlays/banners
+  },
+  border: {
+    subtle: 'rgba(15, 23, 42, 0.06)',
+    default: 'rgba(15, 23, 42, 0.10)',
+    strong: 'rgba(15, 23, 42, 0.16)',
+    focus: blue[600],
+  },
+  text: {
+    primary: '#0F172A',   // slate-900 — strong, readable
+    secondary: '#475569', // slate-600
+    tertiary: '#94A3B8',  // slate-400
+    disabled: '#CBD5E1',  // slate-300
+    inverse: '#FFFFFF',
+    onBrand: '#FFFFFF',
+    onPremium: '#221A0C',
+  },
+  brand: {
+    hero: blue[600],          // #2563EB
+    heroHover: blue[700],
+    heroPressed: blue[800],
+    heroSubtle: blue[50],     // for chip/tag backgrounds
+    heroBorder: blue[200],
+  },
+  premium: {
+    gold: champagne[500],
+    goldHover: champagne[600],
+    goldSubtle: champagne[50],
+    goldBorder: champagne[200],
+    hairline: champagne[300],
+  },
+  status: {
+    /** Green check marks on requirements / Verified Worker badge background. */
+    success: '#10B981',
+    successSubtle: '#D1FAE5',
+    successBorder: '#A7F3D0',
+    warning: amber[400],
+    warningSubtle: amber[50],
+    warningBorder: amber[100],
+    danger: red[700],
+    dangerSubtle: red[50],
+    dangerBorder: red[300],
+    info: blue[600],
+    infoSubtle: blue[50],
+    infoBorder: blue[200],
+  },
+  accent: {
+    jade: jade[600],
+    amber: amber[400],
+    champagne: champagne[500],
+  },
+  overlay: {
+    scrim: 'rgba(15, 23, 42, 0.45)',
+    glass: 'rgba(255, 255, 255, 0.86)',
+  },
+} as const;
+
 export type Theme = typeof dark;
-export const themes = { dark, light } as const;
+export const themes = { dark, light, seekerLight } as const;
 export type ThemeName = keyof typeof themes;
+
+/**
+ * Category illustration colors — the 5 colorful job category tiles on
+ * the seeker home screen. Pulled out as their own palette because they
+ * intentionally sit OUTSIDE the brand-blue system and add visual variety.
+ *
+ * Use only on the home categories row; do not propagate to other UI.
+ */
+export const categoryTints = {
+  delivery: { bg: '#FFEDD5', fg: '#EA580C' }, // orange
+  driver:   { bg: '#DBEAFE', fg: '#2563EB' }, // blue
+  electrician: { bg: '#FEF3C7', fg: '#D97706' }, // amber
+  helper:   { bg: '#E0E7FF', fg: '#4F46E5' }, // indigo
+  mason:    { bg: '#FCE7F3', fg: '#DB2777' }, // pink
+} as const;

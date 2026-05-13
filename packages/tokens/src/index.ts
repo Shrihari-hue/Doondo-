@@ -19,6 +19,8 @@ export {
   blue,
   dark,
   light,
+  seekerLight,
+  categoryTints,
   themes,
   type Theme,
   type ThemeName,
