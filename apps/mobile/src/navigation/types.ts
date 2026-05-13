@@ -110,6 +110,10 @@ export type AppStackParamList = {
   NewChat: undefined;
   /** Modal: settings — language, notifications, theme, account. */
   Settings: undefined;
+  /** Modal: seeker earnings ledger. */
+  MyEarnings: undefined;
+  /** Modal: offline-saved jobs list. */
+  DownloadCenter: undefined;
 };
 
 declare global {

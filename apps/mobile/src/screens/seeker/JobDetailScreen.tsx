@@ -27,6 +27,12 @@ import { jobsApi } from '@/api/jobs.api';
 import { applicationsApi } from '@/api/applications.api';
 import { ApiError } from '@/api/errors';
 import { haptic } from '@/lib/haptics';
+import {
+  getJobOffline,
+  isJobDownloaded,
+  removeJobOffline,
+  saveJobOffline,
+} from '@/lib/downloads';
 import { ApplyCelebration } from './apply-moment/ApplyCelebration';
 import type { AppStackParamList } from '@/navigation/types';
 import type { PublicJob } from '@/api/types';
@@ -44,11 +50,60 @@ function JobDetailScreenInner() {
   const [applyError, setApplyError] = useState<string | null>(null);
   const [saved, setSaved] = useState<boolean | null>(null);
 
-  // Detail fetch.
+  // Detail fetch — when the network call fails, fall back to the
+  // offline cache. The screen still renders fully if we have a cached
+  // copy of this job (Download Center → tap a job → here works offline).
   const detail = useQuery({
     queryKey: ['job', route.params.jobId],
-    queryFn: () => jobsApi.detail(route.params.jobId),
+    queryFn: async () => {
+      try {
+        return await jobsApi.detail(route.params.jobId);
+      } catch (err) {
+        const cached = await getJobOffline(route.params.jobId);
+        if (cached) {
+          return { job: cached.job };
+        }
+        throw err;
+      }
+    },
   });
+
+  // Downloaded state. The toggle saves / removes the cache copy of this
+  // job; whenever the network detail re-fetches, we refresh the saved
+  // copy so it doesn't go stale.
+  const [downloaded, setDownloaded] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void isJobDownloaded(route.params.jobId).then((v) => {
+      if (!cancelled) setDownloaded(v);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [route.params.jobId]);
+
+  // Keep cache fresh whenever the network gives us a new copy.
+  useEffect(() => {
+    if (downloaded && detail.data?.job) {
+      void saveJobOffline(detail.data.job).catch(() => undefined);
+    }
+  }, [downloaded, detail.data]);
+
+  async function toggleDownload() {
+    if (!detail.data?.job) return;
+    haptic('light');
+    if (downloaded) {
+      await removeJobOffline(detail.data.job.id);
+      setDownloaded(false);
+    } else {
+      try {
+        await saveJobOffline(detail.data.job);
+        setDownloaded(true);
+      } catch {
+        haptic('error');
+      }
+    }
+  }
 
   // Resolve initial saved state from the saved-list — server doesn't
   // expose saved-by-me on the detail endpoint yet, so we derive it.
@@ -185,7 +240,12 @@ function JobDetailScreenInner() {
         />
       )}
 
-      <Header onClose={() => navigation.goBack()} onShare={() => void onShare()} />
+      <Header
+        onClose={() => navigation.goBack()}
+        onShare={() => void onShare()}
+        onDownloadToggle={() => void toggleDownload()}
+        downloaded={downloaded}
+      />
 
       <ScrollView
         contentContainerStyle={{
@@ -361,7 +421,17 @@ function JobDetailScreenInner() {
 
 // ─── Header ──────────────────────────────────────────────────────────────────
 
-function Header({ onClose, onShare }: { onClose: () => void; onShare?: () => void }) {
+function Header({
+  onClose,
+  onShare,
+  onDownloadToggle,
+  downloaded,
+}: {
+  onClose: () => void;
+  onShare?: () => void;
+  onDownloadToggle?: () => void;
+  downloaded?: boolean;
+}) {
   const { theme } = useTheme();
   return (
     <View
@@ -383,13 +453,25 @@ function Header({ onClose, onShare }: { onClose: () => void; onShare?: () => voi
       >
         Job Details
       </Text>
-      {onShare ? (
-        <Pressable onPress={onShare} hitSlop={12} style={{ width: 40, alignItems: 'flex-end' }}>
-          <Text style={{ fontSize: 18, color: theme.text.primary }}>↗</Text>
-        </Pressable>
-      ) : (
-        <View style={{ width: 40 }} />
-      )}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        {onDownloadToggle && (
+          <Pressable
+            onPress={onDownloadToggle}
+            hitSlop={12}
+            accessibilityLabel={downloaded ? 'Remove from offline' : 'Save for offline'}
+          >
+            <Text style={{ fontSize: 18, color: downloaded ? theme.brand.hero : theme.text.primary }}>
+              {downloaded ? '📥' : '⤓'}
+            </Text>
+          </Pressable>
+        )}
+        {onShare && (
+          <Pressable onPress={onShare} hitSlop={12}>
+            <Text style={{ fontSize: 18, color: theme.text.primary }}>↗</Text>
+          </Pressable>
+        )}
+        {!onShare && !onDownloadToggle && <View style={{ width: 40 }} />}
+      </View>
     </View>
   );
 }

@@ -23,6 +23,7 @@
 import { Types } from 'mongoose';
 import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import * as walletService from '@/modules/wallet/wallet.service';
 import { emitToUser } from '@/sockets/bus';
 import { sendApplicationStatusPush, sendInterviewPush } from '@/lib/push';
 import { JobModel, type PublicJob } from '@/modules/jobs/job.model';
@@ -383,6 +384,25 @@ export async function transitionByEmployer(
           'job status -> filled failed (hire)',
         ),
       );
+
+    // Record the seeker's earnings ledger entry. Idempotent via the
+    // unique (userId, applicationId, kind='hire_payment') index — calling
+    // twice for the same application is a no-op.
+    void (async () => {
+      try {
+        const job = await JobModel.findById(app.jobId).select('pay title');
+        if (!job) return;
+        await walletService.creditOnHire({
+          userId: app.seekerId.toString(),
+          applicationId: app.id,
+          jobId: app.jobId.toString(),
+          amount: job.pay?.amount ?? 0,
+          jobTitle: job.title,
+        });
+      } catch (err) {
+        logger.warn({ err, applicationId: app.id }, 'wallet credit failed');
+      }
+    })();
   }
 
   // Auto-unlock chat on shortlist or hire. Idempotent — re-running on

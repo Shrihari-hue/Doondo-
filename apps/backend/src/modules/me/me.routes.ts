@@ -10,6 +10,7 @@ import { Router } from 'express';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
 import * as controller from './me.controller';
+import walletRouter from '@/modules/wallet/wallet.routes';
 import {
   pushTokenSchema,
   updateEmployerLocationSchema,
@@ -19,6 +20,11 @@ import {
 } from './me.schemas';
 
 const router = Router();
+
+// Earnings ledger — lives under /me because that's where seeker-facing
+// account data sits. Sub-router stays small + isolated from /me's own
+// profile mutations.
+router.use('/', walletRouter);
 
 router.patch(
   '/profile',

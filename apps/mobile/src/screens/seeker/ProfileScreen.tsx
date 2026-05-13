@@ -125,17 +125,11 @@ export function ProfileScreen() {
   }
   function openEarnings() {
     haptic('selection');
-    Alert.alert(
-      'My Earnings',
-      'Earnings tracking arrives with the wallet feature in Phase 5.',
-    );
+    navigation.navigate('MyEarnings');
   }
   function openDownloads() {
     haptic('selection');
-    Alert.alert(
-      'Download Center',
-      'Downloaded job posts and offline content arrive in a later update.',
-    );
+    navigation.navigate('DownloadCenter');
   }
   function openSettings() {
     haptic('selection');
