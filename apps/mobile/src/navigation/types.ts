@@ -100,6 +100,8 @@ export type AppStackParamList = {
   };
   /** Modal: notifications feed (bell icon target). */
   Notifications: undefined;
+  /** Modal: edit the seeker's desired pay (amount + period). */
+  EditExpectedSalary: undefined;
 };
 
 declare global {

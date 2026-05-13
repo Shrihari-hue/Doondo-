@@ -12,6 +12,7 @@ import {
   AVAILABILITIES,
   BUSINESS_TYPES,
   PREFERRED_JOB_TYPES,
+  SALARY_PERIODS,
   WORK_TYPES,
 } from '@/modules/users/user.model';
 
@@ -32,6 +33,18 @@ export const updateProfileSchema = z.object({
       skills: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
       workType: z.enum(WORK_TYPES).nullable().optional(),
       teamSize: z.number().int().min(2).max(50).nullable().optional(),
+      /**
+       * Desired pay. Pass null to clear. Amount is in minor units (paise
+       * for INR) for parity with Job.pay.
+       */
+      expectedSalary: z
+        .object({
+          amount: z.number().int().min(0),
+          period: z.enum(SALARY_PERIODS),
+          currency: z.string().length(3).default('INR'),
+        })
+        .nullable()
+        .optional(),
       // Base64 data URL — cap raw length so the JSON body stays sane.
       // Mobile is responsible for compressing before send.
       photoUrl: z

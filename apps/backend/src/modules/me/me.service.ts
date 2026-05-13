@@ -7,7 +7,11 @@
  */
 
 import { errors } from '@/lib/errors';
-import { UserModel, type PublicUser } from '@/modules/users/user.model';
+import {
+  UserModel,
+  type ExpectedSalary,
+  type PublicUser,
+} from '@/modules/users/user.model';
 
 interface UpdateProfileInput {
   name?: string;
@@ -19,6 +23,7 @@ interface UpdateProfileInput {
   skills?: string[];
   workType?: 'solo' | 'team' | null;
   teamSize?: number | null;
+  expectedSalary?: ExpectedSalary | null;
   photoUrl?: string | null;
   // Employer (Phase 3)
   companyName?: string | null;
@@ -64,6 +69,15 @@ export async function updateProfile(
     }
   }
   if (input.teamSize !== undefined) user.teamSize = input.teamSize;
+  if (input.expectedSalary !== undefined) {
+    user.expectedSalary = input.expectedSalary
+      ? {
+          amount: input.expectedSalary.amount,
+          period: input.expectedSalary.period,
+          currency: input.expectedSalary.currency || 'INR',
+        }
+      : null;
+  }
   if (input.companyName !== undefined) user.companyName = input.companyName;
   if (input.businessType !== undefined) user.businessType = input.businessType;
   if (input.gstin !== undefined) user.gstin = input.gstin;

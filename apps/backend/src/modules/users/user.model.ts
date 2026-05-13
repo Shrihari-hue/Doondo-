@@ -32,6 +32,20 @@ export const PREFERRED_JOB_TYPES = [
 ] as const;
 export type PreferredJobType = (typeof PREFERRED_JOB_TYPES)[number];
 
+export const SALARY_PERIODS = ['hour', 'day', 'week', 'month', 'fixed'] as const;
+export type SalaryPeriod = (typeof SALARY_PERIODS)[number];
+
+/**
+ * Seeker's desired pay. Mirrors the same shape as a Job's `pay` so the
+ * frontend can format both with one helper. Amount is in minor units
+ * (paise for INR) — keeps everything integer + scale-safe.
+ */
+export interface ExpectedSalary {
+  amount: number;
+  period: SalaryPeriod;
+  currency: string;
+}
+
 export const WORK_TYPES = ['solo', 'team'] as const;
 export type WorkType = (typeof WORK_TYPES)[number];
 
@@ -111,6 +125,11 @@ export interface User {
   workType?: WorkType | null;
   /** Members in the team. Required when workType === 'team'. 2..50. */
   teamSize?: number | null;
+  /**
+   * Seeker's desired pay — surfaced on the Profile screen and used to
+   * sort job suggestions later. Null until the seeker sets it.
+   */
+  expectedSalary?: ExpectedSalary | null;
   location?: UserLocation | null;
   /**
    * Profile photo, stored as a base64 data URL for now (max ~250KB after
@@ -182,6 +201,8 @@ export interface PublicUser {
   preferredJobTypes: PreferredJobType[];
   workType: WorkType | null;
   teamSize: number | null;
+  /** Seeker's desired pay, or null if unset. */
+  expectedSalary: ExpectedSalary | null;
   location: {
     city: string | null;
     area: string | null;
@@ -326,6 +347,17 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
     },
     workType: { type: String, enum: WORK_TYPES, default: null },
     teamSize: { type: Number, default: null, min: 2, max: 50 },
+    expectedSalary: {
+      type: new Schema<ExpectedSalary>(
+        {
+          amount: { type: Number, required: true, min: 0 },
+          period: { type: String, enum: SALARY_PERIODS, required: true },
+          currency: { type: String, default: 'INR', maxlength: 3 },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
     location: { type: userLocationSchema, default: null },
     // Stored as a base64 data URL (data:image/jpeg;base64,...). Cap at
     // ~350KB after the trailing prefix — clients should compress before send.
@@ -396,6 +428,13 @@ userSchema.method('toPublicJSON', function (
     preferredJobTypes: this.preferredJobTypes ?? [],
     workType: this.workType ?? null,
     teamSize: this.teamSize ?? null,
+    expectedSalary: this.expectedSalary
+      ? {
+          amount: this.expectedSalary.amount,
+          period: this.expectedSalary.period,
+          currency: this.expectedSalary.currency ?? 'INR',
+        }
+      : null,
     location: locOut,
     photoUrl: this.photoUrl ?? null,
     // Resume metadata is included for self-reads (/auth/me) and for

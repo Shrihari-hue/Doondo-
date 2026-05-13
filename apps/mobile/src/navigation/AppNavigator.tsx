@@ -27,6 +27,7 @@ import { VoiceSearchScreen } from '@/screens/seeker/VoiceSearchScreen';
 import { RatingsScreen } from '@/screens/seeker/RatingsScreen';
 import { LeaveRatingScreen } from '@/screens/seeker/LeaveRatingScreen';
 import { NotificationsScreen } from '@/screens/seeker/NotificationsScreen';
+import { EditExpectedSalaryScreen } from '@/screens/seeker/EditExpectedSalaryScreen';
 import { JobApplicantsScreen } from '@/screens/employer/JobApplicantsScreen';
 import { ApplicantDetailScreen } from '@/screens/employer/ApplicantDetailScreen';
 import { PostJobScreen } from '@/screens/employer/PostJobScreen';
@@ -137,6 +138,11 @@ export function AppNavigator() {
       <Stack.Screen
         name="Notifications"
         component={NotificationsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="EditExpectedSalary"
+        component={EditExpectedSalaryScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
     </Stack.Navigator>

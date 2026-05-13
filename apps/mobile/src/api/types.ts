@@ -112,6 +112,15 @@ export interface PublicUser {
   preferredJobTypes: JobType[];
   workType: WorkType | null;
   teamSize: number | null;
+  /**
+   * Seeker's desired pay. `amount` is in minor units (paise for INR).
+   * Null until the seeker sets it on the profile.
+   */
+  expectedSalary: {
+    amount: number;
+    period: 'hour' | 'day' | 'week' | 'month' | 'fixed';
+    currency: string;
+  } | null;
   location: {
     city: string | null;
     area: string | null;
@@ -120,6 +129,11 @@ export interface PublicUser {
   } | null;
   /** Base64 data URL or external URL. Null if not set. */
   photoUrl: string | null;
+  /**
+   * Aggregated rating summary (server-computed). Null when this user has
+   * zero ratings — so the UI can render "No ratings yet" instead of "0.0 ⭐".
+   */
+  rating: { avg: number; count: number } | null;
   // Resume (seeker) — base64 data URL of a PDF/DOCX, plus metadata
   resumeUrl: string | null;
   resumeFilename: string | null;
