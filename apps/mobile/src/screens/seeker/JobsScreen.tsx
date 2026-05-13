@@ -26,7 +26,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -41,7 +41,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { JobsMapView } from './jobs-map/JobsMapView';
 import { MapErrorBoundary } from './jobs-map/MapErrorBoundary';
 import type { PublicJob, JobType } from '@/api/types';
-import type { AppStackParamList } from '@/navigation/types';
+import type { AppStackParamList, SeekerTabParamList } from '@/navigation/types';
 
 const MAX_MASS_APPLY = 20;
 
@@ -65,13 +65,24 @@ export function JobsScreen() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  // Accept an initial search keyword from category tile / voice search.
+  // We read this lazily once on mount and clear it from the navigation
+  // state so revisiting the tab doesn't keep refilling the box.
+  const route = useRoute<RouteProp<SeekerTabParamList, 'Jobs'>>();
+  const initialQuery = route.params?.initialQuery ?? '';
+
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [coordsSource, setCoordsSource] = useState<Coords['source'] | 'fallback'>('fallback');
   const [type, setType] = useState<JobType | 'all'>('all');
   const [view, setView] = useState<'list' | 'map'>('list');
   /** Search radius in km (UI unit). Converted to meters when calling the API. */
   const [radiusKm, setRadiusKm] = useState(5);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialQuery);
+
+  // If the tab is opened with a new query param, sync it once.
+  useEffect(() => {
+    if (initialQuery) setSearch(initialQuery);
+  }, [initialQuery]);
   // Debounced search — avoid hammering the API on every keystroke.
   const [debouncedSearch, setDebouncedSearch] = useState('');
   useEffect(() => {

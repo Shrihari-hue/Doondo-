@@ -83,14 +83,13 @@ function NotificationsScreenInner() {
       ) : isError ? (
         <EmptyState
           title="Couldn't load notifications"
-          body="Check your connection and try again."
-          actionLabel="Retry"
-          onAction={() => void refetch()}
+          message="Check your connection and try again."
+          cta={{ label: 'Retry', onPress: () => void refetch() }}
         />
       ) : !data || data.notifications.length === 0 ? (
         <EmptyState
           title="No notifications yet"
-          body="When you have applications, messages, or ratings, they'll show up here."
+          message="When you have applications, messages, or ratings, they'll show up here."
         />
       ) : (
         <FlatList

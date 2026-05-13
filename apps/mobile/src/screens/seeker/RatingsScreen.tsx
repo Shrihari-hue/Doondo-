@@ -61,14 +61,13 @@ function RatingsScreenInner() {
       ) : isError ? (
         <EmptyState
           title="Couldn't load ratings"
-          body="Check your connection and try again."
-          actionLabel="Retry"
-          onAction={() => void refetch()}
+          message="Check your connection and try again."
+          cta={{ label: 'Retry', onPress: () => void refetch() }}
         />
       ) : !data || data.ratings.length === 0 ? (
         <EmptyState
-          title={isMyRatings ? 'No ratings yet' : 'No ratings yet'}
-          body={
+          title="No ratings yet"
+          message={
             isMyRatings
               ? "Once an employer rates you after a hire, you'll see it here."
               : 'This person hasn’t been rated yet.'
@@ -87,7 +86,7 @@ function RatingsScreenInner() {
           renderItem={({ item }) => (
             <Card>
               <View style={{ flexDirection: 'row', gap: spacing.md }}>
-                <Avatar uri={item.reviewerPhotoUrl} name={item.reviewerName} size={44} />
+                <Avatar photoUrl={item.reviewerPhotoUrl} name={item.reviewerName} size={44} />
                 <View style={{ flex: 1, gap: spacing.xs }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Text variant="bodyLarge" weight="medium" numberOfLines={1}>
