@@ -30,10 +30,53 @@ function NotificationsScreenInner() {
   function onItemPress(n: PublicNotification) {
     haptic('light');
     if (!n.read) markRead.mutate(n.id);
-    if (n.deeplink) {
-      // Best-effort deep link — the screen name comes from the backend
-      // payload, which is constrained to our actual screens.
-      navigation.navigate(n.deeplink.screen as never, n.deeplink.params as never);
+    routeNotification(n);
+  }
+
+  /**
+   * Resolves the in-app navigation for a notification. We don't trust the
+   * backend's `deeplink.screen` string blindly — instead we look at the
+   * notification `kind` and pick a real screen + params we know exist in
+   * the mobile navigator. This guarantees deep links never crash when the
+   * backend adds a new kind the mobile doesn't yet handle.
+   */
+  function routeNotification(n: PublicNotification) {
+    const params = (n.deeplink?.params ?? {}) as Record<string, unknown>;
+    switch (n.kind) {
+      case 'application_status':
+        // Open the My Applications timeline. Jumping straight to a specific
+        // application's detail screen lands when we build that view.
+        navigation.navigate('MyApplications');
+        return;
+      case 'application_received':
+        // Employers tap this — open the applicants tab. Seekers shouldn't
+        // see this kind, but we fall through safely if they do.
+        navigation.navigate('EmployerTabs', { screen: 'Applicants' } as never);
+        return;
+      case 'interview_scheduled':
+      case 'interview_rescheduled':
+      case 'interview_cancelled':
+        navigation.navigate('MyApplications');
+        return;
+      case 'new_message': {
+        const conversationId = params.conversationId;
+        if (typeof conversationId === 'string') {
+          navigation.navigate('Conversation', { conversationId });
+        } else {
+          navigation.navigate('SeekerTabs', { screen: 'Chat' } as never);
+        }
+        return;
+      }
+      case 'rating_received':
+        navigation.navigate('Ratings');
+        return;
+      case 'verification_status':
+        navigation.navigate('Verification');
+        return;
+      case 'system':
+      default:
+        // Nothing actionable — just mark as read (already done above).
+        return;
     }
   }
 

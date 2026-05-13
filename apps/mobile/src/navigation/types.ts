@@ -102,6 +102,10 @@ export type AppStackParamList = {
   Notifications: undefined;
   /** Modal: edit the seeker's desired pay (amount + period). */
   EditExpectedSalary: undefined;
+  /** Modal: list of applications the seeker has submitted. */
+  MyApplications: undefined;
+  /** Modal: saved + applied jobs in one screen. */
+  MyJobs: undefined;
 };
 
 declare global {

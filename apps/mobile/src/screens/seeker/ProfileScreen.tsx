@@ -100,18 +100,12 @@ export function ProfileScreen() {
 
   function openApplications() {
     haptic('selection');
-    Alert.alert(
-      'My Applications',
-      'A dedicated applications timeline is coming. For now, your active applications show up in the Jobs tab.',
-    );
+    navigation.navigate('MyApplications');
   }
 
   function openSavedJobs() {
     haptic('selection');
-    Alert.alert(
-      'My Jobs',
-      'Saved + applied jobs surfaces in the next update. For now, find saved jobs from the Jobs tab.',
-    );
+    navigation.navigate('MyJobs');
   }
 
   function openEarnings() {
