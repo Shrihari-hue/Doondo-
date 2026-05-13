@@ -18,9 +18,17 @@
 
 import { Types, type PipelineStage } from 'mongoose';
 import { errors } from '@/lib/errors';
+import { logger } from '@/lib/logger';
+import { sendNewJobPush } from '@/lib/push';
+import { emitToUser } from '@/sockets/bus';
 import { UserModel } from '@/modules/users/user.model';
 import { JobModel, type JobStatus, type PublicJob } from './job.model';
 import type { CreateJobBody, NearbyQuery, UpdateJobBody } from './job.schemas';
+
+/** Notify seekers within this radius (metres) when a new job is posted. */
+const NEW_JOB_NOTIFY_RADIUS_M = 25_000;
+/** Hard cap on per-job fan-out so a single post can't blast tens of thousands. */
+const NEW_JOB_NOTIFY_MAX_RECIPIENTS = 500;
 
 interface NearbyHit extends PublicJob {
   distanceMeters: number;
@@ -102,8 +110,13 @@ export async function findById(jobId: string): Promise<PublicJob> {
   const job = await JobModel.findById(jobId);
   if (!job) throw errors.jobNotFound();
 
-  // Bump views — fire-and-forget.
-  void JobModel.updateOne({ _id: job._id }, { $inc: { viewsCount: 1 } });
+  // Bump views — fire-and-forget. Mongoose 8 queries are lazy: `void`
+  // alone does NOT trigger execution; we need .exec() to send the update.
+  JobModel.updateOne({ _id: job._id }, { $inc: { viewsCount: 1 } })
+    .exec()
+    .catch((err) =>
+      logger.warn({ err, jobId: job._id.toString() }, 'viewsCount bump failed'),
+    );
 
   // Hydrate employer.
   const employer = await UserModel.findById(job.employerId)
@@ -202,7 +215,76 @@ export async function createJob(
     status: 'active',
     urgent: input.urgent ?? false,
   });
+
+  // Fan out a "new job near you" push to nearby seekers — fire-and-forget
+  // so a slow notification round never blocks the create response.
+  void notifySeekersOfNewJob(job.toPublicJSON()).catch((err) => {
+    logger.warn({ err, jobId: job.id }, 'new-job notification fan-out failed');
+  });
+
   return job.toPublicJSON();
+}
+
+/**
+ * Notify seekers near a freshly-posted job. Filters:
+ *   - role: 'seeker'
+ *   - has at least one Expo push token registered
+ *   - within NEW_JOB_NOTIFY_RADIUS_M of the job location (uses 2dsphere)
+ *   - capped at NEW_JOB_NOTIFY_MAX_RECIPIENTS to bound the blast radius
+ *
+ * We only push for jobs that match `seeker.preferredJobTypes` when the
+ * field is set; an empty preference list means "all types".
+ */
+async function notifySeekersOfNewJob(job: PublicJob): Promise<void> {
+  if (job.status !== 'active') return;
+
+  const [lng, lat] = job.location.coordinates;
+  if (typeof lng !== 'number' || typeof lat !== 'number') return;
+
+  const seekerQuery: Record<string, unknown> = {
+    role: 'seeker',
+    'expoPushTokens.0': { $exists: true },
+    'location.geo': {
+      $near: {
+        $geometry: { type: 'Point', coordinates: [lng, lat] },
+        $maxDistance: NEW_JOB_NOTIFY_RADIUS_M,
+      },
+    },
+  };
+
+  const seekers = await UserModel.find(seekerQuery)
+    .select('_id preferredJobTypes')
+    .limit(NEW_JOB_NOTIFY_MAX_RECIPIENTS)
+    .lean();
+
+  // Honor preferredJobTypes if the seeker set one; treat empty/missing as
+  // "open to all" so we don't silently exclude users with default profiles.
+  const recipients = seekers
+    .filter((s) => {
+      const prefs = (s as unknown as { preferredJobTypes?: string[] })
+        .preferredJobTypes;
+      if (!Array.isArray(prefs) || prefs.length === 0) return true;
+      return prefs.includes(job.type);
+    })
+    .map((s) => (s._id as Types.ObjectId).toString());
+
+  if (recipients.length === 0) return;
+
+  // Live socket event for users currently in-app.
+  for (const id of recipients) {
+    emitToUser(id, 'job:new', {
+      jobId: job.id,
+      title: job.title,
+      city: job.location.city,
+    });
+  }
+
+  await sendNewJobPush({
+    recipientIds: recipients,
+    jobId: job.id,
+    jobTitle: job.title,
+    city: job.location.city,
+  });
 }
 
 /**

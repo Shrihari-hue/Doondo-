@@ -60,8 +60,14 @@ export async function apply(input: ApplyInput): Promise<PublicApplication> {
     });
 
     // Bump denormalised counter — fire and forget; even if it fails the
-    // application itself is the source of truth.
-    void JobModel.updateOne({ _id: job._id }, { $inc: { applicantsCount: 1 } });
+    // application itself is the source of truth. Mongoose 8 queries are
+    // lazy: `void` only discards the value, it does NOT trigger execution.
+    // We need .exec() (or await) to actually send the update.
+    JobModel.updateOne({ _id: job._id }, { $inc: { applicantsCount: 1 } })
+      .exec()
+      .catch((err) =>
+        logger.warn({ err, jobId: job._id.toString() }, 'applicantsCount bump failed'),
+      );
 
     logger.info(
       { applicationId: app.id, seekerId: input.seekerId, jobId: input.jobId },
@@ -145,7 +151,11 @@ export async function massApply(input: MassApplyInput): Promise<MassApplyResult>
         status: 'pending',
         appliedAt: new Date(),
       });
-      void JobModel.updateOne({ _id: job._id }, { $inc: { applicantsCount: 1 } });
+      JobModel.updateOne({ _id: job._id }, { $inc: { applicantsCount: 1 } })
+        .exec()
+        .catch((err) =>
+          logger.warn({ err, jobId }, 'applicantsCount bump failed (mass-apply)'),
+        );
       emitToUser(input.seekerId, 'application:status_changed', {
         applicationId: app.id,
         jobId,
@@ -281,10 +291,17 @@ export async function withdraw(
   app.withdrawnAt = new Date();
   await app.save();
 
-  void JobModel.updateOne(
+  JobModel.updateOne(
     { _id: app.jobId, applicantsCount: { $gt: 0 } },
     { $inc: { applicantsCount: -1 } },
-  );
+  )
+    .exec()
+    .catch((err) =>
+      logger.warn(
+        { err, jobId: app.jobId.toString() },
+        'applicantsCount decrement failed (withdraw)',
+      ),
+    );
 
   emitToUser(seekerId, 'application:status_changed', {
     applicationId: app.id,
@@ -358,7 +375,14 @@ export async function transitionByEmployer(
 
   // On hire, mark the job filled — frees other seekers from seeing it.
   if (next === 'hired') {
-    void JobModel.updateOne({ _id: app.jobId }, { $set: { status: 'filled' } });
+    JobModel.updateOne({ _id: app.jobId }, { $set: { status: 'filled' } })
+      .exec()
+      .catch((err) =>
+        logger.warn(
+          { err, jobId: app.jobId.toString() },
+          'job status -> filled failed (hire)',
+        ),
+      );
   }
 
   // Auto-unlock chat on shortlist or hire. Idempotent — re-running on
