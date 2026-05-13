@@ -30,6 +30,8 @@ import { NotificationsScreen } from '@/screens/seeker/NotificationsScreen';
 import { EditExpectedSalaryScreen } from '@/screens/seeker/EditExpectedSalaryScreen';
 import { MyApplicationsScreen } from '@/screens/seeker/MyApplicationsScreen';
 import { MyJobsScreen } from '@/screens/seeker/MyJobsScreen';
+import { NewChatScreen } from '@/screens/chat/NewChatScreen';
+import { SettingsScreen } from '@/screens/seeker/SettingsScreen';
 import { JobApplicantsScreen } from '@/screens/employer/JobApplicantsScreen';
 import { ApplicantDetailScreen } from '@/screens/employer/ApplicantDetailScreen';
 import { PostJobScreen } from '@/screens/employer/PostJobScreen';
@@ -155,6 +157,16 @@ export function AppNavigator() {
       <Stack.Screen
         name="MyJobs"
         component={MyJobsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="NewChat"
+        component={NewChatScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
     </Stack.Navigator>

@@ -139,10 +139,7 @@ export function ProfileScreen() {
   }
   function openSettings() {
     haptic('selection');
-    Alert.alert(
-      'Settings',
-      'A full settings screen with account, notifications, and language preferences is coming.',
-    );
+    navigation.navigate('Settings');
   }
   function confirmSignOut() {
     haptic('warning');

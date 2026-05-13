@@ -66,12 +66,11 @@ export function ChatListScreen() {
 
   function newChat() {
     haptic('selection');
-    // Until a "compose new chat" flow ships, route the seeker back to
-    // applications (where chats unlock on shortlist) and employers to
-    // their applicants list. Real flow goes here in a follow-up.
     if (isSeeker) {
-      navigation.navigate('SeekerTabs', { screen: 'Jobs' } as never);
+      // Real new-chat flow: pick from applications.
+      navigation.navigate('NewChat');
     } else {
+      // Employers compose by picking from their applicants list (Phase 3).
       navigation.navigate('EmployerTabs', { screen: 'Applicants' } as never);
     }
   }

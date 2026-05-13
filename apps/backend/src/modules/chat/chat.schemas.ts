@@ -13,6 +13,17 @@ export const conversationIdParamsSchema = z.object({
   params: z.object({ id: objectIdSchema }),
 });
 
+/**
+ * "Start a chat from an application" — used by the seeker NewChat flow.
+ * Server checks that the caller is the seeker on that application and
+ * idempotently returns the conversation (creating it if needed).
+ */
+export const ensureConversationFromAppSchema = z.object({
+  body: z.object({
+    applicationId: objectIdSchema,
+  }),
+});
+
 export const listMessagesSchema = z.object({
   params: z.object({ id: objectIdSchema }),
   query: z.object({

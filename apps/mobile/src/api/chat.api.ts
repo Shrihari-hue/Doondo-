@@ -63,4 +63,15 @@ export const chatApi = {
       `/conversations/${conversationId}/read`,
       { method: 'POST' },
     ),
+
+  /**
+   * Idempotently get (or create) the chat for one of my applications.
+   * Used by the seeker NewChat flow to start a thread before the
+   * employer has shortlisted.
+   */
+  ensureFromApplication: (applicationId: string) =>
+    apiRequest<{ conversationId: string }>(`/conversations/from-application`, {
+      method: 'POST',
+      body: { applicationId },
+    }),
 };

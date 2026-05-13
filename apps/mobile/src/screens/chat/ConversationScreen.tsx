@@ -48,6 +48,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { chatApi, type SendMessageInput } from '@/api/chat.api';
 import { haptic } from '@/lib/haptics';
 import { pickChatImage } from '@/lib/chatImage';
+import { pickChatVideo } from '@/lib/chatVideo';
+import { VoiceRecorder, VOICE_MAX_SECONDS } from '@/lib/chatVoice';
 import { Image } from 'react-native';
 import type { MessageAttachment, PublicMessage } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
@@ -175,35 +177,27 @@ function ConversationScreenInner() {
   }
 
   /**
-   * Show an Alert with "Camera | Gallery | Cancel" then send the picked
-   * image as an `image` message. Compression happens in pickChatImage.
+   * Paperclip menu — image (camera or gallery) or video.
    */
   function onAttach() {
     haptic('light');
-    Alert.alert('Send a photo', 'Choose how you want to send a photo.', [
-      {
-        text: 'Camera',
-        onPress: () => void attachFrom('camera'),
-      },
-      {
-        text: 'From gallery',
-        onPress: () => void attachFrom('library'),
-      },
+    Alert.alert('Send attachment', 'Choose what to send.', [
+      { text: '📷 Camera', onPress: () => void attachImage('camera') },
+      { text: '🖼  From gallery', onPress: () => void attachImage('library') },
+      { text: '🎬 Video clip', onPress: () => void attachVideo() },
       { text: 'Cancel', style: 'cancel' },
     ]);
   }
 
-  async function attachFrom(source: 'camera' | 'library') {
+  async function attachImage(source: 'camera' | 'library') {
     try {
       const picked = await pickChatImage({ source });
       if (!picked) return; // user cancelled
-      const attachment: MessageAttachment = picked;
       sendMutation.mutate({
         kind: 'image',
-        body: draft.trim() || undefined, // optional caption from the draft
-        attachment,
+        body: draft.trim() || undefined,
+        attachment: picked,
       });
-      // Clear the draft once we hand off — the caption traveled with the image.
       setDraft('');
     } catch (err) {
       const message =
@@ -214,6 +208,104 @@ function ConversationScreenInner() {
       haptic('error');
     }
   }
+
+  async function attachVideo() {
+    try {
+      const picked = await pickChatVideo();
+      if (!picked) return;
+      sendMutation.mutate({
+        kind: 'video',
+        body: draft.trim() || undefined,
+        attachment: picked,
+      });
+      setDraft('');
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Could not prepare that video. Try a shorter clip.';
+      Alert.alert("Couldn't send video", message);
+      haptic('error');
+    }
+  }
+
+  // ─── Voice recording (hold-to-record on the mic FAB) ─────────────────────
+
+  const recorderRef = useRef<VoiceRecorder | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const tickIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  async function startVoice() {
+    haptic('light');
+    if (recording) return;
+    try {
+      const r = new VoiceRecorder();
+      await r.start();
+      recorderRef.current = r;
+      setRecording(true);
+      setRecordSeconds(0);
+      // Tick a UI counter + auto-stop at the max duration.
+      tickIntervalRef.current = setInterval(() => {
+        const s = r.elapsedSeconds();
+        setRecordSeconds(s);
+        if (s >= VOICE_MAX_SECONDS) {
+          void stopVoice(true);
+        }
+      }, 250);
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : 'Could not start recording. Check microphone permission.';
+      Alert.alert("Couldn't record", msg);
+      haptic('error');
+      setRecording(false);
+    }
+  }
+
+  async function stopVoice(send: boolean) {
+    const r = recorderRef.current;
+    if (tickIntervalRef.current) {
+      clearInterval(tickIntervalRef.current);
+      tickIntervalRef.current = null;
+    }
+    setRecording(false);
+    setRecordSeconds(0);
+    recorderRef.current = null;
+    if (!r) return;
+    if (!send) {
+      await r.cancel();
+      haptic('light');
+      return;
+    }
+    try {
+      const result = await r.stopAndSend();
+      // Ignore ultra-short clips (<1s) — usually accidental.
+      if (result.durationSeconds < 1) {
+        haptic('light');
+        return;
+      }
+      sendMutation.mutate({
+        kind: 'voice',
+        attachment: result,
+      });
+      haptic('selection');
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : 'Voice note failed to save.';
+      Alert.alert("Couldn't send voice", msg);
+      haptic('error');
+    }
+  }
+
+  // Clean up the ticker on unmount.
+  useEffect(() => {
+    return () => {
+      if (tickIntervalRef.current) clearInterval(tickIntervalRef.current);
+      void recorderRef.current?.cancel();
+    };
+  }, []);
 
   return (
     <Screen edges={['top']}>
@@ -367,17 +459,28 @@ function ConversationScreenInner() {
 
           {/* Mic OR send — toggles based on whether there's text */}
           {draft.trim().length === 0 ? (
-            <IconCircleButton
-              label="🎤"
-              filled
-              onPress={() => {
-                haptic('light');
-                Alert.alert(
-                  'Voice notes coming soon',
-                  'Recording voice messages in chat is on the way. For now, send a text message.',
-                );
+            <Pressable
+              onPressIn={() => void startVoice()}
+              onPressOut={() => void stopVoice(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Hold to record voice note"
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: recording ? theme.status.danger : theme.brand.hero,
+                shadowColor: recording ? theme.status.danger : theme.brand.hero,
+                shadowOffset: { width: 0, height: 3 },
+                shadowOpacity: 0.3,
+                shadowRadius: 6,
               }}
-            />
+            >
+              <Text style={{ fontSize: 20, color: '#FFFFFF' }}>
+                {recording ? '●' : '🎤'}
+              </Text>
+            </Pressable>
           ) : (
             <SendButton
               disabled={sendMutation.isPending}
@@ -386,9 +489,51 @@ function ConversationScreenInner() {
             />
           )}
         </View>
+
+        {/* Recording banner overlay — shows elapsed + cancel option */}
+        {recording && (
+          <View
+            style={{
+              position: 'absolute',
+              left: spacing.lg,
+              right: spacing.lg,
+              bottom: 80,
+              backgroundColor: theme.status.danger,
+              paddingVertical: spacing.sm,
+              paddingHorizontal: spacing.md,
+              borderRadius: radii.pill,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 18, lineHeight: 20 }}>●</Text>
+              <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
+                Recording  {formatSeconds(recordSeconds)} / {formatSeconds(VOICE_MAX_SECONDS)}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => void stopVoice(false)}
+              hitSlop={8}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Cancel</Text>
+            </Pressable>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </Screen>
   );
+}
+
+function formatSeconds(s: number): string {
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${r.toString().padStart(2, '0')}`;
 }
 
 // ─── Composer icon buttons ───────────────────────────────────────────────────
@@ -476,6 +621,15 @@ function MessageBubble({
             captionBg={bg}
             captionFg={fg}
           />
+        ) : message.kind === 'voice' && message.attachment ? (
+          <VoiceAttachment attachment={message.attachment} isMine={isMine} fg={fg} />
+        ) : message.kind === 'video' && message.attachment ? (
+          <VideoAttachment
+            attachment={message.attachment}
+            caption={message.body}
+            captionBg={bg}
+            captionFg={fg}
+          />
         ) : (
           <Text style={{ color: fg, fontSize: 15, lineHeight: 21 }}>
             {message.body}
@@ -560,6 +714,187 @@ function ImageAttachment({
           <Text style={{ color: captionFg, fontSize: 14, lineHeight: 19 }}>
             {caption}
           </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── Voice attachment renderer ───────────────────────────────────────────────
+
+function VoiceAttachment({
+  attachment,
+  isMine,
+  fg,
+}: {
+  attachment: MessageAttachment;
+  isMine: boolean;
+  fg: string;
+}) {
+  const [player, setPlayer] = useState<unknown>(null);
+  const [playing, setPlaying] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Lazy-load the audio module so it doesn't crash on platforms without it.
+  async function ensurePlayer() {
+    if (player) return player as { play: () => Promise<void>; pause: () => Promise<void>; release: () => void; duration: number; currentTime: number };
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { Audio } = require('expo-audio');
+      const inst = await Audio.AudioPlayer.createAsync({ uri: attachment.dataUrl });
+      setPlayer(inst);
+      return inst;
+    } catch {
+      return null;
+    }
+  }
+
+  async function toggle() {
+    const p = (await ensurePlayer()) as
+      | { play: () => Promise<void>; pause: () => Promise<void>; currentTime: number; duration: number }
+      | null;
+    if (!p) return;
+    if (playing) {
+      await p.pause();
+      setPlaying(false);
+      if (tickRef.current) clearInterval(tickRef.current);
+    } else {
+      await p.play();
+      setPlaying(true);
+      tickRef.current = setInterval(() => {
+        setElapsed(Math.round((p.currentTime ?? 0)));
+        if (p.duration && p.currentTime >= p.duration - 0.1) {
+          setPlaying(false);
+          setElapsed(0);
+          if (tickRef.current) clearInterval(tickRef.current);
+        }
+      }, 250);
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (tickRef.current) clearInterval(tickRef.current);
+      try {
+        (player as { release?: () => void } | null)?.release?.();
+      } catch {
+        /* best-effort */
+      }
+    };
+  }, [player]);
+
+  const duration = attachment.durationSeconds ?? 0;
+  const shown = playing ? elapsed : duration;
+
+  return (
+    <Pressable
+      onPress={toggle}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        paddingHorizontal: 4,
+        paddingVertical: 2,
+        minWidth: 140,
+      }}
+    >
+      <View
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          backgroundColor: isMine ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.08)',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontSize: 16, color: fg }}>{playing ? '❚❚' : '▶'}</Text>
+      </View>
+      {/* Simple progress strip — full when paused, animated when playing */}
+      <View
+        style={{
+          flex: 1,
+          height: 4,
+          borderRadius: 2,
+          backgroundColor: isMine ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.08)',
+          overflow: 'hidden',
+        }}
+      >
+        <View
+          style={{
+            width: duration > 0 ? `${Math.min(100, (elapsed / duration) * 100)}%` : '0%',
+            height: '100%',
+            backgroundColor: fg,
+          }}
+        />
+      </View>
+      <Text style={{ fontSize: 12, color: fg, minWidth: 36, textAlign: 'right' }}>
+        {fmt(shown)}
+      </Text>
+    </Pressable>
+  );
+}
+
+function fmt(s: number): string {
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${r.toString().padStart(2, '0')}`;
+}
+
+// ─── Video attachment renderer ───────────────────────────────────────────────
+
+function VideoAttachment({
+  attachment,
+  caption,
+  captionBg,
+  captionFg,
+}: {
+  attachment: MessageAttachment;
+  caption: string;
+  captionBg: string;
+  captionFg: string;
+}) {
+  // We don't auto-play in-bubble — show a thumbnail-ish frame with a big
+  // play overlay. Tap opens the system video player (Linking.openURL on
+  // the data URL). A full inline expo-video player can replace this if
+  // we want autoplay on visible bubbles later.
+  const aspect = attachment.width && attachment.height ? attachment.width / attachment.height : 16 / 9;
+  const width = 240;
+  const height = Math.round(width / aspect);
+
+  return (
+    <View>
+      <View
+        style={{
+          width,
+          height,
+          backgroundColor: '#0F172A',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontSize: 36, color: '#FFFFFF' }}>▶</Text>
+        <Text
+          style={{
+            position: 'absolute',
+            bottom: 6,
+            right: 8,
+            color: '#FFFFFF',
+            fontSize: 11,
+            fontWeight: '600',
+            backgroundColor: 'rgba(0,0,0,0.55)',
+            paddingHorizontal: 6,
+            paddingVertical: 2,
+            borderRadius: 4,
+          }}
+        >
+          {fmt(attachment.durationSeconds ?? 0)}
+        </Text>
+      </View>
+      {caption.length > 0 && (
+        <View style={{ backgroundColor: captionBg, paddingHorizontal: 12, paddingVertical: 6 }}>
+          <Text style={{ color: captionFg, fontSize: 14, lineHeight: 19 }}>{caption}</Text>
         </View>
       )}
     </View>

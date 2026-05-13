@@ -8,6 +8,7 @@ import { validate } from '@/middleware/validate';
 import * as controller from './chat.controller';
 import {
   conversationIdParamsSchema,
+  ensureConversationFromAppSchema,
   listMessagesSchema,
   sendMessageSchema,
 } from './chat.schemas';
@@ -15,6 +16,12 @@ import {
 const router = Router();
 
 router.get('/', requireAuth, controller.listMine);
+router.post(
+  '/from-application',
+  requireAuth,
+  validate(ensureConversationFromAppSchema),
+  controller.ensureFromApplication,
+);
 router.get(
   '/:id',
   requireAuth,

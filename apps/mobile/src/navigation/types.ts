@@ -106,6 +106,10 @@ export type AppStackParamList = {
   MyApplications: undefined;
   /** Modal: saved + applied jobs in one screen. */
   MyJobs: undefined;
+  /** Modal: pick an application to start a chat from (seeker). */
+  NewChat: undefined;
+  /** Modal: settings — language, notifications, theme, account. */
+  Settings: undefined;
 };
 
 declare global {

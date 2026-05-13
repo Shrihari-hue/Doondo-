@@ -21,6 +21,7 @@ import { logger } from '@/lib/logger';
 import { emitToUser } from '@/sockets/bus';
 import { sendChatMessagePush } from '@/lib/push';
 import { UserModel } from '@/modules/users/user.model';
+import { ApplicationModel } from '@/modules/applications/application.model';
 import {
   ConversationModel,
   type ConversationDocument,
@@ -89,6 +90,38 @@ export async function getOrCreateForApplication(input: {
     }
     throw err;
   }
+}
+
+/**
+ * Seeker-initiated chat unlock — "Send first message" before the
+ * employer has shortlisted. The seeker picks one of their applications
+ * and we ensure a conversation exists for it.
+ *
+ * Rules:
+ *   - Caller must be the SEEKER on the application (employers already
+ *     have other ways to open chats via shortlist).
+ *   - The application must still be active (status != withdrawn).
+ *   - Idempotent — returns the existing conversation if there is one.
+ */
+export async function ensureConversationFromApplication(
+  userId: string,
+  applicationId: string,
+): Promise<ConversationDocument> {
+  const app = await ApplicationModel.findById(applicationId);
+  if (!app) {
+    throw errors.notFound('Application not found');
+  }
+  if (app.seekerId.toString() !== userId) {
+    throw errors.forbidden('Only the applicant can start this chat.');
+  }
+  if (app.status === 'withdrawn') {
+    throw errors.conflict("You've withdrawn this application; chat is not available.");
+  }
+  return getOrCreateForApplication({
+    employerId: app.employerId as unknown as Types.ObjectId,
+    seekerId: app.seekerId as unknown as Types.ObjectId,
+    jobId: app.jobId as unknown as Types.ObjectId,
+  });
 }
 
 // ─── Reads ──────────────────────────────────────────────────────────────────

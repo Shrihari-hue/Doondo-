@@ -24,6 +24,24 @@ export async function listMine(
   }
 }
 
+export async function ensureFromApplication(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const applicationId = req.body.applicationId as string;
+    const conversation = await chatService.ensureConversationFromApplication(
+      req.user.id,
+      applicationId,
+    );
+    ok(req, res, 200, { conversationId: conversation.id });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function detail(
   req: Request,
   res: Response,
