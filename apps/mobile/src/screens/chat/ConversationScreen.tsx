@@ -45,9 +45,11 @@ import { Screen, Text, Avatar, LoadingSpinner, Pill } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { useAuth } from '@/hooks/useAuth';
-import { chatApi } from '@/api/chat.api';
+import { chatApi, type SendMessageInput } from '@/api/chat.api';
 import { haptic } from '@/lib/haptics';
-import type { PublicMessage } from '@/api/types';
+import { pickChatImage } from '@/lib/chatImage';
+import { Image } from 'react-native';
+import type { MessageAttachment, PublicMessage } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'Conversation'>;
@@ -100,15 +102,16 @@ function ConversationScreenInner() {
   }, [conversationId, queryClient]);
 
   const sendMutation = useMutation({
-    mutationFn: (body: string) => chatApi.sendMessage(conversationId, body),
-    onMutate: async (body) => {
-      // Optimistic insert.
+    mutationFn: (input: SendMessageInput) => chatApi.sendMessage(conversationId, input),
+    onMutate: async (input) => {
+      // Optimistic insert. Mirrors the eventual server shape.
       const optimistic: PublicMessage = {
         id: `optimistic-${Date.now()}`,
         conversationId,
         senderId: user?.id ?? 'me',
-        kind: 'text',
-        body,
+        kind: input.kind ?? (input.attachment ? 'image' : 'text'),
+        body: input.body ?? '',
+        attachment: input.attachment ?? null,
         readAt: null,
         createdAt: new Date().toISOString(),
       };
@@ -168,7 +171,48 @@ function ConversationScreenInner() {
     const trimmed = draft.trim();
     if (!trimmed || sendMutation.isPending) return;
     setDraft('');
-    sendMutation.mutate(trimmed);
+    sendMutation.mutate({ body: trimmed, kind: 'text' });
+  }
+
+  /**
+   * Show an Alert with "Camera | Gallery | Cancel" then send the picked
+   * image as an `image` message. Compression happens in pickChatImage.
+   */
+  function onAttach() {
+    haptic('light');
+    Alert.alert('Send a photo', 'Choose how you want to send a photo.', [
+      {
+        text: 'Camera',
+        onPress: () => void attachFrom('camera'),
+      },
+      {
+        text: 'From gallery',
+        onPress: () => void attachFrom('library'),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
+
+  async function attachFrom(source: 'camera' | 'library') {
+    try {
+      const picked = await pickChatImage({ source });
+      if (!picked) return; // user cancelled
+      const attachment: MessageAttachment = picked;
+      sendMutation.mutate({
+        kind: 'image',
+        body: draft.trim() || undefined, // optional caption from the draft
+        attachment,
+      });
+      // Clear the draft once we hand off — the caption traveled with the image.
+      setDraft('');
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Could not prepare that photo — try a different image.';
+      Alert.alert("Couldn't send photo", message);
+      haptic('error');
+    }
   }
 
   return (
@@ -288,17 +332,8 @@ function ConversationScreenInner() {
             backgroundColor: theme.bg.canvas,
           }}
         >
-          {/* Attachment icon — image / video picker (coming soon) */}
-          <IconCircleButton
-            label="📎"
-            onPress={() => {
-              haptic('light');
-              Alert.alert(
-                'Attachments coming soon',
-                'Image and video sharing in chat is on the way. For now, send a text message.',
-              );
-            }}
-          />
+          {/* Attachment icon — image picker (camera or gallery) */}
+          <IconCircleButton label="📎" onPress={onAttach} />
 
           {/* Text input */}
           <View
@@ -419,9 +454,10 @@ function MessageBubble({
     >
       <View
         style={{
-          backgroundColor: failed ? '#5C1414' : bg,
-          paddingHorizontal: 12,
-          paddingVertical: 8,
+          backgroundColor:
+            failed ? '#5C1414' : message.kind === 'image' ? 'transparent' : bg,
+          paddingHorizontal: message.kind === 'image' ? 0 : 12,
+          paddingVertical: message.kind === 'image' ? 0 : 8,
           borderRadius: 18,
           // Slight asymmetric corner on the tail side for the "speech" feel.
           borderBottomRightRadius: isMine && showTail ? 4 : 18,
@@ -429,11 +465,22 @@ function MessageBubble({
           borderWidth: !isMine && isVerifiedCounterpart ? 0.5 : 0,
           borderColor: champagne[300],
           opacity: optimistic ? 0.75 : 1,
+          overflow: 'hidden',
         }}
       >
-        <Text style={{ color: fg, fontSize: 15, lineHeight: 21 }}>
-          {message.body}
-        </Text>
+        {message.kind === 'image' && message.attachment ? (
+          <ImageAttachment
+            attachment={message.attachment}
+            caption={message.body}
+            isMine={isMine}
+            captionBg={bg}
+            captionFg={fg}
+          />
+        ) : (
+          <Text style={{ color: fg, fontSize: 15, lineHeight: 21 }}>
+            {message.body}
+          </Text>
+        )}
       </View>
       {/* Read receipt for sent messages */}
       {isMine && !optimistic && !failed && (
@@ -458,6 +505,62 @@ function MessageBubble({
         >
           Failed — pull down to retry
         </Text>
+      )}
+    </View>
+  );
+}
+
+// ─── Image attachment renderer ───────────────────────────────────────────────
+
+function ImageAttachment({
+  attachment,
+  caption,
+  isMine,
+  captionBg,
+  captionFg,
+}: {
+  attachment: MessageAttachment;
+  caption: string;
+  isMine: boolean;
+  captionBg: string;
+  captionFg: string;
+}) {
+  // Reserve a 4:3 layout slot when we don't have dimensions, otherwise
+  // use the real aspect ratio so the bubble doesn't jump when the image
+  // paints.
+  const aspect =
+    attachment.width && attachment.height
+      ? attachment.width / attachment.height
+      : 4 / 3;
+  // Clamp to a reasonable bubble width — full max-width 240 looks good
+  // on the typical phone without dominating the thread.
+  const width = 240;
+  const height = Math.round(width / aspect);
+
+  return (
+    <View>
+      <Image
+        source={{ uri: attachment.dataUrl }}
+        style={{
+          width,
+          height,
+          backgroundColor: '#00000020',
+        }}
+        resizeMode="cover"
+        accessibilityLabel={caption ? `Photo: ${caption}` : 'Photo'}
+      />
+      {caption.length > 0 && (
+        <View
+          style={{
+            backgroundColor: captionBg,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+          }}
+        >
+          <Text style={{ color: captionFg, fontSize: 14, lineHeight: 19 }}>
+            {caption}
+          </Text>
+        </View>
       )}
     </View>
   );

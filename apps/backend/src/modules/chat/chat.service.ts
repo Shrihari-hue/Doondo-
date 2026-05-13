@@ -219,10 +219,23 @@ export async function listMessages(
 
 // ─── Writes ─────────────────────────────────────────────────────────────────
 
+interface SendMessageInput {
+  body?: string;
+  kind?: 'text' | 'image' | 'voice' | 'video';
+  attachment?: {
+    dataUrl: string;
+    mimeType: string;
+    sizeBytes: number;
+    width?: number | null;
+    height?: number | null;
+    durationSeconds?: number | null;
+  } | null;
+}
+
 export async function sendMessage(
   userId: string,
   conversationId: string,
-  body: string,
+  input: SendMessageInput,
 ): Promise<PublicMessage> {
   const conversation = await assertParticipant(userId, conversationId);
   const isEmployer = conversation.employerId.toString() === userId;
@@ -230,17 +243,31 @@ export async function sendMessage(
     isEmployer ? conversation.seekerId : conversation.employerId
   ).toString();
 
+  const kind = input.kind ?? 'text';
+  const body = (input.body ?? '').trim();
+
   const sentAt = new Date();
   const msg = await MessageModel.create({
     conversationId: conversation._id,
     senderId: new Types.ObjectId(userId),
-    body: body.trim(),
-    kind: 'text',
+    body,
+    kind,
+    attachment: input.attachment ?? null,
   });
 
-  // Bump conversation denorm fields.
+  // Bump conversation denorm fields. Preview shows a friendly summary
+  // for non-text messages so the chat list reads sensibly.
   conversation.lastMessageAt = sentAt;
-  conversation.lastMessagePreview = preview(body);
+  conversation.lastMessagePreview =
+    kind === 'image'
+      ? body
+        ? `📷 ${body}`
+        : '📷 Photo'
+      : kind === 'voice'
+        ? '🎤 Voice note'
+        : kind === 'video'
+          ? '🎬 Video'
+          : preview(body);
   // Cast through unknown — Schema.Types.ObjectId vs Types.ObjectId is a
   // mongoose typing quirk; the runtime value is interchangeable.
   conversation.lastSenderId = new Types.ObjectId(userId) as unknown as typeof conversation.lastSenderId;
@@ -270,10 +297,14 @@ export async function sendMessage(
   });
 
   // Push (best-effort) — recipient gets a heads-up if they're offline.
+  // For media messages the push body uses the friendly preview so the
+  // notification doesn't look empty.
+  const pushBody =
+    kind === 'text' ? body : conversation.lastMessagePreview ?? 'New message';
   void sendChatMessagePush({
     recipientId,
     senderId: userId,
-    body: body.trim(),
+    body: pushBody,
     conversationId: conversation.id,
   });
 

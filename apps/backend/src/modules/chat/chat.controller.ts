@@ -66,7 +66,11 @@ export async function sendMessage(
     const message = await chatService.sendMessage(
       req.user.id,
       req.params.id!,
-      req.body.body as string,
+      {
+        body: req.body.body as string | undefined,
+        kind: req.body.kind as 'text' | 'image' | 'voice' | 'video' | undefined,
+        attachment: req.body.attachment ?? null,
+      },
     );
     ok(req, res, 201, { message });
   } catch (err) {

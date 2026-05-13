@@ -212,7 +212,22 @@ export interface PublicJob {
 
 // ─── Chat ────────────────────────────────────────────────────────────────────
 
-export type MessageKind = 'text' | 'system';
+export type MessageKind = 'text' | 'image' | 'voice' | 'video' | 'system';
+
+/**
+ * Attachment payload for non-text messages. For v1 the bytes ride along
+ * as a base64 data URL — the mobile bubble can render it directly via
+ * `Image source={{ uri }}`. Swap to a CDN URL later by keeping `dataUrl`
+ * optional and adding a `url` field.
+ */
+export interface MessageAttachment {
+  dataUrl: string;
+  mimeType: string;
+  sizeBytes: number;
+  width?: number | null;
+  height?: number | null;
+  durationSeconds?: number | null;
+}
 
 export interface PublicConversation {
   id: string;
@@ -240,7 +255,10 @@ export interface PublicMessage {
   conversationId: string;
   senderId: string;
   kind: MessageKind;
+  /** Text body or caption. Empty string for plain media messages. */
   body: string;
+  /** Present for image / voice / video messages. Null for text + system. */
+  attachment: MessageAttachment | null;
   readAt: string | null;
   createdAt: string;
 }

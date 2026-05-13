@@ -3,7 +3,16 @@
  */
 
 import { apiRequest } from './client';
-import type { PublicConversation, PublicMessage } from './types';
+import type { MessageAttachment, PublicConversation, PublicMessage } from './types';
+
+export interface SendMessageInput {
+  /** Text body or caption. Required for kind: 'text'. */
+  body?: string;
+  /** Message kind. Defaults to 'text' if attachment is absent. */
+  kind?: 'text' | 'image' | 'voice' | 'video';
+  /** Required when kind !== 'text'. */
+  attachment?: MessageAttachment | null;
+}
 
 export const chatApi = {
   listMine: () =>
@@ -27,11 +36,27 @@ export const chatApi = {
     );
   },
 
-  sendMessage: (conversationId: string, body: string) =>
-    apiRequest<{ message: PublicMessage }>(
+  /**
+   * Send a message. Accepts either a plain string (backwards-compatible
+   * for any existing callers) or a structured input with attachment.
+   */
+  sendMessage: (
+    conversationId: string,
+    input: string | SendMessageInput,
+  ) => {
+    const body =
+      typeof input === 'string'
+        ? { body: input }
+        : {
+            body: input.body,
+            kind: input.kind ?? (input.attachment ? 'image' : 'text'),
+            attachment: input.attachment ?? null,
+          };
+    return apiRequest<{ message: PublicMessage }>(
       `/conversations/${conversationId}/messages`,
-      { method: 'POST', body: { body } },
-    ),
+      { method: 'POST', body },
+    );
+  },
 
   markRead: (conversationId: string) =>
     apiRequest<{ conversation: PublicConversation }>(

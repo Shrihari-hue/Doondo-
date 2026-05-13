@@ -65,8 +65,11 @@ export function buildApp(): BuiltApp {
   app.use(compression());
   // 2mb fits the base64-encoded profile photo (~350KB raw → ~470KB encoded
   // + JSON overhead) with comfortable headroom.
-  app.use(express.json({ limit: '2mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+  // 4mb fits a compressed chat image (~1MB raw → ~1.4MB base64) plus
+  // future small attachments. Increase further if voice notes start
+  // running over.
+  app.use(express.json({ limit: '4mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '4mb' }));
   app.use(generalLimiter);
 
   // ─── Health ─────────────────────────────────────────────────────────────
