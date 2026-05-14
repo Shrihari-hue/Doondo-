@@ -279,6 +279,67 @@ export function ProfileScreen() {
             ) : null}
           </View>
 
+          {/* Member-since — small trust signal */}
+          <Text
+            style={{
+              color: 'rgba(255,255,255,0.62)',
+              fontSize: 11,
+              marginTop: spacing.sm,
+              fontWeight: '500',
+              letterSpacing: 0.3,
+            }}
+          >
+            Member since {formatMemberSince(user.createdAt)}
+          </Text>
+
+          {/* Profile completion bar */}
+          <View style={{ width: '100%', marginTop: spacing.lg }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                marginBottom: 6,
+              }}
+            >
+              <Text
+                style={{
+                  color: 'rgba(255,255,255,0.85)',
+                  fontSize: 11,
+                  fontWeight: '600',
+                  letterSpacing: 0.4,
+                }}
+              >
+                PROFILE COMPLETION
+              </Text>
+              <Text
+                style={{
+                  color: '#FFFFFF',
+                  fontSize: 11,
+                  fontWeight: '700',
+                }}
+              >
+                {profileCompletion}%
+              </Text>
+            </View>
+            <View
+              style={{
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: 'rgba(255,255,255,0.18)',
+                overflow: 'hidden',
+              }}
+            >
+              <View
+                style={{
+                  width: `${profileCompletion}%`,
+                  height: '100%',
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 3,
+                }}
+              />
+            </View>
+          </View>
+
           {photoError && (
             <Text
               style={{
@@ -747,4 +808,15 @@ function periodLabel(period: NonNullable<PublicUser['expectedSalary']>['period']
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function formatMemberSince(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      month: 'long',
+      year: 'numeric',
+    });
+  } catch {
+    return '—';
+  }
 }
