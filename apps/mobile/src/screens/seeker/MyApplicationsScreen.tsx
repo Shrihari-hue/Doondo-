@@ -27,9 +27,11 @@ import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, LoadingSpinner, EmptyState } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
+import { useUnratedApplications } from '@/hooks/useRatings';
 import { haptic } from '@/lib/haptics';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import type { ApplicationStatus, PublicApplication } from '@/api/types';
+import type { UnratedApp } from '@/api/ratings.api';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
@@ -44,6 +46,14 @@ function MyApplicationsInner() {
     queryFn: () => applicationsApi.listMine({ limit: 50 }),
     staleTime: 30_000,
   });
+
+  // Pending ratings the seeker can leave. Indexed by applicationId for
+  // O(1) lookup as we render each row.
+  const unratedQuery = useUnratedApplications();
+  const unratedByAppId = new Map<string, UnratedApp>();
+  for (const u of unratedQuery.data?.unrated ?? []) {
+    unratedByAppId.set(u.applicationId, u);
+  }
 
   const applications = query.data?.applications ?? [];
 
@@ -116,7 +126,9 @@ function MyApplicationsInner() {
               tintColor={theme.brand.hero}
             />
           }
-          renderItem={({ item }) => (
+          renderItem={({ item }) => {
+            const unrated = unratedByAppId.get(item.id);
+            return (
             <Pressable onPress={() => openJob(item.jobId)}>
               <View
                 style={{
@@ -185,9 +197,58 @@ function MyApplicationsInner() {
                     </Text>
                   </View>
                 )}
+
+                {/* Rate-now prompt — only when the application is hired
+                    AND the seeker hasn't yet rated. Tap pushes the
+                    LeaveRating modal with the employer pre-filled. */}
+                {unrated && (
+                  <Pressable
+                    onPress={() => {
+                      haptic('selection');
+                      navigation.navigate('LeaveRating', {
+                        applicationId: unrated.applicationId,
+                        revieweeName: unrated.otherPartyName,
+                        jobTitle: unrated.jobTitle,
+                      });
+                    }}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: spacing.sm,
+                      padding: spacing.sm,
+                      borderRadius: radii.md,
+                      backgroundColor: theme.brand.heroSubtle,
+                      borderWidth: 0.5,
+                      borderColor: theme.brand.heroBorder,
+                      opacity: pressed ? 0.7 : 1,
+                    })}
+                  >
+                    <Text style={{ fontSize: 16, lineHeight: 18 }}>⭐</Text>
+                    <Text
+                      style={{
+                        flex: 1,
+                        fontSize: 13,
+                        fontWeight: '600',
+                        color: theme.brand.hero,
+                      }}
+                    >
+                      Rate {unrated.otherPartyName}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: theme.brand.hero,
+                        fontWeight: '600',
+                      }}
+                    >
+                      Rate now ›
+                    </Text>
+                  </Pressable>
+                )}
               </View>
             </Pressable>
-          )}
+            );
+          }}
         />
       )}
     </Screen>

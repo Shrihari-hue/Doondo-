@@ -7,7 +7,7 @@
  * No fake data — empty state when there are zero hire credits yet.
  */
 
-import { FlatList, RefreshControl, Pressable, View } from 'react-native';
+import { Alert, FlatList, RefreshControl, Pressable, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
@@ -69,6 +69,19 @@ function MyEarningsInner() {
           >
             My Earnings
           </Text>
+          <Pressable
+            onPress={() => {
+              haptic('light');
+              Alert.alert(
+                'How earnings work',
+                "Doondo records the pay each employer agreed to when you were hired. The total here is the value of every contract you've won — it does NOT include money actually moved to your bank yet.\n\nDirect bank payouts arrive in a future update. Until then, payment happens between you and the employer the way you agreed (cash, UPI, etc.). If an employer doesn't pay, message Doondo Support.",
+                [{ text: 'Got it' }],
+              );
+            }}
+            hitSlop={12}
+          >
+            <Text style={{ fontSize: 18, color: '#FFFFFF' }}>ⓘ</Text>
+          </Pressable>
         </View>
 
         <Text
@@ -79,7 +92,7 @@ function MyEarningsInner() {
             letterSpacing: 0.4,
           }}
         >
-          Total earned
+          Contracts won
         </Text>
         <Text
           style={{
@@ -152,8 +165,8 @@ function MyEarningsInner() {
           <EmptyState
             glyph="💰"
             eyebrow="NO EARNINGS YET"
-            title="Get hired to start earning"
-            message="Every job you're hired for shows up here with the pay you agreed to."
+            title="No contracts yet"
+            message="Every job you're hired for shows up here with the pay the employer agreed to. Direct bank payouts arrive in a future update."
             cta={{
               label: 'Browse jobs',
               onPress: () => navigation.navigate('SeekerTabs', { screen: 'Jobs' } as never),

@@ -22,6 +22,7 @@ import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, Tex
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi, type ApplicantEntry, type SchedulePayload } from '@/api/applications.api';
 import { haptic } from '@/lib/haptics';
+import { useUnratedApplications } from '@/hooks/useRatings';
 import { openResume, formatResumeSize } from '@/lib/resume';
 import { ApplyCelebration } from '../seeker/apply-moment/ApplyCelebration';
 import type { AppStackParamList } from '@/navigation/types';
@@ -124,6 +125,14 @@ export function ApplicantDetailScreen() {
 
   const applicant = query.data;
 
+  // Pending rating — true when this applicant has been hired by us and
+  // we haven't left a rating yet. Drives the inline "Rate this worker"
+  // banner near the top of the screen.
+  const unratedQuery = useUnratedApplications();
+  const unratedHere = (unratedQuery.data?.unrated ?? []).find(
+    (u) => u.applicationId === applicant.id,
+  );
+
   return (
     <Screen>
       {showHired && (
@@ -147,6 +156,45 @@ export function ApplicantDetailScreen() {
             ← Back
           </Text>
         </Pressable>
+
+        {/* Rate-this-worker banner — only when this applicant is hired
+            and we haven't rated yet. Tap pushes the LeaveRating modal. */}
+        {unratedHere && (
+          <Pressable
+            onPress={() => {
+              haptic('selection');
+              navigation.navigate('LeaveRating', {
+                applicationId: unratedHere.applicationId,
+                revieweeName: unratedHere.otherPartyName,
+                jobTitle: unratedHere.jobTitle,
+              });
+            }}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.md,
+              padding: spacing.md,
+              borderRadius: 12,
+              backgroundColor: theme.brand.heroSubtle,
+              borderWidth: 0.5,
+              borderColor: theme.brand.heroBorder,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Text style={{ fontSize: 20 }}>⭐</Text>
+            <View style={{ flex: 1 }}>
+              <Text variant="bodyLarge" weight="medium" tone="hero">
+                Rate this worker
+              </Text>
+              <Text variant="footnote" tone="secondary" numberOfLines={1}>
+                Your review helps other employers find great hires.
+              </Text>
+            </View>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.brand.hero }}>
+              Rate ›
+            </Text>
+          </Pressable>
+        )}
 
         {/* Identity */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg }}>

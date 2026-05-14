@@ -38,6 +38,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { meApi } from '@/api/me.api';
 import { jobsApi } from '@/api/jobs.api';
 import { applicationsApi } from '@/api/applications.api';
+import { useUnratedApplications } from '@/hooks/useRatings';
 import { pickProfilePhoto } from '@/lib/photo';
 import { haptic } from '@/lib/haptics';
 import type { AppStackParamList } from '@/navigation/types';
@@ -69,6 +70,13 @@ export function ProfileScreen() {
   const applicationsCount = applicationsQuery.data?.applications.length ?? 0;
   const savedCount = savedQuery.data?.jobs.length ?? 0;
   const profileCompletion = user?.profileCompletion ?? 0;
+
+  // Pending ratings — surfaces a "Rate now" banner above the stats
+  // strip when the seeker has hires they haven't rated yet. Closes the
+  // last gap in the rating loop.
+  const unratedQuery = useUnratedApplications();
+  const unrated = unratedQuery.data?.unrated ?? [];
+  const pendingRatingsCount = unrated.length;
 
   const photoMutation = useMutation({
     mutationFn: (dataUrl: string) => meApi.updateProfile({ photoUrl: dataUrl }),
@@ -146,7 +154,7 @@ export function ProfileScreen() {
   return (
     <Screen edges={[]}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: spacing['5xl'] }}
+        contentContainerStyle={{ paddingBottom: spacing['7xl'] + spacing['2xl'] }}
         showsVerticalScrollIndicator={false}
       >
         {/* ─── Tall hero ─────────────────────────────────────────────── */}
@@ -354,11 +362,110 @@ export function ProfileScreen() {
           )}
         </LinearGradient>
 
-        {/* ─── Stats strip ───────────────────────────────────────────── */}
+        {/* ─── Pending ratings banner ────────────────────────────────
+            Shows above the stats strip whenever the seeker has hired
+            applications they haven't rated yet. Tapping the banner
+            either jumps straight to the leave-rating flow (if there's
+            exactly one) or routes to My Applications where each row
+            has its own rate prompt.
+        ──────────────────────────────────────────────────────────── */}
+        {pendingRatingsCount > 0 && (
+          <View
+            style={{
+              paddingHorizontal: spacing.xl,
+              marginTop: -spacing['2xl'],
+              marginBottom: spacing.md,
+            }}
+          >
+            <Pressable
+              onPress={() => {
+                haptic('selection');
+                if (pendingRatingsCount === 1 && unrated[0]) {
+                  navigation.navigate('LeaveRating', {
+                    applicationId: unrated[0].applicationId,
+                    revieweeName: unrated[0].otherPartyName,
+                    jobTitle: unrated[0].jobTitle,
+                  });
+                } else {
+                  navigation.navigate('MyApplications');
+                }
+              }}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing.md,
+                padding: spacing.md,
+                borderRadius: radii.lg,
+                backgroundColor: theme.bg.surface,
+                borderWidth: 0.5,
+                borderColor: theme.brand.heroBorder,
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.08,
+                shadowRadius: 14,
+                elevation: 3,
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  backgroundColor: theme.brand.heroSubtle,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 18 }}>⭐</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: theme.text.primary,
+                  }}
+                >
+                  {pendingRatingsCount === 1
+                    ? 'Rate your last employer'
+                    : `${pendingRatingsCount} ratings pending`}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: theme.text.secondary,
+                    marginTop: 2,
+                  }}
+                  numberOfLines={1}
+                >
+                  {pendingRatingsCount === 1 && unrated[0]
+                    ? `${unrated[0].otherPartyName} · ${unrated[0].jobTitle}`
+                    : 'Help other workers by leaving a review.'}
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: '600',
+                  color: theme.brand.hero,
+                }}
+              >
+                Rate ›
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* ─── Stats strip ─────────────────────────────────────────────
+            Only overlaps the hero with a negative top margin when the
+            pending-ratings banner ISN'T showing. When the banner is
+            there, IT's the element that overlaps; the stats strip then
+            stacks below it normally. */}
         <View
           style={{
             paddingHorizontal: spacing.xl,
-            marginTop: -spacing['2xl'],
+            marginTop: pendingRatingsCount > 0 ? 0 : -spacing['2xl'],
           }}
         >
           <View
@@ -723,38 +830,85 @@ function MenuRow({
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.md + 2,
-        opacity: pressed ? 0.6 : 1,
-      })}
+      android_ripple={{ color: 'rgba(0,0,0,0.04)' }}
+      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
     >
+      {/*
+        IMPORTANT: keep the layout `flexDirection: 'row'` on a real <View>
+        wrapper rather than on the Pressable's function-style. RN treats
+        the Pressable's style function differently across versions and on
+        some builds it was collapsing the children into a column —
+        causing the chevron to wrap below the subtitle line.
+      */}
       <View
         style={{
-          width: 44,
-          height: 44,
-          borderRadius: 12,
-          backgroundColor: tint,
+          flexDirection: 'row',
           alignItems: 'center',
-          justifyContent: 'center',
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md + 2,
         }}
       >
-        <Text style={{ fontSize: 22 }}>{icon}</Text>
-      </View>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ fontSize: 15, fontWeight: '600', color: theme.text.primary }}>
-          {label}
-        </Text>
-        {subtitle && (
-          <Text style={{ fontSize: 12, color: theme.text.tertiary }} numberOfLines={1}>
-            {subtitle}
+        {/* Icon tile — fixed-width column, doesn't flex */}
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            backgroundColor: tint,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: spacing.md,
+          }}
+        >
+          <Text style={{ fontSize: 22 }}>{icon}</Text>
+        </View>
+
+        {/* Label + optional subtitle — flexes to fill */}
+        <View style={{ flex: 1, paddingRight: spacing.sm }}>
+          <Text
+            style={{
+              fontSize: 15,
+              fontWeight: '600',
+              color: theme.text.primary,
+            }}
+            numberOfLines={1}
+          >
+            {label}
           </Text>
-        )}
+          {subtitle ? (
+            <Text
+              style={{
+                fontSize: 12,
+                color: theme.text.tertiary,
+                marginTop: 2,
+              }}
+              numberOfLines={1}
+            >
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+
+        {/* Chevron — fixed-width column at the right, vertically centered */}
+        <View
+          style={{
+            width: 20,
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 22,
+              color: theme.text.tertiary,
+              lineHeight: 24,
+            }}
+            allowFontScaling={false}
+          >
+            ›
+          </Text>
+        </View>
       </View>
-      <Text style={{ fontSize: 22, color: theme.text.tertiary }}>›</Text>
     </Pressable>
   );
 }
