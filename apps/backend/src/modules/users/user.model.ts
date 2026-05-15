@@ -46,6 +46,31 @@ export interface ExpectedSalary {
   currency: string;
 }
 
+/**
+ * A single past-job entry from the seeker's resume builder.
+ *
+ * Dates are stored as YYYY-MM strings (not Date) because most blue-collar
+ * workers can't remember the exact day they started a job, only the
+ * month. Storing as a string also dodges timezone weirdness.
+ *
+ * `current === true` means the seeker is still working that job; in
+ * that case `endDate` is ignored.
+ */
+export interface WorkExperience {
+  /** Employer / business name. */
+  company: string;
+  /** Role / job title (e.g. "Delivery rider", "Cook helper"). */
+  role: string;
+  /** YYYY-MM, e.g. "2023-04". */
+  startDate: string;
+  /** YYYY-MM. Null when `current === true`. */
+  endDate?: string | null;
+  /** Still working this job. When true we render "Present" in the UI. */
+  current: boolean;
+  /** Free-form 1-3 line description. Optional — many workers skip it. */
+  description?: string | null;
+}
+
 export const WORK_TYPES = ['solo', 'team'] as const;
 export type WorkType = (typeof WORK_TYPES)[number];
 
@@ -149,6 +174,12 @@ export interface User {
   resumeMimeType?: string | null;
   resumeSizeBytes?: number | null;
   resumeUploadedAt?: Date | null;
+  /**
+   * Generated resume — last 1-5 jobs the seeker walked through in the
+   * Resume Builder wizard. Lives alongside `resumeUrl`: a seeker can have
+   * an uploaded PDF AND a built-from-experience resume. Empty by default.
+   */
+  workHistory: WorkExperience[];
   /** Bookmarked Job IDs — small array, denormalised on the user. */
   savedJobs: Schema.Types.ObjectId[];
   /**
@@ -216,6 +247,8 @@ export interface PublicUser {
   resumeMimeType: string | null;
   resumeSizeBytes: number | null;
   resumeUploadedAt: string | null;
+  /** Work history entries from the Resume Builder. Empty when never used. */
+  workHistory: WorkExperience[];
   // Employer-only (null for seekers)
   companyName: string | null;
   businessType: BusinessType | null;
@@ -264,6 +297,28 @@ const geoPointSchema = new Schema(
         message: 'coordinates must be [lng, lat] with valid ranges',
       },
     },
+  },
+  { _id: false },
+);
+
+const workExperienceSchema = new Schema<WorkExperience>(
+  {
+    company: { type: String, required: true, trim: true, minlength: 1, maxlength: 120 },
+    role: { type: String, required: true, trim: true, minlength: 1, maxlength: 120 },
+    startDate: {
+      type: String,
+      required: true,
+      trim: true,
+      match: [/^\d{4}-\d{2}$/, 'startDate must be YYYY-MM'],
+    },
+    endDate: {
+      type: String,
+      default: null,
+      trim: true,
+      match: [/^\d{4}-\d{2}$/, 'endDate must be YYYY-MM'],
+    },
+    current: { type: Boolean, default: false },
+    description: { type: String, default: null, trim: true, maxlength: 500 },
   },
   { _id: false },
 );
@@ -369,6 +424,16 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
     resumeMimeType: { type: String, default: null, trim: true, maxlength: 80 },
     resumeSizeBytes: { type: Number, default: null, min: 0, max: 5_000_000 },
     resumeUploadedAt: { type: Date, default: null },
+    // Resume Builder — seeker-generated work history. Bounded to 10 entries
+    // to keep the document small (UI caps at 5 but we leave headroom).
+    workHistory: {
+      type: [workExperienceSchema],
+      default: [],
+      validate: {
+        validator: (v: WorkExperience[]) => Array.isArray(v) && v.length <= 10,
+        message: 'workHistory may not exceed 10 entries',
+      },
+    },
     // Employer-only (Phase 3) — left null on seeker accounts.
     companyName: { type: String, default: null, trim: true, maxlength: 120 },
     businessType: { type: String, enum: BUSINESS_TYPES, default: null },
@@ -445,6 +510,14 @@ userSchema.method('toPublicJSON', function (
     resumeMimeType: this.resumeMimeType ?? null,
     resumeSizeBytes: this.resumeSizeBytes ?? null,
     resumeUploadedAt: this.resumeUploadedAt ? this.resumeUploadedAt.toISOString() : null,
+    workHistory: (this.workHistory ?? []).map((w) => ({
+      company: w.company,
+      role: w.role,
+      startDate: w.startDate,
+      endDate: w.endDate ?? null,
+      current: Boolean(w.current),
+      description: w.description ?? null,
+    })),
     companyName: this.companyName ?? null,
     businessType: this.businessType ?? null,
     gstin: this.gstin ?? null,
@@ -474,7 +547,8 @@ function computeProfileCompletion(u: UserDocument): number {
     u.experienceYears != null,
     Boolean(u.availability),
     Boolean(u.location?.city),
-    Boolean(u.resumeUploadedAt),
+    // Counts if either: PDF resume uploaded OR Resume Builder has ≥1 entry.
+    Boolean(u.resumeUploadedAt) || (u.workHistory?.length ?? 0) > 0,
   ];
   const employerChecks = [
     Boolean(u.name && u.name.trim()),

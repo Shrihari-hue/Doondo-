@@ -694,6 +694,27 @@ export function ProfileScreen() {
             />
           </View>
 
+          {/* Resume menu */}
+          <SectionLabel>RESUME</SectionLabel>
+          <View style={cardBase(theme)}>
+            <MenuRow
+              icon="📝"
+              tint="#DDD6FE"
+              label={user.workHistory?.length ? 'My resume' : 'Build my resume'}
+              subtitle={
+                user.workHistory?.length
+                  ? `${user.workHistory.length} job${user.workHistory.length === 1 ? '' : 's'} · tap to view or share`
+                  : 'Walk through your last 1–5 jobs'
+              }
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate(
+                  user.workHistory?.length ? 'ResumePreview' : 'ResumeBuilder',
+                );
+              }}
+            />
+          </View>
+
           {/* Account menu */}
           <SectionLabel>ACCOUNT</SectionLabel>
           <View style={cardBase(theme)}>

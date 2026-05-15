@@ -16,6 +16,7 @@ import {
   updateEmployerLocationSchema,
   updateLocationSchema,
   updateProfileSchema,
+  updateWorkHistorySchema,
   uploadResumeSchema,
 } from './me.schemas';
 
@@ -68,5 +69,15 @@ router.post(
   controller.uploadResume,
 );
 router.delete('/resume', requireAuth, requireRole('seeker'), controller.removeResume);
+
+// Resume Builder — replace the seeker's work history with the supplied list.
+// PUT semantics: array on the wire is the array stored. Empty array clears.
+router.put(
+  '/work-history',
+  requireAuth,
+  requireRole('seeker'),
+  validate(updateWorkHistorySchema),
+  controller.updateWorkHistory,
+);
 
 export default router;

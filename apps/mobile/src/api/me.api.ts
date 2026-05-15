@@ -3,7 +3,13 @@
  */
 
 import { apiRequest } from './client';
-import type { Availability, BusinessType, JobType, PublicUser } from './types';
+import type {
+  Availability,
+  BusinessType,
+  JobType,
+  PublicUser,
+  WorkExperience,
+} from './types';
 
 export interface UpdateProfilePayload {
   name?: string;
@@ -52,6 +58,24 @@ export interface UploadResumePayload {
   sizeBytes: number;
 }
 
+/**
+ * Resume Builder entries. The client sends `current: true` instead of
+ * an endDate for the currently-held job; the server normalises endDate
+ * to null in that case.
+ */
+export interface WorkHistoryEntryInput {
+  company: string;
+  role: string;
+  startDate: string; // YYYY-MM
+  endDate?: string | null; // YYYY-MM; omit/null when current
+  current: boolean;
+  description?: string | null;
+}
+
+export interface UpdateWorkHistoryPayload {
+  entries: WorkHistoryEntryInput[];
+}
+
 export const meApi = {
   updateProfile: (body: UpdateProfilePayload) =>
     apiRequest<{ user: PublicUser }>(`/me/profile`, { method: 'PATCH', body }),
@@ -79,4 +103,10 @@ export const meApi = {
 
   removeResume: () =>
     apiRequest<{ user: PublicUser }>(`/me/resume`, { method: 'DELETE' }),
+
+  updateWorkHistory: (body: UpdateWorkHistoryPayload) =>
+    apiRequest<{ user: PublicUser }>(`/me/work-history`, { method: 'PUT', body }),
 };
+
+// Re-export so screens can `import type { WorkExperience }` from one file.
+export type { WorkExperience };

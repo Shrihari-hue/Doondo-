@@ -233,6 +233,23 @@ function SettingsInner() {
           </Text>
         </Section>
 
+        {/* Safety */}
+        <Section title="SAFETY">
+          <View style={cardStyle(theme)}>
+            <RowAction
+              label="Safety SOS"
+              value="Set up emergency contact"
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('Sos');
+              }}
+            />
+          </View>
+          <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 6 }}>
+            One-tap help to a trusted contact if you ever feel unsafe at work.
+          </Text>
+        </Section>
+
         {/* Account */}
         <Section title="ACCOUNT">
           <View style={cardStyle(theme)}>

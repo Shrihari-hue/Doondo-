@@ -12,7 +12,18 @@
 
 import * as SecureStore from 'expo-secure-store';
 
-export type SecureKey = 'refreshToken' | 'themePref';
+export type SecureKey =
+  | 'refreshToken'
+  | 'themePref'
+  | 'languagePref'
+  | 'notificationsEnabled'
+  | 'onboardingSeen'
+  /**
+   * JSON blob: { name: string, phone: string }. The seeker's chosen
+   * emergency contact for the SOS feature. Lives on-device only —
+   * never synced to the server. Cleared if the user removes it.
+   */
+  | 'sosContact';
 
 const PREFIX = 'doondo:';
 const memoryFallback = new Map<string, string>();

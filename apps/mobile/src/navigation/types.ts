@@ -14,6 +14,8 @@ import type { UserRole } from '@/api/types';
 import type { WorkType } from '@/api/types';
 
 export type AuthStackParamList = {
+  /** First-launch walkthrough (3 slides). Gated by a secure-store flag. */
+  Onboarding: undefined;
   RolePicker: undefined;
   Welcome: undefined;
   Login: undefined;
@@ -114,6 +116,14 @@ export type AppStackParamList = {
   MyEarnings: undefined;
   /** Modal: offline-saved jobs list. */
   DownloadCenter: undefined;
+  /** Modal: public employer detail (the "About this employer" page). */
+  EmployerDetail: { userId: string };
+  /** Modal: worker-safety SOS — pick contact + trigger help SMS. */
+  Sos: undefined;
+  /** Modal: guided resume builder (1-5 jobs wizard). */
+  ResumeBuilder: undefined;
+  /** Modal: read-only resume preview, sharable. */
+  ResumePreview: undefined;
 };
 
 declare global {

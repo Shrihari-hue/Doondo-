@@ -138,6 +138,53 @@ export const updateEmployerLocationSchema = z.object({
     .strict(),
 });
 
+/**
+ * Resume Builder — PUT-style endpoint: client sends the full work-history
+ * array and the server replaces what's stored. Empty array clears the
+ * resume. Max 5 entries from the UI; the model permits 10 for headroom.
+ *
+ * `current === true` is mutually exclusive with `endDate`: we let the
+ * client send both shapes and normalise in the controller.
+ */
+const workExperienceEntrySchema = z
+  .object({
+    company: z.string().trim().min(1).max(120),
+    role: z.string().trim().min(1).max(120),
+    startDate: z.string().regex(/^\d{4}-\d{2}$/, 'startDate must be YYYY-MM'),
+    endDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}$/, 'endDate must be YYYY-MM')
+      .nullable()
+      .optional(),
+    current: z.boolean().default(false),
+    description: z.string().trim().max(500).nullable().optional(),
+  })
+  .strict()
+  .superRefine((v, ctx) => {
+    if (!v.current && !v.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endDate'],
+        message: 'endDate is required unless current is true',
+      });
+    }
+    if (v.endDate && v.startDate > v.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endDate'],
+        message: 'endDate must be on or after startDate',
+      });
+    }
+  });
+
+export const updateWorkHistorySchema = z.object({
+  body: z
+    .object({
+      entries: z.array(workExperienceEntrySchema).max(5),
+    })
+    .strict(),
+});
+
 export const updateLocationSchema = z.object({
   body: z
     .object({

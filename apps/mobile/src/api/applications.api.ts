@@ -7,6 +7,7 @@ import type {
   ApplicationStatus,
   InterviewMode,
   PublicApplication,
+  WorkExperience,
 } from './types';
 
 export interface SchedulePayload {
@@ -34,6 +35,8 @@ export interface ApplicantEntry extends PublicApplication {
     resumeMimeType: string | null;
     resumeSizeBytes: number | null;
     resumeUploadedAt: string | null;
+    /** Work history entries from the Resume Builder (may be empty). */
+    workHistory: WorkExperience[];
   };
 }
 

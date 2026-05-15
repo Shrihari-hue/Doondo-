@@ -85,6 +85,21 @@ export type ApplicationStatus =
   | 'hired'
   | 'withdrawn';
 
+/**
+ * A single past-job entry from the Resume Builder. `startDate` /
+ * `endDate` are YYYY-MM strings; `endDate` is null when `current === true`.
+ */
+export interface WorkExperience {
+  company: string;
+  role: string;
+  /** YYYY-MM */
+  startDate: string;
+  /** YYYY-MM, null when still working that job. */
+  endDate: string | null;
+  current: boolean;
+  description: string | null;
+}
+
 export type VerificationStatus =
   | 'unverified'
   | 'pending'
@@ -140,6 +155,12 @@ export interface PublicUser {
   resumeMimeType: string | null;
   resumeSizeBytes: number | null;
   resumeUploadedAt: string | null;
+  /**
+   * Resume-builder entries — the seeker's last 1-5 jobs, captured via the
+   * guided wizard. Lives alongside `resumeUrl`: a seeker can have a
+   * scanned/uploaded PDF AND a builder resume. Empty when never used.
+   */
+  workHistory: WorkExperience[];
   // Employer (Phase 3)
   companyName: string | null;
   businessType:

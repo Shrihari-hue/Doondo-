@@ -34,6 +34,10 @@ import { NewChatScreen } from '@/screens/chat/NewChatScreen';
 import { SettingsScreen } from '@/screens/seeker/SettingsScreen';
 import { MyEarningsScreen } from '@/screens/seeker/MyEarningsScreen';
 import { DownloadCenterScreen } from '@/screens/seeker/DownloadCenterScreen';
+import { EmployerDetailScreen } from '@/screens/seeker/EmployerDetailScreen';
+import { SosScreen } from '@/screens/seeker/SosScreen';
+import { ResumeBuilderScreen } from '@/screens/seeker/ResumeBuilderScreen';
+import { ResumePreviewScreen } from '@/screens/seeker/ResumePreviewScreen';
 import { JobApplicantsScreen } from '@/screens/employer/JobApplicantsScreen';
 import { ApplicantDetailScreen } from '@/screens/employer/ApplicantDetailScreen';
 import { PostJobScreen } from '@/screens/employer/PostJobScreen';
@@ -179,6 +183,26 @@ export function AppNavigator() {
       <Stack.Screen
         name="DownloadCenter"
         component={DownloadCenterScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="EmployerDetail"
+        component={EmployerDetailScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Sos"
+        component={SosScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="ResumeBuilder"
+        component={ResumeBuilderScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="ResumePreview"
+        component={ResumePreviewScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
     </Stack.Navigator>

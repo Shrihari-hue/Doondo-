@@ -19,6 +19,7 @@ import ratingsRouter from '@/modules/ratings/rating.routes';
 import notificationsRouter from '@/modules/notifications/notification.routes';
 import * as applicationsController from '@/modules/applications/application.controller';
 import * as ratingsController from '@/modules/ratings/rating.controller';
+import * as employersController from '@/modules/employers/employer.controller';
 import {
   applicantsForJobSchema,
   applyParamsSchema,
@@ -34,6 +35,10 @@ v1.use('/conversations', chatRouter);
 v1.use('/verification', verificationRouter);
 v1.use('/ratings', ratingsRouter);
 v1.use('/notifications', notificationsRouter);
+
+// Public employer detail. Anyone (even unauthenticated) can pull this up —
+// it's the same trust signal a seeker uses to decide whether to apply.
+v1.get('/employers/:id', employersController.getEmployerProfile);
 
 // Per-user ratings read endpoint — lives under /users/:id/ratings because
 // that's the natural URL for "this user's reviews".

@@ -11,6 +11,7 @@ import {
   UserModel,
   type ExpectedSalary,
   type PublicUser,
+  type WorkExperience,
 } from '@/modules/users/user.model';
 
 interface UpdateProfileInput {
@@ -175,6 +176,48 @@ export async function uploadResume(
   user.resumeMimeType = input.mimeType;
   user.resumeSizeBytes = input.sizeBytes;
   user.resumeUploadedAt = new Date();
+  await user.save();
+  return user.toPublicJSON();
+}
+
+// ─── Resume Builder ────────────────────────────────────────────────────────
+
+interface UpdateWorkHistoryInput {
+  entries: Array<{
+    company: string;
+    role: string;
+    startDate: string;
+    endDate?: string | null;
+    current?: boolean;
+    description?: string | null;
+  }>;
+}
+
+/**
+ * Replace the user's work history with the supplied list. PUT-style:
+ * the array on the wire is the array stored. Sorting is left to the
+ * client — but we defensively re-sort newest-first on read in the UI.
+ *
+ * Normalises `current === true` so endDate is always null in that case,
+ * and trims strings so user-pasted whitespace doesn't accumulate.
+ */
+export async function updateWorkHistory(
+  userId: string,
+  input: UpdateWorkHistoryInput,
+): Promise<PublicUser> {
+  const user = await UserModel.findById(userId);
+  if (!user) throw errors.notFound('User not found');
+
+  const cleaned: WorkExperience[] = input.entries.map((e) => ({
+    company: e.company.trim(),
+    role: e.role.trim(),
+    startDate: e.startDate,
+    endDate: e.current ? null : e.endDate ?? null,
+    current: Boolean(e.current),
+    description: e.description?.trim() || null,
+  }));
+
+  user.workHistory = cleaned;
   await user.save();
   return user.toPublicJSON();
 }

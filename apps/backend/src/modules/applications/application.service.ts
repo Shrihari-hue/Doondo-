@@ -462,6 +462,15 @@ interface ApplicantListEntry extends PublicApplication {
     resumeMimeType: string | null;
     resumeSizeBytes: number | null;
     resumeUploadedAt: string | null;
+    /** Work history entries from the Resume Builder. Empty when unused. */
+    workHistory: Array<{
+      company: string;
+      role: string;
+      startDate: string;
+      endDate: string | null;
+      current: boolean;
+      description: string | null;
+    }>;
   };
 }
 
@@ -487,7 +496,7 @@ export async function listApplicantsForEmployer(
 
   const [seekers, jobs] = await Promise.all([
     UserModel.find({ _id: { $in: seekerIds } })
-      .select('name photoUrl skills isVerified location resumeFilename resumeMimeType resumeSizeBytes resumeUploadedAt +resumeUrl')
+      .select('name photoUrl skills isVerified location resumeFilename resumeMimeType resumeSizeBytes resumeUploadedAt workHistory +resumeUrl')
       .lean(),
     JobModel.find({ _id: { $in: jobIds } }),
   ]);
@@ -511,6 +520,14 @@ export async function listApplicantsForEmployer(
         resumeUploadedAt: s.resumeUploadedAt
           ? (s.resumeUploadedAt as Date).toISOString()
           : null,
+        workHistory: (s.workHistory ?? []).map((w) => ({
+          company: w.company,
+          role: w.role,
+          startDate: w.startDate,
+          endDate: w.endDate ?? null,
+          current: Boolean(w.current),
+          description: w.description ?? null,
+        })),
       },
     ]),
   );
@@ -567,6 +584,14 @@ export async function listApplicantsForJob(
         resumeUploadedAt: s.resumeUploadedAt
           ? (s.resumeUploadedAt as Date).toISOString()
           : null,
+        workHistory: (s.workHistory ?? []).map((w) => ({
+          company: w.company,
+          role: w.role,
+          startDate: w.startDate,
+          endDate: w.endDate ?? null,
+          current: Boolean(w.current),
+          description: w.description ?? null,
+        })),
       },
     ]),
   );

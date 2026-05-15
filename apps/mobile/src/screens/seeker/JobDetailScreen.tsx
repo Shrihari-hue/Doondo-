@@ -267,17 +267,37 @@ function JobDetailScreenInner() {
           }}
         >
           <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' }}>
-            <Avatar
-              name={employerName}
-              photoUrl={job.employer?.photoUrl ?? null}
-              size={56}
-              premium={job.employer?.isVerified}
-            />
+            <Pressable
+              onPress={() => {
+                if (!job.employer?.id) return;
+                haptic('selection');
+                navigation.navigate('EmployerDetail', { userId: job.employer.id });
+              }}
+              hitSlop={8}
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+            >
+              <Avatar
+                name={employerName}
+                photoUrl={job.employer?.photoUrl ?? null}
+                size={56}
+                premium={job.employer?.isVerified}
+              />
+            </Pressable>
             <View style={{ flex: 1, gap: 4 }}>
-              <Text variant="footnote" tone="tertiary" numberOfLines={1}>
-                {employerName}
-                {job.employer?.isVerified ? '  ✓' : ''}
-              </Text>
+              <Pressable
+                onPress={() => {
+                  if (!job.employer?.id) return;
+                  haptic('selection');
+                  navigation.navigate('EmployerDetail', { userId: job.employer.id });
+                }}
+                hitSlop={6}
+              >
+                <Text variant="footnote" tone="tertiary" numberOfLines={1}>
+                  {employerName}
+                  {job.employer?.isVerified ? '  ✓' : ''}
+                  {job.employer?.id ? '  ›' : ''}
+                </Text>
+              </Pressable>
               <Text variant="title" weight="medium" numberOfLines={2}>
                 {job.title}
               </Text>

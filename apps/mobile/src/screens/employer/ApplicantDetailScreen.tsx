@@ -24,9 +24,10 @@ import { applicationsApi, type ApplicantEntry, type SchedulePayload } from '@/ap
 import { haptic } from '@/lib/haptics';
 import { useUnratedApplications } from '@/hooks/useRatings';
 import { openResume, formatResumeSize } from '@/lib/resume';
+import { formatRange, formatTenure, sortWorkHistory, tenureMonths } from '@/lib/workHistory';
 import { ApplyCelebration } from '../seeker/apply-moment/ApplyCelebration';
 import type { AppStackParamList } from '@/navigation/types';
-import type { ApplicationStatus, InterviewMode, PublicInterview } from '@/api/types';
+import type { ApplicationStatus, InterviewMode, PublicInterview, WorkExperience } from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'ApplicantDetail'>;
 type Route = RouteProp<AppStackParamList, 'ApplicantDetail'>;
@@ -276,6 +277,11 @@ export function ApplicantDetailScreen() {
           </View>
         )}
 
+        {/* Built work history (from Resume Builder) */}
+        <WorkHistorySection
+          history={applicant.seeker?.workHistory ?? []}
+        />
+
         {/* Resume */}
         <ResumeRow seeker={applicant.seeker ?? null} />
 
@@ -286,6 +292,87 @@ export function ApplicantDetailScreen() {
         <ActionPanel applicant={applicant} onAction={(t) => transition.mutate(t)} pending={transition.isPending} />
       </ScrollView>
     </Screen>
+  );
+}
+
+// ─── Work history (Resume Builder) ──────────────────────────────────────────
+
+/**
+ * Renders the candidate's built-resume entries. Distinct from the
+ * uploaded-PDF Resume card below — a seeker can have both, neither, or
+ * only one. We sort newest-first; current jobs always lead.
+ */
+function WorkHistorySection({ history }: { history: WorkExperience[] }) {
+  const { theme } = useTheme();
+  if (history.length === 0) return null;
+  const sorted = sortWorkHistory(history);
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Text
+        variant="footnote"
+        weight="medium"
+        tone="secondary"
+        style={{ letterSpacing: 1.0 }}
+      >
+        WORK HISTORY · {sorted.length}
+      </Text>
+      <View style={{ gap: spacing.sm }}>
+        {sorted.map((e, i) => {
+          const months = tenureMonths(e);
+          return (
+            <Card key={`${e.company}-${e.startDate}-${i}`}>
+              <View style={{ gap: spacing.xs }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'flex-start',
+                    gap: spacing.sm,
+                  }}
+                >
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text variant="bodyLarge" weight="medium" numberOfLines={1}>
+                      {e.role}
+                    </Text>
+                    <Text variant="body" tone="secondary" numberOfLines={1}>
+                      {e.company}
+                    </Text>
+                  </View>
+                  {e.current ? (
+                    <View
+                      style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 2,
+                        borderRadius: radii.pill,
+                        backgroundColor: theme.status.successSubtle,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 10,
+                          fontWeight: '700',
+                          color: theme.status.success,
+                        }}
+                      >
+                        CURRENT
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text variant="footnote" tone="tertiary">
+                  {formatRange(e)}
+                  {months > 0 ? ` · ${formatTenure(months)}` : ''}
+                </Text>
+                {e.description ? (
+                  <Text variant="body" tone="secondary">
+                    {e.description}
+                  </Text>
+                ) : null}
+              </View>
+            </Card>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
