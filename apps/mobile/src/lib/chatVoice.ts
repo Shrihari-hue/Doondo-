@@ -14,9 +14,15 @@
  *   - File format: m4a (AAC) — small, broad playback support
  *   - Encoded as base64 data URL like the chat image flow. Cap at the
  *     same ~1.4MB ceiling — generous for a 60s clip at our bitrate.
+ *
+ * SDK 54 note: expo-audio dropped the legacy `Audio` namespace — the
+ * permission + audio-mode helpers are now plain named exports, and the
+ * recorder is a class you `new` directly. This file uses that API and
+ * resolves the symbols defensively so a partial install doesn't crash
+ * the chat thread the first time a seeker holds the mic button.
  */
 
-import { Audio } from 'expo-audio';
+import * as ExpoAudio from 'expo-audio';
 import * as FileSystem from 'expo-file-system';
 
 export interface VoiceRecordingResult {
@@ -56,26 +62,79 @@ const RECORDING_OPTIONS = {
   },
 };
 
+// Resolve the expo-audio surface defensively. The v1.x package exposes
+// these as named exports, but if a stale build references the legacy
+// `Audio.*` namespace we fall back to that instead of crashing.
+const audioApi = ExpoAudio as unknown as {
+  requestRecordingPermissionsAsync?: () => Promise<{ granted: boolean }>;
+  setAudioModeAsync?: (mode: Record<string, unknown>) => Promise<void>;
+  AudioRecorder?: new (options: typeof RECORDING_OPTIONS) => RecorderInstance;
+  Audio?: {
+    requestRecordingPermissionsAsync?: () => Promise<{ granted: boolean }>;
+    setAudioModeAsync?: (mode: Record<string, unknown>) => Promise<void>;
+    AudioRecorder?: {
+      createAsync: (options: typeof RECORDING_OPTIONS) => Promise<RecorderInstance>;
+    };
+  };
+};
+
+interface RecorderInstance {
+  uri: string | null;
+  prepareToRecordAsync?: () => Promise<void>;
+  record: () => Promise<void> | void;
+  stop: () => Promise<void>;
+}
+
+async function requestPermission(): Promise<{ granted: boolean }> {
+  if (audioApi.requestRecordingPermissionsAsync) {
+    return audioApi.requestRecordingPermissionsAsync();
+  }
+  if (audioApi.Audio?.requestRecordingPermissionsAsync) {
+    return audioApi.Audio.requestRecordingPermissionsAsync();
+  }
+  throw new Error('Voice recording is not supported on this device.');
+}
+
+async function applyAudioMode(): Promise<void> {
+  const set =
+    audioApi.setAudioModeAsync ?? audioApi.Audio?.setAudioModeAsync ?? null;
+  if (!set) return; // best-effort — recording can still work without explicit mode set
+  await set({ allowsRecording: true, playsInSilentMode: true });
+}
+
+async function createRecorder(): Promise<RecorderInstance> {
+  // New SDK 54 API — `new ExpoAudio.AudioRecorder(options)` then prepare + record.
+  if (audioApi.AudioRecorder) {
+    const r = new audioApi.AudioRecorder(RECORDING_OPTIONS);
+    if (typeof r.prepareToRecordAsync === 'function') {
+      await r.prepareToRecordAsync();
+    }
+    return r;
+  }
+  // Legacy `Audio.AudioRecorder.createAsync` fallback.
+  if (audioApi.Audio?.AudioRecorder?.createAsync) {
+    return audioApi.Audio.AudioRecorder.createAsync(RECORDING_OPTIONS);
+  }
+  throw new Error('Voice recording is not supported on this device.');
+}
+
 /**
  * VoiceRecorder — start, stop, cancel. Holds the live recorder reference
  * internally so the caller just toggles state.
  */
 export class VoiceRecorder {
-  private recorder: Audio.AudioRecorder | null = null;
+  private recorder: RecorderInstance | null = null;
   private startedAt = 0;
 
   /** Throws if permission is denied. */
   async start(): Promise<void> {
-    const perm = await Audio.requestRecordingPermissionsAsync();
+    const perm = await requestPermission();
     if (!perm.granted) {
       throw new Error('Microphone permission denied');
     }
-    await Audio.setAudioModeAsync({
-      allowsRecording: true,
-      playsInSilentMode: true,
-    });
+    await applyAudioMode();
 
-    const recorder = await Audio.AudioRecorder.createAsync(RECORDING_OPTIONS);
+    const recorder = await createRecorder();
     this.recorder = recorder;
     this.startedAt = Date.now();
     await recorder.record();

@@ -275,6 +275,50 @@ export async function sendChatMessagePush(input: {
 }
 
 /**
+ * Push + in-app row when a freshly-posted job matches one of the seeker's
+ * saved Job Alerts. Targets a single seeker (not a fan-out) because the
+ * alert matcher iterates per seeker. Deep-links straight to JobDetail so
+ * a tap takes them right to the posting.
+ */
+export async function sendJobAlertMatchPush(input: {
+  recipientId: string;
+  alertName: string;
+  jobId: string;
+  jobTitle: string;
+  city?: string | null;
+}): Promise<void> {
+  const title = `New match — ${input.alertName}`;
+  const body = input.city
+    ? `${input.jobTitle} — ${input.city}`
+    : input.jobTitle;
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'job_alert_match',
+    title,
+    body,
+    deeplink: { screen: 'JobDetail', params: { jobId: input.jobId } },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'jobs',
+      data: {
+        type: 'job_alert:match',
+        jobId: input.jobId,
+      },
+    })),
+  );
+}
+
+/**
  * Push + in-app row when someone is rated. The push module fires this from
  * the ratings service after a successful create.
  */

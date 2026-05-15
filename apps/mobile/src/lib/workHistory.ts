@@ -80,3 +80,53 @@ export function currentMonth(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
+
+// ─── Suggested Job Alert from work history ──────────────────────────────────
+
+import type { JobType, PublicUser } from '@/api/types';
+
+export interface SuggestedAlert {
+  name: string;
+  query: string | null;
+  city: string | null;
+  jobTypes: JobType[];
+  urgentOnly: boolean;
+}
+
+/**
+ * Derive a Job Alert suggestion from the seeker's Resume Builder data.
+ *
+ * Heuristic: take the seeker's most recent role (current first, else
+ * newest by startDate) and use it as both the alert name and the search
+ * query. City defaults to the seeker's saved home city. Job types
+ * inherit from the seeker's `preferredJobTypes` (empty list = "any").
+ *
+ * Returns `null` when there's nothing useful to seed from — caller
+ * should just hide the suggestion banner.
+ */
+export function suggestedAlertFromUser(user: PublicUser): SuggestedAlert | null {
+  const history = user.workHistory ?? [];
+  if (history.length === 0) return null;
+
+  const sorted = sortWorkHistory(history);
+  const latest = sorted[0];
+  if (!latest || !latest.role.trim()) return null;
+
+  const role = latest.role.trim();
+  const city = user.location?.city?.trim() || null;
+
+  // Title-case for the alert name so it reads cleanly in the list.
+  const titleCased = role
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => (w.length ? w[0]!.toUpperCase() + w.slice(1) : w))
+    .join(' ');
+
+  return {
+    name: city ? `${titleCased} in ${city}` : `${titleCased} jobs`,
+    query: role.toLowerCase(),
+    city,
+    jobTypes: user.preferredJobTypes ?? [],
+    urgentOnly: false,
+  };
+}

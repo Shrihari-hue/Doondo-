@@ -20,7 +20,7 @@ import { Alert, Pressable, ScrollView, Share, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { spacing, radii, blue } from '@doondo/tokens';
@@ -31,12 +31,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/auth.store';
 import { haptic } from '@/lib/haptics';
 import { meApi } from '@/api/me.api';
+import { alertsApi } from '@/api/alerts.api';
 import { ApiError } from '@/api/errors';
 import {
   formatRange,
   formatTenure,
   sortWorkHistory,
+  suggestedAlertFromUser,
   tenureMonths,
+  type SuggestedAlert,
 } from '@/lib/workHistory';
 import type { AppStackParamList } from '@/navigation/types';
 import type { PublicUser, WorkExperience } from '@/api/types';
@@ -52,6 +55,19 @@ function ResumePreviewInner() {
   const setStore = useAuthStore.setState;
 
   const entries = sortWorkHistory(user?.workHistory ?? []);
+
+  // Pull the seeker's alerts so we can decide whether to surface the
+  // "Set up a Job Alert" suggestion. Hidden as soon as they have ≥1 alert.
+  const alertsQuery = useQuery({
+    queryKey: ['alerts', 'me'],
+    queryFn: () => alertsApi.list(),
+    staleTime: 60_000,
+    enabled: !!user,
+  });
+  const hasAnyAlert = (alertsQuery.data?.alerts.length ?? 0) > 0;
+  const suggestion = user ? suggestedAlertFromUser(user) : null;
+  const showSuggestion =
+    !!suggestion && !alertsQuery.isLoading && !hasAnyAlert;
 
   const clearHistory = useMutation({
     mutationFn: () => meApi.updateWorkHistory({ entries: [] }),
@@ -236,6 +252,22 @@ function ResumePreviewInner() {
           </LinearGradient>
         </View>
 
+        {/* Alert suggestion — appears once after first save, vanishes
+           once the user creates any alert. */}
+        {showSuggestion && suggestion ? (
+          <View
+            style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg }}
+          >
+            <SuggestionCard
+              suggestion={suggestion}
+              onAccept={() => {
+                haptic('selection');
+                navigation.navigate('JobAlertForm', { suggestion });
+              }}
+            />
+          </View>
+        ) : null}
+
         {/* Bio */}
         {user.bio ? (
           <Section title="ABOUT ME">
@@ -314,7 +346,8 @@ function ResumePreviewInner() {
         </Text>
       </ScrollView>
 
-      {/* Sticky CTAs */}
+      {/* Sticky CTAs — hardcoded colors so the buttons stay visible on
+         every build regardless of theme-token resolution. */}
       <View
         style={{
           paddingHorizontal: spacing.xl,
@@ -334,12 +367,14 @@ function ResumePreviewInner() {
             paddingHorizontal: spacing.md,
             borderRadius: radii.pill,
             alignItems: 'center',
+            justifyContent: 'center',
             borderWidth: 1,
-            borderColor: theme.border.default,
+            borderColor: '#B91C1C',
+            backgroundColor: '#FFFFFF',
             opacity: pressed ? 0.7 : 1,
           })}
         >
-          <Text style={{ fontSize: 14, fontWeight: '600', color: theme.status.danger }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#B91C1C' }}>
             Delete
           </Text>
         </Pressable>
@@ -350,8 +385,14 @@ function ResumePreviewInner() {
             paddingVertical: spacing.md,
             borderRadius: radii.pill,
             alignItems: 'center',
-            backgroundColor: blue[600],
+            justifyContent: 'center',
+            backgroundColor: '#2563EB',
             opacity: pressed ? 0.85 : 1,
+            shadowColor: '#2563EB',
+            shadowOpacity: 0.25,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 4,
           })}
         >
           <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>
@@ -401,6 +442,95 @@ function PillTag({ label, icon }: { label: string; icon: string }) {
       <Text style={{ fontSize: 12, color: '#FFFFFF', fontWeight: '500' }}>
         {label}
       </Text>
+    </View>
+  );
+}
+
+function SuggestionCard({
+  suggestion,
+  onAccept,
+}: {
+  suggestion: SuggestedAlert;
+  onAccept: () => void;
+}) {
+  const { theme } = useTheme();
+  return (
+    <View
+      style={{
+        backgroundColor: theme.bg.surface,
+        borderRadius: radii.lg,
+        borderWidth: 0.5,
+        borderColor: theme.border.subtle,
+        padding: spacing.md,
+        gap: spacing.sm,
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        elevation: 1,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <View
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: '#FEE2E2',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ fontSize: 16 }}>🔔</Text>
+        </View>
+        <Text
+          style={{
+            fontSize: 14,
+            fontWeight: '700',
+            color: theme.text.primary,
+            flex: 1,
+          }}
+        >
+          Get notified about jobs like these?
+        </Text>
+      </View>
+      <Text
+        style={{
+          fontSize: 13,
+          lineHeight: 19,
+          color: theme.text.secondary,
+        }}
+      >
+        We can ping you when employers post{' '}
+        <Text style={{ fontWeight: '700', color: theme.text.primary }}>
+          {suggestion.query ?? suggestion.name}
+        </Text>
+        {suggestion.city ? (
+          <>
+            {' '}roles in{' '}
+            <Text style={{ fontWeight: '700', color: theme.text.primary }}>
+              {suggestion.city}
+            </Text>
+          </>
+        ) : null}
+        . You can edit or remove the alert any time.
+      </Text>
+      <Pressable
+        onPress={onAccept}
+        style={({ pressed }) => ({
+          marginTop: 4,
+          alignSelf: 'flex-start',
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          borderRadius: radii.pill,
+          backgroundColor: blue[600],
+          opacity: pressed ? 0.85 : 1,
+        })}
+      >
+        <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
+          Set up alert
+        </Text>
+      </Pressable>
     </View>
   );
 }

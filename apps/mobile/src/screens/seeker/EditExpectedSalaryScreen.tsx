@@ -322,13 +322,68 @@ function EditExpectedSalaryInner() {
         )}
 
         <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
-          <Button
-            label={save.isPending ? 'Saving…' : 'Save'}
+          {/* Hardcoded blue/white — the Save here is the moment the user
+             commits their pay expectation; it has to read clearly. */}
+          <Pressable
             onPress={() => save.mutate()}
             disabled={save.isPending || amount.trim().length === 0}
-          />
+            accessibilityRole="button"
+            accessibilityLabel="Save expected salary"
+            style={({ pressed }) => ({
+              paddingVertical: 14,
+              borderRadius: radii.lg,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#2563EB',
+              opacity:
+                save.isPending || amount.trim().length === 0
+                  ? 0.5
+                  : pressed
+                    ? 0.85
+                    : 1,
+              shadowColor: '#2563EB',
+              shadowOpacity: 0.25,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 4,
+            })}
+          >
+            <Text
+              style={{
+                color: '#FFFFFF',
+                fontSize: 16,
+                fontWeight: '700',
+              }}
+            >
+              {save.isPending ? 'Saving…' : 'Save'}
+            </Text>
+          </Pressable>
           {user?.expectedSalary && (
-            <Button label="Clear" variant="secondary" onPress={clear} />
+            <Pressable
+              onPress={clear}
+              accessibilityRole="button"
+              accessibilityLabel="Clear expected salary"
+              style={({ pressed }) => ({
+                paddingVertical: 12,
+                borderRadius: radii.lg,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#FFFFFF',
+                borderWidth: 1,
+                borderColor: theme.border.default,
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Text
+                style={{
+                  color: theme.text.primary,
+                  fontSize: 15,
+                  fontWeight: '600',
+                }}
+              >
+                Clear
+              </Text>
+            </Pressable>
           )}
         </View>
 

@@ -11,6 +11,7 @@ import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
 import * as controller from './me.controller';
 import walletRouter from '@/modules/wallet/wallet.routes';
+import alertsRouter from '@/modules/alerts/alert.routes';
 import {
   pushTokenSchema,
   updateEmployerLocationSchema,
@@ -26,6 +27,10 @@ const router = Router();
 // account data sits. Sub-router stays small + isolated from /me's own
 // profile mutations.
 router.use('/', walletRouter);
+
+// Job alerts — seeker-only saved search criteria. Mounted as a sub-router
+// so the URLs are /api/v1/me/alerts and /api/v1/me/alerts/:id.
+router.use('/', alertsRouter);
 
 router.patch(
   '/profile',

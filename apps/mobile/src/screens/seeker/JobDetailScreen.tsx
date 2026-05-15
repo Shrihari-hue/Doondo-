@@ -396,17 +396,55 @@ function JobDetailScreenInner() {
         }}
       >
         <View style={{ flex: 1 }}>
-          <Button
-            label={
-              appliedNow
-                ? 'Applied'
+          {/*
+            Hardcoded #2563EB / #FFFFFF to bulletproof against any
+            theme-token resolution mismatch in production builds — the
+            Apply CTA is the single most important button on the screen
+            and must never read as invisible-on-white.
+          */}
+          <Pressable
+            onPress={() => {
+              if (appliedNow || applyMutation.isPending) return;
+              haptic('light');
+              applyMutation.mutate();
+            }}
+            disabled={appliedNow || applyMutation.isPending}
+            accessibilityRole="button"
+            accessibilityLabel="Apply Now"
+            style={({ pressed }) => ({
+              backgroundColor: '#2563EB',
+              paddingVertical: 14,
+              borderRadius: radii.lg,
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity:
+                appliedNow || applyMutation.isPending
+                  ? 0.55
+                  : pressed
+                    ? 0.85
+                    : 1,
+              shadowColor: '#2563EB',
+              shadowOpacity: 0.25,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 4,
+            })}
+          >
+            <Text
+              style={{
+                color: '#FFFFFF',
+                fontSize: 16,
+                fontWeight: '700',
+                letterSpacing: 0.2,
+              }}
+            >
+              {appliedNow
+                ? 'Applied ✓'
                 : applyMutation.isPending
                   ? 'Sending…'
-                  : 'Apply Now'
-            }
-            onPress={() => applyMutation.mutate()}
-            disabled={appliedNow || applyMutation.isPending}
-          />
+                  : 'Apply Now'}
+            </Text>
+          </Pressable>
         </View>
         <Pressable
           onPress={toggleSave}

@@ -38,6 +38,8 @@ import { EmployerDetailScreen } from '@/screens/seeker/EmployerDetailScreen';
 import { SosScreen } from '@/screens/seeker/SosScreen';
 import { ResumeBuilderScreen } from '@/screens/seeker/ResumeBuilderScreen';
 import { ResumePreviewScreen } from '@/screens/seeker/ResumePreviewScreen';
+import { JobAlertsScreen } from '@/screens/seeker/JobAlertsScreen';
+import { JobAlertFormScreen } from '@/screens/seeker/JobAlertFormScreen';
 import { JobApplicantsScreen } from '@/screens/employer/JobApplicantsScreen';
 import { ApplicantDetailScreen } from '@/screens/employer/ApplicantDetailScreen';
 import { PostJobScreen } from '@/screens/employer/PostJobScreen';
@@ -203,6 +205,16 @@ export function AppNavigator() {
       <Stack.Screen
         name="ResumePreview"
         component={ResumePreviewScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="JobAlerts"
+        component={JobAlertsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="JobAlertForm"
+        component={JobAlertFormScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
     </Stack.Navigator>

@@ -16,6 +16,7 @@ export const NOTIFICATION_KINDS = [
   'new_message',
   'rating_received',
   'verification_status',
+  'job_alert_match',
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

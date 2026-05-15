@@ -379,7 +379,40 @@ function VoiceSearchScreenInner() {
 
         {transcript.trim().length > 0 && !isListening && (
           <View style={{ marginTop: spacing.md }}>
-            <Button label="Search jobs" onPress={commitTranscript} />
+            {/* Hardcoded brand-blue / white so the CTA reads cleanly on
+               the seeker-light canvas regardless of theme resolution. */}
+            <Pressable
+              onPress={() => {
+                haptic('light');
+                commitTranscript();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Search jobs"
+              style={({ pressed }) => ({
+                backgroundColor: '#2563EB',
+                paddingVertical: 14,
+                borderRadius: radii.lg,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: pressed ? 0.85 : 1,
+                shadowColor: '#2563EB',
+                shadowOpacity: 0.25,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 4,
+              })}
+            >
+              <Text
+                style={{
+                  color: '#FFFFFF',
+                  fontSize: 16,
+                  fontWeight: '700',
+                  letterSpacing: 0.2,
+                }}
+              >
+                Search jobs
+              </Text>
+            </Pressable>
           </View>
         )}
 

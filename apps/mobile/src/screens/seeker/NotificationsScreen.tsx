@@ -73,6 +73,18 @@ function NotificationsScreenInner() {
       case 'verification_status':
         navigation.navigate('Verification');
         return;
+      case 'job_alert_match': {
+        // Match notifications carry the matched jobId. If for some reason
+        // we don't have it, fall back to the alerts list so the user can
+        // see what triggered the ping.
+        const jobId = params.jobId;
+        if (typeof jobId === 'string') {
+          navigation.navigate('JobDetail', { jobId });
+        } else {
+          navigation.navigate('JobAlerts');
+        }
+        return;
+      }
       case 'system':
       default:
         // Nothing actionable — just mark as read (already done above).

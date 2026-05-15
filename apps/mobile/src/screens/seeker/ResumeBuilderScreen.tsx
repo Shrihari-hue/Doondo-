@@ -280,8 +280,14 @@ function ResumeBuilderInner() {
             paddingVertical: spacing.md + 2,
             borderRadius: radii.pill,
             alignItems: 'center',
-            backgroundColor: blue[600],
+            justifyContent: 'center',
+            backgroundColor: '#2563EB',
             opacity: save.isPending ? 0.5 : pressed ? 0.85 : 1,
+            shadowColor: '#2563EB',
+            shadowOpacity: 0.25,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 4,
           })}
         >
           <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>

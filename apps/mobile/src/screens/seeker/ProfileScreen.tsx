@@ -575,7 +575,30 @@ export function ProfileScreen() {
                   </View>
                 )}
               </View>
-              <Button label="Edit" variant="primary" onPress={openSalaryEdit} />
+              {/* Hardcoded blue/white so the Edit pen never disappears
+                  on a stale build — same pattern used on the Apply CTA. */}
+              <Pressable
+                onPress={openSalaryEdit}
+                accessibilityRole="button"
+                accessibilityLabel="Edit expected salary"
+                style={({ pressed }) => ({
+                  paddingHorizontal: 18,
+                  paddingVertical: 10,
+                  borderRadius: radii.pill,
+                  backgroundColor: '#2563EB',
+                  opacity: pressed ? 0.85 : 1,
+                })}
+              >
+                <Text
+                  style={{
+                    color: '#FFFFFF',
+                    fontSize: 14,
+                    fontWeight: '700',
+                  }}
+                >
+                  Edit
+                </Text>
+              </Pressable>
             </View>
           </View>
 
@@ -669,6 +692,17 @@ export function ProfileScreen() {
                   : `${savedCount} saved`
               }
               onPress={openSavedJobs}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="🔔"
+              tint="#FEE2E2"
+              label="Job Alerts"
+              subtitle="Get notified when matching jobs are posted"
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('JobAlerts');
+              }}
             />
             <Divider color={theme.border.subtle} />
             <MenuRow

@@ -10,8 +10,7 @@
  * RootNavigator picks which stack to show based on auth status.
  */
 
-import type { UserRole } from '@/api/types';
-import type { WorkType } from '@/api/types';
+import type { JobType, UserRole, WorkType } from '@/api/types';
 
 export type AuthStackParamList = {
   /** First-launch walkthrough (3 slides). Gated by a secure-store flag. */
@@ -124,6 +123,26 @@ export type AppStackParamList = {
   ResumeBuilder: undefined;
   /** Modal: read-only resume preview, sharable. */
   ResumePreview: undefined;
+  /** Modal: list of saved job alerts + toggle/edit/delete. */
+  JobAlerts: undefined;
+  /**
+   * Modal: create or edit a job alert.
+   *   - alertId    → edit mode (form hydrates from the existing alert)
+   *   - suggestion → seed initial form values (used by the "Suggested for
+   *                  you" banner that's derived from the seeker's resume)
+   */
+  JobAlertForm:
+    | {
+        alertId?: string;
+        suggestion?: {
+          name: string;
+          query?: string | null;
+          city?: string | null;
+          jobTypes?: JobType[];
+          urgentOnly?: boolean;
+        };
+      }
+    | undefined;
 };
 
 declare global {

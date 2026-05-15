@@ -21,6 +21,7 @@ import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { sendNewJobPush } from '@/lib/push';
 import { emitToUser } from '@/sockets/bus';
+import { matchJobToAlerts } from '@/modules/alerts/alert.service';
 import { UserModel } from '@/modules/users/user.model';
 import { JobModel, type JobStatus, type PublicJob } from './job.model';
 import type { CreateJobBody, NearbyQuery, UpdateJobBody } from './job.schemas';
@@ -216,13 +217,23 @@ export async function createJob(
     urgent: input.urgent ?? false,
   });
 
+  const publicJob = job.toPublicJSON();
+
   // Fan out a "new job near you" push to nearby seekers — fire-and-forget
   // so a slow notification round never blocks the create response.
-  void notifySeekersOfNewJob(job.toPublicJSON()).catch((err) => {
+  void notifySeekersOfNewJob(publicJob).catch((err) => {
     logger.warn({ err, jobId: job.id }, 'new-job notification fan-out failed');
   });
 
-  return job.toPublicJSON();
+  // Match this job against every seeker's saved Job Alerts. Targeted
+  // pushes to people who specifically asked to hear about this kind of
+  // role — separate from the proximity-based fan-out above so a seeker
+  // can opt into more granular alerts beyond just "nearby + my type".
+  void matchJobToAlerts(publicJob).catch((err) => {
+    logger.warn({ err, jobId: job.id }, 'job alert matching failed');
+  });
+
+  return publicJob;
 }
 
 /**
