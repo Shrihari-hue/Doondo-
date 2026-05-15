@@ -123,8 +123,8 @@ export async function matchJobToAlerts(job: PublicJob): Promise<void> {
   for (const a of candidates) {
     if (jobMatchesAlert(job, a)) {
       matched.push({
-        id: (a._id as Types.ObjectId).toString(),
-        seekerId: (a.seekerId as Types.ObjectId).toString(),
+        id: (a._id as unknown as Types.ObjectId).toString(),
+        seekerId: (a.seekerId as unknown as Types.ObjectId).toString(),
         name: a.name,
       });
     }
@@ -132,6 +132,10 @@ export async function matchJobToAlerts(job: PublicJob): Promise<void> {
   if (matched.length === 0) return;
 
   // Bump counters + lastMatched. One bulk write keeps it cheap.
+  // The bulkWrite payload is cast through `unknown` because mongoose's
+  // generated AnyBulkWriteOperation type strictly types ObjectId fields
+  // against Schema.Types.ObjectId (the constructor) while we pass live
+  // Types.ObjectId instances — the values are equivalent at runtime.
   try {
     await JobAlertModel.bulkWrite(
       matched.map((m) => ({
@@ -145,7 +149,7 @@ export async function matchJobToAlerts(job: PublicJob): Promise<void> {
             $inc: { matchCount: 1 },
           },
         },
-      })),
+      })) as unknown as Parameters<typeof JobAlertModel.bulkWrite>[0],
     );
   } catch (err) {
     logger.warn({ err, jobId: job.id }, 'alert bulkWrite failed');
