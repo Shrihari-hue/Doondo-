@@ -15,6 +15,15 @@ export interface UpdateProfilePayload {
   skills?: string[];
   workType?: 'solo' | 'team' | null;
   teamSize?: number | null;
+  /**
+   * Desired pay. Pass null to clear. `amount` is in minor units (paise
+   * for INR) to match Job.pay.
+   */
+  expectedSalary?: {
+    amount: number;
+    period: 'hour' | 'day' | 'week' | 'month' | 'fixed';
+    currency: string;
+  } | null;
   /** data:image/...;base64 string, or null to clear. */
   photoUrl?: string | null;
   companyName?: string | null;
