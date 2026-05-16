@@ -586,6 +586,12 @@ function formatRawJob(r: Record<string, unknown>): PublicJob {
     status: r.status as PublicJob['status'],
     urgent: Boolean(r.urgent),
     applicantsCount: (r.applicantsCount as number) ?? 0,
+    // audioDescriptionUrl is select:false at the model level so the
+    // geoNear pipelines (list payloads) don't carry the base64 blob.
+    // It's still nullable on PublicJob, so default to null here.
+    audioDescriptionUrl: (r.audioDescriptionUrl as string | null | undefined) ?? null,
+    audioDescriptionDurationSeconds:
+      (r.audioDescriptionDurationSeconds as number | null | undefined) ?? null,
     createdAt: (r.createdAt as Date).toISOString(),
   };
 }
