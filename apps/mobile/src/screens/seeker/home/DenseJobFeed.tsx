@@ -1,13 +1,13 @@
 /**
- * DenseJobFeed — the shared body used by Today + This Week modes on Home.
+ * DenseJobFeed — the premium Home feed shared by Today + This Week.
  *
- * The visual logic is the same: dense rows with a big ₹ number, distance,
- * and a job-type chip — designed for someone scanning 20 gigs at 6am at
- * the chowk. The two modes only differ in:
+ * Despite the name, this is no longer "dense" — Phase 3 brought a
+ * proper hero card, browse-by-trade card grid, and spacious premium
+ * job cards matching the mockup. The two modes only differ in:
  *   1. Which API endpoint they hit (jobsApi.today / jobsApi.thisWeek)
  *   2. The empty-state copy
  *
- * Trade filter chips live above the list — multi-select; tapping a chip
+ * Trade filter chips live inside the FlatList header — tapping a chip
  * adds it to a local filter set and re-queries with the joined query.
  * This is intentionally local to the feed (not a global preference) so
  * the seeker can quickly slice "Today" without losing their career feed.
@@ -21,6 +21,7 @@ import {
   RefreshControl,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
@@ -29,9 +30,10 @@ import { spacing, radii } from '@doondo/tokens';
 import { Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { jobsApi } from '@/api/jobs.api';
-import { TRADES, tradeShortLabel } from '@/lib/trades';
+import { TRADES, tradeShortLabel, tradeEmoji } from '@/lib/trades';
 import { haptic } from '@/lib/haptics';
-import type { PublicJob } from '@/api/types';
+import { AvailabilityBeaconChip } from './AvailabilityBeacon';
+import type { PublicJob, PublicUser } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 import type { Coords } from '@/lib/location';
 
@@ -42,9 +44,13 @@ export type FeedMode = 'today' | 'this_week';
 interface Props {
   coords: Coords | null;
   mode: FeedMode;
+  user: PublicUser | null;
+  /** Tapping the hero's Explore Jobs button bounces the seeker into the
+   *  full Jobs tab — the parent owns navigation so this stays decoupled. */
+  onExploreJobs: () => void;
 }
 
-export function DenseJobFeed({ coords, mode }: Props) {
+export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const [tradeFilters, setTradeFilters] = useState<string[]>([]);
@@ -98,94 +104,107 @@ export function DenseJobFeed({ coords, mode }: Props) {
       ? 'Pull to refresh, or switch to Career for longer-term roles.'
       : 'Try a wider trade filter or check back tomorrow.';
 
-  // Render the trade chip strip + the list as a single FlatList header.
+  // ─── Header — Hero + AvailabilityBeacon + Browse by trade ────────────────
   const renderHeader = useMemo(
     () => (
-      <View style={{ gap: spacing.sm, marginBottom: spacing.md }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <Text
+      <View style={{ gap: spacing.lg, marginBottom: spacing.md }}>
+        <HeroCard onExplore={onExploreJobs} />
+        <AvailabilityBeaconChip coords={coords} user={user} />
+        <View style={{ gap: spacing.sm }}>
+          <View
             style={{
-              fontSize: 11,
-              fontWeight: '600',
-              letterSpacing: 1.6,
-              color: theme.text.tertiary,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
             }}
           >
-            FILTER BY TRADE
-          </Text>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: '700',
+                color: theme.text.primary,
+                letterSpacing: -0.3,
+              }}
+            >
+              Browse by trade
+            </Text>
+            <Pressable
+              onPress={() => {
+                haptic('light');
+                onExploreJobs();
+              }}
+              hitSlop={6}
+            >
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563EB' }}>
+                View all →
+              </Text>
+            </Pressable>
+          </View>
           {tradeFilters.length > 0 ? (
-            <Pressable onPress={clearFilters} hitSlop={6}>
+            <Pressable onPress={clearFilters} hitSlop={6} style={{ alignSelf: 'flex-start' }}>
               <Text style={{ fontSize: 12, color: '#2563EB', fontWeight: '600' }}>
-                Clear
+                Clear {tradeFilters.length} filter{tradeFilters.length > 1 ? 's' : ''}
               </Text>
             </Pressable>
           ) : null}
-        </View>
-        {/* Card-style chips: emoji on top, short label underneath, fixed
-           width. Each chip is its own self-contained card so the row reads
-           as a tidy gallery rather than a wall of run-together text. */}
-        <FlatList
-          data={TRADES}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(t) => t.slug}
-          contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.lg }}
-          renderItem={({ item }) => {
-            const active = tradeFilters.includes(item.slug);
-            return (
-              <Pressable
-                onPress={() => toggleTrade(item.slug)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={`${item.label}${active ? ', selected' : ''}`}
-                style={({ pressed }) => ({
-                  width: 84,
-                  paddingVertical: spacing.sm,
-                  paddingHorizontal: 6,
-                  borderRadius: radii.lg,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 4,
-                  backgroundColor: active ? '#2563EB' : theme.bg.surface,
-                  borderWidth: active ? 0 : 1,
-                  borderColor: theme.border.default,
-                  opacity: pressed ? 0.7 : 1,
-                  shadowColor: active ? '#2563EB' : '#0F172A',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: active ? 0.22 : 0.04,
-                  shadowRadius: active ? 6 : 4,
-                  elevation: active ? 2 : 1,
-                })}
-              >
-                <Text style={{ fontSize: 22, lineHeight: 26 }}>
-                  {item.emoji}
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.85}
-                  style={{
-                    fontSize: 11,
-                    fontWeight: '600',
-                    textAlign: 'center',
-                    color: active ? '#FFFFFF' : theme.text.primary,
-                  }}
+          {/* Card-style trade chips: emoji on top, short label underneath,
+             fixed width. Horizontal scroll so the row reads as a gallery. */}
+          <FlatList
+            data={TRADES}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(t) => t.slug}
+            contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.lg }}
+            renderItem={({ item }) => {
+              const active = tradeFilters.includes(item.slug);
+              return (
+                <Pressable
+                  onPress={() => toggleTrade(item.slug)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={`${item.label}${active ? ', selected' : ''}`}
+                  style={({ pressed }) => ({
+                    width: 84,
+                    height: 92,
+                    paddingVertical: spacing.sm + 2,
+                    paddingHorizontal: 6,
+                    borderRadius: radii.lg,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    backgroundColor: active ? '#2563EB' : theme.bg.surface,
+                    borderWidth: active ? 0 : 1,
+                    borderColor: theme.border.default,
+                    opacity: pressed ? 0.75 : 1,
+                    shadowColor: active ? '#2563EB' : '#0F172A',
+                    shadowOffset: { width: 0, height: 3 },
+                    shadowOpacity: active ? 0.25 : 0.06,
+                    shadowRadius: active ? 8 : 6,
+                    elevation: active ? 3 : 2,
+                  })}
                 >
-                  {tradeShortLabel(item)}
-                </Text>
-              </Pressable>
-            );
-          }}
-        />
+                  <Text style={{ fontSize: 28, lineHeight: 32 }}>{item.emoji}</Text>
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
+                    style={{
+                      fontSize: 11,
+                      fontWeight: '700',
+                      textAlign: 'center',
+                      color: active ? '#FFFFFF' : theme.text.primary,
+                    }}
+                  >
+                    {tradeShortLabel(item)}
+                  </Text>
+                </Pressable>
+              );
+            }}
+          />
+        </View>
       </View>
     ),
-    [tradeFilters, theme.text.tertiary, theme.bg.surface, theme.border.default, theme.text.primary],
+    [tradeFilters, theme, coords, user, onExploreJobs],
   );
 
   if (!coords) {
@@ -209,7 +228,7 @@ export function DenseJobFeed({ coords, mode }: Props) {
       contentContainerStyle={{
         paddingBottom: spacing['5xl'],
       }}
-      ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+      ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
       refreshControl={
         <RefreshControl
           refreshing={query.isRefetching}
@@ -217,7 +236,9 @@ export function DenseJobFeed({ coords, mode }: Props) {
           tintColor={'#2563EB'}
         />
       }
-      renderItem={({ item }) => <DenseJobRow job={item} onPress={openJob} mode={mode} />}
+      renderItem={({ item }) => (
+        <PremiumJobCard job={item} onPress={openJob} mode={mode} />
+      )}
       ListEmptyComponent={
         query.isLoading ? (
           <View style={{ paddingVertical: spacing['2xl'], alignItems: 'center' }}>
@@ -249,9 +270,122 @@ export function DenseJobFeed({ coords, mode }: Props) {
   );
 }
 
-// ─── Dense row ───────────────────────────────────────────────────────────────
+// ─── Hero card — deep navy gradient w/ megaphone ────────────────────────────
 
-function DenseJobRow({
+function HeroCard({ onExplore }: { onExplore: () => void }) {
+  return (
+    <View
+      style={{
+        borderRadius: 20,
+        overflow: 'hidden',
+        shadowColor: '#172554',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.28,
+        shadowRadius: 20,
+        elevation: 8,
+        backgroundColor: '#1E1B4B',
+      }}
+    >
+      <LinearGradient
+        colors={['#1E1B4B', '#172554', '#0F1A45']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          paddingVertical: spacing.xl,
+          paddingHorizontal: spacing.xl,
+          minHeight: 200,
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}
+      >
+        <View style={{ flex: 1, gap: spacing.sm }}>
+          <Text
+            style={{
+              fontSize: 10,
+              fontWeight: '700',
+              letterSpacing: 2,
+              color: 'rgba(255,255,255,0.65)',
+            }}
+          >
+            OPPORTUNITIES DAILY
+          </Text>
+          <Text
+            style={{
+              fontSize: 24,
+              lineHeight: 30,
+              fontWeight: '700',
+              color: '#FFFFFF',
+              letterSpacing: -0.5,
+              maxWidth: 220,
+            }}
+          >
+            Find the right jobs near you
+          </Text>
+          <Pressable
+            onPress={() => {
+              haptic('selection');
+              onExplore();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Explore jobs"
+            style={({ pressed }) => ({
+              alignSelf: 'flex-start',
+              marginTop: spacing.xs,
+              paddingVertical: 12,
+              paddingHorizontal: spacing.lg,
+              borderRadius: radii.pill,
+              backgroundColor: '#FFFFFF',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              opacity: pressed ? 0.85 : 1,
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: 3 },
+              shadowOpacity: 0.18,
+              shadowRadius: 8,
+              elevation: 3,
+            })}
+          >
+            <Text
+              style={{
+                fontSize: 14,
+                fontWeight: '700',
+                color: '#0F1A45',
+                letterSpacing: 0.1,
+              }}
+            >
+              Explore Jobs
+            </Text>
+            <Text style={{ fontSize: 14, color: '#0F1A45', fontWeight: '700' }}>
+              →
+            </Text>
+          </Pressable>
+        </View>
+        {/* Megaphone illustration — large emoji at low opacity gives the
+           silhouette the mockup shows without bundling an SVG asset. */}
+        <View
+          style={{
+            position: 'absolute',
+            right: -20,
+            top: 10,
+            bottom: 10,
+            width: 180,
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: 0.85,
+          }}
+          pointerEvents="none"
+        >
+          <Text style={{ fontSize: 140, lineHeight: 160 }}>📣</Text>
+        </View>
+      </LinearGradient>
+    </View>
+  );
+}
+
+// ─── Premium job card ───────────────────────────────────────────────────────
+
+function PremiumJobCard({
   job,
   onPress,
   mode,
@@ -261,6 +395,18 @@ function DenseJobRow({
   mode: FeedMode;
 }) {
   const { theme } = useTheme();
+
+  const location = [job.location.area, job.location.city]
+    .filter(Boolean)
+    .join(', ');
+  const distance =
+    job.distanceMeters != null ? formatDistance(job.distanceMeters) : null;
+
+  // The role icon — try to match the job to a trade catalogue emoji, fall
+  // back to a generic briefcase if nothing matches. Skills array often
+  // mirrors the trade slug so this connects cleanly for blue-collar roles.
+  const icon = pickJobIcon(job);
+
   return (
     <Pressable
       onPress={() => onPress(job)}
@@ -268,100 +414,313 @@ function DenseJobRow({
       accessibilityLabel={`${job.title}, ${formatPay(job.pay)}`}
       style={({ pressed }) => ({
         backgroundColor: theme.bg.surface,
-        borderRadius: radii.lg,
+        borderRadius: 18,
         borderWidth: 0.5,
         borderColor: theme.border.subtle,
-        padding: spacing.md,
-        opacity: pressed ? 0.85 : 1,
+        padding: spacing.lg,
+        gap: spacing.md,
+        opacity: pressed ? 0.92 : 1,
         shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 6,
-        elevation: 1,
-        gap: spacing.sm,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 14,
+        elevation: 3,
       })}
     >
-      {/* Top row: ROLE + city + distance, with urgent pill if applicable */}
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
-        <View style={{ flex: 1, gap: 2 }}>
+      {/* Top row: navy icon tile + title block + urgent pill */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          gap: spacing.md,
+        }}
+      >
+        <View
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 14,
+            backgroundColor: '#172554',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ fontSize: 26, lineHeight: 30 }}>{icon}</Text>
+        </View>
+        <View style={{ flex: 1, gap: 4 }}>
           <Text
             style={{
-              fontSize: 16,
+              fontSize: 20,
+              lineHeight: 24,
               fontWeight: '700',
               color: theme.text.primary,
+              letterSpacing: -0.3,
             }}
             numberOfLines={1}
           >
             {job.title}
           </Text>
-          <Text
-            style={{ fontSize: 12, color: theme.text.tertiary }}
-            numberOfLines={1}
-          >
-            {[job.location.area, job.location.city].filter(Boolean).join(', ')}
-            {job.distanceMeters != null
-              ? ` · ${formatDistance(job.distanceMeters)}`
-              : ''}
-          </Text>
+          {location || distance ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+              }}
+            >
+              {location ? (
+                <Text
+                  style={{ fontSize: 12, color: theme.text.tertiary }}
+                  numberOfLines={1}
+                >
+                  📍 {location}
+                  {distance ? '  ·  ' : ''}
+                </Text>
+              ) : null}
+              {distance ? (
+                <Text
+                  style={{ fontSize: 12, fontWeight: '700', color: '#2563EB' }}
+                >
+                  {distance} away
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
         </View>
         {job.urgent ? (
           <View
             style={{
-              paddingHorizontal: 8,
-              paddingVertical: 2,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
               borderRadius: radii.pill,
               backgroundColor: '#FEE2E2',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 2,
             }}
           >
+            <Text style={{ fontSize: 10, color: '#B91C1C' }}>⚡</Text>
             <Text
-              style={{ fontSize: 10, fontWeight: '700', color: '#B91C1C' }}
+              style={{ fontSize: 11, fontWeight: '800', color: '#B91C1C', letterSpacing: 0.4 }}
             >
-              ⚡ URGENT
+              URGENT
             </Text>
           </View>
         ) : null}
       </View>
 
-      {/* Pay row — the headline number, oversized intentionally */}
+      {/* Inline stats card — pay / hours / start */}
       <View
         style={{
           flexDirection: 'row',
-          alignItems: 'flex-end',
-          justifyContent: 'space-between',
-          gap: spacing.md,
+          backgroundColor: theme.bg.muted,
+          borderRadius: 14,
+          padding: spacing.sm + 2,
+          gap: spacing.xs,
+        }}
+      >
+        <StatBox
+          icon="₹"
+          iconBg="#EEF2FF"
+          iconColor="#172554"
+          big={formatPayPrimary(job.pay)}
+          small={formatPaySuffix(job.pay)}
+        />
+        <StatDivider />
+        <StatBox
+          icon="🕐"
+          big={formatHoursPrimary(job)}
+          small={formatType(job.type)}
+        />
+        <StatDivider />
+        <StatBox
+          icon="📅"
+          big={job.urgent ? 'Start Today' : 'Flexible'}
+          small={job.urgent ? 'Immediate' : 'Schedule'}
+        />
+      </View>
+
+      {/* Requirement pills — first 3 skills from the job. Skipping more
+         than 3 prevents the card from blowing out vertically. */}
+      {job.skills.length > 0 ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: spacing.xs,
+          }}
+        >
+          {job.skills.slice(0, 3).map((s) => (
+            <View
+              key={s}
+              style={{
+                paddingHorizontal: spacing.sm + 2,
+                paddingVertical: 6,
+                borderRadius: radii.pill,
+                backgroundColor: '#EFF6FF',
+                borderWidth: 0.5,
+                borderColor: '#BFDBFE',
+              }}
+            >
+              <Text
+                style={{ fontSize: 12, fontWeight: '600', color: '#1E40AF' }}
+                numberOfLines={1}
+              >
+                {prettifyRequirement(s)}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {/* CTA — full-width navy pill with phone icon */}
+      <Pressable
+        onPress={() => onPress(job)}
+        accessibilityRole="button"
+        accessibilityLabel={
+          mode === 'today' ? 'Tap to call or apply' : 'View job'
+        }
+        style={({ pressed }) => ({
+          borderRadius: radii.pill,
+          overflow: 'hidden',
+          opacity: pressed ? 0.9 : 1,
+          shadowColor: '#172554',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.35,
+          shadowRadius: 14,
+          elevation: 5,
+          backgroundColor: '#172554',
+        })}
+      >
+        <LinearGradient
+          colors={['#1E1B4B', '#172554', '#0F1A45']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            paddingVertical: 14,
+            paddingHorizontal: spacing.lg,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+          }}
+        >
+          <Text style={{ fontSize: 16, color: '#FFFFFF' }}>📞</Text>
+          <Text
+            style={{
+              fontSize: 15,
+              fontWeight: '800',
+              color: '#FFFFFF',
+              letterSpacing: 0.3,
+            }}
+          >
+            {mode === 'today' ? 'Tap to call / apply' : 'View details'}
+          </Text>
+        </LinearGradient>
+      </Pressable>
+    </Pressable>
+  );
+}
+
+function StatBox({
+  icon,
+  iconBg,
+  iconColor,
+  big,
+  small,
+}: {
+  icon: string;
+  iconBg?: string;
+  iconColor?: string;
+  big: string;
+  small: string;
+}) {
+  const { theme } = useTheme();
+  return (
+    <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
+      <View
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 14,
+          backgroundColor: iconBg ?? '#EEF2FF',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 2,
         }}
       >
         <Text
           style={{
-            fontSize: 26,
-            lineHeight: 30,
+            fontSize: 14,
             fontWeight: '800',
-            color: '#0F172A',
-            letterSpacing: -0.5,
+            color: iconColor ?? '#172554',
           }}
         >
-          {formatPay(job.pay)}
-        </Text>
-        <Text
-          style={{
-            fontSize: 12,
-            fontWeight: '600',
-            color: '#2563EB',
-          }}
-        >
-          {mode === 'today' ? 'Tap to call / apply →' : 'Tap to view →'}
+          {icon}
         </Text>
       </View>
-    </Pressable>
+      <Text
+        style={{
+          fontSize: 13,
+          fontWeight: '800',
+          color: theme.text.primary,
+          letterSpacing: -0.2,
+          textAlign: 'center',
+        }}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+      >
+        {big}
+      </Text>
+      <Text
+        style={{ fontSize: 10, color: theme.text.tertiary, textAlign: 'center' }}
+        numberOfLines={1}
+      >
+        {small}
+      </Text>
+    </View>
+  );
+}
+
+function StatDivider() {
+  const { theme } = useTheme();
+  return (
+    <View
+      style={{
+        width: 0.5,
+        backgroundColor: theme.border.default,
+        marginVertical: 4,
+      }}
+    />
   );
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+function pickJobIcon(job: PublicJob): string {
+  // Try the job's first skill — most blue-collar postings tag a trade
+  // slug as the lead skill ("driver_light", "mason", etc).
+  for (const skill of job.skills ?? []) {
+    const e = tradeEmoji(skill);
+    if (e) return e;
+  }
+  // Fall back to matching the title text against trade aliases.
+  const title = job.title.toLowerCase();
+  for (const t of TRADES) {
+    if (title.includes(t.slug.replace(/_/g, ' '))) return t.emoji;
+    if (t.aliases.some((a) => title.includes(a))) return t.emoji;
+  }
+  return '💼';
+}
+
 function formatPay(pay: PublicJob['pay']): string {
   const min = Math.round(pay.amount / 100);
   const max = pay.amountMax ? Math.round(pay.amountMax / 100) : null;
-  const range = max && max > min ? `${min.toLocaleString()}–${max.toLocaleString()}` : min.toLocaleString();
+  const range =
+    max && max > min
+      ? `${min.toLocaleString()}–${max.toLocaleString()}`
+      : min.toLocaleString();
   const suffix: Record<PublicJob['pay']['period'], string> = {
     hour: ' / hr',
     day: ' / day',
@@ -372,7 +731,72 @@ function formatPay(pay: PublicJob['pay']): string {
   return `₹${range}${suffix[pay.period]}`;
 }
 
+function formatPayPrimary(pay: PublicJob['pay']): string {
+  const min = Math.round(pay.amount / 100);
+  const max = pay.amountMax ? Math.round(pay.amountMax / 100) : null;
+  const range =
+    max && max > min
+      ? `₹${min.toLocaleString()}–${max.toLocaleString()}`
+      : `₹${min.toLocaleString()}`;
+  return range;
+}
+
+function formatPaySuffix(pay: PublicJob['pay']): string {
+  switch (pay.period) {
+    case 'hour':
+      return 'Per hour';
+    case 'day':
+      return 'Per day';
+    case 'week':
+      return 'Per week';
+    case 'month':
+      return 'Per month';
+    case 'fixed':
+      return 'One-time';
+  }
+}
+
+function formatHoursPrimary(job: PublicJob): string {
+  const hrs = job.schedule?.hoursPerDay;
+  if (hrs != null) return `${hrs} hrs / day`;
+  // Fall back to type when schedule isn't set.
+  return formatType(job.type);
+}
+
+function formatType(t: PublicJob['type']): string {
+  return (
+    {
+      full_time: 'Full Time',
+      part_time: 'Part Time',
+      gig: 'Gig',
+      shift: 'Shift',
+      contract: 'Contract',
+    } as const
+  )[t];
+}
+
 function formatDistance(meters: number): string {
   if (meters < 1000) return `${meters}m`;
   return `${(meters / 1000).toFixed(1)}km`;
+}
+
+function prettifyRequirement(skill: string): string {
+  const trimmed = skill.trim();
+  if (!trimmed) return '';
+  // Map common slugs to the mockup-style "Label: Value" form when we can.
+  const lower = trimmed.toLowerCase();
+  if (lower === 'driving' || lower === 'license' || lower === 'driving_license') {
+    return 'Driving License: Required';
+  }
+  if (lower.includes('experience')) return capitalize(trimmed);
+  // Default: capitalize first letter, append " Required" if it looks like
+  // a noun the user would otherwise have to figure out.
+  if (lower.includes('required') || lower.includes('needed')) {
+    return capitalize(trimmed);
+  }
+  return `${capitalize(trimmed)}: Required`;
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

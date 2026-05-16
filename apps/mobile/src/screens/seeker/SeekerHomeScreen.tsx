@@ -183,10 +183,9 @@ export function SeekerHomeScreen() {
   const topPad = Math.max(insets.top, RNStatusBar.currentHeight ?? 0) + spacing.sm;
 
   // ─── Today / This week branch ─────────────────────────────────────────────
-  // The Career path below is the original Home screen, untouched. To make
-  // sure we never regress it, the non-career modes short-circuit here and
-  // render an entirely separate tree (dense feed + trade chips). Toggling
-  // back to Career restores the original tree exactly.
+  // Premium redesign: navy hero card → availability beacon → browse by
+  // trade strip → premium job cards. The Career path below is untouched
+  // so existing deep-links and the Jobs tab keep behaving as they did.
   if (modeHydrated && mode !== 'career') {
     return (
       <Screen edges={[]}>
@@ -197,18 +196,24 @@ export function SeekerHomeScreen() {
             gap: spacing.md,
           }}
         >
-          <HomeHeader
+          <PremiumHomeHeader
             theme={theme}
             onNotificationsPress={openNotifications}
             cityLabel={cityLabel}
           />
           <ModeToggle value={mode} onChange={pickMode} />
-          <AvailabilityBeaconChip coords={coords} user={user ?? null} />
         </View>
         <View
           style={{ flex: 1, paddingHorizontal: spacing.xl, paddingTop: spacing.md }}
         >
-          <DenseJobFeed coords={coords} mode={mode} />
+          <DenseJobFeed
+            coords={coords}
+            mode={mode}
+            user={user ?? null}
+            onExploreJobs={() =>
+              navigation.navigate('SeekerTabs', { screen: 'Jobs' } as never)
+            }
+          />
         </View>
       </Screen>
     );
@@ -704,11 +709,16 @@ function ModeToggle({
 }
 
 /**
- * The wordmark + notification bell row used by the non-Career branch.
- * The Career branch keeps its own inline header so the original tree is
- * untouched.
+ * Premium header for the Today/This week branch.
+ *
+ *   ┌──────────────────────────────────────────┐
+ *   │ Doondo                            🔔     │  ← bell in white pill
+ *   │ ⌖ Ujire ⌄                                │  ← outline pin + chevron
+ *   └──────────────────────────────────────────┘
+ *
+ * The Career branch keeps its own inline header so its tree is untouched.
  */
-function HomeHeader({
+function PremiumHomeHeader({
   theme,
   onNotificationsPress,
   cityLabel,
@@ -718,58 +728,70 @@ function HomeHeader({
   cityLabel: string;
 }) {
   return (
-    <View style={{ gap: spacing.md }}>
+    <View style={{ gap: spacing.xs }}>
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
           paddingTop: spacing.sm,
-          paddingBottom: spacing.xs,
+          paddingBottom: 2,
         }}
       >
         <Text
           style={{
-            fontSize: 26,
-            lineHeight: 30,
+            fontSize: 30,
+            lineHeight: 34,
             fontWeight: '700',
             color: theme.brand.hero,
-            letterSpacing: -0.5,
+            letterSpacing: -0.8,
           }}
         >
           Doondo
         </Text>
-        <NotificationsBell onPress={onNotificationsPress} />
+        {/* Bell wrapped in a white pill so it pops off the canvas the
+           way the mockup shows. Red-dot badge already lives inside the
+           NotificationsBell component. */}
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: theme.bg.surface,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: '#0F172A',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.08,
+            shadowRadius: 10,
+            elevation: 2,
+          }}
+        >
+          <NotificationsBell onPress={onNotificationsPress} />
+        </View>
       </View>
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          gap: spacing.sm,
+          gap: 6,
+          paddingBottom: spacing.xs,
         }}
       >
-        <View
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 16,
-            backgroundColor: theme.brand.heroSubtle,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ fontSize: 16 }}>📍</Text>
-        </View>
+        <Text style={{ fontSize: 16, color: theme.text.secondary }}>📍</Text>
         <Text
           style={{
-            fontSize: 18,
-            lineHeight: 22,
+            fontSize: 17,
+            lineHeight: 21,
             fontWeight: '600',
             color: theme.text.primary,
           }}
           numberOfLines={1}
         >
           {cityLabel}
+        </Text>
+        <Text style={{ fontSize: 14, color: theme.text.secondary, marginLeft: 2 }}>
+          ⌄
         </Text>
       </View>
     </View>

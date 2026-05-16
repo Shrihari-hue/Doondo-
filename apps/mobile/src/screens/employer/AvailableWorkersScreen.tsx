@@ -43,7 +43,9 @@ import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
-const FALLBACK_COORDS = { lat: 12.9716, lng: 77.5946 };
+// Tagged `manual` because it isn't device GPS — satisfies the Coords
+// interface so consumers can branch on the source if they want to.
+const FALLBACK_COORDS: Coords = { lat: 12.9716, lng: 77.5946, source: 'manual' };
 
 export function AvailableWorkersScreen() {
   const { theme } = useTheme();
