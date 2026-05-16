@@ -29,7 +29,7 @@ import { spacing, radii } from '@doondo/tokens';
 import { Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { jobsApi } from '@/api/jobs.api';
-import { TRADES } from '@/lib/trades';
+import { TRADES, tradeShortLabel } from '@/lib/trades';
 import { haptic } from '@/lib/haptics';
 import type { PublicJob } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
@@ -127,39 +127,57 @@ export function DenseJobFeed({ coords, mode }: Props) {
             </Pressable>
           ) : null}
         </View>
+        {/* Card-style chips: emoji on top, short label underneath, fixed
+           width. Each chip is its own self-contained card so the row reads
+           as a tidy gallery rather than a wall of run-together text. */}
         <FlatList
           data={TRADES}
           horizontal
           showsHorizontalScrollIndicator={false}
           keyExtractor={(t) => t.slug}
-          contentContainerStyle={{ gap: spacing.xs, paddingRight: spacing.lg }}
+          contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.lg }}
           renderItem={({ item }) => {
             const active = tradeFilters.includes(item.slug);
             return (
               <Pressable
                 onPress={() => toggleTrade(item.slug)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`${item.label}${active ? ', selected' : ''}`}
                 style={({ pressed }) => ({
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 4,
-                  paddingHorizontal: spacing.md,
+                  width: 84,
                   paddingVertical: spacing.sm,
-                  borderRadius: radii.pill,
+                  paddingHorizontal: 6,
+                  borderRadius: radii.lg,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4,
                   backgroundColor: active ? '#2563EB' : theme.bg.surface,
                   borderWidth: active ? 0 : 1,
                   borderColor: theme.border.default,
                   opacity: pressed ? 0.7 : 1,
+                  shadowColor: active ? '#2563EB' : '#0F172A',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: active ? 0.22 : 0.04,
+                  shadowRadius: active ? 6 : 4,
+                  elevation: active ? 2 : 1,
                 })}
               >
-                <Text style={{ fontSize: 13 }}>{item.emoji}</Text>
+                <Text style={{ fontSize: 22, lineHeight: 26 }}>
+                  {item.emoji}
+                </Text>
                 <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.85}
                   style={{
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: '600',
+                    textAlign: 'center',
                     color: active ? '#FFFFFF' : theme.text.primary,
                   }}
                 >
-                  {item.label}
+                  {tradeShortLabel(item)}
                 </Text>
               </Pressable>
             );

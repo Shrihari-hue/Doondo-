@@ -58,6 +58,26 @@ export async function apply(input: ApplyInput): Promise<PublicApplication> {
   if (!job) throw errors.jobNotFound();
   if (job.status !== 'active') throw errors.jobNotOpen();
 
+  // Snapshot teamSize from the seeker's profile when they're applying as
+  // a team. Stored on the Application itself so the employer's card
+  // stays correct even if the seeker flips back to solo later.
+  let teamSizeSnapshot: number | null = null;
+  try {
+    const seeker = await UserModel.findById(input.seekerId)
+      .select('workType teamSize')
+      .lean();
+    if (
+      seeker &&
+      (seeker as { workType?: string }).workType === 'team' &&
+      typeof (seeker as { teamSize?: number }).teamSize === 'number' &&
+      ((seeker as { teamSize: number }).teamSize as number) >= 2
+    ) {
+      teamSizeSnapshot = (seeker as { teamSize: number }).teamSize;
+    }
+  } catch {
+    // Non-fatal — fall through with teamSizeSnapshot = null.
+  }
+
   try {
     const app = await ApplicationModel.create({
       seekerId: new Types.ObjectId(input.seekerId),
@@ -65,6 +85,7 @@ export async function apply(input: ApplyInput): Promise<PublicApplication> {
       employerId: job.employerId,
       coverNote: input.asInterest ? null : input.coverNote ?? null,
       expressedAsInterest: Boolean(input.asInterest),
+      teamSizeSnapshot,
       status: 'pending',
       appliedAt: new Date(),
     });

@@ -22,6 +22,8 @@ import * as ratingsController from '@/modules/ratings/rating.controller';
 import * as employersController from '@/modules/employers/employer.controller';
 import { availabilitiesRouter } from '@/modules/availabilities/availability.routes';
 import * as contactController from '@/modules/contact/contact.controller';
+import { coursesRouter } from '@/modules/courses/courses.routes';
+import * as coursesController from '@/modules/courses/courses.controller';
 import {
   applicantsForJobSchema,
   applyParamsSchema,
@@ -40,6 +42,10 @@ v1.use('/notifications', notificationsRouter);
 // "Workers available right now" — employer-only lookup. Seeker-side
 // reads/mutations live under /me/availability instead.
 v1.use('/availabilities', availabilitiesRouter);
+v1.use('/courses', coursesRouter);
+
+// Earned-badges helper — employer-side card on ApplicantDetail uses this.
+v1.get('/seekers/:id/badges', requireAuth, coursesController.listSeekerBadges);
 
 // Contact reveal — seeker calling an employer (gated by Application)
 // and employer calling a seeker (gated by Application OR active beacon).

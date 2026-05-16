@@ -706,6 +706,17 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
+              icon="📚"
+              tint="#DDD6FE"
+              label="Training & courses"
+              subtitle="Earn badges that show on your resume"
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('Courses');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
               icon="⭐"
               tint="#FDE68A"
               label="Ratings & Reviews"

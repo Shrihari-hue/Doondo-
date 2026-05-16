@@ -16,9 +16,10 @@
  * worker never raises the beacon.
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   Alert,
+  Dimensions,
   Modal,
   Pressable,
   ScrollView,
@@ -31,7 +32,7 @@ import { spacing, radii } from '@doondo/tokens';
 import { Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
-import { TRADES } from '@/lib/trades';
+import { TRADES, tradeShortLabel } from '@/lib/trades';
 import {
   availabilityApi,
   type PublicAvailability,
@@ -41,11 +42,22 @@ import type { Coords } from '@/lib/location';
 import type { PublicUser } from '@/api/types';
 
 const DURATION_OPTIONS = [
-  { minutes: 60, label: '1h' },
-  { minutes: 120, label: '2h' },
-  { minutes: 240, label: '4h' },
-  { minutes: 480, label: '8h' },
+  { minutes: 60, label: '1h', sub: '1 hour' },
+  { minutes: 120, label: '2h', sub: '2 hours' },
+  { minutes: 240, label: '4h', sub: 'Half day' },
+  { minutes: 480, label: '8h', sub: 'Full day' },
 ] as const;
+
+// Trade grid sizing — 4 columns with consistent gaps. We compute once at
+// module load instead of on every render: the sheet width is the full
+// screen, padding is `spacing.xl` (24) on each side, gap is `spacing.sm`
+// (8) between tiles. Floor the result so we never overflow on odd widths.
+const SCREEN_W = Dimensions.get('window').width;
+const TRADE_GRID_PADDING = 24 * 2; // matches sheet's paddingHorizontal
+const TRADE_GRID_GAPS = 8 * 3; // 3 gaps between 4 columns
+const TRADE_TILE_WIDTH = Math.floor(
+  (SCREEN_W - TRADE_GRID_PADDING - TRADE_GRID_GAPS) / 4,
+);
 
 // ─── Chip — always visible row on Home ──────────────────────────────────────
 
@@ -346,21 +358,15 @@ function AvailabilityBeaconSheet({
 
           <ScrollView
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ gap: spacing.lg }}
+            contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.xs }}
+            showsVerticalScrollIndicator={false}
           >
-            {/* Duration */}
+            {/* Duration — elevated tiles with a primary label + descriptor.
+               Active tile fills blue with a soft glow so the selection is
+               obvious at a glance instead of reading as fade-on-fade. */}
             <View style={{ gap: spacing.sm }}>
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontWeight: '600',
-                  letterSpacing: 1.4,
-                  color: theme.text.tertiary,
-                }}
-              >
-                HOW LONG?
-              </Text>
-              <View style={{ flexDirection: 'row', gap: spacing.xs }}>
+              <SectionLabel theme={theme}>HOW LONG?</SectionLabel>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                 {DURATION_OPTIONS.map((o) => {
                   const active = minutes === o.minutes;
                   return (
@@ -370,25 +376,49 @@ function AvailabilityBeaconSheet({
                         haptic('selection');
                         setMinutes(o.minutes);
                       }}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={`${o.sub}${active ? ', selected' : ''}`}
                       style={({ pressed }) => ({
                         flex: 1,
-                        paddingVertical: spacing.sm + 2,
-                        borderRadius: radii.pill,
+                        paddingVertical: spacing.md,
+                        paddingHorizontal: 4,
+                        borderRadius: radii.lg,
                         alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 2,
                         backgroundColor: active ? '#2563EB' : theme.bg.surface,
                         borderWidth: active ? 0 : 1,
                         borderColor: theme.border.default,
                         opacity: pressed ? 0.85 : 1,
+                        shadowColor: active ? '#2563EB' : '#0F172A',
+                        shadowOffset: { width: 0, height: active ? 4 : 1 },
+                        shadowOpacity: active ? 0.28 : 0.04,
+                        shadowRadius: active ? 10 : 3,
+                        elevation: active ? 3 : 1,
                       })}
                     >
                       <Text
                         style={{
-                          fontSize: 14,
-                          fontWeight: '700',
+                          fontSize: 18,
+                          lineHeight: 22,
+                          fontWeight: '800',
+                          letterSpacing: -0.3,
                           color: active ? '#FFFFFF' : theme.text.primary,
                         }}
                       >
                         {o.label}
+                      </Text>
+                      <Text
+                        numberOfLines={1}
+                        style={{
+                          fontSize: 10,
+                          fontWeight: '600',
+                          letterSpacing: 0.2,
+                          color: active ? 'rgba(255,255,255,0.85)' : theme.text.tertiary,
+                        }}
+                      >
+                        {o.sub}
                       </Text>
                     </Pressable>
                   );
@@ -396,20 +426,41 @@ function AvailabilityBeaconSheet({
               </View>
             </View>
 
-            {/* Trade chips */}
+            {/* Trade chips — 4-column card grid. Each tile is self-contained:
+               emoji on top, short label below, single line with auto-shrink
+               so nothing wraps or runs into a neighbour. */}
             <View style={{ gap: spacing.sm }}>
-              <Text
+              <View
                 style={{
-                  fontSize: 11,
-                  fontWeight: '600',
-                  letterSpacing: 1.4,
-                  color: theme.text.tertiary,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
                 }}
               >
-                WHAT WORK?
-              </Text>
+                <SectionLabel theme={theme}>WHAT WORK?</SectionLabel>
+                {tradeSlugs.length > 0 ? (
+                  <View
+                    style={{
+                      paddingHorizontal: spacing.sm,
+                      paddingVertical: 2,
+                      borderRadius: radii.pill,
+                      backgroundColor: '#DBEAFE',
+                    }}
+                  >
+                    <Text
+                      style={{ fontSize: 11, fontWeight: '700', color: '#1E40AF' }}
+                    >
+                      {tradeSlugs.length} selected
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
               <View
-                style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  gap: spacing.sm,
+                }}
               >
                 {TRADES.map((t) => {
                   const active = tradeSlugs.includes(t.slug);
@@ -417,28 +468,41 @@ function AvailabilityBeaconSheet({
                     <Pressable
                       key={t.slug}
                       onPress={() => toggleTrade(t.slug)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={`${t.label}${active ? ', selected' : ''}`}
                       style={({ pressed }) => ({
-                        flexDirection: 'row',
+                        width: TRADE_TILE_WIDTH,
+                        paddingVertical: spacing.sm + 2,
+                        paddingHorizontal: 6,
+                        borderRadius: radii.lg,
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: 4,
-                        paddingHorizontal: spacing.md,
-                        paddingVertical: spacing.sm,
-                        borderRadius: radii.pill,
                         backgroundColor: active ? '#2563EB' : theme.bg.surface,
                         borderWidth: active ? 0 : 1,
                         borderColor: theme.border.default,
-                        opacity: pressed ? 0.7 : 1,
+                        opacity: pressed ? 0.75 : 1,
+                        shadowColor: active ? '#2563EB' : '#0F172A',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: active ? 0.22 : 0.04,
+                        shadowRadius: active ? 6 : 3,
+                        elevation: active ? 2 : 1,
                       })}
                     >
-                      <Text style={{ fontSize: 13 }}>{t.emoji}</Text>
+                      <Text style={{ fontSize: 22, lineHeight: 26 }}>{t.emoji}</Text>
                       <Text
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.85}
                         style={{
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: '600',
+                          textAlign: 'center',
                           color: active ? '#FFFFFF' : theme.text.primary,
                         }}
                       >
-                        {t.label}
+                        {tradeShortLabel(t)}
                       </Text>
                     </Pressable>
                   );
@@ -447,17 +511,8 @@ function AvailabilityBeaconSheet({
             </View>
 
             {/* Note */}
-            <View style={{ gap: spacing.xs }}>
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontWeight: '600',
-                  letterSpacing: 1.4,
-                  color: theme.text.tertiary,
-                }}
-              >
-                NOTE FOR EMPLOYERS · OPTIONAL
-              </Text>
+            <View style={{ gap: spacing.sm }}>
+              <SectionLabel theme={theme}>NOTE FOR EMPLOYERS · OPTIONAL</SectionLabel>
               <TextInput
                 value={note}
                 onChangeText={setNote}
@@ -465,39 +520,54 @@ function AvailabilityBeaconSheet({
                 placeholderTextColor={theme.text.tertiary}
                 style={{
                   backgroundColor: theme.bg.surface,
-                  borderWidth: 0.5,
-                  borderColor: theme.border.subtle,
-                  borderRadius: radii.md,
+                  borderWidth: 1,
+                  borderColor: theme.border.default,
+                  borderRadius: radii.lg,
                   paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm + 2,
+                  paddingVertical: spacing.md,
                   fontSize: 15,
                   color: theme.text.primary,
+                  minHeight: 48,
                 }}
                 maxLength={240}
               />
             </View>
           </ScrollView>
 
-          {/* Sticky CTA */}
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          {/* Sticky CTA — Cancel sits as a quiet ghost button; the primary
+             action is a tall blue pill with a real shadow so it feels
+             tappable, not painted on. Disabled state is dimmed but still
+             clearly the primary action. */}
+          <View
+            style={{
+              flexDirection: 'row',
+              gap: spacing.sm,
+              paddingTop: spacing.sm,
+              borderTopWidth: 0.5,
+              borderTopColor: theme.border.subtle,
+            }}
+          >
             <Pressable
               onPress={() => {
                 haptic('light');
                 onClose();
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
               style={({ pressed }) => ({
-                paddingVertical: 14,
-                paddingHorizontal: spacing.lg,
+                paddingVertical: 16,
+                paddingHorizontal: spacing.xl,
                 borderRadius: radii.pill,
                 alignItems: 'center',
                 justifyContent: 'center',
+                backgroundColor: theme.bg.surface,
                 borderWidth: 1,
                 borderColor: theme.border.default,
                 opacity: pressed ? 0.7 : 1,
               })}
             >
               <Text
-                style={{ fontSize: 15, fontWeight: '600', color: theme.text.primary }}
+                style={{ fontSize: 15, fontWeight: '600', color: theme.text.secondary }}
               >
                 Cancel
               </Text>
@@ -509,31 +579,61 @@ function AvailabilityBeaconSheet({
               accessibilityLabel="Broadcast availability"
               style={({ pressed }) => ({
                 flex: 1,
-                paddingVertical: 14,
+                paddingVertical: 16,
                 borderRadius: radii.pill,
                 alignItems: 'center',
                 justifyContent: 'center',
                 backgroundColor: '#2563EB',
-                opacity: publishMutation.isPending ? 0.5 : pressed ? 0.85 : 1,
-                shadowColor: '#2563EB',
-                shadowOpacity: 0.25,
-                shadowRadius: 10,
-                shadowOffset: { width: 0, height: 4 },
-                elevation: 4,
+                opacity: publishMutation.isPending ? 0.55 : pressed ? 0.9 : 1,
+                shadowColor: '#1D4ED8',
+                shadowOpacity: 0.35,
+                shadowRadius: 14,
+                shadowOffset: { width: 0, height: 6 },
+                elevation: 6,
               })}
             >
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: '700',
+                  color: '#FFFFFF',
+                  letterSpacing: 0.2,
+                }}
+              >
                 {publishMutation.isPending
                   ? 'Broadcasting…'
                   : existing
-                    ? 'Update'
-                    : 'Broadcast'}
+                    ? 'Update beacon'
+                    : 'Broadcast now'}
               </Text>
             </Pressable>
           </View>
         </View>
       </View>
     </Modal>
+  );
+}
+
+// ─── Internal — section label used by the sheet ─────────────────────────────
+
+function SectionLabel({
+  theme,
+  children,
+}: {
+  theme: ReturnType<typeof useTheme>['theme'];
+  children: ReactNode;
+}) {
+  return (
+    <Text
+      style={{
+        fontSize: 11,
+        fontWeight: '700',
+        letterSpacing: 1.4,
+        color: theme.text.secondary,
+      }}
+    >
+      {children}
+    </Text>
   );
 }
 

@@ -59,6 +59,13 @@ export function ApplicantCard({ applicant, showJobTitle = false }: Props) {
                 {applicant.seeker?.isVerified && (
                   <Pill label="Verified" tone="premium" leading="★" />
                 )}
+                {applicant.teamSizeSnapshot && applicant.teamSizeSnapshot >= 2 ? (
+                  <Pill
+                    label={`Team of ${applicant.teamSizeSnapshot}`}
+                    tone="info"
+                    leading="👥"
+                  />
+                ) : null}
               </View>
               <Text variant="footnote" tone="secondary" numberOfLines={1}>
                 {applicant.seeker?.location?.area ?? applicant.seeker?.location?.city ?? '—'}

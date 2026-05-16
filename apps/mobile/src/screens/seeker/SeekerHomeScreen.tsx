@@ -59,7 +59,9 @@ const HOME_MODE_LABELS: Record<HomeMode, string> = {
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
 // Bengaluru fallback so the screen never feels broken on permission denial.
-const FALLBACK_COORDS = { lat: 12.9716, lng: 77.5946 };
+// Tagged `manual` because it isn't device GPS — the UI uses `source` to show
+// a "Detected your area" hint vs. a "Showing default city" hint.
+const FALLBACK_COORDS: Coords = { lat: 12.9716, lng: 77.5946, source: 'manual' };
 
 interface Category {
   key: string;
@@ -613,7 +615,7 @@ export function SeekerHomeScreen() {
                       style={{
                         fontSize: 13,
                         fontWeight: '600',
-                        color: '#FFFFFF',
+                        color: '#288f16',
                       }}
                     >
                       Apply Now
@@ -664,6 +666,7 @@ function ModeToggle({
             style={({ pressed }) => ({
               flex: 1,
               paddingVertical: 8,
+              paddingHorizontal: 6,
               borderRadius: radii.pill,
               alignItems: 'center',
               justifyContent: 'center',
@@ -676,12 +679,19 @@ function ModeToggle({
               elevation: active ? 3 : 0,
             })}
           >
+            {/* numberOfLines + adjustsFontSizeToFit guarantee that 'This week'
+               renders intact on narrow devices instead of being truncated
+               to 'This' as it was on the 720-wide screenshot. */}
             <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
               style={{
                 fontSize: 13,
                 fontWeight: '700',
                 color: active ? '#FFFFFF' : '#1E40AF',
                 letterSpacing: 0.1,
+                textAlign: 'center',
               }}
             >
               {HOME_MODE_LABELS[m]}

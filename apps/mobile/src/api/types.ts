@@ -314,6 +314,8 @@ export interface PublicApplication {
   coverNote: string | null;
   /** True for one-tap "I'm interested" pings from Today mode. */
   expressedAsInterest: boolean;
+  /** How many people are applying together. Null = solo applicant. */
+  teamSizeSnapshot: number | null;
   timeline: {
     appliedAt: string;
     viewedAt: string | null;

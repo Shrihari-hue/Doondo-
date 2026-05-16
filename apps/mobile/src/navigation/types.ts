@@ -152,6 +152,10 @@ export type AppStackParamList = {
     | undefined;
   /** Modal: employers see seekers broadcasting "available now" nearby. */
   AvailableWorkers: undefined;
+  /** Modal: catalogue of training courses. */
+  Courses: undefined;
+  /** Modal: a single course with its lessons + progress + enroll CTA. */
+  CourseDetail: { courseId: string };
 };
 
 declare global {

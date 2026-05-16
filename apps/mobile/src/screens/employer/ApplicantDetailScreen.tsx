@@ -22,6 +22,7 @@ import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, Tex
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi, type ApplicantEntry, type SchedulePayload } from '@/api/applications.api';
 import { contactApi } from '@/api/contact.api';
+import { coursesApi } from '@/api/courses.api';
 import { ApiError } from '@/api/errors';
 import { haptic } from '@/lib/haptics';
 import { useUnratedApplications } from '@/hooks/useRatings';
@@ -214,6 +215,15 @@ export function ApplicantDetailScreen() {
             <Text variant="display" weight="medium" display>
               {applicant.seeker?.name ?? 'Applicant'}
             </Text>
+            {applicant.teamSizeSnapshot && applicant.teamSizeSnapshot >= 2 ? (
+              <View style={{ alignSelf: 'flex-start' }}>
+                <Pill
+                  label={`Team of ${applicant.teamSizeSnapshot}`}
+                  tone="info"
+                  leading="👥"
+                />
+              </View>
+            ) : null}
             {applicant.seeker?.location && (
               <Text variant="footnote" tone="secondary">
                 {[applicant.seeker.location.area, applicant.seeker.location.city]
@@ -286,6 +296,11 @@ export function ApplicantDetailScreen() {
             </Card>
           </View>
         )}
+
+        {/* Earned course badges — hidden when none. */}
+        {applicant.seeker?.id ? (
+          <ApplicantBadgesSection seekerId={applicant.seeker.id} />
+        ) : null}
 
         {/* Built work history (from Resume Builder) */}
         <WorkHistorySection
@@ -368,6 +383,63 @@ function CallSeekerButton({ seekerId }: { seekerId: string }) {
         {mutation.isPending ? 'Opening dialer…' : '📞 Call this worker'}
       </Text>
     </Pressable>
+  );
+}
+
+// ─── Earned badges ──────────────────────────────────────────────────────────
+
+/**
+ * Loads + renders a strip of completed-course badges for the seeker.
+ * Hidden entirely when they haven't finished any course.
+ */
+function ApplicantBadgesSection({ seekerId }: { seekerId: string }) {
+  const { theme } = useTheme();
+  const query = useQuery({
+    queryKey: ['seekerBadges', seekerId],
+    queryFn: () => coursesApi.seekerBadges(seekerId),
+    staleTime: 60_000,
+  });
+  const badges = query.data?.badges ?? [];
+  if (badges.length === 0) return null;
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Text
+        variant="footnote"
+        weight="medium"
+        tone="secondary"
+        style={{ letterSpacing: 1.0 }}
+      >
+        COURSE BADGES · {badges.length}
+      </Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.lg }}
+      >
+        {badges.map((b) => (
+          <View
+            key={b.id}
+            style={{
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm,
+              borderRadius: radii.pill,
+              backgroundColor: '#FEF3C7',
+              borderWidth: 0.5,
+              borderColor: '#FDE68A',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <Text style={{ fontSize: 14 }}>🏅</Text>
+            <Text style={{ fontSize: 12 }}>{b.emoji}</Text>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#78350F' }}>
+              {b.title}
+            </Text>
+          </View>
+        ))}
+      </ScrollView>
+    </View>
   );
 }
 

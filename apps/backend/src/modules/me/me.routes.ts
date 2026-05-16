@@ -13,6 +13,7 @@ import * as controller from './me.controller';
 import walletRouter from '@/modules/wallet/wallet.routes';
 import alertsRouter from '@/modules/alerts/alert.routes';
 import { seekerAvailabilityRouter } from '@/modules/availabilities/availability.routes';
+import { seekerEnrollmentsRouter } from '@/modules/courses/courses.routes';
 import {
   pushTokenSchema,
   updateEmployerLocationSchema,
@@ -36,6 +37,9 @@ router.use('/', alertsRouter);
 // Availability beacon — seeker-only "I'm available right now" flag.
 // URLs land at /api/v1/me/availability.
 router.use('/', seekerAvailabilityRouter);
+
+// Course enrollments — /api/v1/me/enrollments.
+router.use('/', seekerEnrollmentsRouter);
 
 router.patch(
   '/profile',

@@ -32,6 +32,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { haptic } from '@/lib/haptics';
 import { meApi } from '@/api/me.api';
 import { alertsApi } from '@/api/alerts.api';
+import { coursesApi } from '@/api/courses.api';
 import { ApiError } from '@/api/errors';
 import {
   formatRange,
@@ -332,6 +333,10 @@ function ResumePreviewInner() {
           </View>
         </Section>
 
+        {/* Earned course badges — taps through to Courses. Hidden when
+           the seeker hasn't finished any course yet. */}
+        <BadgesSection />
+
         {/* Work photos — horizontal carousel shown only when there are
            photos. Tap a photo for a fuller view (system image viewer). */}
         {user.workPhotos && user.workPhotos.length > 0 ? (
@@ -567,6 +572,67 @@ function SuggestionCard({
         </Text>
       </Pressable>
     </View>
+  );
+}
+
+/**
+ * Earned-badge strip — pills derived from completed courses. Each badge
+ * is a small 🏅 + course-title pill. Hidden entirely when the seeker
+ * hasn't finished any course.
+ */
+function BadgesSection() {
+  const enrollmentsQuery = useQuery({
+    queryKey: ['enrollments', 'me'],
+    queryFn: () => coursesApi.myEnrollments(),
+    staleTime: 60_000,
+  });
+  const cataloguQuery = useQuery({
+    queryKey: ['courses', 'catalogue'],
+    queryFn: () => coursesApi.list(),
+    staleTime: 60_000,
+  });
+  const earned = (enrollmentsQuery.data?.enrollments ?? []).filter(
+    (e) => e.completedAt,
+  );
+  if (earned.length === 0) return null;
+  const courseById = new Map(
+    (cataloguQuery.data?.courses ?? []).map((c) => [c.id, c]),
+  );
+  return (
+    <Section title={`COURSE BADGES · ${earned.length}`}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.lg }}
+      >
+        {earned.map((e) => {
+          const c = courseById.get(e.courseId);
+          if (!c) return null;
+          return (
+            <View
+              key={e.id}
+              style={{
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+                borderRadius: radii.pill,
+                backgroundColor: '#FEF3C7',
+                borderWidth: 0.5,
+                borderColor: '#FDE68A',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <Text style={{ fontSize: 14 }}>🏅</Text>
+              <Text style={{ fontSize: 12 }}>{c.emoji}</Text>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#78350F' }}>
+                {c.title}
+              </Text>
+            </View>
+          );
+        })}
+      </ScrollView>
+    </Section>
   );
 }
 

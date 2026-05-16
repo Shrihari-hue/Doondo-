@@ -23,7 +23,14 @@
 
 export interface TradeOption {
   slug: string;
+  /** Full English display name. Used in resumes, applicant detail, profile. */
   label: string;
+  /**
+   * Compact chip label — must fit comfortably in a fixed-width filter chip
+   * (~84px) without truncation. Defaults visually to `label` when omitted,
+   * but providing one keeps the horizontal trade strip on Home tidy.
+   */
+  shortLabel?: string;
   emoji: string;
   aliases: string[];
 }
@@ -31,8 +38,8 @@ export interface TradeOption {
 export const TRADES: TradeOption[] = [
   // ─── Delivery / transport ──────────────────────────────────────────────
   { slug: 'delivery', label: 'Delivery', emoji: '🛵', aliases: ['rider', 'courier', 'food delivery', 'parcel', 'zomato', 'swiggy', 'dunzo'] },
-  { slug: 'driver_light', label: 'Driver — light vehicle', emoji: '🚗', aliases: ['cab', 'taxi', 'auto', 'ola', 'uber', 'car driver'] },
-  { slug: 'driver_heavy', label: 'Driver — heavy vehicle', emoji: '🚛', aliases: ['truck', 'lorry', 'bus driver', 'heavy license', 'tempo'] },
+  { slug: 'driver_light', label: 'Driver — light vehicle', shortLabel: 'LV Driver', emoji: '🚗', aliases: ['cab', 'taxi', 'auto', 'ola', 'uber', 'car driver'] },
+  { slug: 'driver_heavy', label: 'Driver — heavy vehicle', shortLabel: 'HV Driver', emoji: '🚛', aliases: ['truck', 'lorry', 'bus driver', 'heavy license', 'tempo'] },
 
   // ─── Construction / skilled trades ─────────────────────────────────────
   { slug: 'helper', label: 'Helper', emoji: '🤝', aliases: ['labourer', 'mazdoor', 'unskilled', 'site helper'] },
@@ -42,38 +49,46 @@ export const TRADES: TradeOption[] = [
   { slug: 'electrician', label: 'Electrician', emoji: '⚡', aliases: ['wiring', 'electrical', 'fitter'] },
   { slug: 'plumber', label: 'Plumber', emoji: '🔧', aliases: ['pipe', 'pipeline', 'sanitary'] },
   { slug: 'welder', label: 'Welder', emoji: '🔥', aliases: ['fabrication', 'iron work', 'gas welder'] },
-  { slug: 'ac_technician', label: 'AC technician', emoji: '❄️', aliases: ['ac repair', 'hvac', 'fridge repair'] },
+  { slug: 'ac_technician', label: 'AC technician', shortLabel: 'AC Tech', emoji: '❄️', aliases: ['ac repair', 'hvac', 'fridge repair'] },
   { slug: 'mechanic', label: 'Mechanic', emoji: '🔩', aliases: ['bike mechanic', 'car mechanic', 'garage'] },
 
   // ─── Hospitality / food ────────────────────────────────────────────────
   { slug: 'cook', label: 'Cook', emoji: '👨‍🍳', aliases: ['chef', 'kitchen', 'tiffin', 'cook for home'] },
-  { slug: 'kitchen_helper', label: 'Kitchen helper', emoji: '🍳', aliases: ['dishwasher', 'kitchen assistant', 'commis'] },
-  { slug: 'waiter', label: 'Waiter / server', emoji: '🍽️', aliases: ['steward', 'restaurant staff', 'service'] },
+  { slug: 'kitchen_helper', label: 'Kitchen helper', shortLabel: 'Kitchen', emoji: '🍳', aliases: ['dishwasher', 'kitchen assistant', 'commis'] },
+  { slug: 'waiter', label: 'Waiter / server', shortLabel: 'Waiter', emoji: '🍽️', aliases: ['steward', 'restaurant staff', 'service'] },
 
   // ─── Retail / shop ─────────────────────────────────────────────────────
-  { slug: 'shop_assistant', label: 'Shop assistant', emoji: '🛍️', aliases: ['retail', 'salesman', 'counter', 'shopkeeper'] },
+  { slug: 'shop_assistant', label: 'Shop assistant', shortLabel: 'Shop', emoji: '🛍️', aliases: ['retail', 'salesman', 'counter', 'shopkeeper'] },
   { slug: 'cashier', label: 'Cashier', emoji: '💵', aliases: ['billing', 'pos', 'counter cash'] },
-  { slug: 'warehouse', label: 'Warehouse / loader', emoji: '📦', aliases: ['loader', 'godown', 'packing', 'unloading'] },
+  { slug: 'warehouse', label: 'Warehouse / loader', shortLabel: 'Warehouse', emoji: '📦', aliases: ['loader', 'godown', 'packing', 'unloading'] },
 
   // ─── Personal services ────────────────────────────────────────────────
-  { slug: 'security_guard', label: 'Security guard', emoji: '👮', aliases: ['watchman', 'guard', 'bouncer'] },
-  { slug: 'salon', label: 'Salon worker', emoji: '💇', aliases: ['barber', 'hairdresser', 'beautician', 'stylist'] },
+  { slug: 'security_guard', label: 'Security guard', shortLabel: 'Security', emoji: '👮', aliases: ['watchman', 'guard', 'bouncer'] },
+  { slug: 'salon', label: 'Salon worker', shortLabel: 'Salon', emoji: '💇', aliases: ['barber', 'hairdresser', 'beautician', 'stylist'] },
   { slug: 'tailor', label: 'Tailor', emoji: '🧵', aliases: ['stitching', 'darzi', 'master tailor'] },
-  { slug: 'domestic_help', label: 'Domestic help', emoji: '🏠', aliases: ['maid', 'housekeeping', 'house help', 'bai'] },
+  { slug: 'domestic_help', label: 'Domestic help', shortLabel: 'Domestic', emoji: '🏠', aliases: ['maid', 'housekeeping', 'house help', 'bai'] },
   { slug: 'cleaner', label: 'Cleaner', emoji: '🧹', aliases: ['sweeper', 'janitor', 'office cleaner'] },
   { slug: 'gardener', label: 'Gardener', emoji: '🌱', aliases: ['mali', 'landscaping', 'lawn'] },
 
   // ─── Care work ────────────────────────────────────────────────────────
   { slug: 'caregiver', label: 'Caregiver', emoji: '🩺', aliases: ['nurse aide', 'patient care', 'elderly care', 'ayah'] },
-  { slug: 'nanny', label: 'Nanny / babysitter', emoji: '🧸', aliases: ['child care', 'babysitter', 'ayah'] },
+  { slug: 'nanny', label: 'Nanny / babysitter', shortLabel: 'Nanny', emoji: '🧸', aliases: ['child care', 'babysitter', 'ayah'] },
 
   // ─── White-collar — same catalogue so the dual-audience overlap is real ─
-  { slug: 'office_admin', label: 'Office admin', emoji: '🗂️', aliases: ['receptionist', 'front office', 'admin'] },
+  { slug: 'office_admin', label: 'Office admin', shortLabel: 'Admin', emoji: '🗂️', aliases: ['receptionist', 'front office', 'admin'] },
   { slug: 'data_entry', label: 'Data entry', emoji: '⌨️', aliases: ['typing', 'computer operator', 'back office'] },
-  { slug: 'accountant', label: 'Accountant', emoji: '🧮', aliases: ['tally', 'bookkeeping', 'finance'] },
+  { slug: 'accountant', label: 'Accountant', shortLabel: 'Accounts', emoji: '🧮', aliases: ['tally', 'bookkeeping', 'finance'] },
   { slug: 'tutor', label: 'Tutor', emoji: '📚', aliases: ['teacher', 'tuition', 'coaching', 'school'] },
   { slug: 'telecaller', label: 'Telecaller', emoji: '☎️', aliases: ['call center', 'bpo', 'tele sales', 'customer service'] },
 ];
+
+/**
+ * Resolve a chip-sized label for a trade. Falls back to the full label
+ * when no `shortLabel` is defined (e.g., already-short ones like "Cook").
+ */
+export function tradeShortLabel(trade: TradeOption): string {
+  return trade.shortLabel ?? trade.label;
+}
 
 /**
  * Find a trade by slug. Returns undefined if not in the catalogue —

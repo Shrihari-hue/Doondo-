@@ -41,6 +41,8 @@ import { ResumePreviewScreen } from '@/screens/seeker/ResumePreviewScreen';
 import { JobAlertsScreen } from '@/screens/seeker/JobAlertsScreen';
 import { JobAlertFormScreen } from '@/screens/seeker/JobAlertFormScreen';
 import { AvailableWorkersScreen } from '@/screens/employer/AvailableWorkersScreen';
+import { CoursesScreen } from '@/screens/seeker/CoursesScreen';
+import { CourseDetailScreen } from '@/screens/seeker/CourseDetailScreen';
 import { JobApplicantsScreen } from '@/screens/employer/JobApplicantsScreen';
 import { ApplicantDetailScreen } from '@/screens/employer/ApplicantDetailScreen';
 import { PostJobScreen } from '@/screens/employer/PostJobScreen';
@@ -222,6 +224,16 @@ export function AppNavigator() {
         name="AvailableWorkers"
         component={AvailableWorkersScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Courses"
+        component={CoursesScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="CourseDetail"
+        component={CourseDetailScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_right' }}
       />
     </Stack.Navigator>
   );

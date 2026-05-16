@@ -74,6 +74,13 @@ export interface Application {
    * rows preserve their meaning.
    */
   expressedAsInterest?: boolean;
+  /**
+   * Snapshot of how many people are coming. Captured at apply time from
+   * the seeker's `workType === 'team'` and `teamSize` so the employer
+   * sees the actual headcount even if the seeker flips back to solo
+   * later. Null = solo applicant (the default).
+   */
+  teamSizeSnapshot?: number | null;
   /** Per-status timestamps. null until that status is reached. */
   appliedAt: Date;
   viewedAt?: Date | null;
@@ -111,6 +118,12 @@ export interface PublicApplication {
   coverNote: string | null;
   /** True for one-tap "I'm interested" pings from Today mode. */
   expressedAsInterest: boolean;
+  /**
+   * Snapshot of how many people are applying as a team. Null = solo.
+   * Captured from the seeker's workType/teamSize at apply time so the
+   * employer's card stays accurate even if the seeker later flips back.
+   */
+  teamSizeSnapshot: number | null;
   timeline: {
     appliedAt: string;
     viewedAt: string | null;
@@ -158,6 +171,7 @@ const applicationSchema = new Schema<Application, ApplicationModel, ApplicationM
     },
     coverNote: { type: String, default: null, trim: true, maxlength: 500 },
     expressedAsInterest: { type: Boolean, default: false },
+    teamSizeSnapshot: { type: Number, default: null, min: 2, max: 50 },
     appliedAt: { type: Date, default: Date.now },
     viewedAt: { type: Date, default: null },
     shortlistedAt: { type: Date, default: null },
@@ -200,6 +214,7 @@ applicationSchema.method('toPublicJSON', function (
     status: this.status,
     coverNote: this.coverNote ?? null,
     expressedAsInterest: Boolean(this.expressedAsInterest),
+    teamSizeSnapshot: this.teamSizeSnapshot ?? null,
     timeline: {
       appliedAt: this.appliedAt.toISOString(),
       viewedAt: this.viewedAt ? this.viewedAt.toISOString() : null,

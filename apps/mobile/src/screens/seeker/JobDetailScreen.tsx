@@ -15,6 +15,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, Share, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -26,6 +27,7 @@ import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { jobsApi } from '@/api/jobs.api';
 import { applicationsApi } from '@/api/applications.api';
 import { contactApi } from '@/api/contact.api';
+import { useAuth } from '@/hooks/useAuth';
 import { ApiError } from '@/api/errors';
 import { haptic } from '@/lib/haptics';
 import {
@@ -46,6 +48,7 @@ function JobDetailScreenInner() {
   const route = useRoute<Route>();
   const { theme } = useTheme();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [appliedNow, setAppliedNow] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
@@ -422,6 +425,36 @@ function JobDetailScreenInner() {
           </View>
         )}
 
+        {/* Team-apply hint — shown only when the seeker has marked their
+           profile as a team. Tells them how many heads will be sent in
+           with this Application so they can sanity-check before tapping. */}
+        {!appliedNow && user?.workType === 'team' && (user.teamSize ?? 0) >= 2 ? (
+          <View
+            style={{
+              padding: spacing.md,
+              borderRadius: radii.md,
+              backgroundColor: '#EFF6FF',
+              borderWidth: 0.5,
+              borderColor: '#BFDBFE',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.sm,
+            }}
+          >
+            <Text style={{ fontSize: 18 }}>👥</Text>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text
+                style={{ fontSize: 13, fontWeight: '700', color: '#1E40AF' }}
+              >
+                Applying as a team of {user.teamSize}
+              </Text>
+              <Text style={{ fontSize: 12, color: '#1E3A8A', opacity: 0.85 }}>
+                The employer sees you as one group. Change in Profile → Preferences.
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         {appliedNow && (
           <Card premium>
             <View style={{ gap: spacing.sm, alignItems: 'center' }}>
@@ -468,99 +501,46 @@ function JobDetailScreenInner() {
             CTA branches on `fromMode`:
               - 'today'                  → "I'm interested" one-tap
               - 'career' | 'this_week'   → "Apply Now" full flow
-            The Career path is unchanged from before Phase 2 so all
-            existing deep-links and the Jobs tab keep working exactly
-            as they did. Hardcoded colors so the button is always
-            visible regardless of theme resolution.
+            Both use PrimaryStickyCTA, which renders a real
+            LinearGradient fill behind the label so the blue background
+            is structural, not dependent on the Pressable's dynamic
+            style function (which was previously producing a white-on-
+            white render in some states).
           */}
           {isTodayMode ? (
-            <Pressable
+            <PrimaryStickyCTA
+              label={
+                appliedNow
+                  ? '✓ Interest sent'
+                  : interestMutation.isPending
+                    ? 'Sending…'
+                    : "✋ I'm interested"
+              }
+              accessibilityLabel="I'm interested"
+              disabled={appliedNow || interestMutation.isPending}
               onPress={() => {
                 if (appliedNow || interestMutation.isPending) return;
                 haptic('light');
                 interestMutation.mutate();
               }}
-              disabled={appliedNow || interestMutation.isPending}
-              accessibilityRole="button"
-              accessibilityLabel="I'm interested"
-              style={({ pressed }) => ({
-                backgroundColor: '#2563EB',
-                paddingVertical: 14,
-                borderRadius: radii.lg,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity:
-                  appliedNow || interestMutation.isPending
-                    ? 0.55
-                    : pressed
-                      ? 0.85
-                      : 1,
-                shadowColor: '#2563EB',
-                shadowOpacity: 0.25,
-                shadowRadius: 10,
-                shadowOffset: { width: 0, height: 4 },
-                elevation: 4,
-              })}
-            >
-              <Text
-                style={{
-                  color: '#FFFFFF',
-                  fontSize: 16,
-                  fontWeight: '700',
-                  letterSpacing: 0.2,
-                }}
-              >
-                {appliedNow
-                  ? "✓ Interest sent"
-                  : interestMutation.isPending
-                    ? 'Sending…'
-                    : "✋ I'm interested"}
-              </Text>
-            </Pressable>
+            />
           ) : (
-          <Pressable
-            onPress={() => {
-              if (appliedNow || applyMutation.isPending) return;
-              haptic('light');
-              applyMutation.mutate();
-            }}
-            disabled={appliedNow || applyMutation.isPending}
-            accessibilityRole="button"
-            accessibilityLabel="Apply Now"
-            style={({ pressed }) => ({
-              backgroundColor: '#2563EB',
-              paddingVertical: 14,
-              borderRadius: radii.lg,
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity:
-                appliedNow || applyMutation.isPending
-                  ? 0.55
-                  : pressed
-                    ? 0.85
-                    : 1,
-              shadowColor: '#2563EB',
-              shadowOpacity: 0.25,
-              shadowRadius: 10,
-              shadowOffset: { width: 0, height: 4 },
-              elevation: 4,
-            })}
-          >
-            <Text
-              style={{
-                color: '#FFFFFF',
-                fontSize: 16,
-                fontWeight: '700',
-                letterSpacing: 0.2,
+            <PrimaryStickyCTA
+              label={
+                appliedNow
+                  ? 'Applied ✓'
+                  : applyMutation.isPending
+                    ? 'Sending…'
+                    : 'Apply Now'
+              }
+              accessibilityLabel="Apply Now"
+              disabled={appliedNow || applyMutation.isPending}
+              onPress={() => {
+                if (appliedNow || applyMutation.isPending) return;
+                haptic('light');
+                applyMutation.mutate();
               }}
-            >
-              {appliedNow
-                ? 'Applied ✓'
-                : applyMutation.isPending
-                  ? 'Sending…'
-                  : 'Apply Now'}
-            </Text>
-          </Pressable>
+            />
           )}
         </View>
         <Pressable
@@ -670,6 +650,78 @@ function Header({
 }
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
+
+/**
+ * The sticky-footer primary action button. The blue fill lives on a
+ * LinearGradient inside a wrapper View, not on the Pressable's dynamic
+ * style function — that was the root cause of the white-on-white render
+ * the seekers were seeing, because the Pressable's style was sometimes
+ * losing the backgroundColor between state transitions.
+ *
+ * Disabled state stays at 0.7 opacity (not 0.55) so the label is still
+ * legible while the network call is in flight, and the gradient gives
+ * the button a richer "real button" feel on both light and dark canvases.
+ */
+function PrimaryStickyCTA({
+  label,
+  accessibilityLabel,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  accessibilityLabel: string;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
+      style={({ pressed }) => ({
+        borderRadius: radii.lg,
+        overflow: 'hidden',
+        opacity: disabled ? 0.7 : pressed ? 0.92 : 1,
+        shadowColor: '#1D4ED8',
+        shadowOpacity: 0.35,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 6,
+        // Solid fallback under the gradient — if the gradient ever fails
+        // to render (rare, but it has happened on older Android builds),
+        // the button is still vivid blue with white text instead of the
+        // previous white-on-white state.
+        backgroundColor: '#2563EB',
+      })}
+    >
+      <LinearGradient
+        colors={['#3B82F6', '#2563EB', '#1D4ED8']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          paddingVertical: 16,
+          paddingHorizontal: spacing.lg,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text
+          numberOfLines={1}
+          style={{
+            color: '#FFFFFF',
+            fontSize: 16,
+            fontWeight: '800',
+            letterSpacing: 0.3,
+          }}
+        >
+          {label}
+        </Text>
+      </LinearGradient>
+    </Pressable>
+  );
+}
 
 // ─── Call employer button ───────────────────────────────────────────────────
 
