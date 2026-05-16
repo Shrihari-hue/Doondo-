@@ -321,45 +321,54 @@ function HeroCard({ onExplore }: { onExplore: () => void }) {
           >
             Find the right jobs near you
           </Text>
-          <Pressable
-            onPress={() => {
-              haptic('selection');
-              onExplore();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Explore jobs"
-            style={({ pressed }) => ({
+          {/* The white pill background lives on a wrapper View so it can't
+             drop out during state transitions and leave dark-navy text
+             invisible on the navy hero. Pressable handles only feedback. */}
+          <View
+            style={{
               alignSelf: 'flex-start',
               marginTop: spacing.xs,
-              paddingVertical: 12,
-              paddingHorizontal: spacing.lg,
               borderRadius: radii.pill,
               backgroundColor: '#FFFFFF',
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              opacity: pressed ? 0.85 : 1,
               shadowColor: '#0F172A',
               shadowOffset: { width: 0, height: 3 },
-              shadowOpacity: 0.18,
-              shadowRadius: 8,
-              elevation: 3,
-            })}
+              shadowOpacity: 0.22,
+              shadowRadius: 10,
+              elevation: 4,
+            }}
           >
-            <Text
-              style={{
-                fontSize: 14,
-                fontWeight: '700',
-                color: '#0F1A45',
-                letterSpacing: 0.1,
+            <Pressable
+              onPress={() => {
+                haptic('selection');
+                onExplore();
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Explore jobs"
+              style={({ pressed }) => ({
+                paddingVertical: 12,
+                paddingHorizontal: spacing.lg,
+                borderRadius: radii.pill,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                opacity: pressed ? 0.85 : 1,
+              })}
             >
-              Explore Jobs
-            </Text>
-            <Text style={{ fontSize: 14, color: '#0F1A45', fontWeight: '700' }}>
-              →
-            </Text>
-          </Pressable>
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: '800',
+                  color: '#0F1A45',
+                  letterSpacing: 0.1,
+                }}
+              >
+                Explore Jobs
+              </Text>
+              <Text style={{ fontSize: 14, color: '#0F1A45', fontWeight: '800' }}>
+                →
+              </Text>
+            </Pressable>
+          </View>
         </View>
         {/* Megaphone illustration — large emoji at low opacity gives the
            silhouette the mockup shows without bundling an SVG asset. */}
@@ -527,11 +536,19 @@ function PremiumJobCard({
           small={formatPaySuffix(job.pay)}
         />
         <StatDivider />
-        <StatBox
-          icon="🕐"
-          big={formatHoursPrimary(job)}
-          small={formatType(job.type)}
-        />
+        {/* Schedule stat — show hours/day on top and the type below. When
+           hours aren't set, show the type as the headline and 'Schedule'
+           as the descriptor so we never render the same word twice
+           (was 'Gig / Gig' on gig postings with no schedule). */}
+        {(() => {
+          const hrs = job.schedule?.hoursPerDay;
+          const type = formatType(job.type);
+          return hrs != null ? (
+            <StatBox icon="🕐" big={`${hrs} hrs / day`} small={type} />
+          ) : (
+            <StatBox icon="🕐" big={type} small="Schedule" />
+          );
+        })()}
         <StatDivider />
         <StatBox
           icon="📅"
@@ -754,13 +771,6 @@ function formatPaySuffix(pay: PublicJob['pay']): string {
     case 'fixed':
       return 'One-time';
   }
-}
-
-function formatHoursPrimary(job: PublicJob): string {
-  const hrs = job.schedule?.hoursPerDay;
-  if (hrs != null) return `${hrs} hrs / day`;
-  // Fall back to type when schedule isn't set.
-  return formatType(job.type);
 }
 
 function formatType(t: PublicJob['type']): string {

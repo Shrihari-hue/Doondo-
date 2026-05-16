@@ -662,46 +662,54 @@ function ModeToggle({
     >
       {HOME_MODES.map((m) => {
         const active = m === value;
+        // The blue pill background lives on a wrapper View — not on the
+        // Pressable's dynamic style function — so RN can't drop it during
+        // state transitions the way it was doing previously, leaving
+        // white-on-pale-blue text. The Pressable is now transparent and
+        // only handles the press feedback.
         return (
-          <Pressable
+          <View
             key={m}
-            onPress={() => onChange(m)}
-            accessibilityRole="button"
-            accessibilityLabel={`${HOME_MODE_LABELS[m]}${active ? ', selected' : ''}`}
-            style={({ pressed }) => ({
+            style={{
               flex: 1,
-              paddingVertical: 8,
-              paddingHorizontal: 6,
               borderRadius: radii.pill,
-              alignItems: 'center',
-              justifyContent: 'center',
               backgroundColor: active ? '#2563EB' : 'transparent',
-              opacity: pressed ? 0.85 : 1,
               shadowColor: active ? '#2563EB' : 'transparent',
-              shadowOpacity: active ? 0.25 : 0,
+              shadowOpacity: active ? 0.3 : 0,
               shadowRadius: active ? 8 : 0,
-              shadowOffset: { width: 0, height: 2 },
+              shadowOffset: { width: 0, height: 3 },
               elevation: active ? 3 : 0,
-            })}
+            }}
           >
-            {/* numberOfLines + adjustsFontSizeToFit guarantee that 'This week'
-               renders intact on narrow devices instead of being truncated
-               to 'This' as it was on the 720-wide screenshot. */}
-            <Text
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.85}
-              style={{
-                fontSize: 13,
-                fontWeight: '700',
-                color: active ? '#FFFFFF' : '#1E40AF',
-                letterSpacing: 0.1,
-                textAlign: 'center',
-              }}
+            <Pressable
+              onPress={() => onChange(m)}
+              accessibilityRole="button"
+              accessibilityLabel={`${HOME_MODE_LABELS[m]}${active ? ', selected' : ''}`}
+              style={({ pressed }) => ({
+                paddingVertical: 8,
+                paddingHorizontal: 6,
+                borderRadius: radii.pill,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: pressed ? 0.85 : 1,
+              })}
             >
-              {HOME_MODE_LABELS[m]}
-            </Text>
-          </Pressable>
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+                style={{
+                  fontSize: 13,
+                  fontWeight: '700',
+                  color: active ? '#FFFFFF' : '#1E40AF',
+                  letterSpacing: 0.1,
+                  textAlign: 'center',
+                }}
+              >
+                {HOME_MODE_LABELS[m]}
+              </Text>
+            </Pressable>
+          </View>
         );
       })}
     </View>

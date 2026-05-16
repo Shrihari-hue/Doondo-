@@ -110,8 +110,24 @@ export function AvailabilityBeaconChip({
     );
   };
 
+  // Card background lives on a wrapper View so the chip can't ever drop
+  // to a floating-text state on the light canvas. Borders are bumped to
+  // 1px and a soft shadow lifts the card off the page.
   return (
     <>
+      <View
+        style={{
+          borderRadius: radii.lg,
+          backgroundColor: isLive ? '#D1FAE5' : '#EFF6FF',
+          borderWidth: 1,
+          borderColor: isLive ? '#86EFAC' : '#BFDBFE',
+          shadowColor: isLive ? '#10B981' : '#2563EB',
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.12,
+          shadowRadius: 8,
+          elevation: 2,
+        }}
+      >
       <Pressable
         onPress={() => {
           haptic('selection');
@@ -127,9 +143,6 @@ export function AvailabilityBeaconChip({
           gap: spacing.sm,
           padding: spacing.md,
           borderRadius: radii.lg,
-          backgroundColor: isLive ? '#D1FAE5' : '#EFF6FF',
-          borderWidth: 0.5,
-          borderColor: isLive ? '#86EFAC' : '#BFDBFE',
           opacity: pressed ? 0.85 : 1,
         })}
       >
@@ -193,6 +206,7 @@ export function AvailabilityBeaconChip({
           </Pressable>
         ) : null}
       </Pressable>
+      </View>
 
       <AvailabilityBeaconSheet
         visible={sheetOpen}
