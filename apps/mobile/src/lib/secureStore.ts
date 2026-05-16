@@ -23,7 +23,13 @@ export type SecureKey =
    * emergency contact for the SOS feature. Lives on-device only —
    * never synced to the server. Cleared if the user removes it.
    */
-  | 'sosContact';
+  | 'sosContact'
+  /**
+   * Last-chosen Home tab — 'today' | 'this_week' | 'career'. Persists
+   * across sessions so the worker isn't bounced back to a default
+   * every time they reopen the app.
+   */
+  | 'homeMode';
 
 const PREFIX = 'doondo:';
 const memoryFallback = new Map<string, string>();

@@ -24,6 +24,32 @@ export async function apply(req: Request, res: Response, next: NextFunction): Pr
   }
 }
 
+/**
+ * One-tap "I'm interested" — the Today-mode lightweight equivalent of
+ * Apply. Same underlying record but flagged so employers can show
+ * these in a different lane (typically by phoning the worker rather
+ * than waiting on a cover-note review). Idempotent thanks to the
+ * (seekerId, jobId) unique index — a second tap returns the existing
+ * application.
+ */
+export async function expressInterest(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const application = await applicationService.apply({
+      seekerId: req.user.id,
+      jobId: req.params.id!,
+      asInterest: true,
+    });
+    ok(req, res, 201, { application });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function massApply(
   req: Request,
   res: Response,

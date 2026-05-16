@@ -12,6 +12,7 @@ import { validate } from '@/middleware/validate';
 import * as controller from './me.controller';
 import walletRouter from '@/modules/wallet/wallet.routes';
 import alertsRouter from '@/modules/alerts/alert.routes';
+import { seekerAvailabilityRouter } from '@/modules/availabilities/availability.routes';
 import {
   pushTokenSchema,
   updateEmployerLocationSchema,
@@ -31,6 +32,10 @@ router.use('/', walletRouter);
 // Job alerts — seeker-only saved search criteria. Mounted as a sub-router
 // so the URLs are /api/v1/me/alerts and /api/v1/me/alerts/:id.
 router.use('/', alertsRouter);
+
+// Availability beacon — seeker-only "I'm available right now" flag.
+// URLs land at /api/v1/me/availability.
+router.use('/', seekerAvailabilityRouter);
 
 router.patch(
   '/profile',

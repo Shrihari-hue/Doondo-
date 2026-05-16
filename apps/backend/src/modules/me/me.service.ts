@@ -26,6 +26,8 @@ interface UpdateProfileInput {
   teamSize?: number | null;
   expectedSalary?: ExpectedSalary | null;
   photoUrl?: string | null;
+  /** Replace the whole list. Empty array clears all work-sample photos. */
+  workPhotos?: string[];
   // Employer (Phase 3)
   companyName?: string | null;
   businessType?:
@@ -62,6 +64,12 @@ export async function updateProfile(
     ];
   }
   if (input.photoUrl !== undefined) user.photoUrl = input.photoUrl;
+  if (input.workPhotos !== undefined) {
+    // PUT semantics — the array on the wire is the array stored. The
+    // model cap (6) is mirrored in the zod schema so anything that
+    // reaches this point is already bounded.
+    user.workPhotos = input.workPhotos;
+  }
   if (input.workType !== undefined) {
     user.workType = input.workType;
     // If switching back to solo, clear teamSize so the docs stay tidy.

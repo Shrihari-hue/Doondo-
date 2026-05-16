@@ -44,6 +44,15 @@ export function SignupScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  /**
+   * "Setting this up for someone else?" — many blue-collar workers will
+   * have a literate family member install Doondo and create the account
+   * on their behalf. The toggle doesn't change the data we collect: the
+   * name/phone/email entered are still the worker's. What it does is
+   * surface a banner reminding the assistant of that, plus a couple of
+   * field-copy tweaks so they don't accidentally enter their own info.
+   */
+  const [assistedSetup, setAssistedSetup] = useState(false);
 
   async function onSubmit() {
     if (submitting) return;
@@ -146,6 +155,16 @@ export function SignupScreen() {
           <RoleToggle value={role} onChange={setRole} />
 
           {role === 'seeker' ? (
+            <AssistedSetupToggle
+              value={assistedSetup}
+              onChange={(v) => {
+                haptic('selection');
+                setAssistedSetup(v);
+              }}
+            />
+          ) : null}
+
+          {role === 'seeker' ? (
             <WorkTypeSection
               workType={workType}
               teamSizeText={teamSizeText}
@@ -167,16 +186,25 @@ export function SignupScreen() {
 
           <View style={{ gap: spacing.lg }}>
             <TextField
-              label="Name"
+              label={assistedSetup ? "Worker's name" : 'Name'}
               value={name}
               onChangeText={(v) => {
                 setName(v);
                 if (fieldErrors.name) setFieldErrors((s) => ({ ...s, name: undefined }));
               }}
-              placeholder={role === 'seeker' ? 'Your full name' : 'Your business name'}
+              placeholder={
+                assistedSetup
+                  ? "The worker's full name"
+                  : role === 'seeker'
+                    ? 'Your full name'
+                    : 'Your business name'
+              }
               autoCapitalize="words"
               autoComplete="name"
               error={fieldErrors.name ?? null}
+              helper={
+                assistedSetup ? 'Not your name — the person who will use this account.' : undefined
+              }
             />
             <TextField
               label="Email"
@@ -185,13 +213,18 @@ export function SignupScreen() {
                 setEmail(v);
                 if (fieldErrors.email) setFieldErrors((s) => ({ ...s, email: undefined }));
               }}
-              placeholder="you@example.com"
+              placeholder={assistedSetup ? "Worker's email, if any" : 'you@example.com'}
               autoCapitalize="none"
               autoComplete="email"
               autoCorrect={false}
               keyboardType="email-address"
               textContentType="emailAddress"
               error={fieldErrors.email ?? null}
+              helper={
+                assistedSetup
+                  ? "If they don't have one, use yours — you can change it later."
+                  : undefined
+              }
             />
             <TextField
               label="Password"
@@ -206,9 +239,14 @@ export function SignupScreen() {
               textContentType="newPassword"
               passwordToggle
               error={fieldErrors.password ?? null}
+              helper={
+                assistedSetup
+                  ? 'Share this with the worker so they can sign in on any phone.'
+                  : undefined
+              }
             />
             <TextField
-              label="Phone"
+              label={assistedSetup ? "Worker's phone" : 'Phone'}
               value={phone}
               onChangeText={(v) => {
                 setPhone(v);
@@ -218,7 +256,11 @@ export function SignupScreen() {
               autoComplete="tel"
               keyboardType="phone-pad"
               textContentType="telephoneNumber"
-              helper="Used to reset your password if you forget it."
+              helper={
+                assistedSetup
+                  ? "The worker's number — employers will call here."
+                  : 'Used to reset your password if you forget it.'
+              }
               error={fieldErrors.phone ?? null}
             />
           </View>
@@ -256,6 +298,91 @@ interface WorkTypeSectionProps {
   teamSizeError: string | null;
   onWorkTypeChange: (next: WorkType) => void;
   onTeamSizeChange: (next: string) => void;
+}
+
+/**
+ * "Setting this up for someone else?" toggle. When on, the seeker
+ * fields below relabel to "Worker's name / phone / email" and a small
+ * banner explains who the account is for. The data we send to the
+ * backend is identical — this is purely a copy/orientation aid for the
+ * literate family member who's installing Doondo for a worker who
+ * can't easily set it up themselves.
+ */
+function AssistedSetupToggle({
+  value,
+  onChange,
+}: {
+  value: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  const { theme } = useTheme();
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Pressable
+        onPress={() => onChange(!value)}
+        accessibilityRole="switch"
+        accessibilityState={{ checked: value }}
+        accessibilityLabel="Setting this up for someone else"
+        style={({ pressed }) => ({
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.md,
+          padding: spacing.md,
+          borderRadius: radii.lg,
+          borderWidth: 0.5,
+          borderColor: value ? '#2563EB' : theme.border.default,
+          backgroundColor: value ? '#EFF6FF' : theme.bg.surface,
+          opacity: pressed ? 0.7 : 1,
+        })}
+      >
+        <View
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: 11,
+            borderWidth: 1.5,
+            borderColor: value ? '#2563EB' : theme.border.strong,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: value ? '#2563EB' : 'transparent',
+          }}
+        >
+          {value ? (
+            <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
+              ✓
+            </Text>
+          ) : null}
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="body" weight="medium">
+            Setting this up for someone else?
+          </Text>
+          <Text variant="footnote" tone="secondary">
+            Common for family members helping a worker who can&apos;t use the
+            app alone.
+          </Text>
+        </View>
+      </Pressable>
+      {value ? (
+        <View
+          style={{
+            padding: spacing.md,
+            borderRadius: radii.md,
+            backgroundColor: '#FEF3C7',
+            borderWidth: 0.5,
+            borderColor: '#FDE68A',
+          }}
+        >
+          <Text style={{ fontSize: 13, lineHeight: 19, color: '#78350F' }}>
+            Enter the <Text style={{ fontWeight: '700' }}>worker&apos;s</Text> name,
+            phone and email below — not yours. Job alerts and employer
+            calls will go to the phone you enter. Share the password with
+            them so they can sign in.
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 function WorkTypeSection({

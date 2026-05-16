@@ -32,6 +32,11 @@ export interface UpdateProfilePayload {
   } | null;
   /** data:image/...;base64 string, or null to clear. */
   photoUrl?: string | null;
+  /**
+   * Replace the seeker's work-sample photos. Up to 6 base64 data URLs.
+   * Empty array clears. Omit to leave unchanged.
+   */
+  workPhotos?: string[];
   companyName?: string | null;
   businessType?: BusinessType | null;
   gstin?: string | null;

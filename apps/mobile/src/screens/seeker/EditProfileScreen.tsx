@@ -32,6 +32,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { meApi } from '@/api/me.api';
 import { getCurrentCoords } from '@/lib/location';
 import { haptic } from '@/lib/haptics';
+import {
+  TRADES,
+  findTrade,
+  normaliseSkill,
+  prettifySkill,
+  tradeEmoji,
+} from '@/lib/trades';
 import type { AppStackParamList } from '@/navigation/types';
 import type {
   Availability,
@@ -465,6 +472,10 @@ function SkillsForm({ user }: { user: PublicUser }) {
   const setUser = useAuthStore.setState;
   const { theme } = useTheme();
 
+  // Skills are stored as a flat lowercase string[] on the user. We
+  // normalise everything we accept (whether from the picker or the
+  // free-text field) through `normaliseSkill` so duplicates collapse
+  // ("Electrician" + "electrician" + "fitter" → "electrician").
   const [skills, setSkills] = useState<string[]>(user.skills);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -482,72 +493,170 @@ function SkillsForm({ user }: { user: PublicUser }) {
     },
   });
 
+  function toggleTrade(slug: string) {
+    haptic('selection');
+    setSkills((current) => {
+      if (current.includes(slug)) {
+        return current.filter((s) => s !== slug);
+      }
+      if (current.length >= 20) return current; // hard cap
+      return [...current, slug];
+    });
+  }
+
   function commitDraft() {
-    const next = draft
+    const additions = draft
       .split(',')
-      .map((s) => s.trim().toLowerCase())
+      .map((s) => normaliseSkill(s))
       .filter(Boolean);
-    if (next.length === 0) return;
-    const merged = [...new Set([...skills, ...next])].slice(0, 20);
+    if (additions.length === 0) return;
+    const merged = [...new Set([...skills, ...additions])].slice(0, 20);
     setSkills(merged);
     setDraft('');
     haptic('selection');
   }
 
   function remove(skill: string) {
+    haptic('light');
     setSkills((s) => s.filter((x) => x !== skill));
   }
+
+  // Custom (non-catalogue) skills the user has added — rendered as
+  // separate removable chips below the trade grid so they don't get lost.
+  const customSkills = skills.filter((s) => !findTrade(s));
 
   return (
     <View style={{ gap: spacing.lg }}>
       <FormError message={error} />
       <Text variant="footnote" tone="secondary">
-        Add what you can do — driving, cleaning, electrical, customer service. Up to 20.
+        Tap what you can do. Up to 20. Don&apos;t see your trade? Add it as a
+        custom skill below.
       </Text>
-      <TextField
-        label="Add skill"
-        value={draft}
-        onChangeText={setDraft}
-        placeholder="e.g. cleaning, customer service"
-        onSubmitEditing={commitDraft}
-        returnKeyType="done"
-      />
-      <Pressable
-        onPress={commitDraft}
-        disabled={!draft.trim()}
-        style={{
-          alignSelf: 'flex-start',
-          paddingVertical: spacing.xs,
-          paddingHorizontal: spacing.md,
-          borderRadius: radii.pill,
-          borderWidth: 0.5,
-          borderColor: theme.border.default,
-          opacity: draft.trim() ? 1 : 0.4,
-        }}
-      >
-        <Text variant="footnote" weight="medium" tone="hero">
-          + Add
-        </Text>
-      </Pressable>
 
-      {skills.length > 0 && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-          {skills.map((s) => (
-            <Pressable key={s} onPress={() => remove(s)}>
-              <Pill label={`${s}  ×`} tone="neutral" />
+      {/* Trade grid — the primary picker */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+        {TRADES.map((trade) => {
+          const active = skills.includes(trade.slug);
+          return (
+            <Pressable
+              key={trade.slug}
+              onPress={() => toggleTrade(trade.slug)}
+              accessibilityRole="button"
+              accessibilityLabel={`${trade.label}${active ? ', selected' : ''}`}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+                borderRadius: radii.pill,
+                backgroundColor: active ? '#2563EB' : theme.bg.surface,
+                borderWidth: active ? 0 : 1,
+                borderColor: theme.border.default,
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Text style={{ fontSize: 14 }}>{trade.emoji}</Text>
+              <Text
+                variant="footnote"
+                weight="medium"
+                style={{ color: active ? '#FFFFFF' : theme.text.primary }}
+              >
+                {trade.label}
+              </Text>
             </Pressable>
-          ))}
+          );
+        })}
+      </View>
+
+      {/* Free-text fallback for whatever the catalogue doesn't cover */}
+      <View style={{ gap: spacing.xs }}>
+        <Text variant="footnote" weight="medium" tone="secondary">
+          Add a custom skill
+        </Text>
+        <TextField
+          label=""
+          value={draft}
+          onChangeText={setDraft}
+          placeholder="e.g. AC gas refilling"
+          onSubmitEditing={commitDraft}
+          returnKeyType="done"
+        />
+        <Pressable
+          onPress={commitDraft}
+          disabled={!draft.trim()}
+          style={{
+            alignSelf: 'flex-start',
+            paddingVertical: spacing.xs,
+            paddingHorizontal: spacing.md,
+            borderRadius: radii.pill,
+            borderWidth: 0.5,
+            borderColor: theme.border.default,
+            opacity: draft.trim() ? 1 : 0.4,
+          }}
+        >
+          <Text variant="footnote" weight="medium" style={{ color: '#2563EB' }}>
+            + Add
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* Custom skills appear separately — catalogue trades are already
+         highlighted in the grid above, so showing them twice is redundant. */}
+      {customSkills.length > 0 && (
+        <View style={{ gap: spacing.xs }}>
+          <Text variant="footnote" weight="medium" tone="secondary">
+            Custom skills
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+            {customSkills.map((s) => (
+              <Pressable key={s} onPress={() => remove(s)}>
+                <Pill label={`${prettifySkill(s)}  ×`} tone="neutral" />
+              </Pressable>
+            ))}
+          </View>
         </View>
       )}
 
-      <Button
-        label={mutation.isPending ? 'Saving…' : 'Save'}
+      {/* Hardcoded blue/white CTA so it never disappears on stale themes. */}
+      <Pressable
         onPress={() => mutation.mutate()}
         disabled={mutation.isPending}
-      />
+        accessibilityRole="button"
+        accessibilityLabel="Save skills"
+        style={({ pressed }) => ({
+          paddingVertical: 14,
+          borderRadius: radii.lg,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#2563EB',
+          opacity: mutation.isPending ? 0.5 : pressed ? 0.85 : 1,
+          shadowColor: '#2563EB',
+          shadowOpacity: 0.25,
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 4,
+        })}
+      >
+        <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+          {mutation.isPending ? 'Saving…' : 'Save'}
+        </Text>
+      </Pressable>
+
+      {/* Soft footnote — total picked / cap */}
+      <Text
+        style={{
+          fontSize: 11,
+          color: theme.text.tertiary,
+          textAlign: 'center',
+        }}
+      >
+        {skills.length} / 20 selected
+      </Text>
     </View>
   );
 }
+
 
 // ─── Preferences: availability + preferred job types ─────────────────────────
 

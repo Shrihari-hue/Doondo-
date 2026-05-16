@@ -20,6 +20,24 @@ export async function nearby(req: Request, res: Response, next: NextFunction): P
   }
 }
 
+export async function today(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await jobService.findToday(req.query as never);
+    ok(req, res, 200, result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function thisWeek(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await jobService.findThisWeek(req.query as never);
+    ok(req, res, 200, result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function detail(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const job = await jobService.findById(req.params.id!);

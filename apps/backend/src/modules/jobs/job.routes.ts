@@ -13,11 +13,14 @@ import { Router } from 'express';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
 import * as controller from './job.controller';
+import { getPayStats } from './job.stats.controller';
 import {
   createJobSchema,
   employerJobsQuerySchema,
   jobIdParamsSchema,
   nearbyQuerySchema,
+  thisWeekQuerySchema,
+  todayQuerySchema,
   updateJobSchema,
 } from './job.schemas';
 
@@ -25,7 +28,15 @@ const router = Router();
 
 // ─── Public / seeker reads ──────────────────────────────────────────────────
 router.get('/nearby', validate(nearbyQuerySchema), controller.nearby);
+// "Today" + "This week" feeds — same geo pipeline, different time/urgency
+// filter. Listed above `/saved` so route ordering stays predictable.
+router.get('/today', validate(todayQuerySchema), controller.today);
+router.get('/this-week', validate(thisWeekQuerySchema), controller.thisWeek);
 router.get('/saved', requireAuth, controller.listSaved);
+
+// Pay statistics — public so the "typical pay" line renders even for
+// unauthenticated browsers. Bounded by request validation in the handler.
+router.get('/pay-stats', getPayStats);
 
 // ─── Employer (Phase 3) ─────────────────────────────────────────────────────
 // "/mine" must come before "/:id" so it isn't captured by the param route.

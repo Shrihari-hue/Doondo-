@@ -57,8 +57,15 @@ export type AppStackParamList = {
   SeekerTabs: undefined;
   /** Employer tab host (set when user.role === 'employer'). */
   EmployerTabs: undefined;
-  /** Modal: full-screen job detail with apply CTA (seeker view). */
-  JobDetail: { jobId: string };
+  /**
+   * Modal: full-screen job detail with apply CTA (seeker view).
+   *
+   * `fromMode` lets the screen swap its sticky CTAs:
+   *   - 'today'     → "I'm interested" + "Message employer" (one-tap)
+   *   - 'this_week' → same as career — full Apply Now flow
+   *   - 'career' (default) → existing Apply Now flow, unchanged
+   */
+  JobDetail: { jobId: string; fromMode?: 'today' | 'this_week' | 'career' };
   /** Modal: applicants for one of the employer's jobs. */
   JobApplicants: { jobId: string; jobTitle?: string };
   /** Modal: a single applicant — full seeker profile + actions. */
@@ -143,6 +150,8 @@ export type AppStackParamList = {
         };
       }
     | undefined;
+  /** Modal: employers see seekers broadcasting "available now" nearby. */
+  AvailableWorkers: undefined;
 };
 
 declare global {

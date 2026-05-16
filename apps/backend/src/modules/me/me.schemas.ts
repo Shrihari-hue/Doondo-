@@ -53,6 +53,18 @@ export const updateProfileSchema = z.object({
         .regex(/^data:image\/(jpeg|jpg|png|webp);base64,/i, 'Photo must be a data URL')
         .nullable()
         .optional(),
+      // Work-sample photos — PUT-style: array on the wire is the array
+      // stored. Empty array clears. Per-photo cap mirrors photoUrl plus
+      // some slack for slightly less compression-friendly samples.
+      workPhotos: z
+        .array(
+          z
+            .string()
+            .max(500_000)
+            .regex(/^data:image\/(jpeg|jpg|png|webp);base64,/i, 'Each photo must be a data URL'),
+        )
+        .max(6)
+        .optional(),
       // Employer-only fields (Phase 3). Backend doesn't gate by role on
       // input — sending these as a seeker is a no-op since the employer
       // dashboard never reads them.

@@ -1,0 +1,40 @@
+/**
+ * Zod schemas for the availability endpoints.
+ */
+
+import { z } from 'zod';
+import { JOB_TYPES } from '@/modules/jobs/job.model';
+
+/** Max beacon duration — 8 hours. Beyond that it stops being "available NOW". */
+export const MAX_DURATION_MINUTES = 8 * 60;
+
+export const upsertAvailabilitySchema = z.object({
+  body: z
+    .object({
+      /** How many minutes the beacon should stay live. 30 / 60 / 120 / 240 / 480 etc. */
+      durationMinutes: z.number().int().min(15).max(MAX_DURATION_MINUTES),
+      lat: z.number().min(-90).max(90),
+      lng: z.number().min(-180).max(180),
+      city: z.string().trim().max(80).nullable().optional(),
+      area: z.string().trim().max(80).nullable().optional(),
+      tradesAvailable: z.array(z.string().trim().min(1).max(40)).max(8).default([]),
+      jobTypes: z.array(z.enum(JOB_TYPES)).max(5).default([]),
+      note: z.string().trim().max(240).nullable().optional(),
+    })
+    .strict(),
+});
+
+export const nearbyAvailabilitiesQuerySchema = z.object({
+  query: z.object({
+    lat: z.coerce.number().min(-90).max(90),
+    lng: z.coerce.number().min(-180).max(180),
+    /** Default 10km radius — wider than Today because employers will
+     *  drive a bit further to pick up a worker than a worker will walk. */
+    radius: z.coerce.number().int().min(100).max(50_000).default(10_000),
+    /** Filter by single trade slug. Optional. */
+    trade: z.string().trim().min(1).max(40).optional(),
+    /** Filter by job type. Optional. */
+    type: z.enum(JOB_TYPES).optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  }),
+});

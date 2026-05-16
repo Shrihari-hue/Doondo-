@@ -43,6 +43,14 @@ interface ApplyInput {
   seekerId: string;
   jobId: string;
   coverNote?: string | null;
+  /**
+   * When true the row is flagged `expressedAsInterest: true` and the
+   * coverNote is forced to null — this path is for the one-tap
+   * "I'm interested" press in Today mode. Employers can prioritise these
+   * differently (typically by phoning the worker rather than waiting on
+   * a cover note review).
+   */
+  asInterest?: boolean;
 }
 
 export async function apply(input: ApplyInput): Promise<PublicApplication> {
@@ -55,7 +63,8 @@ export async function apply(input: ApplyInput): Promise<PublicApplication> {
       seekerId: new Types.ObjectId(input.seekerId),
       jobId: job._id,
       employerId: job.employerId,
-      coverNote: input.coverNote ?? null,
+      coverNote: input.asInterest ? null : input.coverNote ?? null,
+      expressedAsInterest: Boolean(input.asInterest),
       status: 'pending',
       appliedAt: new Date(),
     });
@@ -471,6 +480,8 @@ interface ApplicantListEntry extends PublicApplication {
       current: boolean;
       description: string | null;
     }>;
+    /** Photos of the seeker's work — up to 6 data URLs. */
+    workPhotos: string[];
   };
 }
 
@@ -496,7 +507,7 @@ export async function listApplicantsForEmployer(
 
   const [seekers, jobs] = await Promise.all([
     UserModel.find({ _id: { $in: seekerIds } })
-      .select('name photoUrl skills isVerified location resumeFilename resumeMimeType resumeSizeBytes resumeUploadedAt workHistory +resumeUrl')
+      .select('name photoUrl skills isVerified location resumeFilename resumeMimeType resumeSizeBytes resumeUploadedAt workHistory workPhotos +resumeUrl')
       .lean(),
     JobModel.find({ _id: { $in: jobIds } }),
   ]);
@@ -528,6 +539,7 @@ export async function listApplicantsForEmployer(
           current: Boolean(w.current),
           description: w.description ?? null,
         })),
+        workPhotos: s.workPhotos ?? [],
       },
     ]),
   );
@@ -592,6 +604,7 @@ export async function listApplicantsForJob(
           current: Boolean(w.current),
           description: w.description ?? null,
         })),
+        workPhotos: s.workPhotos ?? [],
       },
     ]),
   );

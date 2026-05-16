@@ -9,7 +9,7 @@
  * the backend. We convert at the boundary.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -28,6 +28,7 @@ import { jobsApi, type CreateJobPayload } from '@/api/jobs.api';
 import { getCurrentCoords } from '@/lib/location';
 import { haptic } from '@/lib/haptics';
 import { useAuth } from '@/hooks/useAuth';
+import { VoiceRecorder, type VoiceRecordingResult } from '@/lib/chatVoice';
 import type { AppStackParamList } from '@/navigation/types';
 import type { JobType, PayPeriod } from '@/api/types';
 
@@ -57,6 +58,12 @@ export function PostJobScreen() {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  // Optional voice description — recorded inline, stored as a base64
+  // data URL alongside the text description. Capped at 60 seconds.
+  const [audio, setAudio] = useState<VoiceRecordingResult | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const recorderRef = useRef<VoiceRecorder | null>(null);
   const [type, setType] = useState<JobType>('gig');
   const [amount, setAmount] = useState('');
   const [period, setPeriod] = useState<PayPeriod>('day');
@@ -109,6 +116,8 @@ export function PostJobScreen() {
         },
         skills,
         urgent,
+        audioDescriptionUrl: audio?.dataUrl ?? null,
+        audioDescriptionDurationSeconds: audio?.durationSeconds ?? null,
       };
       return jobsApi.create(body);
     },
@@ -204,6 +213,50 @@ export function PostJobScreen() {
               placeholder="What does the job involve? Any requirements?"
               multiline
               numberOfLines={5}
+            />
+            <VoiceDescriptionField
+              audio={audio}
+              recording={recording}
+              error={audioError}
+              onStart={async () => {
+                setAudioError(null);
+                haptic('selection');
+                try {
+                  const r = new VoiceRecorder();
+                  await r.start();
+                  recorderRef.current = r;
+                  setRecording(true);
+                } catch (err) {
+                  haptic('error');
+                  setAudioError(
+                    err instanceof Error
+                      ? err.message
+                      : "Couldn't start recording",
+                  );
+                }
+              }}
+              onStop={async () => {
+                if (!recorderRef.current) return;
+                setRecording(false);
+                try {
+                  const out = await recorderRef.current.stopAndSend();
+                  recorderRef.current = null;
+                  setAudio(out);
+                  haptic('success');
+                } catch (err) {
+                  haptic('error');
+                  setAudioError(
+                    err instanceof Error
+                      ? err.message
+                      : "Couldn't save recording",
+                  );
+                }
+              }}
+              onClear={() => {
+                haptic('light');
+                setAudio(null);
+                setAudioError(null);
+              }}
             />
           </View>
 
@@ -427,5 +480,116 @@ export function PostJobScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
+  );
+}
+
+// ─── Voice description block ────────────────────────────────────────────────
+
+/**
+ * Optional voice note attached to the job description. Holds 60 seconds
+ * of audio max; the underlying VoiceRecorder enforces the cap. Lets
+ * employers who can't easily type a long description record a short
+ * note that workers (especially those who can't read English well) can
+ * play back.
+ */
+function VoiceDescriptionField({
+  audio,
+  recording,
+  error,
+  onStart,
+  onStop,
+  onClear,
+}: {
+  audio: VoiceRecordingResult | null;
+  recording: boolean;
+  error: string | null;
+  onStart: () => void;
+  onStop: () => void;
+  onClear: () => void;
+}) {
+  const { theme } = useTheme();
+
+  if (audio) {
+    return (
+      <View
+        style={{
+          padding: spacing.md,
+          borderRadius: radii.lg,
+          backgroundColor: '#EFF6FF',
+          borderWidth: 0.5,
+          borderColor: '#BFDBFE',
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.md,
+        }}
+      >
+        <View
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            backgroundColor: '#2563EB',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: 16 }}>🎙</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text variant="body" weight="medium">
+            Voice description recorded
+          </Text>
+          <Text variant="footnote" tone="secondary">
+            {audio.durationSeconds}s · sent with the job posting
+          </Text>
+        </View>
+        <Pressable onPress={onClear} hitSlop={6}>
+          <Text style={{ color: theme.status.danger, fontSize: 13, fontWeight: '600' }}>
+            Remove
+          </Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ gap: spacing.xs }}>
+      <Pressable
+        onPressIn={onStart}
+        onPressOut={onStop}
+        accessibilityRole="button"
+        accessibilityLabel={
+          recording ? 'Release to stop recording' : 'Hold to record a voice description'
+        }
+        style={({ pressed }) => ({
+          padding: spacing.md,
+          borderRadius: radii.lg,
+          borderWidth: 1,
+          borderStyle: 'dashed',
+          borderColor: recording ? '#DC2626' : theme.border.default,
+          backgroundColor: recording ? '#FEE2E2' : theme.bg.surface,
+          alignItems: 'center',
+          gap: 4,
+          opacity: pressed && !recording ? 0.7 : 1,
+        })}
+      >
+        <Text style={{ fontSize: 22 }}>{recording ? '🔴' : '🎙'}</Text>
+        <Text
+          style={{
+            fontSize: 14,
+            fontWeight: '600',
+            color: recording ? '#991B1B' : theme.text.primary,
+          }}
+        >
+          {recording ? 'Recording… release to stop' : 'Hold to record voice description'}
+        </Text>
+        <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
+          Optional · up to 60 seconds
+        </Text>
+      </Pressable>
+      {error ? (
+        <Text style={{ fontSize: 12, color: theme.status.danger }}>{error}</Text>
+      ) : null}
+    </View>
   );
 }

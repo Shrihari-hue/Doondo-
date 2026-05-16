@@ -66,6 +66,14 @@ export interface Application {
   employerId: Schema.Types.ObjectId;
   status: ApplicationStatus;
   coverNote?: string | null;
+  /**
+   * True when the application came from a one-tap "I'm interested" press
+   * (Today mode), false when it came from the full Apply flow with a
+   * cover note. Lets employers prioritise/queue the interest pings
+   * differently from formal applications. Defaults to false so existing
+   * rows preserve their meaning.
+   */
+  expressedAsInterest?: boolean;
   /** Per-status timestamps. null until that status is reached. */
   appliedAt: Date;
   viewedAt?: Date | null;
@@ -101,6 +109,8 @@ export interface PublicApplication {
   jobId: string;
   status: ApplicationStatus;
   coverNote: string | null;
+  /** True for one-tap "I'm interested" pings from Today mode. */
+  expressedAsInterest: boolean;
   timeline: {
     appliedAt: string;
     viewedAt: string | null;
@@ -147,6 +157,7 @@ const applicationSchema = new Schema<Application, ApplicationModel, ApplicationM
       index: true,
     },
     coverNote: { type: String, default: null, trim: true, maxlength: 500 },
+    expressedAsInterest: { type: Boolean, default: false },
     appliedAt: { type: Date, default: Date.now },
     viewedAt: { type: Date, default: null },
     shortlistedAt: { type: Date, default: null },
@@ -188,6 +199,7 @@ applicationSchema.method('toPublicJSON', function (
     jobId: this.jobId.toString(),
     status: this.status,
     coverNote: this.coverNote ?? null,
+    expressedAsInterest: Boolean(this.expressedAsInterest),
     timeline: {
       appliedAt: this.appliedAt.toISOString(),
       viewedAt: this.viewedAt ? this.viewedAt.toISOString() : null,

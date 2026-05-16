@@ -42,8 +42,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { jobsApi } from '@/api/jobs.api';
 import { getCurrentCoords, type Coords } from '@/lib/location';
 import { haptic } from '@/lib/haptics';
+import { getSecure, setSecure } from '@/lib/secureStore';
+import { DenseJobFeed } from './home/DenseJobFeed';
+import { AvailabilityBeaconChip } from './home/AvailabilityBeacon';
 import type { PublicJob } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
+
+type HomeMode = 'today' | 'this_week' | 'career';
+const HOME_MODES: HomeMode[] = ['today', 'this_week', 'career'];
+const HOME_MODE_LABELS: Record<HomeMode, string> = {
+  today: 'Today',
+  this_week: 'This week',
+  career: 'Career',
+};
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -74,6 +85,36 @@ export function SeekerHomeScreen() {
   const insets = useSafeAreaInsets();
 
   const [coords, setCoords] = useState<Coords | null>(null);
+
+  // Mode toggle — Today / This week / Career. Default is 'today' for fresh
+  // installs (the blue-collar-first experience) but we honour whatever the
+  // seeker last picked. Hydrate async so the toggle doesn't flicker.
+  const [mode, setMode] = useState<HomeMode>('today');
+  const [modeHydrated, setModeHydrated] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const stored = await getSecure('homeMode');
+      if (cancelled) return;
+      if (stored && (HOME_MODES as string[]).includes(stored)) {
+        setMode(stored as HomeMode);
+      }
+      setModeHydrated(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function pickMode(next: HomeMode) {
+    if (next === mode) return;
+    haptic('selection');
+    setMode(next);
+    // Best-effort persistence; failure just means next launch is back to
+    // the default, which is fine.
+    void setSecure('homeMode', next).catch(() => undefined);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -139,6 +180,38 @@ export function SeekerHomeScreen() {
   // pad. On iOS the safe-area inset gives us what we need.
   const topPad = Math.max(insets.top, RNStatusBar.currentHeight ?? 0) + spacing.sm;
 
+  // ─── Today / This week branch ─────────────────────────────────────────────
+  // The Career path below is the original Home screen, untouched. To make
+  // sure we never regress it, the non-career modes short-circuit here and
+  // render an entirely separate tree (dense feed + trade chips). Toggling
+  // back to Career restores the original tree exactly.
+  if (modeHydrated && mode !== 'career') {
+    return (
+      <Screen edges={[]}>
+        <View
+          style={{
+            paddingHorizontal: spacing.xl,
+            paddingTop: topPad,
+            gap: spacing.md,
+          }}
+        >
+          <HomeHeader
+            theme={theme}
+            onNotificationsPress={openNotifications}
+            cityLabel={cityLabel}
+          />
+          <ModeToggle value={mode} onChange={pickMode} />
+          <AvailabilityBeaconChip coords={coords} user={user ?? null} />
+        </View>
+        <View
+          style={{ flex: 1, paddingHorizontal: spacing.xl, paddingTop: spacing.md }}
+        >
+          <DenseJobFeed coords={coords} mode={mode} />
+        </View>
+      </Screen>
+    );
+  }
+
   return (
     <Screen edges={[]}>
       <ScrollView
@@ -179,6 +252,17 @@ export function SeekerHomeScreen() {
           </Text>
           <NotificationsBell onPress={openNotifications} />
         </View>
+
+        {/* Mode toggle — Today / This week / Career. Renders inline above
+           the existing Career sections so a worker who prefers same-day
+           gigs can switch with one tap and never see Career again. */}
+        <ModeToggle value={mode} onChange={pickMode} />
+
+        {/* Availability beacon — always available across all three modes
+           because broadcasting is orthogonal to which feed the worker is
+           browsing. Sits between the toggle and the location pill so it
+           reads as a top-priority action. */}
+        <AvailabilityBeaconChip coords={coords} user={user ?? null} />
 
         {/* Location pill */}
         <View
@@ -542,6 +626,143 @@ export function SeekerHomeScreen() {
         </View>
       </ScrollView>
     </Screen>
+  );
+}
+
+// ─── Mode toggle + shared header ─────────────────────────────────────────────
+
+/**
+ * The Today / This week / Career segmented control. Renders identically
+ * in both branches of the screen (Career ScrollView header and the
+ * non-Career fixed top), so the user sees no jump when they switch.
+ */
+function ModeToggle({
+  value,
+  onChange,
+}: {
+  value: HomeMode;
+  onChange: (next: HomeMode) => void;
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        backgroundColor: '#EFF6FF', // blue-50
+        borderRadius: radii.pill,
+        padding: 4,
+        gap: 4,
+      }}
+    >
+      {HOME_MODES.map((m) => {
+        const active = m === value;
+        return (
+          <Pressable
+            key={m}
+            onPress={() => onChange(m)}
+            accessibilityRole="button"
+            accessibilityLabel={`${HOME_MODE_LABELS[m]}${active ? ', selected' : ''}`}
+            style={({ pressed }) => ({
+              flex: 1,
+              paddingVertical: 8,
+              borderRadius: radii.pill,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: active ? '#2563EB' : 'transparent',
+              opacity: pressed ? 0.85 : 1,
+              shadowColor: active ? '#2563EB' : 'transparent',
+              shadowOpacity: active ? 0.25 : 0,
+              shadowRadius: active ? 8 : 0,
+              shadowOffset: { width: 0, height: 2 },
+              elevation: active ? 3 : 0,
+            })}
+          >
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: '700',
+                color: active ? '#FFFFFF' : '#1E40AF',
+                letterSpacing: 0.1,
+              }}
+            >
+              {HOME_MODE_LABELS[m]}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/**
+ * The wordmark + notification bell row used by the non-Career branch.
+ * The Career branch keeps its own inline header so the original tree is
+ * untouched.
+ */
+function HomeHeader({
+  theme,
+  onNotificationsPress,
+  cityLabel,
+}: {
+  theme: ReturnType<typeof useTheme>['theme'];
+  onNotificationsPress: () => void;
+  cityLabel: string;
+}) {
+  return (
+    <View style={{ gap: spacing.md }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingTop: spacing.sm,
+          paddingBottom: spacing.xs,
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 26,
+            lineHeight: 30,
+            fontWeight: '700',
+            color: theme.brand.hero,
+            letterSpacing: -0.5,
+          }}
+        >
+          Doondo
+        </Text>
+        <NotificationsBell onPress={onNotificationsPress} />
+      </View>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.sm,
+        }}
+      >
+        <View
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: theme.brand.heroSubtle,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ fontSize: 16 }}>📍</Text>
+        </View>
+        <Text
+          style={{
+            fontSize: 18,
+            lineHeight: 22,
+            fontWeight: '600',
+            color: theme.text.primary,
+          }}
+          numberOfLines={1}
+        >
+          {cityLabel}
+        </Text>
+      </View>
+    </View>
   );
 }
 

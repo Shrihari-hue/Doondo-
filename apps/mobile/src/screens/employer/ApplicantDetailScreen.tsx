@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, ScrollView, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -21,6 +21,8 @@ import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, TextField, FormError } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi, type ApplicantEntry, type SchedulePayload } from '@/api/applications.api';
+import { contactApi } from '@/api/contact.api';
+import { ApiError } from '@/api/errors';
 import { haptic } from '@/lib/haptics';
 import { useUnratedApplications } from '@/hooks/useRatings';
 import { openResume, formatResumeSize } from '@/lib/resume';
@@ -222,6 +224,14 @@ export function ApplicantDetailScreen() {
           </View>
         </View>
 
+        {/* One-tap call — opens the dialer with the seeker's phone.
+           Gated by the backend (must have an Application or active
+           Availability beacon). Renders right under identity so the
+           employer's primary CTA is reachable without scrolling. */}
+        {applicant.seeker?.id ? (
+          <CallSeekerButton seekerId={applicant.seeker.id} />
+        ) : null}
+
         {/* Job context */}
         {applicant.job && (
           <Card>
@@ -282,6 +292,11 @@ export function ApplicantDetailScreen() {
           history={applicant.seeker?.workHistory ?? []}
         />
 
+        {/* Photos of the seeker's work — horizontal carousel. Hidden
+           when empty, so it never wastes space on a candidate who
+           didn't upload any. */}
+        <WorkPhotosCarousel photos={applicant.seeker?.workPhotos ?? []} />
+
         {/* Resume */}
         <ResumeRow seeker={applicant.seeker ?? null} />
 
@@ -292,6 +307,113 @@ export function ApplicantDetailScreen() {
         <ActionPanel applicant={applicant} onAction={(t) => transition.mutate(t)} pending={transition.isPending} />
       </ScrollView>
     </Screen>
+  );
+}
+
+// ─── One-tap call ───────────────────────────────────────────────────────────
+
+/**
+ * Reveal the seeker's phone number and open the device dialer. Backed
+ * by GET /seekers/:id/contact which checks for an Application from the
+ * seeker to one of this employer's jobs, OR an active Availability
+ * beacon — either way the seeker has signalled they're reachable.
+ */
+function CallSeekerButton({ seekerId }: { seekerId: string }) {
+  const mutation = useMutation({
+    mutationFn: () => contactApi.revealSeeker(seekerId),
+    onSuccess: (data) => {
+      const phone = data.contact.phone;
+      if (!phone) {
+        haptic('error');
+        Alert.alert(
+          "Couldn't call",
+          'This worker hasn\'t added a phone number yet.',
+        );
+        return;
+      }
+      haptic('selection');
+      const clean = phone.replace(/[^\d+]/g, '');
+      Linking.openURL(`tel:${clean}`).catch(() => {
+        Alert.alert("Couldn't open dialer", `Their number is ${phone}`);
+      });
+    },
+    onError: (err) => {
+      haptic('error');
+      const msg =
+        err instanceof ApiError ? err.message : "Couldn't reveal contact.";
+      Alert.alert('Not available', msg);
+    },
+  });
+  return (
+    <Pressable
+      onPress={() => mutation.mutate()}
+      disabled={mutation.isPending}
+      accessibilityRole="button"
+      accessibilityLabel="Call this worker"
+      style={({ pressed }) => ({
+        paddingVertical: 14,
+        borderRadius: radii.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#10B981',
+        opacity: mutation.isPending ? 0.5 : pressed ? 0.85 : 1,
+        shadowColor: '#10B981',
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 3,
+      })}
+    >
+      <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>
+        {mutation.isPending ? 'Opening dialer…' : '📞 Call this worker'}
+      </Text>
+    </Pressable>
+  );
+}
+
+// ─── Work photos ────────────────────────────────────────────────────────────
+
+/**
+ * Horizontal carousel of work-sample photos uploaded by the seeker.
+ * Hidden entirely when the candidate hasn't uploaded any so the screen
+ * doesn't waste space.
+ */
+function WorkPhotosCarousel({ photos }: { photos: string[] }) {
+  const { theme } = useTheme();
+  if (photos.length === 0) return null;
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Text
+        variant="footnote"
+        weight="medium"
+        tone="secondary"
+        style={{ letterSpacing: 1.0 }}
+      >
+        WORK PHOTOS · {photos.length}
+      </Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.lg }}
+      >
+        {photos.map((uri, i) => (
+          <View
+            key={`${uri.slice(-20)}-${i}`}
+            style={{
+              width: 220,
+              height: 160,
+              borderRadius: radii.lg,
+              overflow: 'hidden',
+              borderWidth: 0.5,
+              borderColor: theme.border.subtle,
+              backgroundColor: theme.bg.surface,
+            }}
+          >
+            <Image source={{ uri }} style={{ width: '100%', height: '100%' }} />
+          </View>
+        ))}
+      </ScrollView>
+    </View>
   );
 }
 

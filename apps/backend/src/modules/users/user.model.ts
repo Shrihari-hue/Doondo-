@@ -180,6 +180,14 @@ export interface User {
    * an uploaded PDF AND a built-from-experience resume. Empty by default.
    */
   workHistory: WorkExperience[];
+  /**
+   * Photos of the seeker's work — a mason's wall, a cook's plates, an
+   * electrician's panel. Up to 6 base64 data URLs, each ~350KB after
+   * client-side compression (so the user document stays under 2.5MB).
+   * Empty when the seeker hasn't uploaded any. Renders as a carousel on
+   * the resume preview and the employer's applicant detail.
+   */
+  workPhotos: string[];
   /** Bookmarked Job IDs — small array, denormalised on the user. */
   savedJobs: Schema.Types.ObjectId[];
   /**
@@ -249,6 +257,8 @@ export interface PublicUser {
   resumeUploadedAt: string | null;
   /** Work history entries from the Resume Builder. Empty when never used. */
   workHistory: WorkExperience[];
+  /** Photos of the seeker's work — up to 6 entries. */
+  workPhotos: string[];
   // Employer-only (null for seekers)
   companyName: string | null;
   businessType: BusinessType | null;
@@ -434,6 +444,17 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
         message: 'workHistory may not exceed 10 entries',
       },
     },
+    // Photos of the seeker's work — up to 6 base64 data URLs. Each
+    // capped at 400KB on the way in; the array max is enforced both
+    // here and in the mobile picker.
+    workPhotos: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: (v: string[]) => Array.isArray(v) && v.length <= 6,
+        message: 'workPhotos may not exceed 6 entries',
+      },
+    },
     // Employer-only (Phase 3) — left null on seeker accounts.
     companyName: { type: String, default: null, trim: true, maxlength: 120 },
     businessType: { type: String, enum: BUSINESS_TYPES, default: null },
@@ -518,6 +539,7 @@ userSchema.method('toPublicJSON', function (
       current: Boolean(w.current),
       description: w.description ?? null,
     })),
+    workPhotos: this.workPhotos ?? [],
     companyName: this.companyName ?? null,
     businessType: this.businessType ?? null,
     gstin: this.gstin ?? null,

@@ -161,6 +161,11 @@ export interface PublicUser {
    * scanned/uploaded PDF AND a builder resume. Empty when never used.
    */
   workHistory: WorkExperience[];
+  /**
+   * Photos of the seeker's work — up to 6 base64 data URLs. Renders as a
+   * carousel on the resume preview + the employer's applicant detail.
+   */
+  workPhotos: string[];
   // Employer (Phase 3)
   companyName: string | null;
   businessType:
@@ -217,6 +222,10 @@ export interface PublicJob {
   /** True when the employer marked this posting as time-sensitive. */
   urgent: boolean;
   applicantsCount: number;
+  /** Optional voice description data URL — present only on job-detail reads. */
+  audioDescriptionUrl: string | null;
+  /** Duration of the voice description in seconds. */
+  audioDescriptionDurationSeconds: number | null;
   /** Filled by /jobs/nearby. */
   distanceMeters?: number;
   employer?: {
@@ -303,6 +312,8 @@ export interface PublicApplication {
   jobId: string;
   status: ApplicationStatus;
   coverNote: string | null;
+  /** True for one-tap "I'm interested" pings from Today mode. */
+  expressedAsInterest: boolean;
   timeline: {
     appliedAt: string;
     viewedAt: string | null;

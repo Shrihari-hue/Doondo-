@@ -18,6 +18,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Image,
   Keyboard,
   Pressable,
   ScrollView,
@@ -38,6 +39,7 @@ import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/auth.store';
 import { haptic } from '@/lib/haptics';
+import { pickWorkPhoto } from '@/lib/photo';
 import { meApi, type WorkHistoryEntryInput } from '@/api/me.api';
 import { ApiError } from '@/api/errors';
 import {
@@ -85,6 +87,11 @@ function ResumeBuilderInner() {
   // Step 0 = intro. 1..drafts.length = per-job edit. Final = review.
   const [step, setStep] = useState<number>(initialDrafts.length === 1 && !initialDrafts[0]!.company ? 0 : -1);
   const [drafts, setDrafts] = useState<DraftEntry[]>(initialDrafts);
+  // Work-sample photos — hydrated from the user's existing list, edited
+  // locally, persisted at the same time as the work history when the
+  // seeker taps "Generate resume". Up to 6.
+  const [photos, setPhotos] = useState<string[]>(user?.workPhotos ?? []);
+  const [pickingPhoto, setPickingPhoto] = useState(false);
 
   // If the user has existing entries, skip the intro and land on review.
   useEffect(() => {
@@ -95,7 +102,7 @@ function ResumeBuilderInner() {
   }, [step, drafts]);
 
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const payload: WorkHistoryEntryInput[] = drafts
         .filter((d) => d.company.trim() && d.role.trim() && d.startDate)
         .map((d) => ({
@@ -106,7 +113,22 @@ function ResumeBuilderInner() {
           current: d.current,
           description: d.description.trim() || null,
         }));
-      return meApi.updateWorkHistory({ entries: payload });
+      // Two writes — order matters only for telemetry, both go to /me.
+      // Run them sequentially so the second write sees the freshest user
+      // and React Query's invalidate only fires once.
+      await meApi.updateWorkHistory({ entries: payload });
+      // Only PATCH photos if they actually changed — most edits don't
+      // touch photos, no point sending kilobytes of data URLs on save.
+      const initialPhotos = user?.workPhotos ?? [];
+      const photosChanged =
+        photos.length !== initialPhotos.length ||
+        photos.some((p, i) => p !== initialPhotos[i]);
+      if (photosChanged) {
+        return meApi.updateProfile({ workPhotos: photos });
+      }
+      // Re-fetch the freshest user via updateProfile no-op so the auth
+      // store reflects the new workHistory immediately.
+      return meApi.updateProfile({});
     },
     onSuccess: ({ user: updated }) => {
       // Refresh the cached auth user + invalidate any /me reads.
@@ -133,6 +155,41 @@ function ResumeBuilderInner() {
     if (drafts.length >= MAX_JOBS) return;
     setDrafts((cur) => [...cur, emptyDraft()]);
     haptic('selection');
+  };
+
+  const addPhoto = async () => {
+    if (photos.length >= 6 || pickingPhoto) return;
+    setPickingPhoto(true);
+    haptic('selection');
+    try {
+      const picked = await pickWorkPhoto();
+      if (picked) {
+        setPhotos((cur) => [...cur, picked.dataUrl]);
+        haptic('light');
+      }
+    } catch (err) {
+      haptic('error');
+      Alert.alert(
+        "Couldn't add photo",
+        err instanceof Error ? err.message : 'Try a smaller image.',
+      );
+    } finally {
+      setPickingPhoto(false);
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    Alert.alert('Remove this photo?', "It won't show on your resume anymore.", [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          setPhotos((cur) => cur.filter((_, i) => i !== index));
+          haptic('warning');
+        },
+      },
+    ]);
   };
 
   const isReview = step === drafts.length + 1;
@@ -228,29 +285,37 @@ function ResumeBuilderInner() {
         {isIntro ? (
           <IntroSlide />
         ) : isReview ? (
-          <ReviewSlide
-            drafts={drafts}
-            onEdit={(i) => setStep(i + 1)}
-            onRemove={(i) => {
-              if (drafts.length === 1) {
-                Alert.alert('Need at least one job', "You can't remove the last entry.");
-                return;
-              }
-              Alert.alert('Remove this job?', "It won't show on your resume anymore.", [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Remove',
-                  style: 'destructive',
-                  onPress: () => {
-                    removeDraft(i);
-                    haptic('warning');
+          <>
+            <ReviewSlide
+              drafts={drafts}
+              onEdit={(i) => setStep(i + 1)}
+              onRemove={(i) => {
+                if (drafts.length === 1) {
+                  Alert.alert('Need at least one job', "You can't remove the last entry.");
+                  return;
+                }
+                Alert.alert('Remove this job?', "It won't show on your resume anymore.", [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Remove',
+                    style: 'destructive',
+                    onPress: () => {
+                      removeDraft(i);
+                      haptic('warning');
+                    },
                   },
-                },
-              ]);
-            }}
-            onAdd={addDraft}
-            canAdd={drafts.length < MAX_JOBS}
-          />
+                ]);
+              }}
+              onAdd={addDraft}
+              canAdd={drafts.length < MAX_JOBS}
+            />
+            <WorkPhotosSection
+              photos={photos}
+              onAdd={addPhoto}
+              onRemove={removePhoto}
+              picking={pickingPhoto}
+            />
+          </>
         ) : editingDraft && editIndex !== null ? (
           <EditSlide
             index={editIndex}
@@ -488,6 +553,134 @@ function EditSlide({
         onChangeText={(t) => onChange({ description: t })}
         multiline
       />
+    </View>
+  );
+}
+
+/**
+ * Work-sample photos — horizontal strip of thumbnails the seeker can
+ * add to / remove from. Caps at 6 to keep the user document small.
+ * Rendered on the Review slide so workers see their photos in context
+ * with the job entries before they hit Generate.
+ */
+function WorkPhotosSection({
+  photos,
+  onAdd,
+  onRemove,
+  picking,
+}: {
+  photos: string[];
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+  picking: boolean;
+}) {
+  const { theme } = useTheme();
+  const canAdd = photos.length < 6;
+
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <View style={{ gap: 4 }}>
+        <Text
+          style={{
+            fontSize: 11,
+            fontWeight: '600',
+            letterSpacing: 1.6,
+            color: theme.text.tertiary,
+          }}
+        >
+          PHOTOS OF YOUR WORK · OPTIONAL
+        </Text>
+        <Text
+          style={{ fontSize: 13, color: theme.text.secondary, lineHeight: 19 }}
+        >
+          Show employers what you can do. A photo of a wall you built, a
+          dish you cooked, a panel you wired. Up to 6.
+        </Text>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.lg }}
+      >
+        {photos.map((uri, i) => (
+          <Pressable
+            key={`${uri.slice(-20)}-${i}`}
+            onPress={() => onRemove(i)}
+            accessibilityRole="button"
+            accessibilityLabel={`Remove photo ${i + 1}`}
+            style={({ pressed }) => ({
+              width: 100,
+              height: 100,
+              borderRadius: radii.md,
+              overflow: 'hidden',
+              borderWidth: 0.5,
+              borderColor: theme.border.subtle,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Image source={{ uri }} style={{ width: '100%', height: '100%' }} />
+            <View
+              style={{
+                position: 'absolute',
+                top: 4,
+                right: 4,
+                width: 22,
+                height: 22,
+                borderRadius: 11,
+                backgroundColor: 'rgba(15,23,42,0.75)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>
+                ×
+              </Text>
+            </View>
+          </Pressable>
+        ))}
+        {canAdd ? (
+          <Pressable
+            onPress={onAdd}
+            disabled={picking}
+            accessibilityRole="button"
+            accessibilityLabel="Add a work photo"
+            style={({ pressed }) => ({
+              width: 100,
+              height: 100,
+              borderRadius: radii.md,
+              borderWidth: 1,
+              borderStyle: 'dashed',
+              borderColor: theme.border.default,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: theme.bg.surface,
+              opacity: picking ? 0.5 : pressed ? 0.7 : 1,
+              gap: 4,
+            })}
+          >
+            <Text style={{ fontSize: 24, color: '#2563EB' }}>+</Text>
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: '600',
+                color: '#2563EB',
+              }}
+            >
+              {picking ? 'Loading…' : 'Add photo'}
+            </Text>
+          </Pressable>
+        ) : null}
+      </ScrollView>
+
+      <Text
+        style={{
+          fontSize: 11,
+          color: theme.text.tertiary,
+        }}
+      >
+        {photos.length} / 6 photos · tap a photo to remove it
+      </Text>
     </View>
   );
 }

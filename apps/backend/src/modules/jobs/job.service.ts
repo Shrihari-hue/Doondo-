@@ -24,7 +24,13 @@ import { emitToUser } from '@/sockets/bus';
 import { matchJobToAlerts } from '@/modules/alerts/alert.service';
 import { UserModel } from '@/modules/users/user.model';
 import { JobModel, type JobStatus, type PublicJob } from './job.model';
-import type { CreateJobBody, NearbyQuery, UpdateJobBody } from './job.schemas';
+import type {
+  CreateJobBody,
+  NearbyQuery,
+  ThisWeekQuery,
+  TodayQuery,
+  UpdateJobBody,
+} from './job.schemas';
 
 /** Notify seekers within this radius (metres) when a new job is posted. */
 const NEW_JOB_NOTIFY_RADIUS_M = 25_000;
@@ -107,8 +113,146 @@ export async function findNearby(query: NearbyQuery): Promise<{
   return { jobs, hasMore };
 }
 
+/**
+ * "Today" feed — same geo pipeline as findNearby, but pre-filtered to
+ * fresh + urgent jobs the worker could conceivably start within 24 hours.
+ *
+ * Filter rule: `urgent === true` OR posted in the last 24 hours.
+ * Sort: urgent first within distance bucket, then nearest first. This
+ * mirrors the chowk/labor-market mental model — "who's hiring right
+ * now within walking distance?"
+ */
+export async function findToday(query: TodayQuery): Promise<{
+  jobs: NearbyHit[];
+  hasMore: boolean;
+}> {
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const baseMatch: Record<string, unknown> = {
+    status: 'active',
+    $or: [{ urgent: true }, { createdAt: { $gte: oneDayAgo } }],
+  };
+  if (query.type) baseMatch.type = query.type;
+  if (query.q) {
+    const re = new RegExp(escapeRegex(query.q), 'i');
+    // Wrap the existing $or with $and so we don't clobber the time/urgency filter.
+    baseMatch.$and = [
+      { $or: baseMatch.$or as unknown[] },
+      { $or: [{ title: re }, { description: re }, { skills: re }] },
+    ];
+    delete baseMatch.$or;
+  }
+  return runGeoNearPipeline({
+    lat: query.lat,
+    lng: query.lng,
+    radius: query.radius,
+    limit: query.limit,
+    baseMatch,
+  });
+}
+
+/**
+ * "This week" feed — short contracts + shifts posted in the last 7 days.
+ * Wider default radius than Today because workers will commute further
+ * for a week-long contract than a one-day gig.
+ *
+ * Filter rule: created in the last 7 days AND type IN (gig, shift, contract).
+ * If the seeker also passed a `type=` filter, that intersects (a `gig`
+ * query becomes literally "gigs posted this week").
+ */
+export async function findThisWeek(query: ThisWeekQuery): Promise<{
+  jobs: NearbyHit[];
+  hasMore: boolean;
+}> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const baseMatch: Record<string, unknown> = {
+    status: 'active',
+    createdAt: { $gte: sevenDaysAgo },
+    type: query.type
+      ? query.type
+      : { $in: ['gig', 'shift', 'contract'] },
+  };
+  if (query.q) {
+    const re = new RegExp(escapeRegex(query.q), 'i');
+    baseMatch.$or = [{ title: re }, { description: re }, { skills: re }];
+  }
+  return runGeoNearPipeline({
+    lat: query.lat,
+    lng: query.lng,
+    radius: query.radius,
+    limit: query.limit,
+    baseMatch,
+  });
+}
+
+/**
+ * Shared geo+employer-hydration pipeline. Extracted so the three feed
+ * endpoints (nearby, today, this-week) don't drift apart on sort, employer
+ * lookup, or has-more semantics.
+ */
+async function runGeoNearPipeline(input: {
+  lat: number;
+  lng: number;
+  radius: number;
+  limit: number;
+  baseMatch: Record<string, unknown>;
+}): Promise<{ jobs: NearbyHit[]; hasMore: boolean }> {
+  const pipeline: PipelineStage[] = [
+    {
+      $geoNear: {
+        near: { type: 'Point', coordinates: [input.lng, input.lat] },
+        distanceField: 'distanceMeters',
+        maxDistance: input.radius,
+        spherical: true,
+        query: input.baseMatch,
+      },
+    },
+    {
+      $addFields: {
+        distanceBucket: { $floor: { $divide: ['$distanceMeters', 500] } },
+        urgentRank: { $cond: [{ $eq: ['$urgent', true] }, 0, 1] },
+      },
+    },
+    { $sort: { distanceBucket: 1, urgentRank: 1, distanceMeters: 1 } },
+    { $project: { distanceBucket: 0, urgentRank: 0 } },
+    { $limit: input.limit + 1 },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'employerId',
+        foreignField: '_id',
+        as: 'employer',
+        pipeline: [{ $project: { name: 1, isVerified: 1, photoUrl: 1, companyName: 1 } }],
+      },
+    },
+    { $unwind: { path: '$employer', preserveNullAndEmptyArrays: true } },
+  ];
+
+  const rows = await JobModel.aggregate(pipeline);
+  const hasMore = rows.length > input.limit;
+  const trimmed = hasMore ? rows.slice(0, input.limit) : rows;
+
+  const jobs: NearbyHit[] = trimmed.map((r) => ({
+    ...formatRawJob(r),
+    distanceMeters: Math.round(r.distanceMeters as number),
+    employer: r.employer
+      ? {
+          id: (r.employer._id as Types.ObjectId).toString(),
+          name: r.employer.name as string,
+          isVerified: Boolean(r.employer.isVerified),
+          photoUrl: (r.employer.photoUrl as string | null | undefined) ?? null,
+          companyName:
+            (r.employer.companyName as string | null | undefined) ?? null,
+        }
+      : undefined,
+  }));
+
+  return { jobs, hasMore };
+}
+
 export async function findById(jobId: string): Promise<PublicJob> {
-  const job = await JobModel.findById(jobId);
+  // audioDescriptionUrl is select:false (list payloads stay small);
+  // detail callers explicitly include it so the seeker can play it back.
+  const job = await JobModel.findById(jobId).select('+audioDescriptionUrl');
   if (!job) throw errors.jobNotFound();
 
   // Bump views — fire-and-forget. Mongoose 8 queries are lazy: `void`
@@ -215,6 +359,8 @@ export async function createJob(
     schedule: input.schedule ?? null,
     status: 'active',
     urgent: input.urgent ?? false,
+    audioDescriptionUrl: input.audioDescriptionUrl ?? null,
+    audioDescriptionDurationSeconds: input.audioDescriptionDurationSeconds ?? null,
   });
 
   const publicJob = job.toPublicJSON();
@@ -307,7 +453,9 @@ export async function updateJob(
   jobId: string,
   input: UpdateJobBody,
 ): Promise<PublicJob> {
-  const job = await JobModel.findById(jobId);
+  // Include audioDescriptionUrl so the public JSON serializer reads
+  // whatever value was previously stored, not undefined.
+  const job = await JobModel.findById(jobId).select('+audioDescriptionUrl');
   if (!job) throw errors.jobNotFound();
   if (job.employerId.toString() !== employerId) throw errors.forbidden();
 
@@ -337,6 +485,12 @@ export async function updateJob(
   if (input.skills !== undefined) job.skills = input.skills;
   if (input.schedule !== undefined) job.schedule = input.schedule ?? null;
   if (input.urgent !== undefined) job.urgent = input.urgent;
+  if (input.audioDescriptionUrl !== undefined) {
+    job.audioDescriptionUrl = input.audioDescriptionUrl;
+  }
+  if (input.audioDescriptionDurationSeconds !== undefined) {
+    job.audioDescriptionDurationSeconds = input.audioDescriptionDurationSeconds;
+  }
 
   await job.save();
   return job.toPublicJSON();

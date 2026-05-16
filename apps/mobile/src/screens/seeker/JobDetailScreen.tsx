@@ -13,8 +13,8 @@
  * /jobs/:id/save DELETE.
  */
 
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Share, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Linking, Pressable, ScrollView, Share, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -25,6 +25,7 @@ import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { jobsApi } from '@/api/jobs.api';
 import { applicationsApi } from '@/api/applications.api';
+import { contactApi } from '@/api/contact.api';
 import { ApiError } from '@/api/errors';
 import { haptic } from '@/lib/haptics';
 import {
@@ -162,6 +163,41 @@ function JobDetailScreenInner() {
     },
   });
 
+  /**
+   * One-tap "I'm interested" — the Today-mode equivalent of Apply.
+   * Hits the lightweight `/express-interest` endpoint so the row gets
+   * flagged for the employer's priority queue. Career mode never
+   * touches this mutation; the existing applyMutation stays the only
+   * path for the full-form Apply Now flow.
+   */
+  const interestMutation = useMutation({
+    mutationFn: () => applicationsApi.expressInterest(route.params.jobId),
+    onSuccess: () => {
+      setAppliedNow(true);
+      setApplyError(null);
+      haptic('success');
+      void queryClient.invalidateQueries({ queryKey: ['applications', 'me'] });
+    },
+    onError: (err) => {
+      haptic('error');
+      if (err instanceof ApiError && err.code === 'APPLICATION_ALREADY_EXISTS') {
+        setApplyError("You've already shown interest in this job.");
+        setAppliedNow(true);
+      } else if (err instanceof ApiError && err.code === 'JOB_NOT_OPEN') {
+        setApplyError('This job is no longer accepting applications.');
+      } else {
+        setApplyError(err instanceof Error ? err.message : 'Something went wrong.');
+      }
+    },
+  });
+
+  // Today mode swaps the sticky CTA to a one-tap "I'm interested"
+  // button. Defaults to 'career' so existing deep-links and any caller
+  // that doesn't pass `fromMode` lands on the original Apply Now flow
+  // unchanged.
+  const fromMode = route.params.fromMode ?? 'career';
+  const isTodayMode = fromMode === 'today';
+
   // ─── Loading + error ──────────────────────────────────────────────────────
 
   if (detail.isLoading) {
@@ -215,9 +251,29 @@ function JobDetailScreenInner() {
 
   async function onShare() {
     haptic('light');
+    // Rich, WhatsApp-friendly message — blue-collar networks share
+    // job leads on WhatsApp constantly, so the body must read cleanly
+    // on a single-line preview. Order: who's hiring, what role, pay,
+    // where, and a tappable Doondo link.
+    const lines: string[] = [];
+    lines.push(`💼 ${job.title}`);
+    if (employerName && employerName !== 'Doondo Employer') {
+      lines.push(`at ${employerName}`);
+    }
+    lines.push('');
+    lines.push(`💰 ${formatPay(job.pay)}`);
+    const where = [job.location.area, job.location.city]
+      .filter(Boolean)
+      .join(', ');
+    if (where) lines.push(`📍 ${where}`);
+    if (job.urgent) lines.push(`⚡ Urgent — start soon`);
+    lines.push('');
+    lines.push(`See and apply on Doondo:`);
+    lines.push(`https://doondo.app/jobs/${job.id}`);
     try {
       await Share.share({
-        message: `${job.title} at ${employerName} — ${formatPay(job.pay)}. See on Doondo.`,
+        message: lines.join('\n'),
+        title: job.title,
       });
     } catch {
       // Share dialog cancelled — no-op.
@@ -320,6 +376,9 @@ function JobDetailScreenInner() {
           <Text variant="display" weight="medium" style={{ color: theme.text.primary }} display>
             {formatPay(job.pay)}
           </Text>
+
+          {/* Pay transparency — "Typical pay for X in Y: ₹450–600 / day" */}
+          <PayTransparencyLine job={job} />
         </View>
 
         {/* Pills with icon prefix */}
@@ -338,6 +397,12 @@ function JobDetailScreenInner() {
           <Text variant="bodyLarge" weight="medium">
             Job Description
           </Text>
+          {job.audioDescriptionUrl ? (
+            <AudioDescriptionPill
+              uri={job.audioDescriptionUrl}
+              durationSeconds={job.audioDescriptionDurationSeconds ?? 0}
+            />
+          ) : null}
           <Text variant="body" tone="secondary">
             {job.description}
           </Text>
@@ -359,13 +424,16 @@ function JobDetailScreenInner() {
 
         {appliedNow && (
           <Card premium>
-            <View style={{ gap: spacing.xs, alignItems: 'center' }}>
+            <View style={{ gap: spacing.sm, alignItems: 'center' }}>
               <Text variant="bodyLarge" weight="medium" tone="hero">
-                Application sent
+                {isTodayMode ? 'Interest sent' : 'Application sent'}
               </Text>
               <Text variant="footnote" tone="secondary" style={{ textAlign: 'center' }}>
-                Track its status in the Applications tab.
+                {isTodayMode
+                  ? 'You can call the employer now — they\'re expecting to hear from you.'
+                  : 'Track its status in the Applications tab.'}
               </Text>
+              <CallEmployerButton jobId={route.params.jobId} />
             </View>
           </Card>
         )}
@@ -397,11 +465,59 @@ function JobDetailScreenInner() {
       >
         <View style={{ flex: 1 }}>
           {/*
-            Hardcoded #2563EB / #FFFFFF to bulletproof against any
-            theme-token resolution mismatch in production builds — the
-            Apply CTA is the single most important button on the screen
-            and must never read as invisible-on-white.
+            CTA branches on `fromMode`:
+              - 'today'                  → "I'm interested" one-tap
+              - 'career' | 'this_week'   → "Apply Now" full flow
+            The Career path is unchanged from before Phase 2 so all
+            existing deep-links and the Jobs tab keep working exactly
+            as they did. Hardcoded colors so the button is always
+            visible regardless of theme resolution.
           */}
+          {isTodayMode ? (
+            <Pressable
+              onPress={() => {
+                if (appliedNow || interestMutation.isPending) return;
+                haptic('light');
+                interestMutation.mutate();
+              }}
+              disabled={appliedNow || interestMutation.isPending}
+              accessibilityRole="button"
+              accessibilityLabel="I'm interested"
+              style={({ pressed }) => ({
+                backgroundColor: '#2563EB',
+                paddingVertical: 14,
+                borderRadius: radii.lg,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity:
+                  appliedNow || interestMutation.isPending
+                    ? 0.55
+                    : pressed
+                      ? 0.85
+                      : 1,
+                shadowColor: '#2563EB',
+                shadowOpacity: 0.25,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 4,
+              })}
+            >
+              <Text
+                style={{
+                  color: '#FFFFFF',
+                  fontSize: 16,
+                  fontWeight: '700',
+                  letterSpacing: 0.2,
+                }}
+              >
+                {appliedNow
+                  ? "✓ Interest sent"
+                  : interestMutation.isPending
+                    ? 'Sending…'
+                    : "✋ I'm interested"}
+              </Text>
+            </Pressable>
+          ) : (
           <Pressable
             onPress={() => {
               if (appliedNow || applyMutation.isPending) return;
@@ -445,6 +561,7 @@ function JobDetailScreenInner() {
                   : 'Apply Now'}
             </Text>
           </Pressable>
+          )}
         </View>
         <Pressable
           onPress={toggleSave}
@@ -524,8 +641,26 @@ function Header({
           </Pressable>
         )}
         {onShare && (
-          <Pressable onPress={onShare} hitSlop={12}>
-            <Text style={{ fontSize: 18, color: theme.text.primary }}>↗</Text>
+          <Pressable
+            onPress={onShare}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Share this job"
+            style={({ pressed }) => ({
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#EFF6FF', // blue-50
+              borderWidth: 0.5,
+              borderColor: '#BFDBFE', // blue-200
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Text style={{ fontSize: 16, color: '#2563EB', fontWeight: '700' }}>
+              ↗
+            </Text>
           </Pressable>
         )}
         {!onShare && !onDownloadToggle && <View style={{ width: 40 }} />}
@@ -535,6 +670,370 @@ function Header({
 }
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
+
+// ─── Call employer button ───────────────────────────────────────────────────
+
+/**
+ * One-tap call to the employer. Only renders after the seeker has
+ * applied (or expressed interest) — the backend gates the contact
+ * reveal on an Application existing.
+ *
+ * v1 uses an unmasked tel: link. When we sign up for a telephony
+ * provider (Exotel / Knowlarity), the reveal endpoint returns a masked
+ * relay number instead — no client change needed.
+ */
+function CallEmployerButton({ jobId }: { jobId: string }) {
+  const mutation = useMutation({
+    mutationFn: () => contactApi.revealEmployer(jobId),
+    onSuccess: (data) => {
+      const phone = data.contact.phone;
+      if (!phone) {
+        haptic('error');
+        Alert.alert(
+          "Couldn't call",
+          'The employer hasn\'t added a phone number yet. Try messaging them in chat.',
+        );
+        return;
+      }
+      haptic('selection');
+      const clean = phone.replace(/[^\d+]/g, '');
+      Linking.openURL(`tel:${clean}`).catch(() => {
+        Alert.alert("Couldn't open dialer", `Their number is ${phone}`);
+      });
+    },
+    onError: (err) => {
+      haptic('error');
+      const msg =
+        err instanceof ApiError ? err.message : "Couldn't reveal contact.";
+      Alert.alert('Not available yet', msg);
+    },
+  });
+
+  return (
+    <Pressable
+      onPress={() => mutation.mutate()}
+      disabled={mutation.isPending}
+      accessibilityRole="button"
+      accessibilityLabel="Call the employer"
+      style={({ pressed }) => ({
+        marginTop: 4,
+        paddingVertical: 12,
+        paddingHorizontal: spacing.lg,
+        borderRadius: radii.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#10B981',
+        opacity: mutation.isPending ? 0.5 : pressed ? 0.85 : 1,
+        shadowColor: '#10B981',
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 3,
+      })}
+    >
+      <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
+        {mutation.isPending ? 'Opening dialer…' : '📞 Call employer'}
+      </Text>
+    </Pressable>
+  );
+}
+
+// ─── Audio description pill ─────────────────────────────────────────────────
+
+/**
+ * Compact play/pause pill rendered above the text description when the
+ * employer attached a voice note. Uses expo-audio's `useAudioPlayer`
+ * hook (SDK 54+); if that import resolves to `undefined` (older
+ * installs), the pill falls back to a static "Voice description
+ * available" label and the seeker can still read the text.
+ */
+function AudioDescriptionPill({
+  uri,
+  durationSeconds,
+}: {
+  uri: string;
+  durationSeconds: number;
+}) {
+  const { theme } = useTheme();
+  const [supported, setSupported] = useState<boolean | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const playerRef = useRef<{
+    play: () => void;
+    pause: () => void;
+    release?: () => void;
+    addListener?: (
+      ev: string,
+      cb: (e: { isPlaying?: boolean; currentTime?: number }) => void,
+    ) => { remove: () => void };
+  } | null>(null);
+
+  // Lazy-load to keep the screen alive on devices/builds where the
+  // expo-audio API surface doesn't match what we expect.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const mod = require('expo-audio') as Record<string, unknown>;
+        const createFn =
+          (mod.AudioModule as { createAudioPlayer?: unknown } | undefined)
+            ?.createAudioPlayer ??
+          (mod.createAudioPlayer as unknown);
+        if (typeof createFn !== 'function') {
+          if (!cancelled) setSupported(false);
+          return;
+        }
+        const instance = (createFn as (src: { uri: string }) => unknown)({
+          uri,
+        }) as {
+          play: () => void;
+          pause: () => void;
+          release?: () => void;
+          addListener?: (
+            ev: string,
+            cb: (e: { isPlaying?: boolean; currentTime?: number }) => void,
+          ) => { remove: () => void };
+        };
+        if (cancelled) {
+          instance.release?.();
+          return;
+        }
+        playerRef.current = instance;
+        setSupported(true);
+      } catch {
+        if (!cancelled) setSupported(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      playerRef.current?.release?.();
+      playerRef.current = null;
+    };
+  }, [uri]);
+
+  // Tick elapsed time while playing — gives us a progress bar without
+  // depending on the player's event system.
+  useEffect(() => {
+    if (!playing) return;
+    const id = setInterval(() => {
+      setElapsed((e) => {
+        const next = e + 1;
+        if (durationSeconds > 0 && next >= durationSeconds) {
+          setPlaying(false);
+          return 0;
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [playing, durationSeconds]);
+
+  const toggle = () => {
+    if (supported !== true || !playerRef.current) return;
+    haptic('selection');
+    if (playing) {
+      try {
+        playerRef.current.pause();
+      } catch {
+        /* ignore */
+      }
+      setPlaying(false);
+    } else {
+      try {
+        playerRef.current.play();
+      } catch {
+        /* ignore */
+      }
+      setPlaying(true);
+      setElapsed(0);
+    }
+  };
+
+  // Read-only "audio available" fallback when the player API isn't
+  // accessible. The text description below is still readable.
+  if (supported === false) {
+    return (
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.sm,
+          padding: spacing.sm,
+          borderRadius: radii.md,
+          backgroundColor: '#EFF6FF',
+          borderWidth: 0.5,
+          borderColor: '#BFDBFE',
+        }}
+      >
+        <Text style={{ fontSize: 14 }}>🎙</Text>
+        <Text style={{ fontSize: 12, color: '#1E40AF', flex: 1 }}>
+          Voice description ({formatSeconds(durationSeconds)}) — playback not
+          supported on this build.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={toggle}
+      disabled={supported !== true}
+      accessibilityRole="button"
+      accessibilityLabel={playing ? 'Pause voice description' : 'Play voice description'}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        padding: spacing.sm,
+        borderRadius: radii.md,
+        backgroundColor: '#EFF6FF',
+        borderWidth: 0.5,
+        borderColor: '#BFDBFE',
+        opacity: pressed ? 0.8 : 1,
+      })}
+    >
+      <View
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 16,
+          backgroundColor: '#2563EB',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ color: '#FFFFFF', fontSize: 14 }}>
+          {playing ? '❚❚' : '▶'}
+        </Text>
+      </View>
+      <Text style={{ fontSize: 13, fontWeight: '600', color: '#1E40AF', flex: 1 }}>
+        {playing
+          ? `Playing… ${formatSeconds(elapsed)} / ${formatSeconds(durationSeconds)}`
+          : `Listen to job description (${formatSeconds(durationSeconds)})`}
+      </Text>
+    </Pressable>
+  );
+}
+
+function formatSeconds(s: number): string {
+  if (!s || s < 1) return '0:00';
+  const m = Math.floor(s / 60);
+  const r = Math.floor(s % 60);
+  return `${m}:${r.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Pay transparency line — fetches typical pay for (type, city, period)
+ * and renders a single italic line under the pay row when there's
+ * enough data. Silent when sample size < 5 so the worker never sees
+ * a misleading "typical" based on three outliers.
+ */
+function PayTransparencyLine({ job }: { job: PublicJob }) {
+  const { theme } = useTheme();
+  const stats = useQuery({
+    queryKey: [
+      'jobs',
+      'pay-stats',
+      job.type,
+      job.location.city,
+      job.pay.period,
+    ],
+    queryFn: () =>
+      jobsApi.payStats({
+        type: job.type,
+        city: job.location.city,
+        period: job.pay.period,
+      }),
+    staleTime: 10 * 60_000, // 10 min — these stats barely change minute-to-minute
+    enabled: Boolean(job.location.city && job.type && job.pay.period),
+  });
+
+  if (
+    !stats.data ||
+    stats.data.p25 == null ||
+    stats.data.p75 == null ||
+    stats.data.sampleSize < 5
+  ) {
+    return null;
+  }
+
+  const p25 = Math.round(stats.data.p25 / 100); // paise → rupees
+  const p75 = Math.round(stats.data.p75 / 100);
+  const periodSuffix = formatPeriodShort(job.pay.period);
+  const offerAmount = Math.round(job.pay.amount / 100);
+
+  // Soft hint when this employer is significantly below the typical band.
+  const isLowOffer = offerAmount < p25 * 0.85;
+  // Soft hint when this employer is at or above the upper quartile.
+  const isStrongOffer = offerAmount >= p75;
+
+  let trailingNote: string | null = null;
+  if (isLowOffer) {
+    trailingNote = '• Below typical range';
+  } else if (isStrongOffer) {
+    trailingNote = '• Above typical range';
+  }
+
+  return (
+    <View style={{ marginTop: 4 }}>
+      <Text
+        style={{
+          fontSize: 12,
+          fontStyle: 'italic',
+          color: theme.text.tertiary,
+          lineHeight: 17,
+        }}
+      >
+        Typical pay for {prettyType(job.type)} in {job.location.city}: ₹
+        {p25.toLocaleString()}–{p75.toLocaleString()}
+        {periodSuffix}
+        {trailingNote ? (
+          <Text
+            style={{
+              color: isLowOffer ? '#B91C1C' : '#047857',
+              fontWeight: '600',
+              fontStyle: 'normal',
+            }}
+          >
+            {'  '}
+            {trailingNote}
+          </Text>
+        ) : null}
+      </Text>
+    </View>
+  );
+}
+
+function formatPeriodShort(period: PublicJob['pay']['period']): string {
+  switch (period) {
+    case 'hour':
+      return ' / hr';
+    case 'day':
+      return ' / day';
+    case 'week':
+      return ' / wk';
+    case 'month':
+      return ' / mo';
+    case 'fixed':
+      return ' (one-time)';
+  }
+}
+
+function prettyType(t: PublicJob['type']): string {
+  switch (t) {
+    case 'full_time':
+      return 'full-time roles';
+    case 'part_time':
+      return 'part-time roles';
+    case 'gig':
+      return 'gigs';
+    case 'shift':
+      return 'shift work';
+    case 'contract':
+      return 'contracts';
+  }
+}
 
 function DetailRow({ icon, label, tone }: { icon: string; label: string; tone?: string }) {
   const { theme } = useTheme();

@@ -20,6 +20,8 @@ import notificationsRouter from '@/modules/notifications/notification.routes';
 import * as applicationsController from '@/modules/applications/application.controller';
 import * as ratingsController from '@/modules/ratings/rating.controller';
 import * as employersController from '@/modules/employers/employer.controller';
+import { availabilitiesRouter } from '@/modules/availabilities/availability.routes';
+import * as contactController from '@/modules/contact/contact.controller';
 import {
   applicantsForJobSchema,
   applyParamsSchema,
@@ -35,6 +37,19 @@ v1.use('/conversations', chatRouter);
 v1.use('/verification', verificationRouter);
 v1.use('/ratings', ratingsRouter);
 v1.use('/notifications', notificationsRouter);
+// "Workers available right now" — employer-only lookup. Seeker-side
+// reads/mutations live under /me/availability instead.
+v1.use('/availabilities', availabilitiesRouter);
+
+// Contact reveal — seeker calling an employer (gated by Application)
+// and employer calling a seeker (gated by Application OR active beacon).
+v1.get('/jobs/:id/contact', requireAuth, contactController.revealEmployerContact);
+v1.get(
+  '/seekers/:id/contact',
+  requireAuth,
+  requireRole('employer'),
+  contactController.revealSeekerContact,
+);
 
 // Public employer detail. Anyone (even unauthenticated) can pull this up —
 // it's the same trust signal a seeker uses to decide whether to apply.
@@ -68,6 +83,17 @@ v1.post(
   requireRole('seeker'),
   validate(applyParamsSchema),
   applicationsController.apply,
+);
+
+// "I'm interested" — Today-mode one-tap variant. Same URL family as
+// /apply but a different verb so employers can distinguish them in
+// their dashboard. Reuses the apply params validator (just :id).
+v1.post(
+  '/jobs/:id/express-interest',
+  requireAuth,
+  requireRole('seeker'),
+  validate(applyParamsSchema),
+  applicationsController.expressInterest,
 );
 
 // Employer reads "applicants for this job" — same URL grouping reasoning.

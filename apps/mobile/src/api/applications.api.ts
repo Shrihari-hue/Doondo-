@@ -37,6 +37,8 @@ export interface ApplicantEntry extends PublicApplication {
     resumeUploadedAt: string | null;
     /** Work history entries from the Resume Builder (may be empty). */
     workHistory: WorkExperience[];
+    /** Photos of the seeker's work (may be empty). */
+    workPhotos: string[];
   };
 }
 
@@ -65,6 +67,17 @@ export const applicationsApi = {
       method: 'POST',
       body,
     }),
+
+  /**
+   * One-tap "I'm interested" — same effect as apply() with no cover note
+   * but flagged on the backend so employers can prioritise these. Used
+   * by the Today-mode CTA on JobDetail.
+   */
+  expressInterest: (jobId: string) =>
+    apiRequest<{ application: PublicApplication }>(
+      `/jobs/${jobId}/express-interest`,
+      { method: 'POST' },
+    ),
 
   /**
    * Submit up to 20 applications in one call. Returns a per-job result

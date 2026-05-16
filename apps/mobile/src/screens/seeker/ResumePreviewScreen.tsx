@@ -16,7 +16,7 @@
  */
 
 import { type ReactNode } from 'react';
-import { Alert, Pressable, ScrollView, Share, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, Share, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -331,6 +331,41 @@ function ResumePreviewInner() {
             ))}
           </View>
         </Section>
+
+        {/* Work photos — horizontal carousel shown only when there are
+           photos. Tap a photo for a fuller view (system image viewer). */}
+        {user.workPhotos && user.workPhotos.length > 0 ? (
+          <Section title={`PHOTOS · ${user.workPhotos.length}`}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                gap: spacing.sm,
+                paddingRight: spacing.lg,
+              }}
+            >
+              {user.workPhotos.map((uri, i) => (
+                <View
+                  key={`${uri.slice(-20)}-${i}`}
+                  style={{
+                    width: 220,
+                    height: 160,
+                    borderRadius: radii.lg,
+                    overflow: 'hidden',
+                    borderWidth: 0.5,
+                    borderColor: theme.border.subtle,
+                    backgroundColor: theme.bg.surface,
+                  }}
+                >
+                  <Image
+                    source={{ uri }}
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          </Section>
+        ) : null}
 
         {/* Footer signature */}
         <Text

@@ -29,10 +29,78 @@ function qs(params: Record<string, string | number | undefined>): string {
   return parts.length ? `?${parts.join('&')}` : '';
 }
 
+export interface PayStatsParams {
+  type: JobType;
+  city: string;
+  period: PayPeriod;
+}
+
+export interface PayStatsResponse {
+  /** Number of contributing jobs. Hide the line on the client when < 5. */
+  sampleSize: number;
+  /** Lower quartile in paise. Null when sample size is too small. */
+  p25: number | null;
+  /** Median in paise. Null when sample size is too small. */
+  p50: number | null;
+  /** Upper quartile in paise. Null when sample size is too small. */
+  p75: number | null;
+  period: PayPeriod;
+  type: JobType;
+  city: string;
+  currency: string;
+}
+
 export const jobsApi = {
+  /**
+   * "Typical pay for {type} in {city}: ₹{p25}–{p75} / {period}" — the
+   * transparency line under the pay on JobDetail. Public endpoint;
+   * caller decides whether to render based on `sampleSize`.
+   */
+  payStats: (p: PayStatsParams) =>
+    apiRequest<PayStatsResponse>(
+      `/jobs/pay-stats${qs({
+        type: p.type,
+        city: p.city,
+        period: p.period,
+      })}`,
+      { auth: false },
+    ),
+
   nearby: (p: NearbyParams) =>
     apiRequest<NearbyResponse>(
       `/jobs/nearby${qs({
+        lat: p.lat,
+        lng: p.lng,
+        radius: p.radius,
+        type: p.type,
+        q: p.q,
+        limit: p.limit,
+      })}`,
+      { auth: false },
+    ),
+
+  /**
+   * "Today" feed — urgent + freshly-posted gigs within walking distance.
+   * Same response shape as nearby; the seeker home swaps between them
+   * by tab. Public endpoint so the worker can browse before signing in.
+   */
+  today: (p: NearbyParams) =>
+    apiRequest<NearbyResponse>(
+      `/jobs/today${qs({
+        lat: p.lat,
+        lng: p.lng,
+        radius: p.radius,
+        type: p.type,
+        q: p.q,
+        limit: p.limit,
+      })}`,
+      { auth: false },
+    ),
+
+  /** "This week" feed — short contracts/shifts posted in the last 7 days. */
+  thisWeek: (p: NearbyParams) =>
+    apiRequest<NearbyResponse>(
+      `/jobs/this-week${qs({
         lat: p.lat,
         lng: p.lng,
         radius: p.radius,
@@ -80,10 +148,20 @@ export const jobsApi = {
     apiRequest<{ job: PublicJob }>(`/jobs/${jobId}/close`, { method: 'POST' }),
 };
 
+/** Optional voice description shape — shared by create + update payloads. */
+export interface JobAudioDescription {
+  /** data:audio/m4a;base64,... */
+  url: string;
+  durationSeconds: number;
+}
+
 export interface CreateJobPayload {
   title: string;
   description: string;
   type: JobType;
+  /** Optional employer voice note — set both fields together. */
+  audioDescriptionUrl?: string | null;
+  audioDescriptionDurationSeconds?: number | null;
   pay: {
     amount: number;
     amountMax?: number | null;

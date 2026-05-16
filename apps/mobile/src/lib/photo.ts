@@ -90,6 +90,65 @@ async function compressForProfile(uri: string): Promise<PickedPhoto> {
   throw new Error('Could not compress photo small enough — try a different image.');
 }
 
+// ─── Work-sample photos (resume builder) ────────────────────────────────────
+
+/** Per-photo cap on the encoded data URL we send to the backend. */
+const MAX_WORK_PHOTO_DATA_URL_CHARS = 480_000; // ~360 KB of binary
+const WORK_PHOTO_TARGET_WIDTHS = [1200, 900, 720, 540] as const;
+const WORK_PHOTO_QUALITY_STEPS = [0.65, 0.5, 0.4, 0.3] as const;
+
+/**
+ * Pick a work-sample photo from the library — landscape OR portrait, no
+ * forced crop (a mason's wall is wide, a tailor's stitching is tight).
+ * The pipeline mirrors `pickProfilePhoto` but with a slightly more
+ * generous cap because detail matters on work samples.
+ */
+export async function pickWorkPhoto(): Promise<PickedPhoto | null> {
+  const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (perm.status !== ImagePicker.PermissionStatus.GRANTED) {
+    return null;
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    // No forced aspect — let the worker share the natural framing.
+    allowsEditing: false,
+    quality: 1,
+    base64: false,
+  });
+
+  if (result.canceled || !result.assets?.length) return null;
+  return compressForWorkPhoto(result.assets[0]!.uri);
+}
+
+async function compressForWorkPhoto(uri: string): Promise<PickedPhoto> {
+  let lastError: unknown = null;
+  for (const width of WORK_PHOTO_TARGET_WIDTHS) {
+    for (const quality of WORK_PHOTO_QUALITY_STEPS) {
+      try {
+        const out = await ImageManipulator.manipulateAsync(
+          uri,
+          [{ resize: { width } }],
+          {
+            compress: quality,
+            format: ImageManipulator.SaveFormat.JPEG,
+            base64: true,
+          },
+        );
+        if (!out.base64) continue;
+        const dataUrl = `data:image/jpeg;base64,${out.base64}`;
+        if (dataUrl.length <= MAX_WORK_PHOTO_DATA_URL_CHARS) {
+          return { dataUrl, width: out.width, height: out.height };
+        }
+      } catch (err) {
+        lastError = err;
+      }
+    }
+  }
+  if (lastError) throw lastError;
+  throw new Error('Could not compress photo small enough — try a different image.');
+}
+
 /**
  * Capture a selfie from the front-facing camera for the verification flow.
  *

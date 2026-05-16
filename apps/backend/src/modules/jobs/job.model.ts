@@ -94,6 +94,15 @@ export interface Job {
   /** Counts maintained denormalised for cheap list rendering. */
   applicantsCount: number;
   viewsCount: number;
+  /**
+   * Optional voice description of the job — base64 data URL, m4a/AAC.
+   * Lets employers who can't easily type a long description record a
+   * 30-second voice note instead. The text `description` is still
+   * mandatory; this is additive. Capped at ~1.4MB after compression.
+   */
+  audioDescriptionUrl?: string | null;
+  /** Duration in seconds — surfaced as "▶ Listen (0:32)" on the seeker view. */
+  audioDescriptionDurationSeconds?: number | null;
   /** When the posting auto-expires. Null = no auto-expiry. */
   expiresAt?: Date | null;
   createdAt: Date;
@@ -132,6 +141,10 @@ export interface PublicJob {
   /** True if the employer has marked this posting as time-sensitive. */
   urgent: boolean;
   applicantsCount: number;
+  /** Voice description data URL — present only when the employer recorded one. */
+  audioDescriptionUrl: string | null;
+  /** Duration of the voice description in seconds. */
+  audioDescriptionDurationSeconds: number | null;
   /** Distance from query point in meters. Set by the nearby query, undefined elsewhere. */
   distanceMeters?: number;
   /** Hydrated employer summary — set by routes that join. */
@@ -225,6 +238,23 @@ const jobSchema = new Schema<Job, JobModelType, JobMethods>(
     urgent: { type: Boolean, default: false, index: true },
     applicantsCount: { type: Number, default: 0, min: 0 },
     viewsCount: { type: Number, default: 0, min: 0 },
+    audioDescriptionUrl: {
+      type: String,
+      default: null,
+      // Same cap as a chat voice note — m4a/AAC clip up to ~60s at 64kbps
+      // sits well under this bound even after base64 overhead.
+      maxlength: 1_500_000,
+      // Hidden from list-view projections to keep payloads small. Read it
+      // explicitly on the JobDetail call (we already use `.findById()`
+      // there which has the field by default).
+      select: false,
+    },
+    audioDescriptionDurationSeconds: {
+      type: Number,
+      default: null,
+      min: 0,
+      max: 120,
+    },
     expiresAt: { type: Date, default: null, index: true },
   },
   { timestamps: true },
@@ -260,6 +290,9 @@ jobSchema.method('toPublicJSON', function (this: JobDocument): PublicJob {
     status: this.status,
     urgent: Boolean(this.urgent),
     applicantsCount: this.applicantsCount,
+    audioDescriptionUrl: this.audioDescriptionUrl ?? null,
+    audioDescriptionDurationSeconds:
+      this.audioDescriptionDurationSeconds ?? null,
     createdAt: this.createdAt.toISOString(),
   };
 });

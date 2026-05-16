@@ -31,6 +31,39 @@ export const nearbyQuerySchema = z.object({
   }),
 });
 
+/**
+ * "Today" feed — urgent + freshly-posted gigs the seeker could start
+ * within 24 hours. Same shape as the nearby query because the geoNear
+ * stage is identical; the time-window filter is applied in the service.
+ */
+export const todayQuerySchema = z.object({
+  query: z.object({
+    lat,
+    lng,
+    /** Tighter default radius for the "show up today" use case. */
+    radius: radius.default(7500),
+    type: z.enum(JOB_TYPES).optional(),
+    q: z.string().trim().min(1).max(100).optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  }),
+});
+
+/**
+ * "This week" feed — short contracts and shifts posted in the last 7
+ * days. Slightly wider radius than Today since a worker is more willing
+ * to commute for a week-long contract than a same-day gig.
+ */
+export const thisWeekQuerySchema = z.object({
+  query: z.object({
+    lat,
+    lng,
+    radius: radius.default(15000),
+    type: z.enum(JOB_TYPES).optional(),
+    q: z.string().trim().min(1).max(100).optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  }),
+});
+
 export const jobIdParamsSchema = z.object({
   params: z.object({ id: objectIdSchema }),
 });
@@ -71,6 +104,16 @@ const scheduleSchema = z
   .nullable()
   .optional();
 
+/**
+ * Optional voice description — base64 data URL of an m4a/AAC clip. Cap
+ * at ~1.4MB which comfortably fits a 60-second 64kbps recording with
+ * base64 overhead.
+ */
+const audioDescriptionDataUrl = z
+  .string()
+  .max(1_500_000)
+  .regex(/^data:audio\/(m4a|mp4|aac|x-m4a);base64,/i, 'Audio must be an m4a/AAC data URL');
+
 export const createJobSchema = z.object({
   body: z
     .object({
@@ -83,6 +126,15 @@ export const createJobSchema = z.object({
       schedule: scheduleSchema,
       /** Time-sensitive posting. Defaults to false. */
       urgent: z.boolean().default(false),
+      /** Optional voice description — null to omit. */
+      audioDescriptionUrl: audioDescriptionDataUrl.nullable().optional(),
+      audioDescriptionDurationSeconds: z
+        .number()
+        .int()
+        .min(1)
+        .max(120)
+        .nullable()
+        .optional(),
     })
     .strict(),
 });
@@ -99,6 +151,14 @@ export const updateJobSchema = z.object({
       skills: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
       schedule: scheduleSchema,
       urgent: z.boolean().optional(),
+      audioDescriptionUrl: audioDescriptionDataUrl.nullable().optional(),
+      audioDescriptionDurationSeconds: z
+        .number()
+        .int()
+        .min(1)
+        .max(120)
+        .nullable()
+        .optional(),
     })
     .strict(),
 });
@@ -111,5 +171,7 @@ export const employerJobsQuerySchema = z.object({
 });
 
 export type NearbyQuery = z.infer<typeof nearbyQuerySchema>['query'];
+export type TodayQuery = z.infer<typeof todayQuerySchema>['query'];
+export type ThisWeekQuery = z.infer<typeof thisWeekQuerySchema>['query'];
 export type CreateJobBody = z.infer<typeof createJobSchema>['body'];
 export type UpdateJobBody = z.infer<typeof updateJobSchema>['body'];
