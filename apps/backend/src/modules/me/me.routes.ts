@@ -18,6 +18,8 @@ import * as referralController from '@/modules/referrals/referral.controller';
 import * as profileViewService from './profileView.service';
 import * as skillSuggestionsService from './skillSuggestions.service';
 import * as findFriendsService from './findFriends.service';
+import advancesRouter from '@/modules/advances/advance.routes';
+import insuranceRouter from '@/modules/insurance/insurance.routes';
 import {
   pushTokenSchema,
   updateEmployerLocationSchema,
@@ -50,11 +52,9 @@ router.get('/referrals', requireAuth, referralController.listMyReferrals);
 
 // Advance / microloan stub — see modules/advances for the lifecycle.
 // Mounted at /me so all seeker-financial endpoints share the prefix.
-import advancesRouter from '@/modules/advances/advance.routes';
 router.use('/', advancesRouter);
 
 // Accident insurance opt-in.
-import insuranceRouter from '@/modules/insurance/insurance.routes';
 router.use('/', insuranceRouter);
 
 // Find Friends — body { phoneHashes: string[] } → matched users.

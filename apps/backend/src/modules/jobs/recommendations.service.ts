@@ -53,7 +53,7 @@ export async function recommendFor(
     .limit(50)
     .lean();
   const pastJobIds = pastApps
-    .map((a) => a.jobId as Types.ObjectId | undefined)
+    .map((a) => a.jobId as unknown as Types.ObjectId | undefined)
     .filter((x): x is Types.ObjectId => Boolean(x));
   const pastJobs = pastJobIds.length
     ? await JobModel.find({ _id: { $in: pastJobIds } })

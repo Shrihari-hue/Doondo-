@@ -37,8 +37,8 @@ export interface PublicMentor {
 async function hydrate(m: Mentor & { _id: unknown }): Promise<PublicMentor> {
   const u = await UserModel.findById(m.userId).select('name photoUrl').lean();
   return {
-    id: (m._id as Types.ObjectId).toString(),
-    userId: (m.userId as Types.ObjectId).toString(),
+    id: (m._id as unknown as Types.ObjectId).toString(),
+    userId: (m.userId as unknown as Types.ObjectId).toString(),
     name: ((u as { name?: string } | null)?.name as string | undefined) ?? '',
     photoUrl:
       ((u as { photoUrl?: string | null } | null)?.photoUrl as string | null | undefined) ??
@@ -114,9 +114,9 @@ export interface PublicRequest {
 
 function toPublic(r: MentorshipRequest & { _id: unknown }): PublicRequest {
   return {
-    id: (r._id as Types.ObjectId).toString(),
-    menteeId: (r.menteeId as Types.ObjectId).toString(),
-    mentorId: (r.mentorId as Types.ObjectId).toString(),
+    id: (r._id as unknown as Types.ObjectId).toString(),
+    menteeId: (r.menteeId as unknown as Types.ObjectId).toString(),
+    mentorId: (r.mentorId as unknown as Types.ObjectId).toString(),
     trade: r.trade,
     city: r.city,
     message: r.message,
@@ -171,7 +171,7 @@ export async function respondToRequest(input: {
   const req = await MentorshipRequestModel.findById(input.requestId);
   if (!req) throw new Error('Request not found');
   const responder = new Types.ObjectId(input.responderId);
-  if (!req.mentorId.equals(responder)) {
+  if (!(req.mentorId as unknown as Types.ObjectId).equals(responder)) {
     throw new Error('Only the mentor can respond to this request.');
   }
   const prevStatus = req.status;

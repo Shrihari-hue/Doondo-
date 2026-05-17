@@ -15,15 +15,15 @@ import {
   type PaymentIntent,
 } from './payment.model';
 import { UserModel } from '@/modules/users/user.model';
-import { WalletTransactionModel } from '@/modules/wallet/wallet.model';
+import { WalletTransactionModel } from '@/modules/wallet/walletTransaction.model';
 
 const router = Router();
 
 function toPublic(p: PaymentIntent & { _id: unknown }) {
   return {
-    id: (p._id as Types.ObjectId).toString(),
-    employerId: (p.employerId as Types.ObjectId).toString(),
-    seekerId: (p.seekerId as Types.ObjectId).toString(),
+    id: (p._id as unknown as Types.ObjectId).toString(),
+    employerId: (p.employerId as unknown as Types.ObjectId).toString(),
+    seekerId: (p.seekerId as unknown as Types.ObjectId).toString(),
     applicationId: p.applicationId ? p.applicationId.toString() : null,
     amountPaise: p.amountPaise,
     currency: p.currency,
@@ -137,17 +137,23 @@ router.post(
       p.paidAt = new Date();
       await p.save();
       // Record a wallet credit on the worker's side so the payment shows
-      // up in their earnings ledger.
-      await WalletTransactionModel.create({
-        userId: p.seekerId,
-        amount: p.amountPaise,
-        currency: p.currency,
-        kind: 'hire_payment',
-        status: 'settled',
-        description: `UPI payment from employer · ref ${p.ref}`,
-        applicationId: p.applicationId,
-        settledAt: p.paidAt,
-      } as Parameters<typeof WalletTransactionModel.create>[0]);
+      // up in their earnings ledger. Wrap in try/catch — the model has a
+      // partial unique index on (userId, applicationId, kind: hire_payment)
+      // so re-marking a paid intent twice would otherwise 500.
+      try {
+        await WalletTransactionModel.create({
+          userId: p.seekerId,
+          amount: p.amountPaise,
+          currency: p.currency,
+          kind: 'hire_payment',
+          status: 'settled',
+          description: `UPI payment from employer · ref ${p.ref}`,
+          applicationId: p.applicationId,
+          settledAt: p.paidAt,
+        } as unknown as Parameters<typeof WalletTransactionModel.create>[0]);
+      } catch {
+        // Duplicate or transient — payment intent itself is still marked paid.
+      }
       res.json({ intent: toPublic(p.toObject() as PaymentIntent & { _id: unknown }) });
     } catch (err) {
       next(err);

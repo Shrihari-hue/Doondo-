@@ -54,7 +54,7 @@ export async function findByHashes(
     .lean();
 
   return users.map((u) => ({
-    id: (u._id as Types.ObjectId).toString(),
+    id: (u._id as unknown as Types.ObjectId).toString(),
     name: (u.name as string) ?? '',
     role: u.role as 'seeker' | 'employer',
     photoUrl: (u.photoUrl as string | null | undefined) ?? null,

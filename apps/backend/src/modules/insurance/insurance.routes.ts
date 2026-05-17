@@ -19,7 +19,7 @@ const router = Router();
 
 function toPublic(s: InsuranceSubscription & { _id: unknown }) {
   return {
-    id: (s._id as Types.ObjectId).toString(),
+    id: (s._id as unknown as Types.ObjectId).toString(),
     tier: s.tier,
     monthlyPremiumPaise: s.monthlyPremiumPaise,
     status: s.status,

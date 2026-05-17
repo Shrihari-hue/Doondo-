@@ -17,7 +17,7 @@ const router = Router();
 
 function toPublic(r: AdvanceRequest & { _id: unknown }) {
   return {
-    id: (r._id as Types.ObjectId).toString(),
+    id: (r._id as unknown as Types.ObjectId).toString(),
     amountPaise: r.amountPaise,
     currency: r.currency,
     reason: r.reason,

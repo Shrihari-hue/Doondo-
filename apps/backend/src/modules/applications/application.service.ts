@@ -194,8 +194,11 @@ export async function confirmPayment(
   }
 
   const callerObjectId = new Types.ObjectId(input.callerId);
-  const isSeeker = app.seekerId.equals(callerObjectId);
-  const isEmployer = app.employerId.equals(callerObjectId);
+  // The model declares these as Schema.Types.ObjectId (constructor type);
+  // at runtime they're Types.ObjectId instances. Cast through unknown so
+  // we can use .equals() — codebase convention.
+  const isSeeker = (app.seekerId as unknown as Types.ObjectId).equals(callerObjectId);
+  const isEmployer = (app.employerId as unknown as Types.ObjectId).equals(callerObjectId);
 
   if (input.action === 'seeker_confirm' && !isSeeker) throw errors.forbidden();
   if (input.action === 'employer_confirm' && !isEmployer) throw errors.forbidden();

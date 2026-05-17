@@ -133,6 +133,18 @@ export interface User {
   name: string;
   phone?: string | null;
   /**
+   * SHA-256 hex of the normalised phone (digits only). Used by the
+   * Find Friends contacts-match endpoint to match Doondo users by
+   * hashed contacts without storing raw numbers.
+   */
+  phoneHash?: string | null;
+  /**
+   * Seeker's UPI VPA (e.g. "shree@okhdfcbank"). Used by the UPI
+   * payment intent flow so employers can pay over UPI. Optional —
+   * workers can still receive cash.
+   */
+  upiVpa?: string | null;
+  /**
    * High-level "is this account verified" flag. Flipped to `true` once the
    * Phase 5 verification flow completes (phone OTP + selfie + GSTIN format
    * for employers). Stays in lockstep with `verifiedAt` — both set together,
