@@ -8,7 +8,7 @@
 
 import { z } from 'zod';
 import { Types } from 'mongoose';
-import { JOB_TYPES, PAY_PERIODS } from './job.model';
+import { JOB_TYPES, PAY_PERIODS, WORK_MODES } from './job.model';
 
 const objectIdSchema = z.string().refine((v) => Types.ObjectId.isValid(v), {
   message: 'Invalid id',
@@ -25,6 +25,13 @@ export const nearbyQuerySchema = z.object({
     /** Default 5km radius — matches the "walking distance" pitch's outer ring. */
     radius: radius.default(5000),
     type: z.enum(JOB_TYPES).optional(),
+    /** Filter to a single work mode. Omitted = all. */
+    workMode: z.enum(WORK_MODES).optional(),
+    /**
+     * Narrow the feed to posts the employer marked "safe for women". The
+     * flag is voluntary — seekers who don't care leave this off.
+     */
+    safeForWomenOnly: z.coerce.boolean().optional(),
     q: z.string().trim().min(1).max(100).optional(),
     limit: z.coerce.number().int().min(1).max(50).default(20),
     cursor: z.string().optional(),
@@ -126,6 +133,8 @@ export const createJobSchema = z.object({
       schedule: scheduleSchema,
       /** Time-sensitive posting. Defaults to false. */
       urgent: z.boolean().default(false),
+      /** Onsite (default), hybrid, or remote. */
+      workMode: z.enum(WORK_MODES).optional(),
       /** Optional voice description — null to omit. */
       audioDescriptionUrl: audioDescriptionDataUrl.nullable().optional(),
       audioDescriptionDurationSeconds: z
@@ -151,6 +160,7 @@ export const updateJobSchema = z.object({
       skills: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
       schedule: scheduleSchema,
       urgent: z.boolean().optional(),
+      workMode: z.enum(WORK_MODES).optional(),
       audioDescriptionUrl: audioDescriptionDataUrl.nullable().optional(),
       audioDescriptionDurationSeconds: z
         .number()

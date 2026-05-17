@@ -14,6 +14,27 @@ export const applyParamsSchema = z.object({
   params: z.object({ id: objectIdSchema }),
   body: z.object({
     coverNote: z.string().trim().max(500).optional(),
+    /** Optional referrer user id from the share-link's ?ref= param. */
+    referrerId: objectIdSchema.optional(),
+    /**
+     * Optional team-member declaration when the seeker is applying as
+     * a team. Up to 4 entries — bigger groups are unusual on Doondo
+     * and we'd rather force a conversation than auto-process.
+     */
+    teamMembers: z
+      .array(
+        z
+          .object({
+            name: z.string().trim().min(1).max(120),
+            phone: z
+              .string()
+              .trim()
+              .regex(/^[+0-9\s-]{6,20}$/, 'Phone must be a valid number'),
+          })
+          .strict(),
+      )
+      .max(4)
+      .optional(),
   }),
 });
 

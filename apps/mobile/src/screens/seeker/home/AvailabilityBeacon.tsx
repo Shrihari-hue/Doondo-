@@ -247,12 +247,30 @@ function AvailabilityBeaconSheet({
     existing?.tradesAvailable ?? user?.skills ?? [],
   );
   const [note, setNote] = useState<string>(existing?.note ?? '');
+  // Recurring schedule — when on, this beacon also goes live every week
+  // during the picked days+window. Off = one-shot beacon.
+  const [recurring, setRecurring] = useState<boolean>(
+    existing?.recurringPattern != null,
+  );
+  const [recurringDays, setRecurringDays] = useState<number[]>(
+    existing?.recurringPattern?.days ?? [1, 2, 3, 4, 5],
+  );
+  const [recurringStart, setRecurringStart] = useState<string>(
+    existing?.recurringPattern?.startTime ?? '07:00',
+  );
+  const [recurringEnd, setRecurringEnd] = useState<string>(
+    existing?.recurringPattern?.endTime ?? '10:00',
+  );
 
   // Re-seed when the sheet re-opens with new data.
   useMemo(() => {
     if (visible) {
       setTradeSlugs(existing?.tradesAvailable ?? user?.skills ?? []);
       setNote(existing?.note ?? '');
+      setRecurring(existing?.recurringPattern != null);
+      setRecurringDays(existing?.recurringPattern?.days ?? [1, 2, 3, 4, 5]);
+      setRecurringStart(existing?.recurringPattern?.startTime ?? '07:00');
+      setRecurringEnd(existing?.recurringPattern?.endTime ?? '10:00');
     }
   }, [visible, existing, user?.skills]);
 
@@ -261,6 +279,16 @@ function AvailabilityBeaconSheet({
       if (!coords) {
         throw new Error("We need your location to broadcast. Try again in a moment.");
       }
+      // Build the recurring payload only when toggle is on AND at
+      // least one day is picked. End must be after start.
+      const recurringPayload =
+        recurring && recurringDays.length > 0 && recurringStart < recurringEnd
+          ? {
+              days: recurringDays,
+              startTime: recurringStart,
+              endTime: recurringEnd,
+            }
+          : null;
       return availabilityApi.publish({
         durationMinutes: minutes,
         lat: coords.lat,
@@ -269,6 +297,7 @@ function AvailabilityBeaconSheet({
         area: user?.location?.area ?? null,
         tradesAvailable: tradeSlugs,
         note: note.trim() || null,
+        recurringPattern: recurringPayload,
       });
     },
     onSuccess: () => {
@@ -545,6 +574,167 @@ function AvailabilityBeaconSheet({
                 }}
                 maxLength={240}
               />
+            </View>
+
+            {/* Recurring weekly schedule */}
+            <View style={{ gap: spacing.sm }}>
+              <SectionLabel theme={theme}>WEEKLY SCHEDULE · OPTIONAL</SectionLabel>
+              <Pressable
+                onPress={() => {
+                  haptic('selection');
+                  setRecurring((v) => !v);
+                }}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: recurring }}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: spacing.sm,
+                  padding: spacing.md,
+                  borderRadius: radii.lg,
+                  borderWidth: 0.5,
+                  borderColor: recurring ? '#2563EB' : theme.border.default,
+                  backgroundColor: recurring ? '#EFF6FF' : theme.bg.surface,
+                  opacity: pressed ? 0.85 : 1,
+                })}
+              >
+                <View
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 6,
+                    borderWidth: 1.5,
+                    borderColor: recurring ? '#2563EB' : theme.border.strong,
+                    backgroundColor: recurring ? '#2563EB' : 'transparent',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {recurring ? (
+                    <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>
+                      ✓
+                    </Text>
+                  ) : null}
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text
+                    style={{ fontSize: 14, fontWeight: '700', color: theme.text.primary }}
+                  >
+                    Repeat every week
+                  </Text>
+                  <Text style={{ fontSize: 12, color: theme.text.secondary }}>
+                    Stay live on the same days + window without raising
+                    the beacon every day.
+                  </Text>
+                </View>
+              </Pressable>
+
+              {recurring ? (
+                <View style={{ gap: spacing.sm }}>
+                  {/* Day chips */}
+                  <View
+                    style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}
+                  >
+                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((label, i) => {
+                      const active = recurringDays.includes(i);
+                      return (
+                        <Pressable
+                          key={i}
+                          onPress={() => {
+                            haptic('selection');
+                            setRecurringDays((cur) =>
+                              cur.includes(i)
+                                ? cur.filter((d) => d !== i)
+                                : [...cur, i].sort((a, b) => a - b),
+                            );
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Day ${i}${active ? ', selected' : ''}`}
+                          style={({ pressed }) => ({
+                            width: 38,
+                            height: 38,
+                            borderRadius: 19,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: active ? '#2563EB' : theme.bg.surface,
+                            borderWidth: active ? 0 : 1,
+                            borderColor: theme.border.default,
+                            opacity: pressed ? 0.7 : 1,
+                          })}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 13,
+                              fontWeight: '700',
+                              color: active ? '#FFFFFF' : theme.text.primary,
+                            }}
+                          >
+                            {label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  {/* Time range */}
+                  <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text
+                        style={{ fontSize: 11, fontWeight: '600', color: theme.text.tertiary }}
+                      >
+                        FROM
+                      </Text>
+                      <TextInput
+                        value={recurringStart}
+                        onChangeText={setRecurringStart}
+                        placeholder="07:00"
+                        placeholderTextColor={theme.text.tertiary}
+                        style={{
+                          backgroundColor: theme.bg.surface,
+                          borderWidth: 1,
+                          borderColor: theme.border.default,
+                          borderRadius: radii.md,
+                          paddingHorizontal: spacing.md,
+                          paddingVertical: spacing.sm + 2,
+                          fontSize: 15,
+                          color: theme.text.primary,
+                        }}
+                        maxLength={5}
+                        keyboardType="numbers-and-punctuation"
+                      />
+                    </View>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text
+                        style={{ fontSize: 11, fontWeight: '600', color: theme.text.tertiary }}
+                      >
+                        TO
+                      </Text>
+                      <TextInput
+                        value={recurringEnd}
+                        onChangeText={setRecurringEnd}
+                        placeholder="10:00"
+                        placeholderTextColor={theme.text.tertiary}
+                        style={{
+                          backgroundColor: theme.bg.surface,
+                          borderWidth: 1,
+                          borderColor: theme.border.default,
+                          borderRadius: radii.md,
+                          paddingHorizontal: spacing.md,
+                          paddingVertical: spacing.sm + 2,
+                          fontSize: 15,
+                          color: theme.text.primary,
+                        }}
+                        maxLength={5}
+                        keyboardType="numbers-and-punctuation"
+                      />
+                    </View>
+                  </View>
+                  <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
+                    Format HH:MM (24h). The beacon goes live automatically
+                    inside this window on the picked days.
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </ScrollView>
 

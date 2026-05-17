@@ -3,7 +3,13 @@
  */
 
 import { apiRequest } from './client';
-import type { JobStatus, JobType, PayPeriod, PublicJob } from './types';
+import type {
+  JobStatus,
+  JobType,
+  PayPeriod,
+  PublicJob,
+  WorkMode,
+} from './types';
 
 export interface NearbyParams {
   lat: number;
@@ -11,6 +17,10 @@ export interface NearbyParams {
   /** meters; defaults to 5000 server-side */
   radius?: number;
   type?: JobType;
+  /** Filter by where the role is performed. Omit for all modes. */
+  workMode?: WorkMode;
+  /** Narrow the feed to posts the employer flagged "safe for women". */
+  safeForWomenOnly?: boolean;
   q?: string;
   limit?: number;
 }
@@ -73,6 +83,8 @@ export const jobsApi = {
         lng: p.lng,
         radius: p.radius,
         type: p.type,
+        workMode: p.workMode,
+        safeForWomenOnly: p.safeForWomenOnly ? '1' : undefined,
         q: p.q,
         limit: p.limit,
       })}`,
@@ -96,6 +108,14 @@ export const jobsApi = {
       })}`,
       { auth: false },
     ),
+
+  /**
+   * Personalised "for you" feed — auth-required. Returns the top jobs
+   * scored against the seeker's resume + history. See backend service
+   * recommendations.service.ts for the scoring formula.
+   */
+  recommended: () =>
+    apiRequest<{ jobs: PublicJob[] }>('/jobs/recommended'),
 
   /** "This week" feed — short contracts/shifts posted in the last 7 days. */
   thisWeek: (p: NearbyParams) =>
@@ -159,6 +179,8 @@ export interface CreateJobPayload {
   title: string;
   description: string;
   type: JobType;
+  /** Where the role is performed — defaults to onsite when omitted. */
+  workMode?: WorkMode;
   /** Optional employer voice note — set both fields together. */
   audioDescriptionUrl?: string | null;
   audioDescriptionDurationSeconds?: number | null;

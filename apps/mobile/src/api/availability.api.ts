@@ -6,6 +6,20 @@
 import { apiRequest } from './client';
 import type { JobType } from './types';
 
+/**
+ * Recurring beacon window — "every Mon/Wed/Fri 7am-10am". When set, the
+ * employer matcher treats the seeker as live whenever now() falls
+ * inside today's pattern window, even past `until` for one-shot beacons.
+ */
+export interface RecurringPattern {
+  /** Days of week (0=Sun..6=Sat). */
+  days: number[];
+  /** HH:MM in 24h. */
+  startTime: string;
+  /** HH:MM in 24h. */
+  endTime: string;
+}
+
 export interface PublicAvailability {
   id: string;
   seekerId: string;
@@ -18,6 +32,8 @@ export interface PublicAvailability {
   };
   /** ISO8601 — beacon auto-expires at this time, TTL-deleted by the backend. */
   until: string;
+  /** Weekly recurring window, when the seeker has standing availability. */
+  recurringPattern: RecurringPattern | null;
   note: string | null;
   createdAt: string;
 }
@@ -32,6 +48,12 @@ export interface PublishAvailabilityPayload {
   tradesAvailable?: string[];
   jobTypes?: JobType[];
   note?: string | null;
+  /**
+   * Optional weekly recurring window. When set, the beacon stays in the
+   * index for 30 days and the seeker is "live now" only inside the
+   * pattern window. Null = one-shot beacon (the legacy v1 shape).
+   */
+  recurringPattern?: RecurringPattern | null;
 }
 
 export interface NearbyAvailability extends PublicAvailability {

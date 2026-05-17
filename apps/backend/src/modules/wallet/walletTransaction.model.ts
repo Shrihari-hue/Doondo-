@@ -23,7 +23,7 @@
 
 import { Schema, model, type Model, type HydratedDocument, type Types } from 'mongoose';
 
-export const WALLET_KINDS = ['hire_payment', 'adjustment'] as const;
+export const WALLET_KINDS = ['hire_payment', 'adjustment', 'cash_log'] as const;
 export type WalletKind = (typeof WALLET_KINDS)[number];
 
 export const WALLET_STATUSES = ['pending', 'settled', 'reversed'] as const;

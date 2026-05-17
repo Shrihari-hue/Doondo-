@@ -10,8 +10,37 @@
 
 import { Types, type PipelineStage } from 'mongoose';
 import { errors } from '@/lib/errors';
-import { AvailabilityModel, type PublicAvailability } from './availability.model';
+import {
+  AvailabilityModel,
+  type PublicAvailability,
+  type RecurringPattern,
+} from './availability.model';
 import { UserModel } from '@/modules/users/user.model';
+
+/**
+ * Recurring beacons get a 30-day rolling TTL instead of just the
+ * one-shot duration. The seeker re-confirms every 30 days that they
+ * still mean it — keeps stale patterns from haunting the index forever.
+ */
+const RECURRING_BEACON_TTL_DAYS = 30;
+
+/**
+ * Is the given recurring pattern currently active (now() falls inside
+ * a day+window) in the server's local time? Pure function so it's easy
+ * to reason about and exercise from tests.
+ */
+export function isRecurringActiveAt(
+  pattern: RecurringPattern | null | undefined,
+  at: Date = new Date(),
+): boolean {
+  if (!pattern) return false;
+  const day = at.getDay();
+  if (!pattern.days.includes(day)) return false;
+  const hh = String(at.getHours()).padStart(2, '0');
+  const mm = String(at.getMinutes()).padStart(2, '0');
+  const nowStr = `${hh}:${mm}`;
+  return nowStr >= pattern.startTime && nowStr < pattern.endTime;
+}
 
 interface PublishInput {
   seekerId: string;
@@ -23,10 +52,15 @@ interface PublishInput {
   tradesAvailable?: string[];
   jobTypes?: string[];
   note?: string | null;
+  recurringPattern?: RecurringPattern | null;
 }
 
 export async function publish(input: PublishInput): Promise<PublicAvailability> {
-  const until = new Date(Date.now() + input.durationMinutes * 60_000);
+  // Recurring beacons get a 30-day TTL so they don't fall off the index
+  // mid-pattern. One-shot beacons end exactly after `durationMinutes`.
+  const until = input.recurringPattern
+    ? new Date(Date.now() + RECURRING_BEACON_TTL_DAYS * 24 * 60 * 60_000)
+    : new Date(Date.now() + input.durationMinutes * 60_000);
 
   // Upsert by seekerId — model's unique index on seekerId guarantees one
   // active beacon per seeker. findOneAndUpdate is the cleanest way to
@@ -46,6 +80,7 @@ export async function publish(input: PublishInput): Promise<PublicAvailability> 
           },
         },
         until,
+        recurringPattern: input.recurringPattern ?? null,
         note: input.note?.trim() || null,
       },
       $setOnInsert: {
@@ -72,9 +107,11 @@ export async function getMine(
     seekerId: new Types.ObjectId(seekerId),
   });
   if (!doc) return null;
-  // Defensive — if the doc somehow outlived its TTL between scan and
-  // read (clock drift), treat it as gone.
-  if (doc.until.getTime() <= Date.now()) {
+  // Defensive — for one-shot beacons that somehow outlived the TTL
+  // between scan and read (clock drift), treat as gone. Recurring
+  // beacons keep their `until` 30 days out so this branch doesn't
+  // apply to them.
+  if (!doc.recurringPattern && doc.until.getTime() <= Date.now()) {
     await AvailabilityModel.deleteOne({ _id: doc._id });
     return null;
   }
@@ -108,9 +145,13 @@ interface NearbyInput {
 }
 
 export async function findNearby(input: NearbyInput): Promise<NearbyAvailability[]> {
+  // A row counts as "live now" if EITHER:
+  //   - it's a one-shot beacon whose `until` is in the future, OR
+  //   - it has a recurring pattern that includes today and now() falls
+  //     inside the time window.
+  // The TTL filter remains the cheap upper-bound; the recurring check
+  // happens in-process after the geo pipeline returns candidate rows.
   const baseMatch: Record<string, unknown> = {
-    // The TTL index handles expiry, but a defensive filter on the live
-    // index entries avoids returning a beacon that's milliseconds stale.
     until: { $gt: new Date() },
   };
   if (input.trade) baseMatch.tradesAvailable = input.trade;
@@ -129,7 +170,23 @@ export async function findNearby(input: NearbyInput): Promise<NearbyAvailability
     { $limit: input.limit },
   ];
 
-  const rows = await AvailabilityModel.aggregate(pipeline);
+  let rows = await AvailabilityModel.aggregate(pipeline);
+  if (rows.length === 0) return [];
+
+  // Liveness filter:
+  //   - one-shot beacon (no recurring): keep if until > now (Mongo
+  //     already filtered, but recheck for clock drift)
+  //   - recurring beacon: keep only if now falls inside today's window
+  // Rows that fail both checks are silently dropped.
+  const now = new Date();
+  rows = rows.filter((r) => {
+    const pattern = r.recurringPattern as RecurringPattern | null | undefined;
+    const untilDate = r.until as Date;
+    if (pattern) {
+      return isRecurringActiveAt(pattern, now);
+    }
+    return untilDate.getTime() > now.getTime();
+  });
   if (rows.length === 0) return [];
 
   // Bulk-hydrate seekers in a single query.
@@ -172,6 +229,7 @@ export async function findNearby(input: NearbyInput): Promise<NearbyAvailability
         coordinates: r.location.geo.coordinates,
       },
       until: (r.until as Date).toISOString(),
+      recurringPattern: r.recurringPattern ?? null,
       note: r.note ?? null,
       createdAt: (r.createdAt as Date).toISOString(),
       distanceMeters: Math.round(r.distanceMeters as number),

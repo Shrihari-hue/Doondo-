@@ -18,15 +18,19 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, TextField, FormError } from '@/components';
+import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, TextField, FormError, PaymentConfirmationPanel } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi, type ApplicantEntry, type SchedulePayload } from '@/api/applications.api';
 import { contactApi } from '@/api/contact.api';
 import { coursesApi } from '@/api/courses.api';
+import { endorsementsApi } from '@/api/endorsements.api';
+import { profileViewsApi } from '@/api/profileViews.api';
+import { UpiPaymentPanel } from './UpiPaymentPanel';
 import { ApiError } from '@/api/errors';
 import { haptic } from '@/lib/haptics';
 import { useUnratedApplications } from '@/hooks/useRatings';
 import { openResume, formatResumeSize } from '@/lib/resume';
+import { prettifySkill } from '@/lib/trades';
 import { formatRange, formatTenure, sortWorkHistory, tenureMonths } from '@/lib/workHistory';
 import { ApplyCelebration } from '../seeker/apply-moment/ApplyCelebration';
 import type { AppStackParamList } from '@/navigation/types';
@@ -57,6 +61,15 @@ export function ApplicantDetailScreen() {
       return found;
     },
   });
+
+  // Record a profile-view impression on the seeker. Idempotent within a
+  // UTC day per (seeker, viewer), so re-entering this screen multiple times
+  // in a single day doesn't inflate their counter. Fire-and-forget.
+  useEffect(() => {
+    const seekerId = query.data?.seeker?.id;
+    if (!seekerId) return;
+    void profileViewsApi.recordView(seekerId).catch(() => undefined);
+  }, [query.data?.seeker?.id]);
 
   // Auto-mark as viewed the first time the employer opens this card.
   useEffect(() => {
@@ -216,13 +229,27 @@ export function ApplicantDetailScreen() {
               {applicant.seeker?.name ?? 'Applicant'}
             </Text>
             {applicant.teamSizeSnapshot && applicant.teamSizeSnapshot >= 2 ? (
-              <View style={{ alignSelf: 'flex-start' }}>
-                <Pill
-                  label={`Team of ${applicant.teamSizeSnapshot}`}
-                  tone="info"
-                  leading="👥"
-                />
-              </View>
+              <>
+                <View style={{ alignSelf: 'flex-start' }}>
+                  <Pill
+                    label={`Team of ${applicant.teamSizeSnapshot}`}
+                    tone="info"
+                    leading="👥"
+                  />
+                </View>
+                {applicant.teamMembers && applicant.teamMembers.length > 0 ? (
+                  <View style={{ marginTop: spacing.xs, gap: 2 }}>
+                    <Text variant="footnote" tone="tertiary" style={{ letterSpacing: 1.0 }}>
+                      TEAMMATES
+                    </Text>
+                    {applicant.teamMembers.map((m, i) => (
+                      <Text key={`${m.phone}-${i}`} variant="footnote" tone="secondary">
+                        {m.name} · {m.phone}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
+              </>
             ) : null}
             {applicant.seeker?.location && (
               <Text variant="footnote" tone="secondary">
@@ -292,7 +319,10 @@ export function ApplicantDetailScreen() {
               COVER NOTE
             </Text>
             <Card>
-              <Text variant="body">{applicant.coverNote}</Text>
+              {/* Preserve line breaks the seeker wrote in their cover letter. */}
+              <Text variant="body" style={{ lineHeight: 22 }}>
+                {applicant.coverNote}
+              </Text>
             </Card>
           </View>
         )}
@@ -302,6 +332,16 @@ export function ApplicantDetailScreen() {
           <ApplicantBadgesSection seekerId={applicant.seeker.id} />
         ) : null}
 
+        {/* Trade endorsements — verified pills + endorse buttons. Only
+           rendered after hire, since that's when the employer can vouch. */}
+        {applicant.seeker?.id && applicant.status === 'hired' ? (
+          <EndorsementsSection
+            seekerId={applicant.seeker.id}
+            seekerSkills={applicant.seeker.skills ?? []}
+            applicationId={applicant.id}
+          />
+        ) : null}
+
         {/* Built work history (from Resume Builder) */}
         <WorkHistorySection
           history={applicant.seeker?.workHistory ?? []}
@@ -309,14 +349,41 @@ export function ApplicantDetailScreen() {
 
         {/* Photos of the seeker's work — horizontal carousel. Hidden
            when empty, so it never wastes space on a candidate who
-           didn't upload any. */}
-        <WorkPhotosCarousel photos={applicant.seeker?.workPhotos ?? []} />
+           didn't upload any. Employers who've hired this worker can
+           verify each photo individually. */}
+        <WorkPhotosCarousel
+          photos={applicant.seeker?.workPhotos ?? []}
+          seekerId={applicant.seeker?.id ?? null}
+          applicationId={applicant.id}
+          canVerify={applicant.status === 'hired'}
+        />
 
         {/* Resume */}
         <ResumeRow seeker={applicant.seeker ?? null} />
 
         {/* Interview scheduling */}
         <InterviewPanel applicationId={applicant.id} interview={applicant.interview ?? null} />
+
+        {/* Payment confirmation — only renders when status === 'hired'. */}
+        <PaymentConfirmationPanel
+          application={applicant}
+          role="employer"
+          invalidateQueryKeys={[
+            ['applicants', 'detail', applicant.id],
+            ['applicants', 'employer'],
+          ]}
+        />
+
+        {/* UPI pay — gated by hired state too. Distinct from the cash
+            confirmation panel above: this one actually initiates a UPI
+            deep-link and credits the worker's wallet on confirmation. */}
+        {applicant.status === 'hired' && applicant.seeker?.id && (
+          <UpiPaymentPanel
+            seekerId={applicant.seeker.id}
+            seekerName={applicant.seeker.name ?? 'Worker'}
+            applicationId={applicant.id}
+          />
+        )}
 
         {/* Actions */}
         <ActionPanel applicant={applicant} onAction={(t) => transition.mutate(t)} pending={transition.isPending} />
@@ -386,6 +453,118 @@ function CallSeekerButton({ seekerId }: { seekerId: string }) {
   );
 }
 
+// ─── Trade endorsements ────────────────────────────────────────────────────
+
+/**
+ * Per-trade endorsement controls. Renders existing verified pills
+ * (count >= threshold) plus a list of the seeker's declared trades the
+ * employer can endorse them on. Tap → endorses; the row dims and shows
+ * "Endorsed ✓" until the next refresh.
+ */
+function EndorsementsSection({
+  seekerId,
+  seekerSkills,
+  applicationId,
+}: {
+  seekerId: string;
+  seekerSkills: string[];
+  applicationId: string;
+}) {
+  const { theme } = useTheme();
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ['endorsements', seekerId],
+    queryFn: () => endorsementsApi.listForSeeker(seekerId),
+    staleTime: 60_000,
+  });
+  const mutation = useMutation({
+    mutationFn: (trade: string) =>
+      endorsementsApi.endorse(seekerId, { trade, applicationId }),
+    onSuccess: () => {
+      haptic('success');
+      void queryClient.invalidateQueries({ queryKey: ['endorsements', seekerId] });
+    },
+    onError: (err) => {
+      haptic('error');
+      Alert.alert(
+        "Couldn't endorse",
+        err instanceof ApiError ? err.message : 'Try again.',
+      );
+    },
+  });
+
+  const summary = query.data?.endorsements ?? [];
+  const tradesWithExisting = new Set(summary.map((s) => s.trade));
+  // Catalog of trades to offer: the seeker's declared skills plus any
+  // already-endorsed trade (so the employer sees the full picture).
+  const candidateTrades = [
+    ...new Set([
+      ...seekerSkills.map((s) => s.toLowerCase()),
+      ...summary.map((s) => s.trade),
+    ]),
+  ].filter(Boolean);
+
+  if (candidateTrades.length === 0) return null;
+
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Text
+        variant="footnote"
+        weight="medium"
+        tone="secondary"
+        style={{ letterSpacing: 1.0 }}
+      >
+        ENDORSEMENTS
+      </Text>
+      <Text variant="footnote" tone="secondary">
+        You worked with this person — vouch for them on the trades they
+        actually delivered. 3 employer endorsements = verified status.
+      </Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+        {candidateTrades.map((trade) => {
+          const row = summary.find((s) => s.trade === trade);
+          const verified = row?.verified ?? false;
+          const count = row?.count ?? 0;
+          return (
+            <Pressable
+              key={trade}
+              onPress={() => mutation.mutate(trade)}
+              disabled={mutation.isPending}
+              style={({ pressed }) => ({
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+                borderRadius: radii.pill,
+                backgroundColor: verified ? '#D1FAE5' : theme.bg.surface,
+                borderWidth: 0.5,
+                borderColor: verified ? '#86EFAC' : theme.border.default,
+                opacity: pressed ? 0.7 : 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+              })}
+            >
+              {verified ? <Text style={{ fontSize: 12 }}>✓</Text> : null}
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: verified ? '#065F46' : theme.text.primary,
+                }}
+              >
+                {prettifySkill(trade)}
+                {count > 0 ? ` · ${count}` : ''}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
+        Tap a trade to endorse the worker. You can endorse each trade once.
+      </Text>
+    </View>
+  );
+}
+
 // ─── Earned badges ──────────────────────────────────────────────────────────
 
 /**
@@ -450,9 +629,52 @@ function ApplicantBadgesSection({ seekerId }: { seekerId: string }) {
  * Hidden entirely when the candidate hasn't uploaded any so the screen
  * doesn't waste space.
  */
-function WorkPhotosCarousel({ photos }: { photos: string[] }) {
+function WorkPhotosCarousel({
+  photos,
+  seekerId,
+  applicationId,
+  canVerify,
+}: {
+  photos: string[];
+  seekerId: string | null;
+  applicationId: string;
+  canVerify: boolean;
+}) {
   const { theme } = useTheme();
+  const queryClient = useQueryClient();
+  const verifyQuery = useQuery({
+    queryKey: ['photoVerifications', seekerId],
+    queryFn: () =>
+      seekerId
+        ? endorsementsApi.listPhotoVerifications(seekerId)
+        : Promise.resolve({ verifications: [] }),
+    enabled: !!seekerId,
+    staleTime: 60_000,
+  });
+  const verifyMutation = useMutation({
+    mutationFn: (photoIndex: number) => {
+      if (!seekerId) throw new Error('Missing seeker id');
+      return endorsementsApi.verifyPhoto(seekerId, {
+        photoIndex,
+        applicationId,
+      });
+    },
+    onSuccess: () => {
+      haptic('success');
+      void queryClient.invalidateQueries({ queryKey: ['photoVerifications', seekerId] });
+    },
+    onError: (err) => {
+      haptic('error');
+      Alert.alert(
+        "Couldn't verify",
+        err instanceof ApiError ? err.message : 'Try again.',
+      );
+    },
+  });
   if (photos.length === 0) return null;
+  const verifyCountByIndex = new Map(
+    (verifyQuery.data?.verifications ?? []).map((v) => [v.photoIndex, v.count]),
+  );
   return (
     <View style={{ gap: spacing.sm }}>
       <Text
@@ -468,22 +690,67 @@ function WorkPhotosCarousel({ photos }: { photos: string[] }) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.lg }}
       >
-        {photos.map((uri, i) => (
-          <View
-            key={`${uri.slice(-20)}-${i}`}
-            style={{
-              width: 220,
-              height: 160,
-              borderRadius: radii.lg,
-              overflow: 'hidden',
-              borderWidth: 0.5,
-              borderColor: theme.border.subtle,
-              backgroundColor: theme.bg.surface,
-            }}
-          >
-            <Image source={{ uri }} style={{ width: '100%', height: '100%' }} />
-          </View>
-        ))}
+        {photos.map((uri, i) => {
+          const verifyCount = verifyCountByIndex.get(i) ?? 0;
+          return (
+            <View
+              key={`${uri.slice(-20)}-${i}`}
+              style={{
+                width: 220,
+                height: 160,
+                borderRadius: radii.lg,
+                overflow: 'hidden',
+                borderWidth: 0.5,
+                borderColor: theme.border.subtle,
+                backgroundColor: theme.bg.surface,
+              }}
+            >
+              <Image source={{ uri }} style={{ width: '100%', height: '100%' }} />
+              {verifyCount > 0 ? (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    left: 8,
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: radii.pill,
+                    backgroundColor: 'rgba(16, 185, 129, 0.92)',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <Text style={{ fontSize: 11, color: '#FFFFFF', fontWeight: '700' }}>
+                    ✓ Verified · {verifyCount}
+                  </Text>
+                </View>
+              ) : null}
+              {canVerify ? (
+                <Pressable
+                  onPress={() => verifyMutation.mutate(i)}
+                  disabled={verifyMutation.isPending}
+                  accessibilityRole="button"
+                  accessibilityLabel="Verify this work photo"
+                  style={({ pressed }) => ({
+                    position: 'absolute',
+                    bottom: 8,
+                    right: 8,
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: radii.pill,
+                    backgroundColor: 'rgba(37, 99, 235, 0.92)',
+                    opacity: verifyMutation.isPending ? 0.5 : pressed ? 0.7 : 1,
+                  })}
+                >
+                  <Text style={{ fontSize: 11, color: '#FFFFFF', fontWeight: '700' }}>
+                    ✓ Verify this work
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+          );
+        })}
       </ScrollView>
     </View>
   );

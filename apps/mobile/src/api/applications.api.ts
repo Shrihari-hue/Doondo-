@@ -44,6 +44,10 @@ export interface ApplicantEntry extends PublicApplication {
 
 export interface ApplyPayload {
   coverNote?: string;
+  /** When applying as a team, list teammates so the employer knows. */
+  teamMembers?: Array<{ name: string; phone: string }>;
+  /** Referrer's user id from the share-link's ?ref= param. */
+  referrerId?: string;
 }
 
 export type MassApplyOutcome =
@@ -77,6 +81,23 @@ export const applicationsApi = {
     apiRequest<{ application: PublicApplication }>(
       `/jobs/${jobId}/express-interest`,
       { method: 'POST' },
+    ),
+
+  /**
+   * Mark a hired application as paid (seeker or employer side) — or
+   * dispute it (seeker side only). The backend authorises based on
+   * who's calling. Only allowed after the application is hired.
+   */
+  confirmPayment: (
+    applicationId: string,
+    body: {
+      action: 'seeker_confirm' | 'employer_confirm' | 'dispute';
+      disputeNote?: string;
+    },
+  ) =>
+    apiRequest<{ application: PublicApplication }>(
+      `/applications/${applicationId}/payment-confirmed`,
+      { method: 'POST', body },
     ),
 
   /**

@@ -17,6 +17,8 @@ import { queryClient } from '@/lib/queryClient';
 import { setAuthAdapter } from '@/api/client';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthBootstrap } from '@/hooks/useAuthBootstrap';
+import { LanguageProvider } from '@/i18n/LanguageProvider';
+import { AccessibilityProvider } from '@/lib/accessibility';
 
 // ─── Pre-React boot work ─────────────────────────────────────────────────────
 
@@ -49,7 +51,11 @@ export default function App() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
-            <ThemedAppShell />
+            <LanguageProvider>
+              <AccessibilityProvider>
+                <ThemedAppShell />
+              </AccessibilityProvider>
+            </LanguageProvider>
           </ThemeProvider>
         </QueryClientProvider>
       </SafeAreaProvider>

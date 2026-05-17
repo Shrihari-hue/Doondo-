@@ -1,0 +1,90 @@
+{
+  "common": {
+    "ok": "ಸರಿ",
+    "cancel": "ರದ್ದು",
+    "save": "ಉಳಿಸಿ",
+    "delete": "ಅಳಿಸಿ",
+    "edit": "ಬದಲಾಯಿಸಿ",
+    "back": "ಹಿಂದೆ",
+    "retry": "ಮತ್ತೊಮ್ಮೆ",
+    "loading": "ಲೋಡ್ ಆಗುತ್ತಿದೆ…"
+  },
+  "home": {
+    "title": "Doondo",
+    "modes": {
+      "today": "ಇಂದು",
+      "this_week": "ಈ ವಾರ",
+      "career": "ಕರಿಯರ್"
+    },
+    "voice_card": {
+      "title": "ಧ್ವನಿಯ ಮೂಲಕ ಕೆಲಸ ಹುಡುಕಿ",
+      "hint": "ನಿಮಗೆ ಯಾವ ಕೆಲಸ ಬೇಕು ಎಂದು ಹೇಳಿ"
+    },
+    "categories": "ಕೆಲಸದ ವಿಭಾಗಗಳು",
+    "nearby_jobs": "ಹತ್ತಿರದ ಕೆಲಸಗಳು",
+    "view_all": "ಎಲ್ಲವನ್ನೂ ನೋಡಿ",
+    "see_more": "ಇನ್ನಷ್ಟು"
+  },
+  "profile": {
+    "menu": {
+      "applications": "ನನ್ನ ಅರ್ಜಿಗಳು",
+      "my_jobs": "ನನ್ನ ಕೆಲಸಗಳು",
+      "earnings": "ನನ್ನ ಗಳಿಕೆ",
+      "ratings": "ರೇಟಿಂಗ್ ಮತ್ತು ವಿಮರ್ಶೆಗಳು",
+      "job_alerts": "ಕೆಲಸದ ಅಲರ್ಟ್‌ಗಳು",
+      "training": "ತರಬೇತಿ ಮತ್ತು ಕೋರ್ಸ್‌ಗಳು",
+      "skill_tests": "ಕೌಶಲ ಪರೀಕ್ಷೆಗಳು",
+      "referrals": "ರೆಫರಲ್ ಕ್ರೆಡಿಟ್",
+      "settings": "ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
+      "edit_profile": "ಪ್ರೊಫೈಲ್ ಬದಲಾಯಿಸಿ"
+    },
+    "sections": {
+      "activity": "ಚಟುವಟಿಕೆ",
+      "account": "ಖಾತೆ",
+      "resume": "ರೆಸ್ಯೂಮ್"
+    }
+  },
+  "settings": {
+    "title": "ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
+    "language": "ಭಾಷೆ",
+    "language_hint": "ಈ ಡಿವೈಸ್‌ನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ. ಕೂಡಲೇ ಅನ್ವಯವಾಗುತ್ತದೆ.",
+    "notifications": "ಸೂಚನೆಗಳು",
+    "push_notifications": "ಪುಶ್ ಸೂಚನೆಗಳು",
+    "push_notifications_hint": "ಅರ್ಜಿಗಳು, ಸಂದೇಶಗಳು, ರೇಟಿಂಗ್‌ಗಳು",
+    "appearance": "ರೂಪ",
+    "appearance_light": "ಬೆಳಕು",
+    "appearance_dark": "ಗಾಢ",
+    "appearance_system": "ಸಿಸ್ಟಮ್ ಸೆಟ್ಟಿಂಗ್ ಬಳಸಿ",
+    "appearance_hint": "ಸೀಕರ್ ಕಡೆಯ ನೀಲಿ ಪ್ಯಾಲೆಟ್ ಬದಲಾಗದು — ಇದು ಉದ್ಯೋಗದಾತ ಸ್ಕ್ರೀನ್‌ಗಳ ಮೇಲೆ ಪರಿಣಾಮ ಬೀರುತ್ತದೆ.",
+    "safety": "ಸುರಕ್ಷತೆ",
+    "sos_label": "ಸುರಕ್ಷತಾ SOS",
+    "sos_value": "ತುರ್ತು ಸಂಪರ್ಕ ಹೊಂದಿಸಿ",
+    "sos_hint": "ಕೆಲಸದಲ್ಲಿ ಅಸುರಕ್ಷಿತ ಭಾವಿಸಿದರೆ ಒಂದು ಟ್ಯಾಪ್‌ನಿಂದ ನಂಬಿಕಸ್ಥ ವ್ಯಕ್ತಿಗೆ ಸಹಾಯ ಕೇಳಿ.",
+    "account": "ಖಾತೆ",
+    "email": "ಇಮೇಲ್",
+    "email_change_title": "ಇಮೇಲ್ ಬದಲಾಯಿಸಿ",
+    "email_change_body": "ಇಮೇಲ್ ಬದಲಾವಣೆಗೆ ಪರಿಶೀಲನೆ ಬೇಕು — ಶೀಘ್ರವೇ ಬರಲಿದೆ.",
+    "sign_out": "ಸೈನ್ ಔಟ್",
+    "sign_out_confirm_title": "ಸೈನ್ ಔಟ್ ಮಾಡಲೇ?",
+    "sign_out_confirm_body": "Doondo ಬಳಸಲು ಮತ್ತೆ ಸೈನ್ ಇನ್ ಮಾಡಬೇಕಾಗುತ್ತದೆ.",
+    "delete_account": "ಖಾತೆ ಅಳಿಸಿ",
+    "delete_confirm_title": "ನಿಮ್ಮ ಖಾತೆಯನ್ನು ಅಳಿಸಲೇ?",
+    "delete_confirm_body": "ಇದು ಶಾಶ್ವತ — ನಿಮ್ಮ ಎಲ್ಲಾ ಅರ್ಜಿಗಳು, ರೇಟಿಂಗ್‌ಗಳು ಮತ್ತು ಚಾಟ್‌ಗಳು ಅಳಿಸಿಹೋಗುತ್ತವೆ. ಪ್ರಸ್ತುತ support@doondo.app ಗೆ ಇಮೇಲ್ ಕಳುಹಿಸಿ.",
+    "email_support": "ಬೆಂಬಲಕ್ಕೆ ಇಮೇಲ್",
+    "email_support_body": "ನಿಮ್ಮ ಖಾತೆಯ ಇಮೇಲ್‌ನಿಂದ support@doondo.app ಗೆ ಖಾತೆ ಅಳಿಸುವ ವಿನಂತಿ ಕಳುಹಿಸಿ."
+  },
+  "signup": {
+    "header": "ಖಾತೆ ರಚಿಸಿ",
+    "title": "Doondo ಗೆ ಸೇರಿ",
+    "name": "ಹೆಸರು",
+    "email": "ಇಮೇಲ್",
+    "password": "ಪಾಸ್‌ವರ್ಡ್",
+    "phone": "ಫೋನ್",
+    "submit": "ಖಾತೆ ರಚಿಸಿ"
+  },
+  "job_detail": {
+    "apply_now": "ಈಗ ಅರ್ಜಿ ಸಲ್ಲಿಸಿ",
+    "im_interested": "✋ ನನಗೆ ಆಸಕ್ತಿ ಇದೆ",
+    "call_employer": "📞 ಉದ್ಯೋಗದಾತರಿಗೆ ಕರೆ"
+  }
+}

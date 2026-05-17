@@ -4,7 +4,7 @@
 
 import { apiRequest } from './client';
 
-export type WalletKind = 'hire_payment' | 'adjustment';
+export type WalletKind = 'hire_payment' | 'adjustment' | 'cash_log';
 export type WalletStatus = 'pending' | 'settled' | 'reversed';
 
 export interface PublicWalletTransaction {
@@ -25,7 +25,19 @@ export interface EarningsSummary {
   totalEarnedPaise: number;
   pendingPaise: number;
   hireCount: number;
+  /** Number of self-reported cash earnings. */
+  cashLogCount: number;
+  /** Sum of self-reported cash earnings, in paise. */
+  cashLogPaise: number;
   currency: 'INR';
+}
+
+export interface LogCashEarningPayload {
+  /** Paise. */
+  amount: number;
+  description: string;
+  /** Optional ISO date of when the work was done. */
+  workedOn?: string;
 }
 
 export const walletApi = {
@@ -33,4 +45,15 @@ export const walletApi = {
     apiRequest<{ transactions: PublicWalletTransaction[]; summary: EarningsSummary }>(
       `/me/earnings?limit=${limit}`,
     ),
+
+  logCash: (body: LogCashEarningPayload) =>
+    apiRequest<{ transaction: PublicWalletTransaction }>(
+      `/me/earnings/cash`,
+      { method: 'POST', body },
+    ),
+
+  deleteCash: (id: string) =>
+    apiRequest<{ deleted: boolean }>(`/me/earnings/cash/${id}`, {
+      method: 'DELETE',
+    }),
 };

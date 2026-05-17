@@ -45,6 +45,8 @@ import { haptic } from '@/lib/haptics';
 import { getSecure, setSecure } from '@/lib/secureStore';
 import { DenseJobFeed } from './home/DenseJobFeed';
 import { AvailabilityBeaconChip } from './home/AvailabilityBeacon';
+import { LocalWageWidget } from './home/LocalWageWidget';
+import { RecommendedForYouRail } from './home/RecommendedForYouRail';
 import type { PublicJob } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 
@@ -313,6 +315,15 @@ export function SeekerHomeScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Local wage band — renders only when we have a trade + city +
+            sample size ≥ 5; otherwise self-hides so the home doesn't
+            grow placeholder cards. */}
+        <LocalWageWidget user={user ?? null} />
+
+        {/* Personalised "for you" rail — driven by /jobs/recommended.
+            Self-hides when no scoreable matches exist. */}
+        <RecommendedForYouRail />
 
         {/* Voice search hero card — gradient + shadow for premium depth */}
         <Pressable onPress={openVoice}>

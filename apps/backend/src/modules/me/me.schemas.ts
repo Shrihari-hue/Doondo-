@@ -40,11 +40,19 @@ export const updateProfileSchema = z.object({
       expectedSalary: z
         .object({
           amount: z.number().int().min(0),
+          amountMax: z.number().int().min(0).nullable().optional(),
           period: z.enum(SALARY_PERIODS),
           currency: z.string().length(3).default('INR'),
         })
         .nullable()
-        .optional(),
+        .optional()
+        .refine(
+          (v) =>
+            !v ||
+            v.amountMax == null ||
+            v.amountMax >= v.amount,
+          { message: 'amountMax must be ≥ amount' },
+        ),
       // Base64 data URL — cap raw length so the JSON body stays sane.
       // Mobile is responsible for compressing before send.
       photoUrl: z
@@ -62,6 +70,39 @@ export const updateProfileSchema = z.object({
             .string()
             .max(500_000)
             .regex(/^data:image\/(jpeg|jpg|png|webp);base64,/i, 'Each photo must be a data URL'),
+        )
+        .max(6)
+        .optional(),
+      // Education — PUT-style: whole array replaces stored value. Empty
+      // array clears the section entirely.
+      education: z
+        .array(
+          z
+            .object({
+              degree: z.string().trim().min(1).max(120),
+              institution: z.string().trim().min(1).max(200),
+              fieldOfStudy: z.string().trim().max(120).nullable().optional(),
+              startYear: z.number().int().min(1950).max(2100),
+              endYear: z.number().int().min(1950).max(2100).nullable().optional(),
+              current: z.boolean().default(false),
+            })
+            .strict()
+            .superRefine((v, ctx) => {
+              if (!v.current && v.endYear == null) {
+                ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  path: ['endYear'],
+                  message: 'endYear is required unless current is true',
+                });
+              }
+              if (v.endYear != null && v.endYear < v.startYear) {
+                ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  path: ['endYear'],
+                  message: 'endYear must be ≥ startYear',
+                });
+              }
+            }),
         )
         .max(6)
         .optional(),

@@ -30,7 +30,7 @@ import { haptic } from '@/lib/haptics';
 import { useAuth } from '@/hooks/useAuth';
 import { VoiceRecorder, type VoiceRecordingResult } from '@/lib/chatVoice';
 import type { AppStackParamList } from '@/navigation/types';
-import type { JobType, PayPeriod } from '@/api/types';
+import type { JobType, PayPeriod, WorkMode } from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'PostJob'>;
 
@@ -87,6 +87,7 @@ export function PostJobScreen() {
   const [skills, setSkills] = useState<string[]>([]);
   const [skillDraft, setSkillDraft] = useState('');
   const [urgent, setUrgent] = useState(false);
+  const [workMode, setWorkMode] = useState<WorkMode>('onsite');
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
@@ -116,6 +117,7 @@ export function PostJobScreen() {
         },
         skills,
         urgent,
+        workMode,
         audioDescriptionUrl: audio?.dataUrl ?? null,
         audioDescriptionDurationSeconds: audio?.durationSeconds ?? null,
       };
@@ -417,6 +419,55 @@ export function PostJobScreen() {
                 ))}
               </View>
             )}
+          </View>
+
+          {/* Work mode — Onsite (default) / Hybrid / Remote. Most Doondo
+             jobs are onsite, but white-collar roles need this option. */}
+          <View style={{ gap: spacing.sm }}>
+            <Text
+              variant="footnote"
+              weight="medium"
+              tone="secondary"
+              style={{ letterSpacing: 1.0 }}
+            >
+              WORK MODE
+            </Text>
+            <View style={{ flexDirection: 'row', gap: spacing.xs }}>
+              {(['onsite', 'hybrid', 'remote'] as const).map((m) => {
+                const active = workMode === m;
+                const label =
+                  m === 'onsite' ? 'Onsite' : m === 'hybrid' ? 'Hybrid' : 'Remote';
+                return (
+                  <Pressable
+                    key={m}
+                    onPress={() => {
+                      haptic('selection');
+                      setWorkMode(m);
+                    }}
+                    style={({ pressed }) => ({
+                      flex: 1,
+                      paddingVertical: spacing.sm + 2,
+                      borderRadius: radii.pill,
+                      alignItems: 'center',
+                      backgroundColor: active ? '#2563EB' : theme.bg.surface,
+                      borderWidth: active ? 0 : 1,
+                      borderColor: theme.border.default,
+                      opacity: pressed ? 0.85 : 1,
+                    })}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: '700',
+                        color: active ? '#FFFFFF' : theme.text.primary,
+                      }}
+                    >
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
 
           {/* Urgent toggle */}

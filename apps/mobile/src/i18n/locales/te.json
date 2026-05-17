@@ -1,0 +1,89 @@
+{
+  "common": {
+    "ok": "సరే",
+    "cancel": "రద్దు",
+    "save": "సేవ్",
+    "delete": "తొలగించు",
+    "edit": "మార్చు",
+    "back": "వెనుకకు",
+    "retry": "మళ్లీ ప్రయత్నించు",
+    "loading": "లోడ్ అవుతోంది…"
+  },
+  "home": {
+    "title": "Doondo",
+    "modes": {
+      "today": "ఈ రోజు",
+      "this_week": "ఈ వారం",
+      "career": "కెరీర్"
+    },
+    "voice_card": {
+      "title": "వాయిస్‌తో ఉద్యోగాలు వెతకండి",
+      "hint": "మీకు ఏ పని కావాలో చెప్పండి"
+    },
+    "categories": "ఉద్యోగ వర్గాలు",
+    "nearby_jobs": "సమీపంలోని ఉద్యోగాలు",
+    "view_all": "అన్నీ చూడండి",
+    "see_more": "మరిన్ని"
+  },
+  "profile": {
+    "menu": {
+      "applications": "నా దరఖాస్తులు",
+      "my_jobs": "నా ఉద్యోగాలు",
+      "earnings": "నా సంపాదనలు",
+      "ratings": "రేటింగ్‌లు",
+      "job_alerts": "ఉద్యోగ హెచ్చరికలు",
+      "training": "శిక్షణ & కోర్సులు",
+      "skill_tests": "నైపుణ్య పరీక్షలు",
+      "referrals": "రెఫరల్ క్రెడిట్",
+      "settings": "సెట్టింగ్‌లు",
+      "edit_profile": "ప్రొఫైల్‌ను సవరించండి"
+    },
+    "sections": {
+      "activity": "కార్యకలాపం",
+      "account": "ఖాతా"
+    }
+  },
+  "settings": {
+    "title": "సెట్టింగ్‌లు",
+    "language": "భాష",
+    "language_hint": "ఈ పరికరంలో సేవ్ చేయబడింది. వెంటనే వర్తిస్తుంది.",
+    "notifications": "నోటిఫికేషన్‌లు",
+    "push_notifications": "పుష్ నోటిఫికేషన్‌లు",
+    "push_notifications_hint": "దరఖాస్తులు, సందేశాలు, రేటింగ్‌లు",
+    "appearance": "ప్రదర్శన",
+    "appearance_light": "లైట్",
+    "appearance_dark": "డార్క్",
+    "appearance_system": "సిస్టమ్ సెట్టింగ్‌ను ఉపయోగించండి",
+    "appearance_hint": "సీకర్ వైపు నీలి రంగు అలాగే ఉంటుంది — ఇది యజమాని స్క్రీన్‌లపై ప్రభావం చూపుతుంది.",
+    "safety": "భద్రత",
+    "sos_label": "భద్రతా SOS",
+    "sos_value": "అత్యవసర సంప్రదింపును ఏర్పాటు చేయండి",
+    "sos_hint": "పనిలో అసురక్షితంగా అనిపిస్తే ఒక ట్యాప్‌తో నమ్మకమైన వ్యక్తికి సహాయం పొందండి.",
+    "account": "ఖాతా",
+    "email": "ఇమెయిల్",
+    "email_change_title": "ఇమెయిల్‌ని మార్చండి",
+    "email_change_body": "ఇమెయిల్ మార్పుకు ధృవీకరణ అవసరం — త్వరలో వస్తుంది.",
+    "sign_out": "సైన్ ఔట్",
+    "sign_out_confirm_title": "సైన్ ఔట్ చేయాలా?",
+    "sign_out_confirm_body": "Doondo ఉపయోగించడానికి మళ్లీ సైన్ ఇన్ చేయాలి.",
+    "delete_account": "ఖాతాను తొలగించండి",
+    "delete_confirm_title": "మీ ఖాతాను తొలగించాలా?",
+    "delete_confirm_body": "ఇది శాశ్వతం — మీ అన్ని దరఖాస్తులు, రేటింగ్‌లు మరియు చాట్‌లు తొలగించబడతాయి. ప్రస్తుతానికి support@doondo.app కి ఇమెయిల్ పంపండి.",
+    "email_support": "సపోర్ట్‌కి ఇమెయిల్",
+    "email_support_body": "మీ ఖాతా ఇమెయిల్ నుండి support@doondo.app కి తొలగింపు అభ్యర్థన పంపండి."
+  },
+  "signup": {
+    "header": "ఖాతా సృష్టించండి",
+    "title": "Doondoలో చేరండి",
+    "name": "పేరు",
+    "email": "ఇమెయిల్",
+    "password": "పాస్‌వర్డ్",
+    "phone": "ఫోన్",
+    "submit": "ఖాతా సృష్టించండి"
+  },
+  "job_detail": {
+    "apply_now": "ఇప్పుడే దరఖాస్తు చేయండి",
+    "im_interested": "✋ నాకు ఆసక్తి ఉంది",
+    "call_employer": "📞 కాల్ చేయండి"
+  }
+}

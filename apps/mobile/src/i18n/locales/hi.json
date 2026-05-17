@@ -1,0 +1,93 @@
+{
+  "common": {
+    "ok": "ठीक है",
+    "cancel": "रद्द करें",
+    "save": "सेव करें",
+    "delete": "हटाएं",
+    "edit": "बदलें",
+    "back": "वापस",
+    "retry": "दोबारा करें",
+    "loading": "लोड हो रहा है…"
+  },
+  "home": {
+    "title": "Doondo",
+    "modes": {
+      "today": "आज",
+      "this_week": "इस हफ्ते",
+      "career": "करियर"
+    },
+    "voice_card": {
+      "title": "आवाज़ से नौकरी ढूंढें",
+      "hint": "बताइए आपको क्या काम चाहिए"
+    },
+    "categories": "जॉब केटेगरी",
+    "nearby_jobs": "पास की नौकरियां",
+    "view_all": "सभी देखें",
+    "see_more": "और देखें"
+  },
+  "profile": {
+    "menu": {
+      "applications": "मेरे आवेदन",
+      "my_jobs": "मेरी नौकरियाँ",
+      "earnings": "मेरी कमाई",
+      "ratings": "रेटिंग और समीक्षाएं",
+      "job_alerts": "जॉब अलर्ट",
+      "training": "प्रशिक्षण और कोर्स",
+      "skill_tests": "स्किल टेस्ट",
+      "referrals": "रेफरल क्रेडिट",
+      "downloads": "डाउनलोड सेंटर",
+      "settings": "सेटिंग्स",
+      "edit_profile": "प्रोफ़ाइल बदलें"
+    },
+    "sections": {
+      "activity": "गतिविधि",
+      "account": "खाता",
+      "resume": "रिज्यूमे",
+      "skills": "कौशल"
+    }
+  },
+  "settings": {
+    "title": "सेटिंग्स",
+    "language": "भाषा",
+    "language_hint": "इस डिवाइस पर सेव किया गया। तुरंत लागू होता है।",
+    "notifications": "सूचनाएं",
+    "push_notifications": "पुश नोटिफिकेशन",
+    "push_notifications_hint": "आवेदन, संदेश, रेटिंग",
+    "appearance": "दिखावट",
+    "appearance_light": "लाइट",
+    "appearance_dark": "डार्क",
+    "appearance_system": "सिस्टम सेटिंग का उपयोग करें",
+    "appearance_hint": "सीकर साइड में नीला रंग ही रहेगा — यह सेटिंग एम्प्लॉयर स्क्रीन पर असर करती है।",
+    "safety": "सुरक्षा",
+    "sos_label": "सुरक्षा SOS",
+    "sos_value": "आपातकालीन संपर्क सेट करें",
+    "sos_hint": "अगर आप काम पर असुरक्षित महसूस करें तो एक टैप से किसी भरोसेमंद व्यक्ति को सहायता पाएं।",
+    "account": "खाता",
+    "email": "ईमेल",
+    "email_change_title": "ईमेल बदलें",
+    "email_change_body": "ईमेल बदलने के लिए सत्यापन ज़रूरी है — जल्द आ रहा है।",
+    "sign_out": "साइन आउट",
+    "sign_out_confirm_title": "साइन आउट करें?",
+    "sign_out_confirm_body": "Doondo का उपयोग करने के लिए आपको फिर से साइन इन करना होगा।",
+    "delete_account": "खाता हटाएं",
+    "delete_confirm_title": "अपना खाता हटाएं?",
+    "delete_confirm_body": "यह स्थायी है — आपके सभी आवेदन, रेटिंग और चैट मिट जाएंगे। फिलहाल खाता हटाने के लिए support@doondo.app पर ईमेल करें।",
+    "email_support": "सपोर्ट को ईमेल करें",
+    "email_support_body": "अपने खाते के पते से support@doondo.app पर खाता हटाने का अनुरोध भेजें।"
+  },
+  "signup": {
+    "header": "खाता बनाएं",
+    "title": "Doondo में शामिल हों",
+    "name": "नाम",
+    "email": "ईमेल",
+    "password": "पासवर्ड",
+    "phone": "फ़ोन",
+    "submit": "खाता बनाएं"
+  },
+  "job_detail": {
+    "apply_now": "अभी आवेदन करें",
+    "applied": "आवेदन किया ✓",
+    "im_interested": "✋ मुझे इंटरेस्ट है",
+    "call_employer": "📞 एम्प्लॉयर को कॉल करें"
+  }
+}

@@ -81,6 +81,33 @@ export interface Application {
    * later. Null = solo applicant (the default).
    */
   teamSizeSnapshot?: number | null;
+  /**
+   * Honest declaration of who else is on the team — name + phone per
+   * member. Up to 4 entries. No accept/invite loop in v1; the seeker
+   * lists their teammates and the employer takes their word for it.
+   */
+  teamMembers?: Array<{
+    name: string;
+    phone: string;
+  }>;
+  /**
+   * Two-sided cash-payment confirmation. Both seeker and employer can
+   * tap "Mark as paid" after the job's done. When both sides have
+   * confirmed, the row reads as "Paid ✓" — a real trust signal that
+   * doesn't require Doondo to move actual money.
+   *
+   * Null = pre-hire / no payment action yet.
+   * One side set, other null = awaiting other side.
+   * Both set = fully paid.
+   * `disputedAt` set by seeker = "Employer says paid but I haven't been paid."
+   */
+  paymentConfirmation?: {
+    seekerConfirmedAt?: Date | null;
+    employerConfirmedAt?: Date | null;
+    disputedAt?: Date | null;
+    /** Free-text reason from the seeker when disputing. */
+    disputeNote?: string | null;
+  } | null;
   /** Per-status timestamps. null until that status is reached. */
   appliedAt: Date;
   viewedAt?: Date | null;
@@ -124,6 +151,15 @@ export interface PublicApplication {
    * employer's card stays accurate even if the seeker later flips back.
    */
   teamSizeSnapshot: number | null;
+  /** Self-declared list of teammates — name + phone per member. */
+  teamMembers: Array<{ name: string; phone: string }>;
+  /** Cash payment confirmation state — null until either side acts. */
+  paymentConfirmation: {
+    seekerConfirmedAt: string | null;
+    employerConfirmedAt: string | null;
+    disputedAt: string | null;
+    disputeNote: string | null;
+  } | null;
   timeline: {
     appliedAt: string;
     viewedAt: string | null;
@@ -172,6 +208,34 @@ const applicationSchema = new Schema<Application, ApplicationModel, ApplicationM
     coverNote: { type: String, default: null, trim: true, maxlength: 500 },
     expressedAsInterest: { type: Boolean, default: false },
     teamSizeSnapshot: { type: Number, default: null, min: 2, max: 50 },
+    teamMembers: {
+      type: [
+        new Schema(
+          {
+            name: { type: String, required: true, trim: true, maxlength: 120 },
+            phone: { type: String, required: true, trim: true, maxlength: 30 },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+      validate: {
+        validator: (v: unknown[]) => Array.isArray(v) && v.length <= 4,
+        message: 'teamMembers may not exceed 4 entries',
+      },
+    },
+    paymentConfirmation: {
+      type: new Schema(
+        {
+          seekerConfirmedAt: { type: Date, default: null },
+          employerConfirmedAt: { type: Date, default: null },
+          disputedAt: { type: Date, default: null },
+          disputeNote: { type: String, default: null, trim: true, maxlength: 500 },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
     appliedAt: { type: Date, default: Date.now },
     viewedAt: { type: Date, default: null },
     shortlistedAt: { type: Date, default: null },
@@ -215,6 +279,24 @@ applicationSchema.method('toPublicJSON', function (
     coverNote: this.coverNote ?? null,
     expressedAsInterest: Boolean(this.expressedAsInterest),
     teamSizeSnapshot: this.teamSizeSnapshot ?? null,
+    teamMembers: (this.teamMembers ?? []).map((m) => ({
+      name: m.name,
+      phone: m.phone,
+    })),
+    paymentConfirmation: this.paymentConfirmation
+      ? {
+          seekerConfirmedAt: this.paymentConfirmation.seekerConfirmedAt
+            ? this.paymentConfirmation.seekerConfirmedAt.toISOString()
+            : null,
+          employerConfirmedAt: this.paymentConfirmation.employerConfirmedAt
+            ? this.paymentConfirmation.employerConfirmedAt.toISOString()
+            : null,
+          disputedAt: this.paymentConfirmation.disputedAt
+            ? this.paymentConfirmation.disputedAt.toISOString()
+            : null,
+          disputeNote: this.paymentConfirmation.disputeNote ?? null,
+        }
+      : null,
     timeline: {
       appliedAt: this.appliedAt.toISOString(),
       viewedAt: this.viewedAt ? this.viewedAt.toISOString() : null,

@@ -17,8 +17,46 @@ export async function apply(req: Request, res: Response, next: NextFunction): Pr
       seekerId: req.user.id,
       jobId: req.params.id!,
       coverNote: req.body?.coverNote ?? null,
+      teamMembers: Array.isArray(req.body?.teamMembers) ? req.body.teamMembers : undefined,
+      referrerId: req.body?.referrerId,
     });
     ok(req, res, 201, { application });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Cash-paid confirmation — seekers OR employers tap "Mark as paid"
+ * after the gig is done. Both sides confirming gives a real "Paid ✓"
+ * badge. Seeker can also flag "disputed" with a note when an employer
+ * marked it paid but they haven't actually received money.
+ */
+export async function confirmPayment(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const body = req.body as { action?: string; disputeNote?: string };
+    if (
+      body.action !== 'seeker_confirm' &&
+      body.action !== 'employer_confirm' &&
+      body.action !== 'dispute'
+    ) {
+      throw errors.validation(
+        { action: body.action },
+        'action must be seeker_confirm | employer_confirm | dispute',
+      );
+    }
+    const application = await applicationService.confirmPayment({
+      applicationId: req.params.id!,
+      callerId: req.user.id,
+      action: body.action,
+      disputeNote: body.disputeNote,
+    });
+    ok(req, res, 200, { application });
   } catch (err) {
     next(err);
   }

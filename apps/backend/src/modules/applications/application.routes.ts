@@ -120,4 +120,14 @@ router.delete(
   controller.cancelInterview,
 );
 
+// Cash-paid confirmation — either side may call this. The service
+// authorises based on whether the caller is the seeker or the employer
+// on the application.
+router.post(
+  '/:id/payment-confirmed',
+  requireAuth,
+  validate(applicationIdParamsSchema),
+  controller.confirmPayment,
+);
+
 export default router;

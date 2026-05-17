@@ -14,6 +14,10 @@ import walletRouter from '@/modules/wallet/wallet.routes';
 import alertsRouter from '@/modules/alerts/alert.routes';
 import { seekerAvailabilityRouter } from '@/modules/availabilities/availability.routes';
 import { seekerEnrollmentsRouter } from '@/modules/courses/courses.routes';
+import * as referralController from '@/modules/referrals/referral.controller';
+import * as profileViewService from './profileView.service';
+import * as skillSuggestionsService from './skillSuggestions.service';
+import * as findFriendsService from './findFriends.service';
 import {
   pushTokenSchema,
   updateEmployerLocationSchema,
@@ -40,6 +44,63 @@ router.use('/', seekerAvailabilityRouter);
 
 // Course enrollments — /api/v1/me/enrollments.
 router.use('/', seekerEnrollmentsRouter);
+
+// Referral history + summary — drives the Profile "Referral credit" row.
+router.get('/referrals', requireAuth, referralController.listMyReferrals);
+
+// Advance / microloan stub — see modules/advances for the lifecycle.
+// Mounted at /me so all seeker-financial endpoints share the prefix.
+import advancesRouter from '@/modules/advances/advance.routes';
+router.use('/', advancesRouter);
+
+// Accident insurance opt-in.
+import insuranceRouter from '@/modules/insurance/insurance.routes';
+router.use('/', insuranceRouter);
+
+// Find Friends — body { phoneHashes: string[] } → matched users.
+router.post('/find-friends', requireAuth, async (req, res, next) => {
+  try {
+    const body = (req.body ?? {}) as { phoneHashes?: unknown };
+    const hashes = Array.isArray(body.phoneHashes)
+      ? body.phoneHashes.filter((h): h is string => typeof h === 'string' && /^[a-f0-9]{64}$/i.test(h))
+      : [];
+    const friends = await findFriendsService.findByHashes(req.user!.id, hashes);
+    res.json({ friends });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Skill suggestions — "add cooking → +30% job matches" rail on Profile.
+router.get(
+  '/skill-suggestions',
+  requireAuth,
+  requireRole('seeker'),
+  async (req, res, next) => {
+    try {
+      const suggestions = await skillSuggestionsService.suggestForSeeker(req.user!.id);
+      res.json({ suggestions });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// Profile views — "N employers viewed your profile this week" widget.
+// Seeker-only; reads aggregated counts only, never viewer identities.
+router.get(
+  '/profile-views',
+  requireAuth,
+  requireRole('seeker'),
+  async (req, res, next) => {
+    try {
+      const summary = await profileViewService.summarize(req.user!.id);
+      res.json(summary);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 router.patch(
   '/profile',

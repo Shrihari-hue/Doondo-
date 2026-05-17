@@ -24,6 +24,22 @@
 import { Schema, model, type Model, type HydratedDocument } from 'mongoose';
 import { JOB_TYPES } from '@/modules/jobs/job.model';
 
+/**
+ * Recurring schedule — "every Mon/Wed/Fri 7am-10am". When set, the
+ * employer-facing nearby query treats the seeker as live during any
+ * pattern window even if they haven't manually raised the beacon today.
+ * `until` still drives the doc's TTL — recurring beacons live for a
+ * rolling window (currently 30 days) before they need to be re-raised.
+ */
+export interface RecurringPattern {
+  /** Days of week: 0=Sunday..6=Saturday. */
+  days: number[];
+  /** Window start, "HH:MM" 24h. */
+  startTime: string;
+  /** Window end, "HH:MM" 24h. */
+  endTime: string;
+}
+
 export interface Availability {
   seekerId: Schema.Types.ObjectId;
   /** Free-text trade slugs the seeker is up for (e.g. "delivery", "helper"). */
@@ -41,6 +57,13 @@ export interface Availability {
   };
   /** When the beacon expires. TTL-indexed so Mongo auto-cleans. */
   until: Date;
+  /**
+   * Optional weekly recurring window. When set, the seeker is also
+   * considered "available now" whenever the current time falls inside
+   * a pattern window — even past `until` for a one-shot beacon.
+   * Null = beacon ends when `until` passes (the original v1 shape).
+   */
+  recurringPattern?: RecurringPattern | null;
   /** Optional free-text note ("Have my own bike", "Can lift heavy"). */
   note?: string | null;
   createdAt: Date;
@@ -58,6 +81,7 @@ export interface PublicAvailability {
     coordinates: [number, number];
   };
   until: string;
+  recurringPattern: RecurringPattern | null;
   note: string | null;
   createdAt: string;
 }
@@ -110,6 +134,33 @@ const availabilitySchema = new Schema<Availability, AvailabilityModelType, Avail
       },
     },
     until: { type: Date, required: true },
+    recurringPattern: {
+      type: new Schema<RecurringPattern>(
+        {
+          days: {
+            type: [Number],
+            default: [],
+            validate: {
+              validator: (v: number[]) =>
+                Array.isArray(v) && v.every((d) => Number.isInteger(d) && d >= 0 && d <= 6),
+              message: 'days must be integers 0..6',
+            },
+          },
+          startTime: {
+            type: String,
+            required: true,
+            match: /^([01]\d|2[0-3]):[0-5]\d$/,
+          },
+          endTime: {
+            type: String,
+            required: true,
+            match: /^([01]\d|2[0-3]):[0-5]\d$/,
+          },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
     note: { type: String, default: null, trim: true, maxlength: 240 },
   },
   { timestamps: true },
@@ -135,6 +186,13 @@ availabilitySchema.method('toPublicJSON', function (
       coordinates: this.location.geo.coordinates,
     },
     until: this.until.toISOString(),
+    recurringPattern: this.recurringPattern
+      ? {
+          days: this.recurringPattern.days ?? [],
+          startTime: this.recurringPattern.startTime,
+          endTime: this.recurringPattern.endTime,
+        }
+      : null,
     note: this.note ?? null,
     createdAt: this.createdAt.toISOString(),
   };

@@ -24,6 +24,11 @@ import { availabilitiesRouter } from '@/modules/availabilities/availability.rout
 import * as contactController from '@/modules/contact/contact.controller';
 import { coursesRouter } from '@/modules/courses/courses.routes';
 import * as coursesController from '@/modules/courses/courses.controller';
+import * as endorsementController from '@/modules/endorsements/endorsement.controller';
+import * as skillTestController from '@/modules/skillTests/skillTests.controller';
+import * as profileViewService from '@/modules/me/profileView.service';
+import mentorsRouter from '@/modules/mentors/mentor.routes';
+import paymentsRouter from '@/modules/payments/payment.routes';
 import {
   applicantsForJobSchema,
   applyParamsSchema,
@@ -43,9 +48,66 @@ v1.use('/notifications', notificationsRouter);
 // reads/mutations live under /me/availability instead.
 v1.use('/availabilities', availabilitiesRouter);
 v1.use('/courses', coursesRouter);
+v1.use('/mentors', mentorsRouter);
+v1.use('/payments', paymentsRouter);
 
 // Earned-badges helper — employer-side card on ApplicantDetail uses this.
 v1.get('/seekers/:id/badges', requireAuth, coursesController.listSeekerBadges);
+
+// Profile-view impression — employer hits this on ApplicantDetail mount.
+// Idempotent within a UTC day per (seeker, viewer); see profileView.service.
+v1.post(
+  '/seekers/:id/view',
+  requireAuth,
+  requireRole('employer'),
+  async (req, res, next) => {
+    try {
+      await profileViewService.recordView({
+        seekerId: req.params.id!,
+        viewerId: req.user!.id,
+      });
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// Trade endorsements — employers vouch for seekers per-trade.
+v1.get('/seekers/:id/endorsements', endorsementController.listForSeeker);
+v1.post(
+  '/seekers/:id/endorse',
+  requireAuth,
+  requireRole('employer'),
+  endorsementController.endorseSeeker,
+);
+
+// Per-photo verification — same trust loop as endorsements but scoped
+// to a specific work-sample photo.
+v1.get('/seekers/:id/photo-verifications', endorsementController.listPhotoVerifications);
+v1.post(
+  '/seekers/:id/verify-photo',
+  requireAuth,
+  requireRole('employer'),
+  endorsementController.verifySeekerPhoto,
+);
+
+// Skill tests — catalogue + attempt submission + passed-list.
+v1.get('/skill-tests', skillTestController.list);
+v1.get('/skill-tests/:id', skillTestController.detail);
+v1.post(
+  '/skill-tests/:id/attempts',
+  requireAuth,
+  requireRole('seeker'),
+  skillTestController.submitAttempt,
+);
+v1.get(
+  '/me/skill-test-attempts',
+  requireAuth,
+  requireRole('seeker'),
+  skillTestController.listMyAttempts,
+);
+v1.get('/seekers/:id/passed-tests', skillTestController.listPassedForSeeker);
 
 // Contact reveal — seeker calling an employer (gated by Application)
 // and employer calling a seeker (gated by Application OR active beacon).

@@ -78,6 +78,11 @@ export function JobsScreen() {
   /** Search radius in km (UI unit). Converted to meters when calling the API. */
   const [radiusKm, setRadiusKm] = useState(5);
   const [search, setSearch] = useState(initialQuery);
+  /**
+   * Optional "safe for women" narrowing chip. Off by default — when on,
+   * only posts the employer flagged safeForWomen come back from the API.
+   */
+  const [safeForWomenOnly, setSafeForWomenOnly] = useState(false);
 
   // If the tab is opened with a new query param, sync it once.
   useEffect(() => {
@@ -110,7 +115,16 @@ export function JobsScreen() {
   }, []);
 
   const query = useQuery({
-    queryKey: ['jobs', 'nearby', coords?.lat, coords?.lng, type, debouncedSearch, radiusKm],
+    queryKey: [
+      'jobs',
+      'nearby',
+      coords?.lat,
+      coords?.lng,
+      type,
+      debouncedSearch,
+      radiusKm,
+      safeForWomenOnly,
+    ],
     queryFn: () =>
       jobsApi.nearby({
         lat: coords!.lat,
@@ -118,6 +132,7 @@ export function JobsScreen() {
         radius: radiusKm * 1000, // km → meters
         ...(type !== 'all' ? { type } : {}),
         ...(debouncedSearch ? { q: debouncedSearch } : {}),
+        ...(safeForWomenOnly ? { safeForWomenOnly: true } : {}),
         limit: 50,
       }),
     enabled: coords != null,
@@ -234,6 +249,11 @@ export function JobsScreen() {
                 haptic('selection');
                 setView(v);
               }}
+              safeForWomenOnly={safeForWomenOnly}
+              onToggleSafeForWomen={() => {
+                haptic('selection');
+                setSafeForWomenOnly((v) => !v);
+              }}
             />
           }
           ListEmptyComponent={
@@ -315,6 +335,11 @@ export function JobsScreen() {
                 haptic('selection');
                 setView(v);
               }}
+              safeForWomenOnly={safeForWomenOnly}
+              onToggleSafeForWomen={() => {
+                haptic('selection');
+                setSafeForWomenOnly((v) => !v);
+              }}
             />
           </View>
           {coords ? (
@@ -348,6 +373,8 @@ interface HeaderProps {
   jobCount: number;
   view: 'list' | 'map';
   onChangeView: (v: 'list' | 'map') => void;
+  safeForWomenOnly: boolean;
+  onToggleSafeForWomen: () => void;
 }
 
 function timeOfDayCaption(): string {
@@ -371,6 +398,8 @@ function Header({
   jobCount,
   view,
   onChangeView,
+  safeForWomenOnly,
+  onToggleSafeForWomen,
 }: HeaderProps) {
   const { theme } = useTheme();
 
@@ -580,6 +609,37 @@ function Header({
             </Pressable>
           );
         })}
+
+        {/* Safe-for-women toggle — separate visual treatment (green) so it
+            reads as a safety affordance rather than another type filter. */}
+        <Pressable
+          onPress={onToggleSafeForWomen}
+          style={{
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.xs,
+            borderRadius: radii.pill,
+            borderWidth: 0.5,
+            borderColor: safeForWomenOnly ? '#10B981' : theme.border.default,
+            backgroundColor: safeForWomenOnly ? '#D1FAE5' : 'transparent',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+          }}
+        >
+          <Text
+            variant="footnote"
+            style={{ color: safeForWomenOnly ? '#065F46' : theme.text.secondary }}
+          >
+            🛡
+          </Text>
+          <Text
+            variant="footnote"
+            weight={safeForWomenOnly ? 'medium' : 'regular'}
+            style={{ color: safeForWomenOnly ? '#065F46' : theme.text.secondary }}
+          >
+            Women-safe only
+          </Text>
+        </Pressable>
       </View>
 
       {/* Recommended for you — section header above the cards */}
@@ -740,6 +800,9 @@ function JobCard({
             }}
           >
             {job.urgent && <Pill label="Urgent" tone="warning" leading="●" />}
+            {job.safeForWomen && (
+              <Pill label="Women-safe" tone="success" leading="🛡" />
+            )}
             <Pill label={formatPay(job.pay)} tone="warning" />
             <Pill label={formatType(job.type)} tone="neutral" />
             {job.location.area && (

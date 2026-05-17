@@ -47,6 +47,8 @@ export async function findNearby(query: NearbyQuery): Promise<{
 }> {
   const baseMatch: Record<string, unknown> = { status: 'active' };
   if (query.type) baseMatch.type = query.type;
+  if (query.workMode) baseMatch.workMode = query.workMode;
+  if (query.safeForWomenOnly) baseMatch.safeForWomen = true;
   if (query.q) {
     // Simple OR across title, description, skills. Phase 5 swaps to
     // proper text index for Hindi/Kannada-aware tokenization.
@@ -356,6 +358,7 @@ export async function createJob(
       },
     },
     skills: input.skills ?? [],
+    workMode: input.workMode ?? 'onsite',
     schedule: input.schedule ?? null,
     status: 'active',
     urgent: input.urgent ?? false,
@@ -483,6 +486,7 @@ export async function updateJob(
     };
   }
   if (input.skills !== undefined) job.skills = input.skills;
+  if (input.workMode !== undefined) job.workMode = input.workMode;
   if (input.schedule !== undefined) job.schedule = input.schedule ?? null;
   if (input.urgent !== undefined) job.urgent = input.urgent;
   if (input.audioDescriptionUrl !== undefined) {
@@ -549,7 +553,7 @@ function escapeRegex(s: string): string {
  * The aggregate pipeline returns a raw doc (not a Mongoose hydration), so
  * we can't call .toPublicJSON(). This formatter does the same job.
  */
-function formatRawJob(r: Record<string, unknown>): PublicJob {
+export function formatRawJob(r: Record<string, unknown>): PublicJob {
   const loc = r.location as {
     address: string;
     city: string;
@@ -582,9 +586,11 @@ function formatRawJob(r: Record<string, unknown>): PublicJob {
       coordinates: loc.geo.coordinates,
     },
     skills: (r.skills as string[]) ?? [],
+    workMode: (r.workMode as PublicJob['workMode']) ?? 'onsite',
     schedule: (r.schedule as PublicJob['schedule']) ?? null,
     status: r.status as PublicJob['status'],
     urgent: Boolean(r.urgent),
+    safeForWomen: Boolean(r.safeForWomen),
     applicantsCount: (r.applicantsCount as number) ?? 0,
     // audioDescriptionUrl is select:false at the model level so the
     // geoNear pipelines (list payloads) don't carry the base64 blob.

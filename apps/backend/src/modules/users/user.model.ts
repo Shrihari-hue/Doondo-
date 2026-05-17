@@ -41,7 +41,14 @@ export type SalaryPeriod = (typeof SALARY_PERIODS)[number];
  * (paise for INR) — keeps everything integer + scale-safe.
  */
 export interface ExpectedSalary {
+  /** Lower bound (paise). The "I'd at least take this" number. */
   amount: number;
+  /**
+   * Upper bound (paise). Null for seekers who picked a single number
+   * (most blue-collar daily-wage cases). White-collar candidates tend
+   * to set both to negotiate in a range.
+   */
+  amountMax?: number | null;
   period: SalaryPeriod;
   currency: string;
 }
@@ -69,6 +76,26 @@ export interface WorkExperience {
   current: boolean;
   /** Free-form 1-3 line description. Optional — many workers skip it. */
   description?: string | null;
+}
+
+/**
+ * Education row on the resume — mandatory for white-collar candidates,
+ * optional for blue-collar. Years only (not full dates) because workers
+ * rarely remember exact months for school. `current === true` means
+ * still studying.
+ */
+export interface Education {
+  /** Degree / diploma / certificate name ("B.Com", "ITI Electrician"). */
+  degree: string;
+  /** School, college, polytechnic, or training centre. */
+  institution: string;
+  /** Field of study — optional, useful for white-collar. */
+  fieldOfStudy?: string | null;
+  /** Four-digit year. Required. */
+  startYear: number;
+  /** Four-digit year. Null when `current === true`. */
+  endYear?: number | null;
+  current: boolean;
 }
 
 export const WORK_TYPES = ['solo', 'team'] as const;
@@ -181,6 +208,12 @@ export interface User {
    */
   workHistory: WorkExperience[];
   /**
+   * Education entries — degree / institution / years. Optional for
+   * blue-collar workers; mandatory in spirit for white-collar candidates.
+   * Empty array by default.
+   */
+  education: Education[];
+  /**
    * Photos of the seeker's work — a mason's wall, a cook's plates, an
    * electrician's panel. Up to 6 base64 data URLs, each ~350KB after
    * client-side compression (so the user document stays under 2.5MB).
@@ -257,6 +290,8 @@ export interface PublicUser {
   resumeUploadedAt: string | null;
   /** Work history entries from the Resume Builder. Empty when never used. */
   workHistory: WorkExperience[];
+  /** Education entries. Empty when the seeker hasn't added any. */
+  education: Education[];
   /** Photos of the seeker's work — up to 6 entries. */
   workPhotos: string[];
   // Employer-only (null for seekers)
@@ -307,6 +342,18 @@ const geoPointSchema = new Schema(
         message: 'coordinates must be [lng, lat] with valid ranges',
       },
     },
+  },
+  { _id: false },
+);
+
+const educationSchema = new Schema<Education>(
+  {
+    degree: { type: String, required: true, trim: true, minlength: 1, maxlength: 120 },
+    institution: { type: String, required: true, trim: true, minlength: 1, maxlength: 200 },
+    fieldOfStudy: { type: String, default: null, trim: true, maxlength: 120 },
+    startYear: { type: Number, required: true, min: 1950, max: 2100 },
+    endYear: { type: Number, default: null, min: 1950, max: 2100 },
+    current: { type: Boolean, default: false },
   },
   { _id: false },
 );
@@ -377,6 +424,19 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
       default: null,
       trim: true,
     },
+    /**
+     * SHA-256 hex of the normalised phone (digits only). Used by the
+     * Find Friends contacts-match endpoint so we can match on hashes
+     * without storing raw numbers in the index. Populated lazily — see
+     * findFriends.service hashPhone() for the canonical formula.
+     */
+    phoneHash: { type: String, default: null, index: true },
+    /**
+     * Seeker's UPI VPA (Virtual Payment Address) — e.g. "shree@okhdfcbank".
+     * Used by the UPI payment intent flow so employers can pay directly
+     * over UPI. Optional — the worker can also receive cash.
+     */
+    upiVpa: { type: String, default: null, lowercase: true, trim: true, maxlength: 80 },
     isVerified: { type: Boolean, default: false },
     verificationStatus: {
       type: String,
@@ -416,6 +476,7 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
       type: new Schema<ExpectedSalary>(
         {
           amount: { type: Number, required: true, min: 0 },
+          amountMax: { type: Number, default: null, min: 0 },
           period: { type: String, enum: SALARY_PERIODS, required: true },
           currency: { type: String, default: 'INR', maxlength: 3 },
         },
@@ -442,6 +503,14 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
       validate: {
         validator: (v: WorkExperience[]) => Array.isArray(v) && v.length <= 10,
         message: 'workHistory may not exceed 10 entries',
+      },
+    },
+    education: {
+      type: [educationSchema],
+      default: [],
+      validate: {
+        validator: (v: Education[]) => Array.isArray(v) && v.length <= 6,
+        message: 'education may not exceed 6 entries',
       },
     },
     // Photos of the seeker's work — up to 6 base64 data URLs. Each
@@ -517,6 +586,7 @@ userSchema.method('toPublicJSON', function (
     expectedSalary: this.expectedSalary
       ? {
           amount: this.expectedSalary.amount,
+          amountMax: this.expectedSalary.amountMax ?? null,
           period: this.expectedSalary.period,
           currency: this.expectedSalary.currency ?? 'INR',
         }
@@ -538,6 +608,14 @@ userSchema.method('toPublicJSON', function (
       endDate: w.endDate ?? null,
       current: Boolean(w.current),
       description: w.description ?? null,
+    })),
+    education: (this.education ?? []).map((e) => ({
+      degree: e.degree,
+      institution: e.institution,
+      fieldOfStudy: e.fieldOfStudy ?? null,
+      startYear: e.startYear,
+      endYear: e.endYear ?? null,
+      current: Boolean(e.current),
     })),
     workPhotos: this.workPhotos ?? [],
     companyName: this.companyName ?? null,

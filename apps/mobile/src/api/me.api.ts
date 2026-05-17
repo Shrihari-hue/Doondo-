@@ -27,6 +27,8 @@ export interface UpdateProfilePayload {
    */
   expectedSalary?: {
     amount: number;
+    /** Optional upper bound. Omit/null for single-number expectations. */
+    amountMax?: number | null;
     period: 'hour' | 'day' | 'week' | 'month' | 'fixed';
     currency: string;
   } | null;
@@ -37,6 +39,15 @@ export interface UpdateProfilePayload {
    * Empty array clears. Omit to leave unchanged.
    */
   workPhotos?: string[];
+  /** Replace the seeker's education list. Empty array clears. */
+  education?: Array<{
+    degree: string;
+    institution: string;
+    fieldOfStudy?: string | null;
+    startYear: number;
+    endYear?: number | null;
+    current?: boolean;
+  }>;
   companyName?: string | null;
   businessType?: BusinessType | null;
   gstin?: string | null;

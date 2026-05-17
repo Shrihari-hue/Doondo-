@@ -9,6 +9,7 @@
 import { errors } from '@/lib/errors';
 import {
   UserModel,
+  type Education,
   type ExpectedSalary,
   type PublicUser,
   type WorkExperience,
@@ -28,6 +29,15 @@ interface UpdateProfileInput {
   photoUrl?: string | null;
   /** Replace the whole list. Empty array clears all work-sample photos. */
   workPhotos?: string[];
+  /** Replace the education list. Empty array clears the section. */
+  education?: Array<{
+    degree: string;
+    institution: string;
+    fieldOfStudy?: string | null;
+    startYear: number;
+    endYear?: number | null;
+    current?: boolean;
+  }>;
   // Employer (Phase 3)
   companyName?: string | null;
   businessType?:
@@ -70,6 +80,17 @@ export async function updateProfile(
     // reaches this point is already bounded.
     user.workPhotos = input.workPhotos;
   }
+  if (input.education !== undefined) {
+    const cleaned: Education[] = input.education.map((e) => ({
+      degree: e.degree.trim(),
+      institution: e.institution.trim(),
+      fieldOfStudy: e.fieldOfStudy?.trim() || null,
+      startYear: e.startYear,
+      endYear: e.current ? null : e.endYear ?? null,
+      current: Boolean(e.current),
+    }));
+    user.education = cleaned;
+  }
   if (input.workType !== undefined) {
     user.workType = input.workType;
     // If switching back to solo, clear teamSize so the docs stay tidy.
@@ -82,6 +103,10 @@ export async function updateProfile(
     user.expectedSalary = input.expectedSalary
       ? {
           amount: input.expectedSalary.amount,
+          amountMax:
+            input.expectedSalary.amountMax != null
+              ? input.expectedSalary.amountMax
+              : null,
           period: input.expectedSalary.period,
           currency: input.expectedSalary.currency || 'INR',
         }

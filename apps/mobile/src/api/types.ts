@@ -77,6 +77,9 @@ export type PayPeriod = 'hour' | 'day' | 'week' | 'month' | 'fixed';
 
 export type JobStatus = 'active' | 'paused' | 'filled' | 'expired';
 
+/** Where the role is performed. Defaults to onsite for legacy postings. */
+export type WorkMode = 'onsite' | 'hybrid' | 'remote';
+
 export type ApplicationStatus =
   | 'pending'
   | 'viewed'
@@ -98,6 +101,20 @@ export interface WorkExperience {
   endDate: string | null;
   current: boolean;
   description: string | null;
+}
+
+/**
+ * Education row — mandatory for white-collar candidates, optional for
+ * blue-collar. Year-only (no month) because workers rarely remember
+ * exact dates for school.
+ */
+export interface Education {
+  degree: string;
+  institution: string;
+  fieldOfStudy: string | null;
+  startYear: number;
+  endYear: number | null;
+  current: boolean;
 }
 
 export type VerificationStatus =
@@ -132,7 +149,10 @@ export interface PublicUser {
    * Null until the seeker sets it on the profile.
    */
   expectedSalary: {
+    /** Lower bound (paise). */
     amount: number;
+    /** Optional upper bound (paise). Null for single-number expectations. */
+    amountMax: number | null;
     period: 'hour' | 'day' | 'week' | 'month' | 'fixed';
     currency: string;
   } | null;
@@ -166,6 +186,8 @@ export interface PublicUser {
    * carousel on the resume preview + the employer's applicant detail.
    */
   workPhotos: string[];
+  /** Education entries — empty when the seeker hasn't added any. */
+  education: Education[];
   // Employer (Phase 3)
   companyName: string | null;
   businessType:
@@ -212,6 +234,8 @@ export interface PublicJob {
     coordinates: [number, number]; // [lng, lat]
   };
   skills: string[];
+  /** Where the role is performed — defaults to onsite. */
+  workMode: WorkMode;
   schedule: {
     days?: number[];
     startTime?: string | null;
@@ -221,6 +245,12 @@ export interface PublicJob {
   status: JobStatus;
   /** True when the employer marked this posting as time-sensitive. */
   urgent: boolean;
+  /**
+   * Employer-asserted "safe for women" claim. When true, seekers see a
+   * green shield pill on the card; the Jobs filter has a chip that
+   * narrows the feed to only these posts.
+   */
+  safeForWomen: boolean;
   applicantsCount: number;
   /** Optional voice description data URL — present only on job-detail reads. */
   audioDescriptionUrl: string | null;
@@ -316,6 +346,15 @@ export interface PublicApplication {
   expressedAsInterest: boolean;
   /** How many people are applying together. Null = solo applicant. */
   teamSizeSnapshot: number | null;
+  /** Self-declared list of teammates — name + phone per member. */
+  teamMembers: Array<{ name: string; phone: string }>;
+  /** Cash payment confirmation — null until either side has acted. */
+  paymentConfirmation: {
+    seekerConfirmedAt: string | null;
+    employerConfirmedAt: string | null;
+    disputedAt: string | null;
+    disputeNote: string | null;
+  } | null;
   timeline: {
     appliedAt: string;
     viewedAt: string | null;

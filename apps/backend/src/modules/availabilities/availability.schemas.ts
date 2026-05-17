@@ -8,6 +8,24 @@ import { JOB_TYPES } from '@/modules/jobs/job.model';
 /** Max beacon duration — 8 hours. Beyond that it stops being "available NOW". */
 export const MAX_DURATION_MINUTES = 8 * 60;
 
+const recurringPatternSchema = z
+  .object({
+    /** 0=Sun..6=Sat. */
+    days: z.array(z.number().int().min(0).max(6)).min(1).max(7),
+    startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'startTime must be HH:MM'),
+    endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'endTime must be HH:MM'),
+  })
+  .strict()
+  .superRefine((v, ctx) => {
+    if (v.startTime >= v.endTime) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endTime'],
+        message: 'endTime must be after startTime',
+      });
+    }
+  });
+
 export const upsertAvailabilitySchema = z.object({
   body: z
     .object({
@@ -20,6 +38,12 @@ export const upsertAvailabilitySchema = z.object({
       tradesAvailable: z.array(z.string().trim().min(1).max(40)).max(8).default([]),
       jobTypes: z.array(z.enum(JOB_TYPES)).max(5).default([]),
       note: z.string().trim().max(240).nullable().optional(),
+      /**
+       * Optional weekly recurring window. When provided, the doc lives
+       * for 30 days (the rolling TTL) instead of just `durationMinutes`,
+       * and the seeker is considered live during any pattern window.
+       */
+      recurringPattern: recurringPatternSchema.nullable().optional(),
     })
     .strict(),
 });

@@ -14,7 +14,15 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, Share, View } from 'react-native';
+import {
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  Share,
+  TextInput,
+  View,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -53,6 +61,11 @@ function JobDetailScreenInner() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [saved, setSaved] = useState<boolean | null>(null);
+  // Cover letter — optional, multiline, only surfaces in Career mode
+  // (Today mode is one-tap express-interest with no note).
+  const [coverNote, setCoverNote] = useState('');
+  // Team-member declaration. Only relevant when seeker.workType==='team'.
+  const [teamMembers, setTeamMembers] = useState<Array<{ name: string; phone: string }>>([]);
 
   // Detail fetch — when the network call fails, fall back to the
   // offline cache. The screen still renders fully if we have a cached
@@ -145,7 +158,16 @@ function JobDetailScreenInner() {
   });
 
   const applyMutation = useMutation({
-    mutationFn: () => applicationsApi.apply(route.params.jobId),
+    mutationFn: () => {
+      const cleanedMembers = teamMembers
+        .map((m) => ({ name: m.name.trim(), phone: m.phone.trim() }))
+        .filter((m) => m.name && m.phone);
+      return applicationsApi.apply(route.params.jobId, {
+        coverNote: coverNote.trim() || undefined,
+        teamMembers: cleanedMembers.length > 0 ? cleanedMembers : undefined,
+        referrerId: route.params.ref,
+      });
+    },
     onSuccess: () => {
       setAppliedNow(true);
       setApplyError(null);
@@ -272,7 +294,15 @@ function JobDetailScreenInner() {
     if (job.urgent) lines.push(`⚡ Urgent — start soon`);
     lines.push('');
     lines.push(`See and apply on Doondo:`);
-    lines.push(`https://doondo.app/jobs/${job.id}`);
+    // Carry the sharer's user id as ?ref= — if the recipient applies
+    // via this link and gets hired, the sharer earns a ₹100 referral
+    // bonus credited to their wallet.
+    const sharerRef = user?.id ? `?ref=${user.id}` : '';
+    lines.push(`https://doondo.app/jobs/${job.id}${sharerRef}`);
+    if (user?.id) {
+      lines.push('');
+      lines.push('💰 If you get hired, I earn a ₹100 referral bonus.');
+    }
     try {
       await Share.share({
         message: lines.join('\n'),
@@ -390,6 +420,12 @@ function JobDetailScreenInner() {
           {distanceLabel && <DetailRow icon="📍" label={distanceLabel} />}
           {timeLabel && <DetailRow icon="🕐" label={timeLabel} />}
           <DetailRow icon="🕐" label={typeLabel} />
+          {job.workMode && job.workMode !== 'onsite' ? (
+            <DetailRow
+              icon={job.workMode === 'remote' ? '🏠' : '🏢'}
+              label={job.workMode === 'remote' ? 'Fully remote' : 'Hybrid (some days at home)'}
+            />
+          ) : null}
           {job.urgent && (
             <DetailRow icon="⚡" label="Urgent" tone={theme.status.warning} />
           )}
@@ -425,34 +461,35 @@ function JobDetailScreenInner() {
           </View>
         )}
 
+        {/* Cover letter — optional, Career mode only. Multiline,
+           preserves line breaks. Sent with the application; the employer
+           sees it on ApplicantDetail. */}
+        {!isTodayMode && !appliedNow ? (
+          <View style={{ gap: spacing.sm }}>
+            <Text variant="bodyLarge" weight="medium">
+              Cover letter
+              <Text variant="footnote" tone="tertiary"> · optional</Text>
+            </Text>
+            <Text variant="footnote" tone="secondary">
+              Tell the employer why you&apos;re the right person. A short
+              note goes a long way for office and skilled roles.
+            </Text>
+            <CoverNoteField
+              value={coverNote}
+              onChange={setCoverNote}
+            />
+          </View>
+        ) : null}
+
         {/* Team-apply hint — shown only when the seeker has marked their
            profile as a team. Tells them how many heads will be sent in
            with this Application so they can sanity-check before tapping. */}
         {!appliedNow && user?.workType === 'team' && (user.teamSize ?? 0) >= 2 ? (
-          <View
-            style={{
-              padding: spacing.md,
-              borderRadius: radii.md,
-              backgroundColor: '#EFF6FF',
-              borderWidth: 0.5,
-              borderColor: '#BFDBFE',
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: spacing.sm,
-            }}
-          >
-            <Text style={{ fontSize: 18 }}>👥</Text>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text
-                style={{ fontSize: 13, fontWeight: '700', color: '#1E40AF' }}
-              >
-                Applying as a team of {user.teamSize}
-              </Text>
-              <Text style={{ fontSize: 12, color: '#1E3A8A', opacity: 0.85 }}>
-                The employer sees you as one group. Change in Profile → Preferences.
-              </Text>
-            </View>
-          </View>
+          <TeamMembersField
+            teamSize={user.teamSize ?? 0}
+            members={teamMembers}
+            onChange={setTeamMembers}
+          />
         ) : null}
 
         {appliedNow && (
@@ -720,6 +757,188 @@ function PrimaryStickyCTA({
         </Text>
       </LinearGradient>
     </Pressable>
+  );
+}
+
+// ─── Team-members field ─────────────────────────────────────────────────────
+
+/**
+ * Inline editor for the team-member declaration on a team application.
+ * Up to 4 entries. The seeker types their teammates' names + phones so
+ * the employer knows who's actually coming. No accept-flow in v1 — just
+ * an honest list.
+ */
+function TeamMembersField({
+  teamSize,
+  members,
+  onChange,
+}: {
+  teamSize: number;
+  members: Array<{ name: string; phone: string }>;
+  onChange: (next: Array<{ name: string; phone: string }>) => void;
+}) {
+  const { theme } = useTheme();
+  const cap = Math.min(4, Math.max(0, teamSize - 1)); // exclude the seeker themselves
+
+  const update = (i: number, patch: Partial<{ name: string; phone: string }>) => {
+    onChange(members.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
+  };
+  const add = () => {
+    if (members.length >= cap) return;
+    haptic('selection');
+    onChange([...members, { name: '', phone: '' }]);
+  };
+  const remove = (i: number) => {
+    haptic('light');
+    onChange(members.filter((_, idx) => idx !== i));
+  };
+
+  return (
+    <View
+      style={{
+        padding: spacing.md,
+        borderRadius: radii.md,
+        backgroundColor: '#EFF6FF',
+        borderWidth: 0.5,
+        borderColor: '#BFDBFE',
+        gap: spacing.sm,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <Text style={{ fontSize: 18 }}>👥</Text>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E40AF' }}>
+            Applying as a team of {teamSize}
+          </Text>
+          <Text style={{ fontSize: 12, color: '#1E3A8A', opacity: 0.85 }}>
+            Add your teammates so the employer knows who&apos;s coming.
+          </Text>
+        </View>
+      </View>
+
+      {members.map((m, i) => (
+        <View
+          key={i}
+          style={{
+            flexDirection: 'row',
+            gap: spacing.xs,
+            alignItems: 'center',
+          }}
+        >
+          <View style={{ flex: 1, gap: 4 }}>
+            <TextInput
+              value={m.name}
+              onChangeText={(t) => update(i, { name: t })}
+              placeholder={`Teammate ${i + 1} name`}
+              placeholderTextColor={theme.text.tertiary}
+              autoCapitalize="words"
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderWidth: 0.5,
+                borderColor: '#BFDBFE',
+                borderRadius: radii.md,
+                paddingHorizontal: spacing.sm,
+                paddingVertical: spacing.sm - 2,
+                fontSize: 13,
+                color: theme.text.primary,
+              }}
+            />
+            <TextInput
+              value={m.phone}
+              onChangeText={(t) => update(i, { phone: t })}
+              placeholder="+91 9876543210"
+              placeholderTextColor={theme.text.tertiary}
+              keyboardType="phone-pad"
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderWidth: 0.5,
+                borderColor: '#BFDBFE',
+                borderRadius: radii.md,
+                paddingHorizontal: spacing.sm,
+                paddingVertical: spacing.sm - 2,
+                fontSize: 13,
+                color: theme.text.primary,
+              }}
+            />
+          </View>
+          <Pressable onPress={() => remove(i)} hitSlop={6}>
+            <Text style={{ fontSize: 16, color: '#B91C1C' }}>×</Text>
+          </Pressable>
+        </View>
+      ))}
+
+      {members.length < cap ? (
+        <Pressable
+          onPress={add}
+          style={({ pressed }) => ({
+            alignSelf: 'flex-start',
+            paddingHorizontal: spacing.md,
+            paddingVertical: 6,
+            borderRadius: radii.pill,
+            backgroundColor: '#FFFFFF',
+            borderWidth: 0.5,
+            borderColor: '#BFDBFE',
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <Text style={{ fontSize: 12, fontWeight: '700', color: '#1E40AF' }}>
+            + Add teammate
+          </Text>
+        </Pressable>
+      ) : (
+        <Text style={{ fontSize: 11, color: '#1E3A8A' }}>
+          Max {cap} teammates (you make {teamSize}).
+        </Text>
+      )}
+    </View>
+  );
+}
+
+// ─── Cover letter field ─────────────────────────────────────────────────────
+
+function CoverNoteField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const { theme } = useTheme();
+  const remaining = 500 - value.length;
+  return (
+    <View style={{ gap: 4 }}>
+      <TextInput
+        value={value}
+        onChangeText={(t) => onChange(t.length <= 500 ? t : t.slice(0, 500))}
+        placeholder={
+          'e.g. I have 4 years of office admin experience and I can start immediately. Comfortable with Tally and Excel.'
+        }
+        placeholderTextColor={theme.text.tertiary}
+        multiline
+        textAlignVertical="top"
+        style={{
+          backgroundColor: theme.bg.surface,
+          borderWidth: 0.5,
+          borderColor: theme.border.subtle,
+          borderRadius: radii.md,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.md,
+          fontSize: 14,
+          lineHeight: 20,
+          color: theme.text.primary,
+          minHeight: 120,
+        }}
+      />
+      <Text
+        style={{
+          fontSize: 11,
+          color: theme.text.tertiary,
+          textAlign: 'right',
+        }}
+      >
+        {remaining} characters left
+      </Text>
+    </View>
   );
 }
 

@@ -43,6 +43,13 @@ import { JobAlertFormScreen } from '@/screens/seeker/JobAlertFormScreen';
 import { AvailableWorkersScreen } from '@/screens/employer/AvailableWorkersScreen';
 import { CoursesScreen } from '@/screens/seeker/CoursesScreen';
 import { CourseDetailScreen } from '@/screens/seeker/CourseDetailScreen';
+import { SkillTestsScreen } from '@/screens/seeker/SkillTestsScreen';
+import { InterviewPrepScreen } from '@/screens/seeker/InterviewPrepScreen';
+import { FindFriendsScreen } from '@/screens/seeker/FindFriendsScreen';
+import { MentorsScreen } from '@/screens/seeker/MentorsScreen';
+import { AdvanceScreen } from '@/screens/seeker/AdvanceScreen';
+import { InsuranceScreen } from '@/screens/seeker/InsuranceScreen';
+import { JobSwipeScreen } from '@/screens/seeker/JobSwipeScreen';
 import { JobApplicantsScreen } from '@/screens/employer/JobApplicantsScreen';
 import { ApplicantDetailScreen } from '@/screens/employer/ApplicantDetailScreen';
 import { PostJobScreen } from '@/screens/employer/PostJobScreen';
@@ -234,6 +241,41 @@ export function AppNavigator() {
         name="CourseDetail"
         component={CourseDetailScreen}
         options={{ presentation: 'modal', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="SkillTests"
+        component={SkillTestsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="InterviewPrep"
+        component={InterviewPrepScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="FindFriends"
+        component={FindFriendsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Mentors"
+        component={MentorsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Advance"
+        component={AdvanceScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Insurance"
+        component={InsuranceScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="JobSwipe"
+        component={JobSwipeScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
     </Stack.Navigator>
   );

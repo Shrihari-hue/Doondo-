@@ -38,6 +38,24 @@ router.get('/saved', requireAuth, controller.listSaved);
 // unauthenticated browsers. Bounded by request validation in the handler.
 router.get('/pay-stats', getPayStats);
 
+// Personalised recommendations — seeker-only "for you" feed driven by
+// resume + history. Defined inline because the service is heavy enough
+// to warrant a dynamic import (avoids loading it on every cold start).
+router.get(
+  '/recommended',
+  requireAuth,
+  requireRole('seeker'),
+  async (req, res, next) => {
+    try {
+      const { recommendFor } = await import('./recommendations.service');
+      const jobs = await recommendFor(req.user!.id, { limit: 10 });
+      res.json({ jobs });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // ─── Employer (Phase 3) ─────────────────────────────────────────────────────
 // "/mine" must come before "/:id" so it isn't captured by the param route.
 router.get(

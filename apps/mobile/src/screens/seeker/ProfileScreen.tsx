@@ -38,6 +38,9 @@ import { useAuthStore } from '@/stores/auth.store';
 import { meApi } from '@/api/me.api';
 import { jobsApi } from '@/api/jobs.api';
 import { applicationsApi } from '@/api/applications.api';
+import { referralsApi } from '@/api/referrals.api';
+import { profileViewsApi } from '@/api/profileViews.api';
+import { skillSuggestionsApi } from '@/api/skillSuggestions.api';
 import { useUnratedApplications } from '@/hooks/useRatings';
 import { pickProfilePhoto } from '@/lib/photo';
 import { haptic } from '@/lib/haptics';
@@ -667,6 +670,12 @@ export function ProfileScreen() {
             )}
           </View>
 
+          {/* Profile-views motivator — small banner above ACTIVITY */}
+          <ProfileViewsBanner />
+
+          {/* Skill suggestions — "Add cooking → +30% job matches" rail. */}
+          <SkillSuggestionsRail onEdit={() => goEdit('skills')} />
+
           {/* Activity menu */}
           <SectionLabel>ACTIVITY</SectionLabel>
           <View style={cardBase(theme)}>
@@ -706,6 +715,30 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
+              icon="🪙"
+              tint="#FDE68A"
+              label="Cash advance"
+              subtitle="Borrow against confirmed upcoming work (up to ₹5,000)"
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('Advance');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="🛡"
+              tint="#DBEAFE"
+              label="Worker insurance"
+              subtitle="₹49/month accident cover · opt-in any time"
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('Insurance');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <ReferralMenuRow />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
               icon="📚"
               tint="#DDD6FE"
               label="Training & courses"
@@ -713,6 +746,50 @@ export function ProfileScreen() {
               onPress={() => {
                 haptic('selection');
                 navigation.navigate('Courses');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="🧠"
+              tint="#FEF3C7"
+              label="Skill tests"
+              subtitle="Prove your trade — 5 questions, 4 to pass"
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('SkillTests');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="💬"
+              tint="#E0E7FF"
+              label="Interview prep"
+              subtitle="Common questions, what to bring, how to talk pay"
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('InterviewPrep');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="👥"
+              tint="#FCE7F3"
+              label="Find friends on Doondo"
+              subtitle="Match your contacts · invite friends, earn ₹100 per hire"
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('FindFriends');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="🤝"
+              tint="#DBEAFE"
+              label="Trade buddies"
+              subtitle="Find a mentor in your trade — or mentor others"
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('Mentors');
               }}
             />
             <Divider color={theme.border.subtle} />
@@ -814,6 +891,161 @@ export function ProfileScreen() {
 }
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
+
+/**
+ * "N employers viewed your profile this week" — a motivation banner that
+ * surfaces above the menu. Hidden entirely when nobody has viewed yet,
+ * so an empty banner doesn't demoralise. When views > 0 we render a
+ * warm gradient-ish card with the count + a hint line.
+ *
+ * Counter is collapsed per (viewer, day) on the backend, so a single
+ * employer hammering refresh shows as one view, not ten.
+ */
+function ProfileViewsBanner() {
+  const { theme } = useTheme();
+  const query = useQuery({
+    queryKey: ['profile-views', 'me'],
+    queryFn: () => profileViewsApi.summarize(),
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: 'always',
+  });
+  const n = query.data?.viewersLast7Days ?? 0;
+  if (!query.data || n === 0) return null;
+  const subtitle =
+    n >= 5
+      ? "You're getting noticed — keep your profile fresh to convert views into hires."
+      : 'Add work photos or a skill test to stand out.';
+  return (
+    <View
+      style={{
+        marginTop: spacing.lg,
+        borderRadius: 16,
+        padding: spacing.lg,
+        backgroundColor: '#EFF6FF',
+        borderWidth: 0.5,
+        borderColor: '#BFDBFE',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+      }}
+    >
+      <View
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: '#DBEAFE',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontSize: 20 }}>👀</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 15, fontWeight: '700', color: '#1E3A8A' }}>
+          {n} {n === 1 ? 'employer' : 'employers'} viewed your profile this week
+        </Text>
+        <Text style={{ fontSize: 12, color: '#1E40AF', marginTop: 2 }}>
+          {subtitle}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Horizontal rail of "Add X → +N% matches" cards driven off the seeker's
+ * resume + nearby job demand. Hidden when the engine has nothing useful
+ * to suggest (empty network, no skills set, or no gap data).
+ *
+ * Tapping a suggestion deep-links into the skills editor with the
+ * suggested skill pre-selected (best-effort — the editor handles the
+ * fallback if the param isn't recognised).
+ */
+function SkillSuggestionsRail({ onEdit }: { onEdit: () => void }) {
+  const { theme } = useTheme();
+  const query = useQuery({
+    queryKey: ['skill-suggestions', 'me'],
+    queryFn: () => skillSuggestionsApi.list(),
+    staleTime: 30 * 60 * 1000,
+  });
+  const suggestions = query.data?.suggestions ?? [];
+  if (suggestions.length === 0) return null;
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <SectionLabel>SKILLS GAP NEAR YOU</SectionLabel>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: spacing.sm }}
+      >
+        {suggestions.map((s) => (
+          <Pressable
+            key={s.skill}
+            onPress={() => {
+              haptic('selection');
+              onEdit();
+            }}
+            style={({ pressed }) => ({
+              padding: spacing.md,
+              borderRadius: 14,
+              borderWidth: 0.5,
+              borderColor: '#A7F3D0',
+              backgroundColor: '#ECFDF5',
+              width: 200,
+              opacity: pressed ? 0.85 : 1,
+              gap: 4,
+            })}
+          >
+            <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1.4, color: '#047857' }}>
+              ADD SKILL · +{s.upliftPercent}%
+            </Text>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#064E3B' }}>
+              {prettifySkill(s.skill)}
+            </Text>
+            <Text style={{ fontSize: 12, color: '#065F46' }}>
+              {s.jobsNeedingIt} {s.jobsNeedingIt === 1 ? 'job needs it' : 'jobs need it'} near you
+            </Text>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: theme.brand.hero, marginTop: 4 }}>
+              Add to my skills →
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+/**
+ * MenuRow variant for referral credits. Queries the seeker's referral
+ * summary so the subtitle shows actual rupees earned ("Referral credit:
+ * ₹300 — 3 hires").
+ */
+function ReferralMenuRow() {
+  const navigation = useNavigation<Nav>();
+  const query = useQuery({
+    queryKey: ['referrals', 'me'],
+    queryFn: () => referralsApi.myReferrals(),
+    staleTime: 60_000,
+  });
+  const summary = query.data?.summary;
+  const subtitle =
+    summary && summary.totalBonusPaise > 0
+      ? `₹${Math.round(summary.totalBonusPaise / 100).toLocaleString()} earned · ${summary.hired} hired`
+      : 'Share jobs · earn ₹100 per hire';
+  return (
+    <MenuRow
+      icon="💸"
+      tint="#FEF3C7"
+      label="Referral credit"
+      subtitle={subtitle}
+      onPress={() => {
+        haptic('selection');
+        navigation.navigate('MyEarnings');
+      }}
+    />
+  );
+}
 
 function SectionLabel({ children }: { children: string }) {
   const { theme } = useTheme();

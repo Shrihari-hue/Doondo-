@@ -1,0 +1,120 @@
+{
+  "common": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "retry": "Retry",
+    "loading": "Loading…"
+  },
+  "home": {
+    "title": "Doondo",
+    "modes": {
+      "today": "Today",
+      "this_week": "This week",
+      "career": "Career"
+    },
+    "voice_card": {
+      "title": "Find jobs through voice",
+      "hint": "Tell us what work you want"
+    },
+    "categories": "Job categories",
+    "nearby_jobs": "Nearby jobs",
+    "view_all": "View all",
+    "see_more": "See more"
+  },
+  "profile": {
+    "menu": {
+      "applications": "My Applications",
+      "applications_count": "{{count}} application",
+      "applications_count_plural": "{{count}} applications",
+      "applications_empty": "No applications yet",
+      "my_jobs": "My Jobs",
+      "saved_count": "{{count}} saved",
+      "saved_empty": "No saved jobs yet",
+      "earnings": "My Earnings",
+      "earnings_subtitle": "Available with wallet",
+      "ratings": "Ratings & Reviews",
+      "ratings_count": "{{avg}} from {{count}} ratings",
+      "ratings_empty": "No ratings yet",
+      "job_alerts": "Job Alerts",
+      "job_alerts_subtitle": "Get notified when matching jobs are posted",
+      "training": "Training & courses",
+      "training_subtitle": "Earn badges that show on your resume",
+      "skill_tests": "Skill tests",
+      "skill_tests_subtitle": "Prove your trade — 5 questions, 4 to pass",
+      "referrals": "Referral credit",
+      "referrals_empty": "Share jobs · earn ₹100 per hire",
+      "downloads": "Download Center",
+      "downloads_subtitle": "Saved posts and offline content",
+      "settings": "Settings",
+      "settings_subtitle": "Language, notifications, theme",
+      "edit_profile": "Edit Profile Details",
+      "edit_profile_subtitle": "Name, bio, experience, availability"
+    },
+    "sections": {
+      "activity": "ACTIVITY",
+      "account": "ACCOUNT",
+      "resume": "RESUME",
+      "skills": "SKILLS"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "language_hint": "Saved on this device. Changes apply immediately.",
+    "notifications": "Notifications",
+    "push_notifications": "Push notifications",
+    "push_notifications_hint": "Applications, messages, ratings",
+    "appearance": "Appearance",
+    "appearance_light": "Light",
+    "appearance_dark": "Dark",
+    "appearance_system": "Use system setting",
+    "appearance_hint": "The seeker side keeps its blue palette regardless — this affects employer screens and shared modals.",
+    "safety": "Safety",
+    "sos_label": "Safety SOS",
+    "sos_value": "Set up emergency contact",
+    "sos_hint": "One-tap help to a trusted contact if you ever feel unsafe at work.",
+    "account": "Account",
+    "email": "Email",
+    "email_change_title": "Change email",
+    "email_change_body": "Email changes require verification — coming soon.",
+    "sign_out": "Sign out",
+    "sign_out_confirm_title": "Sign out?",
+    "sign_out_confirm_body": "You'll need to sign in again to use Doondo.",
+    "delete_account": "Delete account",
+    "delete_confirm_title": "Delete your account?",
+    "delete_confirm_body": "This is permanent — all your applications, ratings, and chats will be erased. We're still building the in-app delete; email support@doondo.app to delete your account today.",
+    "email_support": "Email support",
+    "email_support_body": "Send a delete request to support@doondo.app from the address on your account."
+  },
+  "signup": {
+    "header": "Create account",
+    "title": "Join Doondo",
+    "name": "Name",
+    "name_for_worker": "Worker's name",
+    "email": "Email",
+    "password": "Password",
+    "phone": "Phone",
+    "phone_for_worker": "Worker's phone",
+    "phone_helper": "Used to reset your password if you forget it.",
+    "phone_for_worker_helper": "The worker's number — employers will call here.",
+    "assisted_toggle_label": "Setting this up for someone else?",
+    "assisted_toggle_hint": "Common for family members helping a worker who can't use the app alone.",
+    "submit": "Create account",
+    "submitting": "Creating account…"
+  },
+  "job_detail": {
+    "apply_now": "Apply Now",
+    "applied": "Applied ✓",
+    "im_interested": "✋ I'm interested",
+    "interest_sent": "✓ Interest sent",
+    "sending": "Sending…",
+    "call_employer": "📞 Call employer",
+    "cover_letter": "Cover letter",
+    "cover_letter_optional": "optional",
+    "cover_letter_hint": "Tell the employer why you're the right person."
+  }
+}

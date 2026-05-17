@@ -2,8 +2,9 @@
  * SettingsScreen — seeker preferences.
  *
  * Sections, top to bottom:
- *   - Language: persistent picker (5 supported). Stores user preference
- *     in expo-secure-store; full i18n string swap arrives in the next pass.
+ *   - Language: persistent picker (5 supported). Calls setLocale() on the
+ *     LanguageProvider, which persists to secure-store and triggers a
+ *     full re-render of the app tree with the new language pack.
  *   - Notifications: master toggle (writes to expo-secure-store; the push
  *     register hook respects it on next app start). Granular per-kind
  *     toggles land when we have more notification types in production.
@@ -11,6 +12,10 @@
  *   - Account: sign out + delete account (delete requires backend
  *     endpoint that doesn't exist yet — surfaces a confirmation with
  *     an "Email support to delete" fallback for now).
+ *
+ * All visible strings on this screen route through useTranslate(), which
+ * makes it the canonical example of how to localise a screen — copy the
+ * pattern when wiring i18n into other screens.
  */
 
 import { useEffect, useState } from 'react';
@@ -27,34 +32,38 @@ import { getSecure, setSecure } from '@/lib/secureStore';
 import { haptic } from '@/lib/haptics';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import type { AppStackParamList } from '@/navigation/types';
+import { useLocale } from '@/i18n/LanguageProvider';
+import { useTranslate } from '@/i18n/useTranslate';
+import { LOCALE_LABELS, SUPPORTED_LOCALES, type SupportedLocale } from '@/i18n';
+import {
+  useAccessibility,
+  TEXT_SCALE_STEPS,
+  type TextScale,
+} from '@/lib/accessibility';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
-const LANGUAGES = [
-  { code: 'en', label: 'English' },
-  { code: 'kn', label: 'ಕನ್ನಡ (Kannada)' },
-  { code: 'hi', label: 'हिन्दी (Hindi)' },
-  { code: 'ta', label: 'தமிழ் (Tamil)' },
-  { code: 'te', label: 'తెలుగు (Telugu)' },
-] as const;
-type LangCode = (typeof LANGUAGES)[number]['code'];
+const LANGUAGES = SUPPORTED_LOCALES.map((code) => ({
+  code,
+  label: LOCALE_LABELS[code],
+}));
+type LangCode = SupportedLocale;
 
 function SettingsInner() {
   const { theme, scheme, setScheme, followSystem, isManual } = useTheme();
   const { logout, user } = useAuth();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const { locale, setLocale } = useLocale();
+  const t = useTranslate();
+  const access = useAccessibility();
 
-  const [language, setLanguage] = useState<LangCode>('en');
   const [notificationsOn, setNotificationsOn] = useState(true);
 
-  // Hydrate persisted preferences on mount.
+  // Hydrate non-locale prefs on mount. (Locale itself comes from the
+  // LanguageProvider — no need to read secure-store for it here.)
   useEffect(() => {
     void (async () => {
-      const lang = await getSecure('languagePref');
-      if (lang && LANGUAGES.some((l) => l.code === lang)) {
-        setLanguage(lang as LangCode);
-      }
       const notif = await getSecure('notificationsEnabled');
       if (notif === 'false') setNotificationsOn(false);
     })();
@@ -62,8 +71,9 @@ function SettingsInner() {
 
   function pickLanguage(code: LangCode) {
     haptic('selection');
-    setLanguage(code);
-    void setSecure('languagePref', code).catch(() => undefined);
+    // Fire-and-forget — setLocale() persists + triggers a re-render via
+    // the provider context. We don't need to await it before continuing.
+    void setLocale(code).catch(() => undefined);
   }
 
   function toggleNotifications(value: boolean) {
@@ -74,24 +84,34 @@ function SettingsInner() {
 
   function confirmSignOut() {
     haptic('warning');
-    Alert.alert('Sign out?', "You'll need to sign in again to use Doondo.", [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => void logout() },
-    ]);
+    Alert.alert(
+      t('settings.sign_out_confirm_title'),
+      t('settings.sign_out_confirm_body'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('settings.sign_out'),
+          style: 'destructive',
+          onPress: () => void logout(),
+        },
+      ],
+    );
   }
 
   function confirmDeleteAccount() {
     haptic('warning');
     Alert.alert(
-      'Delete your account?',
-      "This is permanent — all your applications, ratings, and chats will be erased. We're still building the in-app delete; email support@doondo.app to delete your account today.",
+      t('settings.delete_confirm_title'),
+      t('settings.delete_confirm_body'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Email support',
+          text: t('settings.email_support'),
           onPress: () => {
-            // expo-linking would mailto: — keeping it light: copy/explain.
-            Alert.alert('Email', 'Send a delete request to support@doondo.app from the address on your account.');
+            Alert.alert(
+              t('settings.email_support'),
+              t('settings.email_support_body'),
+            );
           },
         },
       ],
@@ -121,15 +141,15 @@ function SettingsInner() {
               flex: 1,
             }}
           >
-            Settings
+            {t('settings.title')}
           </Text>
         </View>
 
         {/* Language */}
-        <Section title="LANGUAGE">
+        <Section title={t('settings.language').toUpperCase()}>
           <View style={cardStyle(theme)}>
             {LANGUAGES.map((l, i) => {
-              const active = language === l.code;
+              const active = locale === l.code;
               return (
                 <View key={l.code}>
                   <Pressable
@@ -172,12 +192,12 @@ function SettingsInner() {
             })}
           </View>
           <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 6 }}>
-            Saved on this device. Full in-app translation coming soon.
+            {t('settings.language_hint')}
           </Text>
         </Section>
 
         {/* Notifications */}
-        <Section title="NOTIFICATIONS">
+        <Section title={t('settings.notifications').toUpperCase()}>
           <View style={cardStyle(theme)}>
             <View
               style={{
@@ -191,10 +211,10 @@ function SettingsInner() {
                 <Text
                   style={{ fontSize: 15, fontWeight: '500', color: theme.text.primary }}
                 >
-                  Push notifications
+                  {t('settings.push_notifications')}
                 </Text>
                 <Text style={{ fontSize: 12, color: theme.text.tertiary }}>
-                  Applications, messages, ratings
+                  {t('settings.push_notifications_hint')}
                 </Text>
               </View>
               <Switch
@@ -207,38 +227,37 @@ function SettingsInner() {
         </Section>
 
         {/* Theme */}
-        <Section title="APPEARANCE">
+        <Section title={t('settings.appearance').toUpperCase()}>
           <View style={cardStyle(theme)}>
             <ThemeRow
-              label="Light"
+              label={t('settings.appearance_light')}
               active={isManual && scheme === 'light'}
               onPress={() => setScheme('light')}
             />
             <Divider color={theme.border.subtle} />
             <ThemeRow
-              label="Dark"
+              label={t('settings.appearance_dark')}
               active={isManual && scheme === 'dark'}
               onPress={() => setScheme('dark')}
             />
             <Divider color={theme.border.subtle} />
             <ThemeRow
-              label="Use system setting"
+              label={t('settings.appearance_system')}
               active={!isManual}
               onPress={followSystem}
             />
           </View>
           <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 6 }}>
-            The seeker side keeps its blue palette regardless — this affects
-            employer screens and shared modals.
+            {t('settings.appearance_hint')}
           </Text>
         </Section>
 
         {/* Safety */}
-        <Section title="SAFETY">
+        <Section title={t('settings.safety').toUpperCase()}>
           <View style={cardStyle(theme)}>
             <RowAction
-              label="Safety SOS"
-              value="Set up emergency contact"
+              label={t('settings.sos_label')}
+              value={t('settings.sos_value')}
               onPress={() => {
                 haptic('selection');
                 navigation.navigate('Sos');
@@ -246,24 +265,118 @@ function SettingsInner() {
             />
           </View>
           <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 6 }}>
-            One-tap help to a trusted contact if you ever feel unsafe at work.
+            {t('settings.sos_hint')}
           </Text>
         </Section>
 
+        {/* Accessibility */}
+        <Section title="ACCESSIBILITY">
+          <View style={cardStyle(theme)}>
+            <View
+              style={{
+                paddingHorizontal: spacing.lg,
+                paddingVertical: spacing.md + 2,
+                gap: spacing.sm,
+              }}
+            >
+              <Text
+                style={{ fontSize: 15, fontWeight: '500', color: theme.text.primary }}
+              >
+                Text size
+              </Text>
+              <View style={{ flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' }}>
+                {TEXT_SCALE_STEPS.map((s) => {
+                  const active = access.textScale === s;
+                  return (
+                    <Pressable
+                      key={s}
+                      onPress={() => {
+                        haptic('selection');
+                        void access.setTextScale(s as TextScale);
+                      }}
+                      style={{
+                        paddingHorizontal: spacing.md,
+                        paddingVertical: spacing.xs,
+                        borderRadius: radii.pill,
+                        borderWidth: 0.5,
+                        borderColor: active ? theme.brand.hero : theme.border.default,
+                        backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 12 + (s - 1) * 6,
+                          fontWeight: active ? '600' : '400',
+                          color: active ? theme.brand.hero : theme.text.secondary,
+                        }}
+                      >
+                        Aa{s !== 1 ? ` ${s.toFixed(2).replace(/0$/, '')}×` : ''}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
+                Bigger text across the whole app. Useful if reading small fonts is uncomfortable.
+              </Text>
+            </View>
+            <Divider color={theme.border.subtle} />
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: spacing.lg,
+                paddingVertical: spacing.md,
+              }}
+            >
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text
+                  style={{ fontSize: 15, fontWeight: '500', color: theme.text.primary }}
+                >
+                  Speak text on tap
+                </Text>
+                <Text style={{ fontSize: 12, color: theme.text.tertiary }}>
+                  Reads job titles, pay, and descriptions aloud.
+                </Text>
+              </View>
+              <Switch
+                value={access.ttsEnabled}
+                onValueChange={(v) => {
+                  haptic('selection');
+                  void access.setTtsEnabled(v);
+                  if (v) access.speak('Voice mode on');
+                }}
+                trackColor={{ false: theme.bg.muted, true: theme.brand.hero }}
+              />
+            </View>
+          </View>
+        </Section>
+
         {/* Account */}
-        <Section title="ACCOUNT">
+        <Section title={t('settings.account').toUpperCase()}>
           <View style={cardStyle(theme)}>
             <RowAction
-              label="Email"
+              label={t('settings.email')}
               value={user?.email ?? ''}
               onPress={() =>
-                Alert.alert('Change email', 'Email changes require verification — coming soon.')
+                Alert.alert(
+                  t('settings.email_change_title'),
+                  t('settings.email_change_body'),
+                )
               }
             />
             <Divider color={theme.border.subtle} />
-            <RowAction label="Sign out" tone="primary" onPress={confirmSignOut} />
+            <RowAction
+              label={t('settings.sign_out')}
+              tone="primary"
+              onPress={confirmSignOut}
+            />
             <Divider color={theme.border.subtle} />
-            <RowAction label="Delete account" tone="danger" onPress={confirmDeleteAccount} />
+            <RowAction
+              label={t('settings.delete_account')}
+              tone="danger"
+              onPress={confirmDeleteAccount}
+            />
           </View>
         </Section>
 

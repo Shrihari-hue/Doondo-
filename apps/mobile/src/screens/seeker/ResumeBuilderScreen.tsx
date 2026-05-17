@@ -62,6 +62,26 @@ interface DraftEntry {
   description: string;
 }
 
+interface EducationDraft {
+  degree: string;
+  institution: string;
+  fieldOfStudy: string;
+  startYear: string;
+  endYear: string;
+  current: boolean;
+}
+
+function emptyEducation(): EducationDraft {
+  return {
+    degree: '',
+    institution: '',
+    fieldOfStudy: '',
+    startYear: '',
+    endYear: '',
+    current: false,
+  };
+}
+
 function ResumeBuilderInner() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
@@ -92,6 +112,17 @@ function ResumeBuilderInner() {
   // seeker taps "Generate resume". Up to 6.
   const [photos, setPhotos] = useState<string[]>(user?.workPhotos ?? []);
   const [pickingPhoto, setPickingPhoto] = useState(false);
+  // Education — local list, saved with the wizard's main mutation.
+  const [education, setEducation] = useState<EducationDraft[]>(
+    (user?.education ?? []).map((e) => ({
+      degree: e.degree,
+      institution: e.institution,
+      fieldOfStudy: e.fieldOfStudy ?? '',
+      startYear: String(e.startYear),
+      endYear: e.endYear != null ? String(e.endYear) : '',
+      current: e.current,
+    })),
+  );
 
   // If the user has existing entries, skip the intro and land on review.
   useEffect(() => {
@@ -117,18 +148,42 @@ function ResumeBuilderInner() {
       // Run them sequentially so the second write sees the freshest user
       // and React Query's invalidate only fires once.
       await meApi.updateWorkHistory({ entries: payload });
-      // Only PATCH photos if they actually changed — most edits don't
-      // touch photos, no point sending kilobytes of data URLs on save.
+      // Only PATCH photos / education if they actually changed — most
+      // edits don't touch them, no point sending kilobytes on every save.
       const initialPhotos = user?.workPhotos ?? [];
       const photosChanged =
         photos.length !== initialPhotos.length ||
         photos.some((p, i) => p !== initialPhotos[i]);
-      if (photosChanged) {
-        return meApi.updateProfile({ workPhotos: photos });
-      }
-      // Re-fetch the freshest user via updateProfile no-op so the auth
-      // store reflects the new workHistory immediately.
-      return meApi.updateProfile({});
+      const initialEducation = user?.education ?? [];
+      const educationOut = education
+        .filter((e) => e.degree.trim() && e.institution.trim() && e.startYear.trim())
+        .map((e) => ({
+          degree: e.degree.trim(),
+          institution: e.institution.trim(),
+          fieldOfStudy: e.fieldOfStudy.trim() || null,
+          startYear: Number(e.startYear),
+          endYear:
+            e.current || !e.endYear.trim() ? null : Number(e.endYear),
+          current: e.current,
+        }));
+      const educationChanged =
+        educationOut.length !== initialEducation.length ||
+        educationOut.some((e, i) => {
+          const o = initialEducation[i];
+          return (
+            !o ||
+            o.degree !== e.degree ||
+            o.institution !== e.institution ||
+            (o.fieldOfStudy ?? null) !== e.fieldOfStudy ||
+            o.startYear !== e.startYear ||
+            (o.endYear ?? null) !== e.endYear ||
+            o.current !== e.current
+          );
+        });
+      const patch: Parameters<typeof meApi.updateProfile>[0] = {};
+      if (photosChanged) patch.workPhotos = photos;
+      if (educationChanged) patch.education = educationOut;
+      return meApi.updateProfile(patch);
     },
     onSuccess: ({ user: updated }) => {
       // Refresh the cached auth user + invalidate any /me reads.
@@ -308,6 +363,10 @@ function ResumeBuilderInner() {
               }}
               onAdd={addDraft}
               canAdd={drafts.length < MAX_JOBS}
+            />
+            <EducationSection
+              education={education}
+              onChange={setEducation}
             />
             <WorkPhotosSection
               photos={photos}
@@ -555,6 +614,193 @@ function EditSlide({
       />
     </View>
   );
+}
+
+/**
+ * Education editor — inline list of degree / institution / years rows
+ * the seeker can add to or remove. Optional for blue-collar workers;
+ * mandatory in practice for white-collar candidates. Rendered on the
+ * Review slide so the seeker sees their full resume in context.
+ */
+function EducationSection({
+  education,
+  onChange,
+}: {
+  education: EducationDraft[];
+  onChange: (next: EducationDraft[]) => void;
+}) {
+  const { theme } = useTheme();
+
+  const update = (i: number, patch: Partial<EducationDraft>) => {
+    onChange(education.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
+  };
+  const remove = (i: number) => {
+    haptic('warning');
+    onChange(education.filter((_, idx) => idx !== i));
+  };
+  const add = () => {
+    haptic('selection');
+    onChange([...education, emptyEducation()]);
+  };
+
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <View style={{ gap: 4 }}>
+        <Text
+          style={{
+            fontSize: 11,
+            fontWeight: '600',
+            letterSpacing: 1.6,
+            color: theme.text.tertiary,
+          }}
+        >
+          EDUCATION · OPTIONAL
+        </Text>
+        <Text
+          style={{ fontSize: 13, color: theme.text.secondary, lineHeight: 19 }}
+        >
+          Degree or training course, school or college, years. Add as many
+          as you have — up to 6.
+        </Text>
+      </View>
+
+      {education.map((e, i) => (
+        <View
+          key={i}
+          style={{
+            backgroundColor: theme.bg.surface,
+            borderRadius: radii.lg,
+            borderWidth: 0.5,
+            borderColor: theme.border.subtle,
+            padding: spacing.md,
+            gap: spacing.sm,
+          }}
+        >
+          <TextInput
+            value={e.degree}
+            onChangeText={(t) => update(i, { degree: t })}
+            placeholder="Degree / course (e.g. B.Com, ITI Electrician)"
+            placeholderTextColor={theme.text.tertiary}
+            style={inputStyle(theme)}
+            autoCapitalize="words"
+          />
+          <TextInput
+            value={e.institution}
+            onChangeText={(t) => update(i, { institution: t })}
+            placeholder="School / college / training centre"
+            placeholderTextColor={theme.text.tertiary}
+            style={inputStyle(theme)}
+            autoCapitalize="words"
+          />
+          <TextInput
+            value={e.fieldOfStudy}
+            onChangeText={(t) => update(i, { fieldOfStudy: t })}
+            placeholder="Field of study (optional)"
+            placeholderTextColor={theme.text.tertiary}
+            style={inputStyle(theme)}
+            autoCapitalize="words"
+          />
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <View style={{ flex: 1 }}>
+              <TextInput
+                value={e.startYear}
+                onChangeText={(t) => update(i, { startYear: t.replace(/[^\d]/g, '') })}
+                placeholder="Start year"
+                placeholderTextColor={theme.text.tertiary}
+                style={inputStyle(theme)}
+                keyboardType="number-pad"
+                maxLength={4}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <TextInput
+                value={e.current ? 'Ongoing' : e.endYear}
+                onChangeText={(t) => update(i, { endYear: t.replace(/[^\d]/g, '') })}
+                placeholder="End year"
+                placeholderTextColor={theme.text.tertiary}
+                style={inputStyle(theme)}
+                editable={!e.current}
+                keyboardType="number-pad"
+                maxLength={4}
+              />
+            </View>
+          </View>
+          <Pressable
+            onPress={() => {
+              haptic('selection');
+              update(i, { current: !e.current });
+            }}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.sm,
+              paddingVertical: 6,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <View
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: 4,
+                borderWidth: 1.5,
+                borderColor: e.current ? '#2563EB' : theme.border.strong,
+                backgroundColor: e.current ? '#2563EB' : 'transparent',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {e.current ? (
+                <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>
+                  ✓
+                </Text>
+              ) : null}
+            </View>
+            <Text style={{ fontSize: 13, color: theme.text.primary }}>
+              Currently studying here
+            </Text>
+          </Pressable>
+          <Pressable onPress={() => remove(i)} hitSlop={6} style={{ alignSelf: 'flex-end' }}>
+            <Text style={{ fontSize: 12, color: '#B91C1C', fontWeight: '600' }}>
+              Remove
+            </Text>
+          </Pressable>
+        </View>
+      ))}
+
+      {education.length < 6 ? (
+        <Pressable
+          onPress={add}
+          style={({ pressed }) => ({
+            padding: spacing.md,
+            borderRadius: radii.lg,
+            borderWidth: 1,
+            borderStyle: 'dashed',
+            borderColor: theme.border.default,
+            alignItems: 'center',
+            opacity: pressed ? 0.65 : 1,
+          })}
+        >
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#2563EB' }}>
+            + Add education
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+function inputStyle(theme: ReturnType<typeof useTheme>['theme']) {
+  return {
+    backgroundColor: theme.bg.canvas,
+    borderWidth: 0.5,
+    borderColor: theme.border.subtle,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    fontSize: 14,
+    color: theme.text.primary,
+  };
 }
 
 /**

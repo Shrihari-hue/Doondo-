@@ -51,6 +51,18 @@ interface ApplyInput {
    * a cover note review).
    */
   asInterest?: boolean;
+  /**
+   * Optional declared team-member list (name + phone). Only persisted
+   * when the seeker's profile workType === 'team' so we don't silently
+   * carry stale teammates from a previous group apply.
+   */
+  teamMembers?: Array<{ name: string; phone: string }>;
+  /**
+   * Optional referrer user id, read from the share-link's ?ref= param.
+   * Recorded as a pending Referral on apply; converted to a paid
+   * bonus when this application reaches `hired`.
+   */
+  referrerId?: string;
 }
 
 export async function apply(input: ApplyInput): Promise<PublicApplication> {
@@ -79,6 +91,18 @@ export async function apply(input: ApplyInput): Promise<PublicApplication> {
   }
 
   try {
+    // Only persist the team-member declaration when this is genuinely a
+    // team application (the seeker's profile says so). Carrying stale
+    // teammates from an old apply on a solo profile would mislead the
+    // employer.
+    const teamMembers =
+      teamSizeSnapshot && Array.isArray(input.teamMembers)
+        ? input.teamMembers.slice(0, 4).map((m) => ({
+            name: m.name.trim(),
+            phone: m.phone.trim(),
+          }))
+        : [];
+
     const app = await ApplicationModel.create({
       seekerId: new Types.ObjectId(input.seekerId),
       jobId: job._id,
@@ -86,6 +110,7 @@ export async function apply(input: ApplyInput): Promise<PublicApplication> {
       coverNote: input.asInterest ? null : input.coverNote ?? null,
       expressedAsInterest: Boolean(input.asInterest),
       teamSizeSnapshot,
+      teamMembers,
       status: 'pending',
       appliedAt: new Date(),
     });
@@ -105,6 +130,21 @@ export async function apply(input: ApplyInput): Promise<PublicApplication> {
       'application submitted',
     );
 
+    // Record referral if a referrer id came in on the apply call.
+    if (input.referrerId) {
+      const { recordReferral } = await import(
+        '@/modules/referrals/referral.service'
+      );
+      void recordReferral({
+        referrerId: input.referrerId,
+        refereeId: input.seekerId,
+        jobId: input.jobId,
+        applicationId: app.id,
+      }).catch((err) =>
+        logger.warn({ err, applicationId: app.id }, 'referral record failed'),
+      );
+    }
+
     // Emit to the seeker so their other devices stay in sync.
     emitToUser(input.seekerId, 'application:status_changed', {
       applicationId: app.id,
@@ -118,6 +158,74 @@ export async function apply(input: ApplyInput): Promise<PublicApplication> {
     if (isDuplicateKey(err)) throw errors.applicationAlreadyExists();
     throw err;
   }
+}
+
+// ─── Cash-paid confirmation ─────────────────────────────────────────────────
+
+export type PaymentAction = 'seeker_confirm' | 'employer_confirm' | 'dispute';
+
+interface ConfirmPaymentInput {
+  applicationId: string;
+  callerId: string;
+  action: PaymentAction;
+  /** Required for action === 'dispute'. */
+  disputeNote?: string;
+}
+
+/**
+ * Marks payment confirmation on an Application. The caller is
+ * authorised based on which side they are on the application:
+ *   - seeker_confirm: only the seekerId may call
+ *   - employer_confirm: only the employerId may call
+ *   - dispute: only the seekerId may call (with optional note)
+ *
+ * Only allowed when the application has reached `hired`. Idempotent —
+ * re-confirming overwrites the timestamp with the latest moment.
+ */
+export async function confirmPayment(
+  input: ConfirmPaymentInput,
+): Promise<PublicApplication> {
+  const app = await ApplicationModel.findById(input.applicationId);
+  if (!app) throw errors.applicationNotFound();
+  if (app.status !== 'hired') {
+    throw errors.conflict(
+      'Can only mark payment after the application is hired.',
+    );
+  }
+
+  const callerObjectId = new Types.ObjectId(input.callerId);
+  const isSeeker = app.seekerId.equals(callerObjectId);
+  const isEmployer = app.employerId.equals(callerObjectId);
+
+  if (input.action === 'seeker_confirm' && !isSeeker) throw errors.forbidden();
+  if (input.action === 'employer_confirm' && !isEmployer) throw errors.forbidden();
+  if (input.action === 'dispute' && !isSeeker) throw errors.forbidden();
+
+  const now = new Date();
+  const next = {
+    seekerConfirmedAt: app.paymentConfirmation?.seekerConfirmedAt ?? null,
+    employerConfirmedAt: app.paymentConfirmation?.employerConfirmedAt ?? null,
+    disputedAt: app.paymentConfirmation?.disputedAt ?? null,
+    disputeNote: app.paymentConfirmation?.disputeNote ?? null,
+  };
+
+  if (input.action === 'seeker_confirm') {
+    next.seekerConfirmedAt = now;
+    // Confirming clears any previous dispute the seeker raised.
+    next.disputedAt = null;
+    next.disputeNote = null;
+  } else if (input.action === 'employer_confirm') {
+    next.employerConfirmedAt = now;
+  } else if (input.action === 'dispute') {
+    next.disputedAt = now;
+    next.disputeNote = input.disputeNote?.trim() || null;
+    // A dispute supersedes the seeker's own previous confirm (if any).
+    next.seekerConfirmedAt = null;
+  }
+
+  app.paymentConfirmation = next;
+  await app.save();
+  return app.toPublicJSON();
 }
 
 // ─── Mass-apply ─────────────────────────────────────────────────────────────
@@ -431,6 +539,23 @@ export async function transitionByEmployer(
         });
       } catch (err) {
         logger.warn({ err, applicationId: app.id }, 'wallet credit failed');
+      }
+    })();
+
+    // If this hire was referred by another seeker, credit the referral
+    // bonus. Idempotent — only fires once per referral row.
+    void (async () => {
+      try {
+        const { creditOnHire: creditReferralOnHire } = await import(
+          '@/modules/referrals/referral.service'
+        );
+        await creditReferralOnHire({
+          refereeId: app.seekerId.toString(),
+          jobId: app.jobId.toString(),
+          applicationId: app.id,
+        });
+      } catch (err) {
+        logger.warn({ err, applicationId: app.id }, 'referral credit failed');
       }
     })();
   }

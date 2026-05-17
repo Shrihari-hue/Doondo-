@@ -65,7 +65,12 @@ export type AppStackParamList = {
    *   - 'this_week' → same as career — full Apply Now flow
    *   - 'career' (default) → existing Apply Now flow, unchanged
    */
-  JobDetail: { jobId: string; fromMode?: 'today' | 'this_week' | 'career' };
+  JobDetail: {
+    jobId: string;
+    fromMode?: 'today' | 'this_week' | 'career';
+    /** Referrer user id when the seeker arrived via a friend's share link. */
+    ref?: string;
+  };
   /** Modal: applicants for one of the employer's jobs. */
   JobApplicants: { jobId: string; jobTitle?: string };
   /** Modal: a single applicant — full seeker profile + actions. */
@@ -156,6 +161,20 @@ export type AppStackParamList = {
   Courses: undefined;
   /** Modal: a single course with its lessons + progress + enroll CTA. */
   CourseDetail: { courseId: string };
+  /** Modal: skill assessments — catalogue + take-test flow. */
+  SkillTests: undefined;
+  /** Modal: interview / trial-day prep — short tips per trade. */
+  InterviewPrep: undefined;
+  /** Modal: contacts-match + invite flow. */
+  FindFriends: undefined;
+  /** Modal: discover + request mentors in your trade. */
+  Mentors: undefined;
+  /** Modal: apply for a small cash advance. */
+  Advance: undefined;
+  /** Modal: opt-in for worker accident cover. */
+  Insurance: undefined;
+  /** Modal: same-day Tinder-style swipe deck for Today-mode jobs. */
+  JobSwipe: undefined;
 };
 
 declare global {

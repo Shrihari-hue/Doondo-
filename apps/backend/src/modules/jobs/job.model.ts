@@ -34,6 +34,15 @@ import { Schema, model, type Model, type HydratedDocument } from 'mongoose';
 export const JOB_TYPES = ['full_time', 'part_time', 'gig', 'shift', 'contract'] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
+/**
+ * Work mode — where the role is actually performed. Defaults to onsite
+ * since most Doondo postings are physical (delivery, construction, etc.).
+ * Surfaced for white-collar / hybrid-office roles where it matters
+ * a lot to the candidate. Filterable on /jobs/nearby.
+ */
+export const WORK_MODES = ['onsite', 'hybrid', 'remote'] as const;
+export type WorkMode = (typeof WORK_MODES)[number];
+
 export const PAY_PERIODS = ['hour', 'day', 'week', 'month', 'fixed'] as const;
 export type PayPeriod = (typeof PAY_PERIODS)[number];
 
@@ -81,6 +90,8 @@ export interface Job {
   pay: Pay;
   location: JobLocation;
   skills: string[];
+  /** Where the role is performed. Defaults to 'onsite'. */
+  workMode: WorkMode;
   schedule?: Schedule | null;
   status: JobStatus;
   /**
@@ -91,6 +102,18 @@ export interface Job {
    * Toggleable by the employer at any time before the job is filled/expired.
    */
   urgent: boolean;
+  /**
+   * Employer-asserted "safe for women" flag.
+   *
+   * Surfaced to seekers as a green shield pill on cards + a filter chip
+   * ("Women-safe only") on the Jobs list. Setting this is a public,
+   * verifiable claim — if an employer abuses it, ratings will reflect.
+   *
+   * Defaults to false so existing posts aren't accidentally tagged.
+   * Hidden from the employer UI unless they actively opt in. Strictly
+   * additive — never used to exclude men from applying.
+   */
+  safeForWomen: boolean;
   /** Counts maintained denormalised for cheap list rendering. */
   applicantsCount: number;
   viewsCount: number;
@@ -136,10 +159,14 @@ export interface PublicJob {
     coordinates: [number, number];
   };
   skills: string[];
+  /** Onsite (default), hybrid, or remote. */
+  workMode: WorkMode;
   schedule: Schedule | null;
   status: JobStatus;
   /** True if the employer has marked this posting as time-sensitive. */
   urgent: boolean;
+  /** Employer-asserted safe-for-women claim. Surfaced as a green pill. */
+  safeForWomen: boolean;
   applicantsCount: number;
   /** Voice description data URL — present only when the employer recorded one. */
   audioDescriptionUrl: string | null;
@@ -228,6 +255,12 @@ const jobSchema = new Schema<Job, JobModelType, JobMethods>(
     pay: { type: paySchema, required: true },
     location: { type: locationSchema, required: true },
     skills: { type: [String], default: [], index: true },
+    workMode: {
+      type: String,
+      enum: WORK_MODES,
+      default: 'onsite',
+      index: true,
+    },
     schedule: { type: scheduleSchema, default: null },
     status: {
       type: String,
@@ -236,6 +269,7 @@ const jobSchema = new Schema<Job, JobModelType, JobMethods>(
       index: true,
     },
     urgent: { type: Boolean, default: false, index: true },
+    safeForWomen: { type: Boolean, default: false, index: true },
     applicantsCount: { type: Number, default: 0, min: 0 },
     viewsCount: { type: Number, default: 0, min: 0 },
     audioDescriptionUrl: {
@@ -286,9 +320,11 @@ jobSchema.method('toPublicJSON', function (this: JobDocument): PublicJob {
       coordinates: this.location.geo.coordinates,
     },
     skills: this.skills,
+    workMode: this.workMode ?? 'onsite',
     schedule: this.schedule ?? null,
     status: this.status,
     urgent: Boolean(this.urgent),
+    safeForWomen: Boolean(this.safeForWomen),
     applicantsCount: this.applicantsCount,
     audioDescriptionUrl: this.audioDescriptionUrl ?? null,
     audioDescriptionDurationSeconds:

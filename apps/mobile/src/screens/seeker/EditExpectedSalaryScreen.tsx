@@ -99,6 +99,10 @@ function EditExpectedSalaryInner() {
   const initialAmount = user?.expectedSalary
     ? Math.round(user.expectedSalary.amount / 100).toString()
     : '';
+  const initialAmountMax =
+    user?.expectedSalary?.amountMax != null
+      ? Math.round(user.expectedSalary.amountMax / 100).toString()
+      : '';
   const smartDefault = useMemo(
     () => defaultPeriodFor(user?.preferredJobTypes),
     [user?.preferredJobTypes],
@@ -106,6 +110,7 @@ function EditExpectedSalaryInner() {
   const initialPeriod: Period = user?.expectedSalary?.period ?? smartDefault;
 
   const [amount, setAmount] = useState(initialAmount);
+  const [amountMax, setAmountMax] = useState(initialAmountMax);
   const [period, setPeriod] = useState<Period>(initialPeriod);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,9 +120,20 @@ function EditExpectedSalaryInner() {
       if (!Number.isFinite(rupees) || rupees <= 0) {
         throw new Error('Enter a valid amount');
       }
+      let maxPaise: number | null = null;
+      const maxRupees = amountMax.trim()
+        ? Number(amountMax.replace(/[^\d.]/g, ''))
+        : NaN;
+      if (Number.isFinite(maxRupees) && maxRupees > 0) {
+        if (maxRupees < rupees) {
+          throw new Error('Max must be at least the minimum');
+        }
+        maxPaise = Math.round(maxRupees * 100);
+      }
       return meApi.updateProfile({
         expectedSalary: {
           amount: Math.round(rupees * 100),
+          amountMax: maxPaise,
           period,
           currency: 'INR',
         },
@@ -278,13 +294,36 @@ function EditExpectedSalaryInner() {
           >
             AMOUNT (₹)
           </Text>
-          <TextField
-            label=""
-            value={amount}
-            onChangeText={(t) => setAmount(t.replace(/[^\d]/g, ''))}
-            keyboardType="number-pad"
-            placeholder={activePeriodMeta.samplePrompt}
-          />
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <View style={{ flex: 1 }}>
+              <TextField
+                label="Minimum"
+                value={amount}
+                onChangeText={(t) => setAmount(t.replace(/[^\d]/g, ''))}
+                keyboardType="number-pad"
+                placeholder={activePeriodMeta.samplePrompt}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <TextField
+                label="Maximum (optional)"
+                value={amountMax}
+                onChangeText={(t) => setAmountMax(t.replace(/[^\d]/g, ''))}
+                keyboardType="number-pad"
+                placeholder="Stretch target"
+              />
+            </View>
+          </View>
+          <Text
+            style={{
+              fontSize: 11,
+              color: theme.text.tertiary,
+              lineHeight: 16,
+            }}
+          >
+            White-collar candidates: set both for a range. Daily-wage workers:
+            leave Maximum empty.
+          </Text>
         </View>
 
         {/* Live preview of what employers will see */}
@@ -316,7 +355,11 @@ function EditExpectedSalaryInner() {
                 marginTop: 4,
               }}
             >
-              ₹{Number(amount).toLocaleString()} {periodSuffix(period)}
+              ₹{Number(amount).toLocaleString()}
+              {amountMax.trim() && Number(amountMax) > Number(amount)
+                ? `–₹${Number(amountMax).toLocaleString()}`
+                : ''}{' '}
+              {periodSuffix(period)}
             </Text>
           </View>
         )}

@@ -29,7 +29,11 @@ export type SecureKey =
    * across sessions so the worker isn't bounced back to a default
    * every time they reopen the app.
    */
-  | 'homeMode';
+  | 'homeMode'
+  /** Accessibility text-scale multiplier, stored as a string ("1.0".."1.5"). */
+  | 'textScale'
+  /** Accessibility text-to-speech toggle, stored as "true" / "false". */
+  | 'ttsEnabled';
 
 const PREFIX = 'doondo:';
 const memoryFallback = new Map<string, string>();

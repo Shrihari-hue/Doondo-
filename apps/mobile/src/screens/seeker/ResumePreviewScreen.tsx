@@ -33,6 +33,10 @@ import { haptic } from '@/lib/haptics';
 import { meApi } from '@/api/me.api';
 import { alertsApi } from '@/api/alerts.api';
 import { coursesApi } from '@/api/courses.api';
+import { endorsementsApi } from '@/api/endorsements.api';
+import { skillTestsApi } from '@/api/skillTests.api';
+import { shareResumePdf } from '@/lib/resumePdf';
+import { prettifySkill } from '@/lib/trades';
 import { ApiError } from '@/api/errors';
 import {
   formatRange,
@@ -85,9 +89,41 @@ function ResumePreviewInner() {
     },
   });
 
+  // Pull earned badges to embed in the PDF. Cached aggressively because
+  // the user already saw the same data on screen above; another fetch is
+  // wasted on most renders.
+  const badgesQuery = useQuery({
+    queryKey: ['enrollments', 'me'],
+    queryFn: () => coursesApi.myEnrollments(),
+    staleTime: 60_000,
+    enabled: !!user,
+  });
+  const catalogueQuery = useQuery({
+    queryKey: ['courses', 'catalogue'],
+    queryFn: () => coursesApi.list(),
+    staleTime: 60_000,
+    enabled: !!user,
+  });
+
   const onShare = async () => {
     if (!user) return;
     haptic('selection');
+
+    // Resolve earned badges to embed in the PDF. Fine if empty.
+    const courseById = new Map(
+      (catalogueQuery.data?.courses ?? []).map((c) => [c.id, c]),
+    );
+    const earnedBadges = (badgesQuery.data?.enrollments ?? [])
+      .filter((e) => e.completedAt)
+      .map((e) => courseById.get(e.courseId))
+      .filter((c): c is NonNullable<typeof c> => c != null);
+
+    // Try PDF first — recruiters expect a real file. If expo-print
+    // isn't available or the device can't share, fall back silently
+    // to the existing plain-text path so the button never feels broken.
+    const pdf = await shareResumePdf({ user, badges: earnedBadges });
+    if (pdf.ok) return;
+
     try {
       await Share.share({
         title: `${user.name} — Resume`,
@@ -333,6 +369,49 @@ function ResumePreviewInner() {
           </View>
         </Section>
 
+        {/* Education — shown only when the seeker has added entries. */}
+        {user.education && user.education.length > 0 ? (
+          <Section title={`EDUCATION · ${user.education.length}`}>
+            <View style={{ gap: spacing.sm }}>
+              {user.education.map((e, i) => (
+                <View
+                  key={`${e.degree}-${e.startYear}-${i}`}
+                  style={cardStyle(theme)}
+                >
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      fontWeight: '700',
+                      color: theme.text.primary,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {e.degree}
+                    {e.fieldOfStudy ? `, ${e.fieldOfStudy}` : ''}
+                  </Text>
+                  <Text
+                    style={{ fontSize: 13, color: theme.text.secondary, marginTop: 2 }}
+                    numberOfLines={1}
+                  >
+                    {e.institution}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 2 }}>
+                    {e.startYear} — {e.current ? 'Present' : e.endYear ?? '—'}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </Section>
+        ) : null}
+
+        {/* Verified-trade pills — surfaced when 3+ employers have
+           endorsed the seeker on a trade. Highest trust signal we have. */}
+        <VerifiedTradesSection seekerId={user.id} />
+
+        {/* Tested-trade pills — surfaced when the seeker has passed the
+           skill assessment for that trade. Complementary to verified. */}
+        <TestedTradesSection seekerId={user.id} />
+
         {/* Earned course badges — taps through to Courses. Hidden when
            the seeker hasn't finished any course yet. */}
         <BadgesSection />
@@ -340,36 +419,10 @@ function ResumePreviewInner() {
         {/* Work photos — horizontal carousel shown only when there are
            photos. Tap a photo for a fuller view (system image viewer). */}
         {user.workPhotos && user.workPhotos.length > 0 ? (
-          <Section title={`PHOTOS · ${user.workPhotos.length}`}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{
-                gap: spacing.sm,
-                paddingRight: spacing.lg,
-              }}
-            >
-              {user.workPhotos.map((uri, i) => (
-                <View
-                  key={`${uri.slice(-20)}-${i}`}
-                  style={{
-                    width: 220,
-                    height: 160,
-                    borderRadius: radii.lg,
-                    overflow: 'hidden',
-                    borderWidth: 0.5,
-                    borderColor: theme.border.subtle,
-                    backgroundColor: theme.bg.surface,
-                  }}
-                >
-                  <Image
-                    source={{ uri }}
-                    style={{ width: '100%', height: '100%' }}
-                  />
-                </View>
-              ))}
-            </ScrollView>
-          </Section>
+          <WorkPhotosWithVerifyBadges
+            photos={user.workPhotos}
+            seekerId={user.id}
+          />
         ) : null}
 
         {/* Footer signature */}
@@ -580,6 +633,178 @@ function SuggestionCard({
  * is a small 🏅 + course-title pill. Hidden entirely when the seeker
  * hasn't finished any course.
  */
+/**
+ * Work photos with verified-by-employer badges. Photos with at least
+ * one verification get a green "✓ Verified" corner pill, so recruiters
+ * and employers reading the resume see the photo trust signal inline
+ * with the photo itself.
+ */
+function WorkPhotosWithVerifyBadges({
+  photos,
+  seekerId,
+}: {
+  photos: string[];
+  seekerId: string;
+}) {
+  const { theme } = useTheme();
+  const verifyQuery = useQuery({
+    queryKey: ['photoVerifications', seekerId],
+    queryFn: () => endorsementsApi.listPhotoVerifications(seekerId),
+    staleTime: 60_000,
+  });
+  const counts = new Map(
+    (verifyQuery.data?.verifications ?? []).map((v) => [v.photoIndex, v.count]),
+  );
+  return (
+    <Section title={`PHOTOS · ${photos.length}`}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          gap: spacing.sm,
+          paddingRight: spacing.lg,
+        }}
+      >
+        {photos.map((uri, i) => {
+          const count = counts.get(i) ?? 0;
+          return (
+            <View
+              key={`${uri.slice(-20)}-${i}`}
+              style={{
+                width: 220,
+                height: 160,
+                borderRadius: radii.lg,
+                overflow: 'hidden',
+                borderWidth: 0.5,
+                borderColor: theme.border.subtle,
+                backgroundColor: theme.bg.surface,
+              }}
+            >
+              <Image source={{ uri }} style={{ width: '100%', height: '100%' }} />
+              {count > 0 ? (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    left: 8,
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: radii.pill,
+                    backgroundColor: 'rgba(16, 185, 129, 0.92)',
+                  }}
+                >
+                  <Text
+                    style={{ fontSize: 11, color: '#FFFFFF', fontWeight: '700' }}
+                  >
+                    ✓ Verified by employer
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+      </ScrollView>
+    </Section>
+  );
+}
+
+/**
+ * Tested-trade pills — surfaced when the seeker has passed a skill
+ * assessment. Smaller trust signal than employer endorsements (one
+ * seeker can take the test alone) but a real one — they showed they
+ * know the trade fundamentals.
+ */
+function TestedTradesSection({ seekerId }: { seekerId: string }) {
+  const passed = useQuery({
+    queryKey: ['skillTests', 'passed', seekerId],
+    queryFn: () => skillTestsApi.passedForSeeker(seekerId),
+    staleTime: 60_000,
+  });
+  const catalogue = useQuery({
+    queryKey: ['skillTests', 'catalogue'],
+    queryFn: () => skillTestsApi.list(),
+    staleTime: 60_000,
+  });
+  const testIds = passed.data?.passedTestIds ?? [];
+  if (testIds.length === 0) return null;
+  const titles = new Map((catalogue.data?.tests ?? []).map((t) => [t.id, t]));
+  return (
+    <Section title={`TESTED · ${testIds.length}`}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+        {testIds.map((id) => {
+          const t = titles.get(id);
+          return (
+            <View
+              key={id}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+                borderRadius: radii.pill,
+                backgroundColor: '#FEF3C7',
+                borderWidth: 0.5,
+                borderColor: '#FDE68A',
+              }}
+            >
+              <Text style={{ fontSize: 14 }}>🧠</Text>
+              {t ? <Text style={{ fontSize: 12 }}>{t.emoji}</Text> : null}
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#78350F' }}>
+                Tested: {t ? t.title : prettifySkill(id)}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    </Section>
+  );
+}
+
+/**
+ * Verified-trade pills — only shown when at least one trade has crossed
+ * the endorsement threshold. Each pill says "✓ Verified electrician"
+ * with the endorser count.
+ */
+function VerifiedTradesSection({ seekerId }: { seekerId: string }) {
+  const query = useQuery({
+    queryKey: ['endorsements', seekerId],
+    queryFn: () => endorsementsApi.listForSeeker(seekerId),
+    staleTime: 60_000,
+  });
+  const verified = (query.data?.endorsements ?? []).filter((e) => e.verified);
+  if (verified.length === 0) return null;
+  return (
+    <Section title={`VERIFIED TRADES · ${verified.length}`}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+        {verified.map((v) => (
+          <View
+            key={v.trade}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 4,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm,
+              borderRadius: radii.pill,
+              backgroundColor: '#D1FAE5',
+              borderWidth: 0.5,
+              borderColor: '#86EFAC',
+            }}
+          >
+            <Text style={{ fontSize: 14 }}>✓</Text>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#065F46' }}>
+              {prettifySkill(v.trade)}
+              {' · '}
+              {v.count} {v.count === 1 ? 'employer' : 'employers'}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </Section>
+  );
+}
+
 function BadgesSection() {
   const enrollmentsQuery = useQuery({
     queryKey: ['enrollments', 'me'],

@@ -17,14 +17,15 @@
  * No fake data. Empty state when there are no applications yet.
  */
 
-import { FlatList, Pressable, RefreshControl, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, LoadingSpinner, EmptyState } from '@/components';
+import { Screen, Text, LoadingSpinner, EmptyState, PaymentConfirmationPanel } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
 import { useUnratedApplications } from '@/hooks/useRatings';
@@ -56,6 +57,46 @@ function MyApplicationsInner() {
   }
 
   const applications = query.data?.applications ?? [];
+
+  // Pipeline filter — defaults to "Open" (anything not terminal) since
+  // that's what seekers want to see day-to-day. Counts drive the chip
+  // labels so the screen reads as a real status dashboard.
+  const [filter, setFilter] = useState<
+    'open' | 'all' | ApplicationStatus
+  >('open');
+
+  const counts = useMemo(() => {
+    const c: Record<ApplicationStatus, number> = {
+      pending: 0,
+      viewed: 0,
+      shortlisted: 0,
+      rejected: 0,
+      hired: 0,
+      withdrawn: 0,
+    };
+    for (const a of applications) c[a.status]++;
+    return {
+      ...c,
+      open: c.pending + c.viewed + c.shortlisted,
+      all: applications.length,
+    };
+  }, [applications]);
+
+  const filtered = useMemo(() => {
+    if (filter === 'all') return applications;
+    if (filter === 'open') {
+      return applications.filter((a) =>
+        ['pending', 'viewed', 'shortlisted'].includes(a.status),
+      );
+    }
+    return applications.filter((a) => a.status === filter);
+  }, [applications, filter]);
+
+  // Whether someone has an interview scheduled — surfaced as a callout
+  // because it's the highest-value status to know about at a glance.
+  const interviewCount = applications.filter(
+    (a) => a.interview && a.interview.status === 'scheduled',
+  ).length;
 
   function openJob(jobId: string) {
     haptic('selection');
@@ -89,6 +130,76 @@ function MyApplicationsInner() {
         </Text>
       </View>
 
+      {/* Pipeline summary line — what's actually moving right now. */}
+      {applications.length > 0 ? (
+        <View style={{ paddingHorizontal: spacing.xl, marginBottom: spacing.sm }}>
+          <Text
+            style={{
+              fontSize: 13,
+              color: theme.text.secondary,
+              lineHeight: 19,
+            }}
+          >
+            {counts.open} awaiting reply · {counts.shortlisted} shortlisted ·{' '}
+            {interviewCount} interview{interviewCount === 1 ? '' : 's'} · {counts.hired} hired
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Status filter chips */}
+      {applications.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: spacing.xl,
+            gap: spacing.xs,
+            paddingBottom: spacing.sm,
+          }}
+        >
+          {(
+            [
+              { key: 'open', label: 'Open', count: counts.open },
+              { key: 'shortlisted', label: 'Shortlisted', count: counts.shortlisted },
+              { key: 'hired', label: 'Hired', count: counts.hired },
+              { key: 'rejected', label: 'Rejected', count: counts.rejected },
+              { key: 'all', label: 'All', count: counts.all },
+            ] as const
+          ).map((f) => {
+            const active = filter === f.key;
+            return (
+              <Pressable
+                key={f.key}
+                onPress={() => {
+                  haptic('selection');
+                  setFilter(f.key);
+                }}
+                style={({ pressed }) => ({
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.sm - 2,
+                  borderRadius: radii.pill,
+                  backgroundColor: active ? '#2563EB' : theme.bg.surface,
+                  borderWidth: active ? 0 : 1,
+                  borderColor: theme.border.default,
+                  opacity: pressed ? 0.85 : 1,
+                })}
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '700',
+                    color: active ? '#FFFFFF' : theme.text.primary,
+                  }}
+                >
+                  {f.label}
+                  {f.count > 0 ? ` · ${f.count}` : ''}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+
       {query.isLoading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <LoadingSpinner />
@@ -117,7 +228,7 @@ function MyApplicationsInner() {
             paddingBottom: spacing['5xl'],
             gap: spacing.md,
           }}
-          data={applications}
+          data={filtered}
           keyExtractor={(a) => a.id}
           refreshControl={
             <RefreshControl
@@ -175,6 +286,15 @@ function MyApplicationsInner() {
                   </View>
                   <StatusPill status={item.status} />
                 </View>
+
+                {/* Payment confirmation — only when hired. */}
+                {item.status === 'hired' ? (
+                  <PaymentConfirmationPanel
+                    application={item}
+                    role="seeker"
+                    invalidateQueryKeys={[['applications', 'me']]}
+                  />
+                ) : null}
 
                 {item.interview && item.status === 'hired' && (
                   <View
