@@ -53,10 +53,23 @@ async function loadTts(): Promise<boolean> {
   return (await getSecure('ttsEnabled')) === 'true';
 }
 
-function getSpeech(): typeof import('expo-speech') | null {
+interface SpeechModule {
+  speak: (text: string, options?: { language?: string; rate?: number }) => void;
+  stop: () => Promise<void>;
+  isSpeakingAsync?: () => Promise<boolean>;
+}
+
+function getSpeech(): SpeechModule | null {
+  // Indirect require — Metro's static analyzer skips this because the
+  // module name comes from a variable, so the bundle succeeds even if
+  // expo-speech isn't installed. At runtime, if the package is present
+  // the require resolves; otherwise the catch returns null.
   try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, prefer-const
+    const name = 'expo-speech';
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require('expo-speech') as typeof import('expo-speech');
+    const mod = require(name);
+    return mod as SpeechModule;
   } catch {
     return null;
   }

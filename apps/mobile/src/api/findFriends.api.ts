@@ -31,10 +31,17 @@ export async function sha256Hex(input: string): Promise<string> {
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
   }
-  // Defensive fallback — try expo-crypto if available.
+  // Defensive fallback — try expo-crypto if available. Indirect require
+  // so Metro doesn't try to resolve a package that may not be installed.
   try {
+    interface CryptoMod {
+      digestStringAsync: (alg: string, value: string) => Promise<string>;
+      CryptoDigestAlgorithm: { SHA256: string };
+    }
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const ExpoCrypto = require('expo-crypto') as typeof import('expo-crypto');
+    const name = 'expo-crypto';
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const ExpoCrypto = require(name) as CryptoMod;
     if (ExpoCrypto?.digestStringAsync) {
       return ExpoCrypto.digestStringAsync(
         ExpoCrypto.CryptoDigestAlgorithm.SHA256,

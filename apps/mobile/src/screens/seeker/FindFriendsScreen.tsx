@@ -53,10 +53,22 @@ function Inner() {
 
   async function scan() {
     setState({ kind: 'loading' });
-    let Contacts: typeof import('expo-contacts') | null = null;
+    // Indirect require — Metro can't statically resolve a variable
+    // module name, so the bundle succeeds even when expo-contacts isn't
+    // installed. The UI degrades gracefully when the package is absent.
+    interface ContactsModule {
+      requestPermissionsAsync: () => Promise<{ status: string }>;
+      getContactsAsync: (opts: { fields: string[]; pageSize?: number }) => Promise<{
+        data: Array<{ phoneNumbers?: Array<{ number?: string }> }>;
+      }>;
+      Fields: { PhoneNumbers: string };
+    }
+    let Contacts: ContactsModule | null = null;
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      Contacts = require('expo-contacts') as typeof import('expo-contacts');
+      const name = 'expo-contacts';
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      Contacts = require(name) as ContactsModule;
     } catch {
       setState({
         kind: 'unsupported',

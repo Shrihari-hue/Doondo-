@@ -30,8 +30,13 @@ function tryInit(): void {
   const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
   if (!dsn) return;
   try {
+    // Indirect require so Metro doesn't fail when sentry-expo isn't
+    // installed. Once you add the dep + DSN, Sentry initialises at
+    // runtime and starts capturing.
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require('sentry-expo') as Record<string, unknown>;
+    const name = 'sentry-expo';
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require(name) as Record<string, unknown>;
     const initFn = (mod.init ?? (mod as { default?: { init?: unknown } }).default?.init) as
       | ((opts: Record<string, unknown>) => void)
       | undefined;

@@ -31,8 +31,13 @@ function tryInit(): void {
   const dsn = process.env.SENTRY_DSN;
   if (!dsn) return;
   try {
+    // Indirect require so the backend builds cleanly even when
+    // @sentry/node isn't installed. Once you add the dep + DSN, this
+    // resolves at runtime and starts capturing.
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require('@sentry/node') as SentryLike;
+    const name = '@sentry/node';
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require(name) as SentryLike;
     if (!mod?.init) return;
     mod.init({
       dsn,
