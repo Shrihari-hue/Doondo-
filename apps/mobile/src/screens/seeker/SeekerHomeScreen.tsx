@@ -43,6 +43,7 @@ import { jobsApi } from '@/api/jobs.api';
 import { getCurrentCoords, type Coords } from '@/lib/location';
 import { haptic } from '@/lib/haptics';
 import { getSecure, setSecure } from '@/lib/secureStore';
+import { useTranslate } from '@/i18n/useTranslate';
 import { DenseJobFeed } from './home/DenseJobFeed';
 import { AvailabilityBeaconChip } from './home/AvailabilityBeacon';
 import { LocalWageWidget } from './home/LocalWageWidget';
@@ -87,6 +88,7 @@ export function SeekerHomeScreen() {
   const { user } = useAuth();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const t = useTranslate();
 
   const [coords, setCoords] = useState<Coords | null>(null);
 
@@ -355,7 +357,7 @@ export function SeekerHomeScreen() {
                   letterSpacing: -0.2,
                 }}
               >
-                Find jobs through voice
+                {t('home.voice_card.title')}
               </Text>
               <Text
                 style={{
@@ -364,7 +366,7 @@ export function SeekerHomeScreen() {
                   color: 'rgba(255,255,255,0.82)',
                 }}
               >
-                Tell us what work you want
+                {t('home.voice_card.hint')}
               </Text>
             </View>
             <View
@@ -402,7 +404,7 @@ export function SeekerHomeScreen() {
                 color: theme.text.tertiary,
               }}
             >
-              JOB CATEGORIES
+              {t('home.categories').toUpperCase()}
             </Text>
             <Pressable
               hitSlop={6}
@@ -415,7 +417,7 @@ export function SeekerHomeScreen() {
                   color: theme.brand.hero,
                 }}
               >
-                View all
+                {t('home.view_all')}
               </Text>
             </Pressable>
           </View>
@@ -480,7 +482,7 @@ export function SeekerHomeScreen() {
                 color: theme.text.tertiary,
               }}
             >
-              NEARBY JOBS
+              {t('home.nearby_jobs').toUpperCase()}
             </Text>
             <Pressable
               hitSlop={6}
@@ -493,7 +495,7 @@ export function SeekerHomeScreen() {
                   color: theme.brand.hero,
                 }}
               >
-                See more
+                {t('home.see_more')}
               </Text>
             </Pressable>
           </View>

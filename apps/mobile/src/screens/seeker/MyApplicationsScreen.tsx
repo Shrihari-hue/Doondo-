@@ -25,7 +25,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, LoadingSpinner, EmptyState, PaymentConfirmationPanel } from '@/components';
+import { Screen, Text, LoadingSpinner, EmptyState, PaymentConfirmationPanel, ErrorPanel } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
 import { useUnratedApplications } from '@/hooks/useRatings';
@@ -205,11 +205,7 @@ function MyApplicationsInner() {
           <LoadingSpinner />
         </View>
       ) : query.isError ? (
-        <EmptyState
-          title="Couldn't load applications"
-          message="Check your connection and try again."
-          cta={{ label: 'Retry', onPress: () => void query.refetch() }}
-        />
+        <ErrorPanel error={query.error} onRetry={() => void query.refetch()} />
       ) : applications.length === 0 ? (
         <EmptyState
           glyph="✉"

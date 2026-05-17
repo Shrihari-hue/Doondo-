@@ -17,7 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, LoadingSpinner, EmptyState } from '@/components';
+import { Screen, Text, LoadingSpinner, EmptyState, ErrorPanel } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { jobsApi } from '@/api/jobs.api';
 import { applicationsApi } from '@/api/applications.api';
@@ -149,11 +149,7 @@ function MyJobsInner() {
           <LoadingSpinner />
         </View>
       ) : activeQuery.isError ? (
-        <EmptyState
-          title="Couldn't load jobs"
-          message="Check your connection and try again."
-          cta={{ label: 'Retry', onPress: () => void activeQuery.refetch() }}
-        />
+        <ErrorPanel error={activeQuery.error} onRetry={() => void activeQuery.refetch()} />
       ) : activeList.length === 0 ? (
         <EmptyState
           glyph={tab === 'saved' ? '♡' : '✉'}

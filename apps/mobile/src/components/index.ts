@@ -14,3 +14,4 @@ export { DoondoMark, DoondoLockup } from './DoondoLogo';
 export { Stars } from './Stars';
 export { NotificationsBell } from './NotificationsBell';
 export { PaymentConfirmationPanel } from './PaymentConfirmationPanel';
+export { ErrorPanel } from './ErrorPanel';

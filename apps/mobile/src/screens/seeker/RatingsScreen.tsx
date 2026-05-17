@@ -12,7 +12,7 @@ import { FlatList, Pressable, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, Card, Avatar, LoadingSpinner, EmptyState, Stars } from '@/components';
+import { Screen, Text, Card, Avatar, LoadingSpinner, EmptyState, Stars, ErrorPanel } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRatings } from '@/hooks/useRatings';
@@ -59,11 +59,7 @@ function RatingsScreenInner() {
           <LoadingSpinner />
         </View>
       ) : isError ? (
-        <EmptyState
-          title="Couldn't load ratings"
-          message="Check your connection and try again."
-          cta={{ label: 'Retry', onPress: () => void refetch() }}
-        />
+        <ErrorPanel error={null} onRetry={() => void refetch()} title="Couldn't load ratings" />
       ) : !data || data.ratings.length === 0 ? (
         <EmptyState
           title="No ratings yet"

@@ -57,6 +57,47 @@ router.use('/', advancesRouter);
 // Accident insurance opt-in.
 router.use('/', insuranceRouter);
 
+// Per-type push notification preferences.
+router.get('/notification-prefs', requireAuth, async (req, res, next) => {
+  try {
+    const { UserModel } = await import('@/modules/users/user.model');
+    const u = await UserModel.findById(req.user!.id).select('notificationPrefs').lean();
+    const prefs =
+      (u as { notificationPrefs?: Record<string, boolean> } | null)?.notificationPrefs ?? {};
+    res.json({
+      prefs: {
+        jobs: prefs.jobs ?? true,
+        applications: prefs.applications ?? true,
+        messages: prefs.messages ?? true,
+        ratings: prefs.ratings ?? true,
+        referrals: prefs.referrals ?? true,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/notification-prefs', requireAuth, async (req, res, next) => {
+  try {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const allowed = ['jobs', 'applications', 'messages', 'ratings', 'referrals'];
+    const update: Record<string, boolean> = {};
+    for (const k of allowed) {
+      if (typeof body[k] === 'boolean') update[`notificationPrefs.${k}`] = body[k] as boolean;
+    }
+    if (Object.keys(update).length === 0) {
+      res.status(400).json({ error: 'No valid prefs supplied.' });
+      return;
+    }
+    const { UserModel } = await import('@/modules/users/user.model');
+    await UserModel.updateOne({ _id: req.user!.id }, { $set: update });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Find Friends — body { phoneHashes: string[] } → matched users.
 router.post('/find-friends', requireAuth, async (req, res, next) => {
   try {

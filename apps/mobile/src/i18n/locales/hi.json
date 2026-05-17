@@ -9,6 +9,12 @@
     "retry": "दोबारा करें",
     "loading": "लोड हो रहा है…"
   },
+  "tabs": {
+    "home": "होम",
+    "jobs": "नौकरियाँ",
+    "chat": "चैट",
+    "profile": "प्रोफ़ाइल"
+  },
   "home": {
     "title": "Doondo",
     "modes": {
@@ -43,7 +49,9 @@
       "activity": "गतिविधि",
       "account": "खाता",
       "resume": "रिज्यूमे",
-      "skills": "कौशल"
+      "skills": "कौशल",
+      "expected_salary": "अपेक्षित वेतन",
+      "skills_gap": "आपके पास नौकरियों के लिए कौशल अंतर"
     }
   },
   "settings": {

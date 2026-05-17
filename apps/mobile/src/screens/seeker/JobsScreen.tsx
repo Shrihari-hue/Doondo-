@@ -31,7 +31,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { spacing, radii, coral, champagne } from '@doondo/tokens';
-import { Screen, Text, Pill, Card, LoadingSpinner, SkeletonCard, Avatar, EmptyState, Button } from '@/components';
+import { Screen, Text, Pill, Card, LoadingSpinner, SkeletonCard, Avatar, EmptyState, Button, ErrorPanel } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { jobsApi } from '@/api/jobs.api';
 import { applicationsApi, type MassApplyResult } from '@/api/applications.api';
@@ -264,13 +264,7 @@ export function JobsScreen() {
                 <SkeletonCard />
               </View>
             ) : query.isError ? (
-              <EmptyState
-                glyph="✕"
-                tone="warning"
-                eyebrow="OFFLINE"
-                title="Couldn't load jobs"
-                message="Check your connection and pull down to retry."
-              />
+              <ErrorPanel error={query.error} onRetry={() => void query.refetch()} />
             ) : (
               <EmptyState
                 glyph="◔"

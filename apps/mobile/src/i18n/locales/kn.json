@@ -9,6 +9,12 @@
     "retry": "ಮತ್ತೊಮ್ಮೆ",
     "loading": "ಲೋಡ್ ಆಗುತ್ತಿದೆ…"
   },
+  "tabs": {
+    "home": "ಮುಖಪುಟ",
+    "jobs": "ಕೆಲಸಗಳು",
+    "chat": "ಚಾಟ್",
+    "profile": "ಪ್ರೊಫೈಲ್"
+  },
   "home": {
     "title": "Doondo",
     "modes": {
@@ -41,7 +47,10 @@
     "sections": {
       "activity": "ಚಟುವಟಿಕೆ",
       "account": "ಖಾತೆ",
-      "resume": "ರೆಸ್ಯೂಮ್"
+      "resume": "ರೆಸ್ಯೂಮ್",
+      "skills": "ಕೌಶಲ್ಯಗಳು",
+      "expected_salary": "ನಿರೀಕ್ಷಿತ ಸಂಬಳ",
+      "skills_gap": "ನಿಮ್ಮ ಸಮೀಪದ ಕೌಶಲ್ಯ ಅಂತರ"
     }
   },
   "settings": {

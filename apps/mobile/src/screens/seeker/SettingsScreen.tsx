@@ -40,6 +40,12 @@ import {
   TEXT_SCALE_STEPS,
   type TextScale,
 } from '@/lib/accessibility';
+import {
+  notificationPrefsApi,
+  DEFAULT_PREFS,
+  type NotificationPrefs,
+} from '@/api/notificationPrefs.api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -57,29 +63,37 @@ function SettingsInner() {
   const { locale, setLocale } = useLocale();
   const t = useTranslate();
   const access = useAccessibility();
+  const queryClient = useQueryClient();
 
-  const [notificationsOn, setNotificationsOn] = useState(true);
+  // Per-type push notification prefs from /me/notification-prefs.
+  const prefsQuery = useQuery({
+    queryKey: ['notification-prefs'],
+    queryFn: () => notificationPrefsApi.get(),
+    staleTime: 60 * 1000,
+  });
+  const prefs: NotificationPrefs = prefsQuery.data?.prefs ?? DEFAULT_PREFS;
+  const saveMut = useMutation({
+    mutationFn: (patch: Partial<NotificationPrefs>) =>
+      notificationPrefsApi.save(patch),
+    onMutate: (patch) => {
+      // Optimistic update so the switch animates immediately.
+      queryClient.setQueryData(['notification-prefs'], (old: { prefs: NotificationPrefs } | undefined) => ({
+        prefs: { ...(old?.prefs ?? DEFAULT_PREFS), ...patch },
+      }));
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['notification-prefs'] }),
+  });
 
-  // Hydrate non-locale prefs on mount. (Locale itself comes from the
-  // LanguageProvider — no need to read secure-store for it here.)
-  useEffect(() => {
-    void (async () => {
-      const notif = await getSecure('notificationsEnabled');
-      if (notif === 'false') setNotificationsOn(false);
-    })();
-  }, []);
+  function toggleType(k: keyof NotificationPrefs) {
+    haptic('selection');
+    saveMut.mutate({ [k]: !prefs[k] });
+  }
 
   function pickLanguage(code: LangCode) {
     haptic('selection');
     // Fire-and-forget — setLocale() persists + triggers a re-render via
     // the provider context. We don't need to await it before continuing.
     void setLocale(code).catch(() => undefined);
-  }
-
-  function toggleNotifications(value: boolean) {
-    haptic('selection');
-    setNotificationsOn(value);
-    void setSecure('notificationsEnabled', String(value)).catch(() => undefined);
   }
 
   function confirmSignOut() {
@@ -196,34 +210,47 @@ function SettingsInner() {
           </Text>
         </Section>
 
-        {/* Notifications */}
+        {/* Notifications — granular per-type toggles */}
         <Section title={t('settings.notifications').toUpperCase()}>
           <View style={cardStyle(theme)}>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingHorizontal: spacing.lg,
-                paddingVertical: spacing.md,
-              }}
-            >
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text
-                  style={{ fontSize: 15, fontWeight: '500', color: theme.text.primary }}
-                >
-                  {t('settings.push_notifications')}
-                </Text>
-                <Text style={{ fontSize: 12, color: theme.text.tertiary }}>
-                  {t('settings.push_notifications_hint')}
-                </Text>
-              </View>
-              <Switch
-                value={notificationsOn}
-                onValueChange={toggleNotifications}
-                trackColor={{ false: theme.bg.muted, true: theme.brand.hero }}
-              />
-            </View>
+            <PrefRow
+              label="New jobs"
+              hint="Posts that match your skills and location"
+              value={prefs.jobs}
+              onChange={() => toggleType('jobs')}
+            />
+            <Divider color={theme.border.subtle} />
+            <PrefRow
+              label="Application updates"
+              hint="Shortlisted, hired, declined"
+              value={prefs.applications}
+              onChange={() => toggleType('applications')}
+            />
+            <Divider color={theme.border.subtle} />
+            <PrefRow
+              label="Messages"
+              hint="Chats from employers"
+              value={prefs.messages}
+              onChange={() => toggleType('messages')}
+            />
+            <Divider color={theme.border.subtle} />
+            <PrefRow
+              label="Ratings"
+              hint="When an employer rates your work"
+              value={prefs.ratings}
+              onChange={() => toggleType('ratings')}
+            />
+            <Divider color={theme.border.subtle} />
+            <PrefRow
+              label="Referrals"
+              hint="When a friend you referred gets hired"
+              value={prefs.referrals}
+              onChange={() => toggleType('referrals')}
+            />
           </View>
+          <Text style={{ fontSize: 11, color: theme.text.tertiary, marginTop: 6 }}>
+            Turning a category off stops both push and in-app banners for that type.
+          </Text>
         </Section>
 
         {/* Theme */}
@@ -491,6 +518,42 @@ function RowAction({
         </Text>
       ) : null}
     </Pressable>
+  );
+}
+
+function PrefRow({
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  value: boolean;
+  onChange: () => void;
+}) {
+  const { theme } = useTheme();
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md,
+      }}
+    >
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ fontSize: 14, fontWeight: '500', color: theme.text.primary }}>
+          {label}
+        </Text>
+        <Text style={{ fontSize: 11, color: theme.text.tertiary }}>{hint}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: theme.bg.muted, true: theme.brand.hero }}
+      />
+    </View>
   );
 }
 

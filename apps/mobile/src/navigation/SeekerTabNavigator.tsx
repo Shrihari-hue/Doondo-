@@ -25,6 +25,7 @@ import { spacing } from '@doondo/tokens';
 import { Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { SeekerHomeScreen } from '@/screens/seeker/SeekerHomeScreen';
 import { JobsScreen } from '@/screens/seeker/JobsScreen';
@@ -34,11 +35,12 @@ import type { AppStackParamList, SeekerTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<SeekerTabParamList>();
 
-const TAB_META: Record<keyof SeekerTabParamList, { label: string; glyph: string }> = {
-  Home: { label: 'Home', glyph: '⌂' },
-  Jobs: { label: 'Jobs', glyph: '◇' },
-  Chat: { label: 'Chat', glyph: '✦' },
-  Profile: { label: 'Profile', glyph: '◉' },
+/** Glyphs only — labels resolve to translations via useTranslate(). */
+const TAB_META: Record<keyof SeekerTabParamList, { i18nKey: string; glyph: string }> = {
+  Home: { i18nKey: 'tabs.home', glyph: '⌂' },
+  Jobs: { i18nKey: 'tabs.jobs', glyph: '◇' },
+  Chat: { i18nKey: 'tabs.chat', glyph: '✦' },
+  Profile: { i18nKey: 'tabs.profile', glyph: '◉' },
 };
 
 export function SeekerTabNavigator() {
@@ -65,6 +67,7 @@ export function SeekerTabNavigator() {
 function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { theme } = useTheme();
   const appNav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const t = useTranslate();
 
   const tabsBeforeMic: Array<keyof SeekerTabParamList> = ['Home', 'Jobs'];
   const tabsAfterMic: Array<keyof SeekerTabParamList> = ['Chat', 'Profile'];
@@ -122,7 +125,7 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             color: isFocused ? theme.brand.hero : theme.text.tertiary,
           }}
         >
-          {meta.label}
+          {t(meta.i18nKey)}
         </Text>
       </Pressable>
     );

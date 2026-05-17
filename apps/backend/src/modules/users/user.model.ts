@@ -145,6 +145,18 @@ export interface User {
    */
   upiVpa?: string | null;
   /**
+   * Per-type push notification toggles. Missing keys default to true
+   * (notifications on). Used by the push fan-out service to filter
+   * sends before they hit the device.
+   */
+  notificationPrefs?: {
+    jobs?: boolean;
+    applications?: boolean;
+    messages?: boolean;
+    ratings?: boolean;
+    referrals?: boolean;
+  };
+  /**
    * High-level "is this account verified" flag. Flipped to `true` once the
    * Phase 5 verification flow completes (phone OTP + selfie + GSTIN format
    * for employers). Stays in lockstep with `verifiedAt` — both set together,
@@ -449,6 +461,19 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
      * over UPI. Optional — the worker can also receive cash.
      */
     upiVpa: { type: String, default: null, lowercase: true, trim: true, maxlength: 80 },
+    notificationPrefs: {
+      type: new Schema(
+        {
+          jobs: { type: Boolean, default: true },
+          applications: { type: Boolean, default: true },
+          messages: { type: Boolean, default: true },
+          ratings: { type: Boolean, default: true },
+          referrals: { type: Boolean, default: true },
+        },
+        { _id: false },
+      ),
+      default: () => ({}),
+    },
     isVerified: { type: Boolean, default: false },
     verificationStatus: {
       type: String,

@@ -17,6 +17,7 @@ import { errorHandler, notFoundHandler } from '@/middleware/error';
 import { generalLimiter } from '@/middleware/rateLimit';
 import v1 from '@/routes/v1';
 import { attachSockets } from '@/sockets';
+import { sentryRequestHandler, sentryErrorHandler } from '@/lib/errorTracking';
 
 export interface BuiltApp {
   app: Express;
@@ -34,6 +35,11 @@ export function buildApp(): BuiltApp {
   }
 
   app.disable('x-powered-by');
+
+  // ─── Sentry request handler (must be first) ─────────────────────────────
+  // Defensive — becomes a pass-through when @sentry/node isn't installed
+  // or SENTRY_DSN isn't set, so this is safe in every environment.
+  app.use(sentryRequestHandler());
 
   // ─── Global middleware ──────────────────────────────────────────────────
   app.use(requestId);
@@ -90,6 +96,9 @@ export function buildApp(): BuiltApp {
 
   // ─── 404 + error handler (must be last) ─────────────────────────────────
   app.use(notFoundHandler);
+  // Sentry's error handler must come BEFORE our app's error handler so
+  // it captures the exception before we serialise the response.
+  app.use(sentryErrorHandler());
   app.use(errorHandler);
 
   // ─── Sockets ────────────────────────────────────────────────────────────

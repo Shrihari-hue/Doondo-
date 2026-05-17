@@ -9,6 +9,12 @@
     "retry": "మళ్లీ ప్రయత్నించు",
     "loading": "లోడ్ అవుతోంది…"
   },
+  "tabs": {
+    "home": "హోమ్",
+    "jobs": "ఉద్యోగాలు",
+    "chat": "చాట్",
+    "profile": "ప్రొఫైల్"
+  },
   "home": {
     "title": "Doondo",
     "modes": {
@@ -40,7 +46,11 @@
     },
     "sections": {
       "activity": "కార్యకలాపం",
-      "account": "ఖాతా"
+      "account": "ఖాతా",
+      "resume": "రెజ్యూమె",
+      "skills": "నైపుణ్యాలు",
+      "expected_salary": "ఆశించిన జీతం",
+      "skills_gap": "మీ ప్రాంతంలో నైపుణ్య అంతరం"
     }
   },
   "settings": {

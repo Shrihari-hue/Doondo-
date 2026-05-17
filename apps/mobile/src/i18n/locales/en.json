@@ -9,6 +9,12 @@
     "retry": "Retry",
     "loading": "Loading…"
   },
+  "tabs": {
+    "home": "Home",
+    "jobs": "Jobs",
+    "chat": "Chat",
+    "profile": "Profile"
+  },
   "home": {
     "title": "Doondo",
     "modes": {
@@ -58,7 +64,9 @@
       "activity": "ACTIVITY",
       "account": "ACCOUNT",
       "resume": "RESUME",
-      "skills": "SKILLS"
+      "skills": "SKILLS",
+      "expected_salary": "EXPECTED SALARY",
+      "skills_gap": "SKILLS GAP NEAR YOU"
     }
   },
   "settings": {

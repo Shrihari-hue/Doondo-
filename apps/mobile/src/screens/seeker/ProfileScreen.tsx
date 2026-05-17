@@ -41,6 +41,8 @@ import { applicationsApi } from '@/api/applications.api';
 import { referralsApi } from '@/api/referrals.api';
 import { profileViewsApi } from '@/api/profileViews.api';
 import { skillSuggestionsApi } from '@/api/skillSuggestions.api';
+import { useTranslate } from '@/i18n/useTranslate';
+import { ProfileCompletionMeter } from './ProfileCompletionMeter';
 import { useUnratedApplications } from '@/hooks/useRatings';
 import { pickProfilePhoto } from '@/lib/photo';
 import { haptic } from '@/lib/haptics';
@@ -55,6 +57,7 @@ export function ProfileScreen() {
   const setStore = useAuthStore.setState;
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const t = useTranslate();
   const [photoError, setPhotoError] = useState<string | null>(null);
 
   // Real counts for the stats strip and menu subscripts.
@@ -510,7 +513,7 @@ export function ProfileScreen() {
         {/* ─── Body sections ─────────────────────────────────────────── */}
         <View style={{ paddingHorizontal: spacing.xl, marginTop: spacing.xl, gap: spacing.lg }}>
           {/* Expected salary */}
-          <SectionLabel>EXPECTED SALARY</SectionLabel>
+          <SectionLabel>{t('profile.sections.expected_salary')}</SectionLabel>
           <View
             style={{
               ...cardBase(theme),
@@ -606,7 +609,7 @@ export function ProfileScreen() {
           </View>
 
           {/* Skills */}
-          <SectionLabel>SKILLS</SectionLabel>
+          <SectionLabel>{t('profile.sections.skills')}</SectionLabel>
           <View style={{ ...cardBase(theme), padding: spacing.lg }}>
             {user.skills.length === 0 ? (
               <View style={{ gap: spacing.xs }}>
@@ -670,6 +673,9 @@ export function ProfileScreen() {
             )}
           </View>
 
+          {/* Completion meter — self-hides at 100% */}
+          <ProfileCompletionMeter user={user ?? null} />
+
           {/* Profile-views motivator — small banner above ACTIVITY */}
           <ProfileViewsBanner />
 
@@ -677,7 +683,7 @@ export function ProfileScreen() {
           <SkillSuggestionsRail onEdit={() => goEdit('skills')} />
 
           {/* Activity menu */}
-          <SectionLabel>ACTIVITY</SectionLabel>
+          <SectionLabel>{t('profile.sections.activity')}</SectionLabel>
           <View style={cardBase(theme)}>
             <MenuRow
               icon="📋"
@@ -817,7 +823,7 @@ export function ProfileScreen() {
           </View>
 
           {/* Resume menu */}
-          <SectionLabel>RESUME</SectionLabel>
+          <SectionLabel>{t('profile.sections.resume')}</SectionLabel>
           <View style={cardBase(theme)}>
             <MenuRow
               icon="📝"
@@ -838,7 +844,7 @@ export function ProfileScreen() {
           </View>
 
           {/* Account menu */}
-          <SectionLabel>ACCOUNT</SectionLabel>
+          <SectionLabel>{t('profile.sections.account')}</SectionLabel>
           <View style={cardBase(theme)}>
             <MenuRow
               icon="✏️"
@@ -964,6 +970,7 @@ function ProfileViewsBanner() {
  */
 function SkillSuggestionsRail({ onEdit }: { onEdit: () => void }) {
   const { theme } = useTheme();
+  const t = useTranslate();
   const query = useQuery({
     queryKey: ['skill-suggestions', 'me'],
     queryFn: () => skillSuggestionsApi.list(),
@@ -973,7 +980,7 @@ function SkillSuggestionsRail({ onEdit }: { onEdit: () => void }) {
   if (suggestions.length === 0) return null;
   return (
     <View style={{ gap: spacing.sm }}>
-      <SectionLabel>SKILLS GAP NEAR YOU</SectionLabel>
+      <SectionLabel>{t('profile.sections.skills_gap')}</SectionLabel>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}

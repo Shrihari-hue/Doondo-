@@ -9,7 +9,7 @@ import { FlatList, Pressable, RefreshControl, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { spacing } from '@doondo/tokens';
-import { Screen, Text, Card, LoadingSpinner, EmptyState } from '@/components';
+import { Screen, Text, Card, LoadingSpinner, EmptyState, ErrorPanel } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useNotifications, useMarkRead, useMarkAllRead } from '@/hooks/useNotifications';
 import { haptic } from '@/lib/haptics';
@@ -136,11 +136,7 @@ function NotificationsScreenInner() {
           <LoadingSpinner />
         </View>
       ) : isError ? (
-        <EmptyState
-          title="Couldn't load notifications"
-          message="Check your connection and try again."
-          cta={{ label: 'Retry', onPress: () => void refetch() }}
-        />
+        <ErrorPanel error={null} onRetry={() => void refetch()} title="Couldn't load notifications" />
       ) : !data || data.notifications.length === 0 ? (
         <EmptyState
           title="No notifications yet"

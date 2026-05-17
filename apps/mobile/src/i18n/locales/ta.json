@@ -9,6 +9,12 @@
     "retry": "மீண்டும் முயற்சி",
     "loading": "ஏற்றுகிறது…"
   },
+  "tabs": {
+    "home": "முகப்பு",
+    "jobs": "வேலைகள்",
+    "chat": "உரையாடல்",
+    "profile": "சுயவிவரம்"
+  },
   "home": {
     "title": "Doondo",
     "modes": {
@@ -40,7 +46,11 @@
     },
     "sections": {
       "activity": "செயல்பாடு",
-      "account": "கணக்கு"
+      "account": "கணக்கு",
+      "resume": "சுயவிவரம்",
+      "skills": "திறன்கள்",
+      "expected_salary": "எதிர்பார்த்த சம்பளம்",
+      "skills_gap": "உங்கள் பகுதியில் திறன் இடைவெளி"
     }
   },
   "settings": {
