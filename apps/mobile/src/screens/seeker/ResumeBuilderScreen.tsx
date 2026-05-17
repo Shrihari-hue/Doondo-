@@ -47,9 +47,11 @@ import {
   formatMonthYear,
   sortWorkHistory,
 } from '@/lib/workHistory';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 const MAX_JOBS = 5;
 
@@ -89,6 +91,7 @@ function ResumeBuilderInner() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const setStore = useAuthStore.setState;
+  const t = useTranslate();
 
   // Hydrate from existing workHistory so editing picks up where they left off.
   const initialDrafts = useMemo<DraftEntry[]>(() => {
@@ -195,8 +198,8 @@ function ResumeBuilderInner() {
     },
     onError: (err) => {
       haptic('error');
-      const msg = err instanceof ApiError ? err.message : 'Try again in a minute.';
-      Alert.alert("Couldn't save resume", msg);
+      const msg = err instanceof ApiError ? err.message : t('resume_builder.try_again_in_a_minute');
+      Alert.alert(t('resume_builder.couldnt_save_title'), msg);
     },
   });
 
@@ -225,8 +228,8 @@ function ResumeBuilderInner() {
     } catch (err) {
       haptic('error');
       Alert.alert(
-        "Couldn't add photo",
-        err instanceof Error ? err.message : 'Try a smaller image.',
+        t('resume_builder.couldnt_add_photo_title'),
+        err instanceof Error ? err.message : t('resume_builder.try_smaller_image'),
       );
     } finally {
       setPickingPhoto(false);
@@ -234,10 +237,10 @@ function ResumeBuilderInner() {
   };
 
   const removePhoto = (index: number) => {
-    Alert.alert('Remove this photo?', "It won't show on your resume anymore.", [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('resume_builder.remove_photo_title'), t('resume_builder.remove_photo_body'), [
+      { text: t('resume_builder.cancel'), style: 'cancel' },
       {
-        text: 'Remove',
+        text: t('resume_builder.remove'),
         style: 'destructive',
         onPress: () => {
           setPhotos((cur) => cur.filter((_, i) => i !== index));
@@ -269,10 +272,10 @@ function ResumeBuilderInner() {
       return;
     }
     if (editingDraft) {
-      const err = validate(editingDraft);
+      const err = validate(editingDraft, t);
       if (err) {
         haptic('error');
-        Alert.alert("Couldn't continue", err);
+        Alert.alert(t('resume_builder.couldnt_continue_title'), err);
         return;
       }
       haptic('selection');
@@ -283,7 +286,7 @@ function ResumeBuilderInner() {
       const validEntries = drafts.filter((d) => d.company.trim() && d.role.trim());
       if (validEntries.length === 0) {
         haptic('error');
-        Alert.alert('Add a job first', 'Your resume needs at least one job.');
+        Alert.alert(t('resume_builder.add_a_job_first_title'), t('resume_builder.add_a_job_first_body'));
         return;
       }
       save.mutate();
@@ -320,10 +323,10 @@ function ResumeBuilderInner() {
           <Text
             style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
           >
-            Resume builder
+            {t('resume_builder.header_title')}
           </Text>
           <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>
-            {progressLabel(step, drafts.length, isReview)}
+            {progressLabel(step, drafts.length, isReview, t)}
           </Text>
         </View>
         <ProgressBar step={step} totalSteps={drafts.length + 2} />
@@ -338,21 +341,22 @@ function ResumeBuilderInner() {
         keyboardShouldPersistTaps="handled"
       >
         {isIntro ? (
-          <IntroSlide />
+          <IntroSlide t={t} />
         ) : isReview ? (
           <>
             <ReviewSlide
+              t={t}
               drafts={drafts}
               onEdit={(i) => setStep(i + 1)}
               onRemove={(i) => {
                 if (drafts.length === 1) {
-                  Alert.alert('Need at least one job', "You can't remove the last entry.");
+                  Alert.alert(t('resume_builder.need_at_least_one_title'), t('resume_builder.need_at_least_one_body'));
                   return;
                 }
-                Alert.alert('Remove this job?', "It won't show on your resume anymore.", [
-                  { text: 'Cancel', style: 'cancel' },
+                Alert.alert(t('resume_builder.remove_job_title'), t('resume_builder.remove_job_body'), [
+                  { text: t('resume_builder.cancel'), style: 'cancel' },
                   {
-                    text: 'Remove',
+                    text: t('resume_builder.remove'),
                     style: 'destructive',
                     onPress: () => {
                       removeDraft(i);
@@ -365,10 +369,12 @@ function ResumeBuilderInner() {
               canAdd={drafts.length < MAX_JOBS}
             />
             <EducationSection
+              t={t}
               education={education}
               onChange={setEducation}
             />
             <WorkPhotosSection
+              t={t}
               photos={photos}
               onAdd={addPhoto}
               onRemove={removePhoto}
@@ -377,6 +383,7 @@ function ResumeBuilderInner() {
           </>
         ) : editingDraft && editIndex !== null ? (
           <EditSlide
+            t={t}
             index={editIndex}
             total={drafts.length}
             draft={editingDraft}
@@ -416,12 +423,12 @@ function ResumeBuilderInner() {
         >
           <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
             {save.isPending
-              ? 'Saving…'
+              ? t('resume_builder.cta_saving')
               : isReview
-                ? 'Generate resume'
+                ? t('resume_builder.cta_generate')
                 : isIntro
-                  ? 'Start'
-                  : 'Continue'}
+                  ? t('resume_builder.cta_start')
+                  : t('resume_builder.cta_continue')}
           </Text>
         </Pressable>
       </View>
@@ -431,7 +438,7 @@ function ResumeBuilderInner() {
 
 // ─── Slides ──────────────────────────────────────────────────────────────────
 
-function IntroSlide() {
+function IntroSlide({ t }: { t: TFn }) {
   const { theme } = useTheme();
   return (
     <View style={{ gap: spacing.lg, paddingTop: spacing.xl }}>
@@ -446,7 +453,7 @@ function IntroSlide() {
           lineHeight: 32,
         }}
       >
-        Build your resume{'\n'}in 3 minutes
+        {t('resume_builder.intro_title')}
       </Text>
       <Text
         style={{
@@ -457,9 +464,7 @@ function IntroSlide() {
           paddingHorizontal: spacing.md,
         }}
       >
-        We&apos;ll ask you about your last 1–5 jobs. No typing essays — just
-        the company, your role, and the dates. We turn it into a clean
-        resume employers love.
+        {t('resume_builder.intro_body')}
       </Text>
       <View
         style={{
@@ -468,9 +473,9 @@ function IntroSlide() {
           paddingHorizontal: spacing.md,
         }}
       >
-        <BulletRow icon="✓" label="No CV needed — we build it for you" />
-        <BulletRow icon="✓" label="Works for any kind of work" />
-        <BulletRow icon="✓" label="You can edit it any time" />
+        <BulletRow icon="✓" label={t('resume_builder.intro_bullet1')} />
+        <BulletRow icon="✓" label={t('resume_builder.intro_bullet2')} />
+        <BulletRow icon="✓" label={t('resume_builder.intro_bullet3')} />
       </View>
     </View>
   );
@@ -500,11 +505,13 @@ function BulletRow({ icon, label }: { icon: string; label: string }) {
 }
 
 function EditSlide({
+  t,
   index,
   total,
   draft,
   onChange,
 }: {
+  t: TFn;
   index: number;
   total: number;
   draft: DraftEntry;
@@ -522,7 +529,7 @@ function EditSlide({
             color: theme.text.tertiary,
           }}
         >
-          JOB {index + 1} OF {total}
+          {t('resume_builder.edit_eyebrow', { n: index + 1, total })}
         </Text>
         <Text
           style={{
@@ -532,40 +539,41 @@ function EditSlide({
             letterSpacing: -0.3,
           }}
         >
-          {index === 0 ? 'Your most recent job' : `Job before that`}
+          {index === 0 ? t('resume_builder.edit_most_recent') : t('resume_builder.edit_before_that')}
         </Text>
         <Text style={{ fontSize: 13, color: theme.text.secondary, lineHeight: 19 }}>
-          Tell us where you worked. Skip the description if you&apos;re in a
-          hurry — you can fill it later.
+          {t('resume_builder.edit_lead')}
         </Text>
       </View>
 
       <Field
-        label="Company / shop name"
-        placeholder="e.g. Sharma Electricals"
+        label={t('resume_builder.field_company_label')}
+        placeholder={t('resume_builder.field_company_placeholder')}
         value={draft.company}
-        onChangeText={(t) => onChange({ company: t })}
+        onChangeText={(text) => onChange({ company: text })}
         autoCapitalize="words"
       />
       <Field
-        label="Your role"
-        placeholder="e.g. Helper, Delivery rider, Cook"
+        label={t('resume_builder.field_role_label')}
+        placeholder={t('resume_builder.field_role_placeholder')}
         value={draft.role}
-        onChangeText={(t) => onChange({ role: t })}
+        onChangeText={(text) => onChange({ role: text })}
         autoCapitalize="words"
       />
 
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
         <View style={{ flex: 1 }}>
           <MonthField
-            label="Started"
+            t={t}
+            label={t('resume_builder.field_started_label')}
             value={draft.startDate}
             onChange={(v) => onChange({ startDate: v })}
           />
         </View>
         <View style={{ flex: 1 }}>
           <MonthField
-            label="Ended"
+            t={t}
+            label={t('resume_builder.field_ended_label')}
             value={draft.endDate}
             onChange={(v) => onChange({ endDate: v })}
             disabled={draft.current}
@@ -591,10 +599,10 @@ function EditSlide({
       >
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={{ fontSize: 14, fontWeight: '600', color: theme.text.primary }}>
-            I still work here
+            {t('resume_builder.still_work_here_title')}
           </Text>
           <Text style={{ fontSize: 12, color: theme.text.tertiary }}>
-            We&apos;ll show this as &quot;Present&quot; on your resume
+            {t('resume_builder.still_work_here_body')}
           </Text>
         </View>
         <Switch
@@ -606,10 +614,10 @@ function EditSlide({
       </Pressable>
 
       <Field
-        label="What did you do? (optional)"
-        placeholder="e.g. Repaired motors, met customers, kept tools in order…"
+        label={t('resume_builder.field_description_label')}
+        placeholder={t('resume_builder.field_description_placeholder')}
         value={draft.description}
-        onChangeText={(t) => onChange({ description: t })}
+        onChangeText={(text) => onChange({ description: text })}
         multiline
       />
     </View>
@@ -623,9 +631,11 @@ function EditSlide({
  * Review slide so the seeker sees their full resume in context.
  */
 function EducationSection({
+  t,
   education,
   onChange,
 }: {
+  t: TFn;
   education: EducationDraft[];
   onChange: (next: EducationDraft[]) => void;
 }) {
@@ -654,13 +664,12 @@ function EducationSection({
             color: theme.text.tertiary,
           }}
         >
-          EDUCATION · OPTIONAL
+          {t('resume_builder.education_eyebrow')}
         </Text>
         <Text
           style={{ fontSize: 13, color: theme.text.secondary, lineHeight: 19 }}
         >
-          Degree or training course, school or college, years. Add as many
-          as you have — up to 6.
+          {t('resume_builder.education_body')}
         </Text>
       </View>
 
@@ -678,24 +687,24 @@ function EducationSection({
         >
           <TextInput
             value={e.degree}
-            onChangeText={(t) => update(i, { degree: t })}
-            placeholder="Degree / course (e.g. B.Com, ITI Electrician)"
+            onChangeText={(text) => update(i, { degree: text })}
+            placeholder={t('resume_builder.education_degree_placeholder')}
             placeholderTextColor={theme.text.tertiary}
             style={inputStyle(theme)}
             autoCapitalize="words"
           />
           <TextInput
             value={e.institution}
-            onChangeText={(t) => update(i, { institution: t })}
-            placeholder="School / college / training centre"
+            onChangeText={(text) => update(i, { institution: text })}
+            placeholder={t('resume_builder.education_institution_placeholder')}
             placeholderTextColor={theme.text.tertiary}
             style={inputStyle(theme)}
             autoCapitalize="words"
           />
           <TextInput
             value={e.fieldOfStudy}
-            onChangeText={(t) => update(i, { fieldOfStudy: t })}
-            placeholder="Field of study (optional)"
+            onChangeText={(text) => update(i, { fieldOfStudy: text })}
+            placeholder={t('resume_builder.education_field_placeholder')}
             placeholderTextColor={theme.text.tertiary}
             style={inputStyle(theme)}
             autoCapitalize="words"
@@ -704,8 +713,8 @@ function EducationSection({
             <View style={{ flex: 1 }}>
               <TextInput
                 value={e.startYear}
-                onChangeText={(t) => update(i, { startYear: t.replace(/[^\d]/g, '') })}
-                placeholder="Start year"
+                onChangeText={(text) => update(i, { startYear: text.replace(/[^\d]/g, '') })}
+                placeholder={t('resume_builder.education_start_year_placeholder')}
                 placeholderTextColor={theme.text.tertiary}
                 style={inputStyle(theme)}
                 keyboardType="number-pad"
@@ -714,9 +723,9 @@ function EducationSection({
             </View>
             <View style={{ flex: 1 }}>
               <TextInput
-                value={e.current ? 'Ongoing' : e.endYear}
-                onChangeText={(t) => update(i, { endYear: t.replace(/[^\d]/g, '') })}
-                placeholder="End year"
+                value={e.current ? t('resume_builder.education_ongoing') : e.endYear}
+                onChangeText={(text) => update(i, { endYear: text.replace(/[^\d]/g, '') })}
+                placeholder={t('resume_builder.education_end_year_placeholder')}
                 placeholderTextColor={theme.text.tertiary}
                 style={inputStyle(theme)}
                 editable={!e.current}
@@ -757,12 +766,12 @@ function EducationSection({
               ) : null}
             </View>
             <Text style={{ fontSize: 13, color: theme.text.primary }}>
-              Currently studying here
+              {t('resume_builder.education_currently_studying')}
             </Text>
           </Pressable>
           <Pressable onPress={() => remove(i)} hitSlop={6} style={{ alignSelf: 'flex-end' }}>
             <Text style={{ fontSize: 12, color: '#B91C1C', fontWeight: '600' }}>
-              Remove
+              {t('resume_builder.education_remove')}
             </Text>
           </Pressable>
         </View>
@@ -782,7 +791,7 @@ function EducationSection({
           })}
         >
           <Text style={{ fontSize: 14, fontWeight: '600', color: '#2563EB' }}>
-            + Add education
+            {t('resume_builder.education_add_btn')}
           </Text>
         </Pressable>
       ) : null}
@@ -810,11 +819,13 @@ function inputStyle(theme: ReturnType<typeof useTheme>['theme']) {
  * with the job entries before they hit Generate.
  */
 function WorkPhotosSection({
+  t,
   photos,
   onAdd,
   onRemove,
   picking,
 }: {
+  t: TFn;
   photos: string[];
   onAdd: () => void;
   onRemove: (index: number) => void;
@@ -834,13 +845,12 @@ function WorkPhotosSection({
             color: theme.text.tertiary,
           }}
         >
-          PHOTOS OF YOUR WORK · OPTIONAL
+          {t('resume_builder.photos_eyebrow')}
         </Text>
         <Text
           style={{ fontSize: 13, color: theme.text.secondary, lineHeight: 19 }}
         >
-          Show employers what you can do. A photo of a wall you built, a
-          dish you cooked, a panel you wired. Up to 6.
+          {t('resume_builder.photos_body')}
         </Text>
       </View>
 
@@ -854,7 +864,7 @@ function WorkPhotosSection({
             key={`${uri.slice(-20)}-${i}`}
             onPress={() => onRemove(i)}
             accessibilityRole="button"
-            accessibilityLabel={`Remove photo ${i + 1}`}
+            accessibilityLabel={t('resume_builder.photos_remove_a11y', { n: i + 1 })}
             style={({ pressed }) => ({
               width: 100,
               height: 100,
@@ -890,7 +900,7 @@ function WorkPhotosSection({
             onPress={onAdd}
             disabled={picking}
             accessibilityRole="button"
-            accessibilityLabel="Add a work photo"
+            accessibilityLabel={t('resume_builder.photos_add_a11y')}
             style={({ pressed }) => ({
               width: 100,
               height: 100,
@@ -913,7 +923,7 @@ function WorkPhotosSection({
                 color: '#2563EB',
               }}
             >
-              {picking ? 'Loading…' : 'Add photo'}
+              {picking ? t('resume_builder.photos_loading') : t('resume_builder.photos_add_btn')}
             </Text>
           </Pressable>
         ) : null}
@@ -925,19 +935,21 @@ function WorkPhotosSection({
           color: theme.text.tertiary,
         }}
       >
-        {photos.length} / 6 photos · tap a photo to remove it
+        {t('resume_builder.photos_count_label', { n: photos.length })}
       </Text>
     </View>
   );
 }
 
 function ReviewSlide({
+  t,
   drafts,
   onEdit,
   onRemove,
   onAdd,
   canAdd,
 }: {
+  t: TFn;
   drafts: DraftEntry[];
   onEdit: (i: number) => void;
   onRemove: (i: number) => void;
@@ -956,7 +968,7 @@ function ReviewSlide({
             color: theme.text.tertiary,
           }}
         >
-          REVIEW
+          {t('resume_builder.review_eyebrow')}
         </Text>
         <Text
           style={{
@@ -966,11 +978,10 @@ function ReviewSlide({
             letterSpacing: -0.3,
           }}
         >
-          Looks good?
+          {t('resume_builder.review_title')}
         </Text>
         <Text style={{ fontSize: 13, color: theme.text.secondary, lineHeight: 19 }}>
-          Tap a job to edit it. Add another if you have one more to share —
-          up to 5 total.
+          {t('resume_builder.review_body')}
         </Text>
       </View>
 
@@ -1007,7 +1018,7 @@ function ReviewSlide({
               </Text>
               <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
                 {d.startDate ? formatMonthYear(d.startDate) : '—'} —{' '}
-                {d.current ? 'Present' : d.endDate ? formatMonthYear(d.endDate) : '—'}
+                {d.current ? t('resume_builder.review_present') : d.endDate ? formatMonthYear(d.endDate) : '—'}
               </Text>
             </View>
             <Pressable
@@ -1024,11 +1035,11 @@ function ReviewSlide({
                   color: blue[600],
                 }}
               >
-                Edit
+                {t('resume_builder.review_edit_btn')}
               </Text>
             </Pressable>
             <Pressable onPress={() => onRemove(i)} hitSlop={6}>
-              <Text style={{ fontSize: 13, color: theme.status.danger }}>Remove</Text>
+              <Text style={{ fontSize: 13, color: theme.status.danger }}>{t('resume_builder.review_remove_btn')}</Text>
             </Pressable>
           </View>
         </View>
@@ -1048,7 +1059,7 @@ function ReviewSlide({
           })}
         >
           <Text style={{ fontSize: 14, fontWeight: '600', color: blue[600] }}>
-            + Add another job
+            {t('resume_builder.review_add_another')}
           </Text>
         </Pressable>
       ) : (
@@ -1059,7 +1070,7 @@ function ReviewSlide({
             textAlign: 'center',
           }}
         >
-          Maximum {MAX_JOBS} jobs on a resume.
+          {t('resume_builder.review_max_jobs', { n: MAX_JOBS })}
         </Text>
       )}
     </View>
@@ -1126,11 +1137,13 @@ function Field({
  * sees what they typed if it can't be parsed.
  */
 function MonthField({
+  t,
   label,
   value,
   onChange,
   disabled,
 }: {
+  t: TFn;
   label: string;
   value: string;
   onChange: (v: string) => void;
@@ -1164,11 +1177,11 @@ function MonthField({
         {label}
       </Text>
       <TextInput
-        value={disabled ? 'Present' : draft}
+        value={disabled ? t('resume_builder.month_present') : draft}
         editable={!disabled}
         onChangeText={setDraft}
         onBlur={commit}
-        placeholder="e.g. Apr 2024"
+        placeholder={t('resume_builder.month_placeholder')}
         placeholderTextColor={theme.text.tertiary}
         autoCapitalize="words"
         style={{
@@ -1224,22 +1237,22 @@ function emptyDraft(): DraftEntry {
   };
 }
 
-function validate(draft: DraftEntry): string | null {
-  if (!draft.company.trim()) return 'Add the company name.';
-  if (!draft.role.trim()) return 'Add your role.';
+function validate(draft: DraftEntry, t: TFn): string | null {
+  if (!draft.company.trim()) return t('resume_builder.validate_add_company');
+  if (!draft.role.trim()) return t('resume_builder.validate_add_role');
   if (!draft.startDate || !/^\d{4}-\d{2}$/.test(draft.startDate))
-    return 'Add a start month and year.';
+    return t('resume_builder.validate_add_start');
   if (!draft.current) {
     if (!draft.endDate || !/^\d{4}-\d{2}$/.test(draft.endDate))
-      return 'Add the month and year you ended this job.';
-    if (draft.startDate > draft.endDate) return 'End date must be after start date.';
+      return t('resume_builder.validate_add_end');
+    if (draft.startDate > draft.endDate) return t('resume_builder.validate_end_after_start');
   }
   return null;
 }
 
-function progressLabel(step: number, jobsCount: number, isReview: boolean): string {
-  if (step === 0) return 'Intro';
-  if (isReview) return 'Review';
+function progressLabel(step: number, jobsCount: number, isReview: boolean, t: TFn): string {
+  if (step === 0) return t('resume_builder.progress_intro');
+  if (isReview) return t('resume_builder.progress_review');
   return `${step} / ${jobsCount}`;
 }
 

@@ -50,6 +50,7 @@ import { MentorsScreen } from '@/screens/seeker/MentorsScreen';
 import { AdvanceScreen } from '@/screens/seeker/AdvanceScreen';
 import { InsuranceScreen } from '@/screens/seeker/InsuranceScreen';
 import { JobSwipeScreen } from '@/screens/seeker/JobSwipeScreen';
+import { AddAccountSignupScreen } from '@/screens/auth/AddAccountSignupScreen';
 import { JobApplicantsScreen } from '@/screens/employer/JobApplicantsScreen';
 import { ApplicantDetailScreen } from '@/screens/employer/ApplicantDetailScreen';
 import { PostJobScreen } from '@/screens/employer/PostJobScreen';
@@ -275,6 +276,11 @@ export function AppNavigator() {
       <Stack.Screen
         name="JobSwipe"
         component={JobSwipeScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="AddAccountSignup"
+        component={AddAccountSignupScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
     </Stack.Navigator>

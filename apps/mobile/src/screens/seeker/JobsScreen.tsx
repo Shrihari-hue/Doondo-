@@ -38,6 +38,7 @@ import { applicationsApi, type MassApplyResult } from '@/api/applications.api';
 import { getCurrentCoords, type Coords } from '@/lib/location';
 import { haptic } from '@/lib/haptics';
 import { useAuth } from '@/hooks/useAuth';
+import { useTranslate } from '@/i18n/useTranslate';
 import { JobsMapView } from './jobs-map/JobsMapView';
 import { MapErrorBoundary } from './jobs-map/MapErrorBoundary';
 import type { PublicJob, JobType } from '@/api/types';
@@ -46,17 +47,22 @@ import type { AppStackParamList, SeekerTabParamList } from '@/navigation/types';
 const MAX_MASS_APPLY = 20;
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+/** Shared local alias for helper signatures across this file. */
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 // Fallback used when location is denied so the screen always shows
 // something. Same coords the seed script defaults to (Indiranagar, Bengaluru).
 const FALLBACK_COORDS = { lat: 12.9716, lng: 77.5946 };
 
-const FILTER_TYPES: Array<{ key: JobType | 'all'; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'full_time', label: 'Full-time' },
-  { key: 'part_time', label: 'Part-time' },
-  { key: 'gig', label: 'Gig' },
-  { key: 'shift', label: 'Shift' },
+// `labelKey` resolves at render time via t(). 'all' uses the dedicated
+// jobs.filters.all key; the others reuse the shared common.job_type.*
+// namespace already established in PR 1.
+const FILTER_TYPES: Array<{ key: JobType | 'all'; labelKey: string }> = [
+  { key: 'all', labelKey: 'jobs.filters.all' },
+  { key: 'full_time', labelKey: 'common.job_type.full_time' },
+  { key: 'part_time', labelKey: 'common.job_type.part_time' },
+  { key: 'gig', labelKey: 'common.job_type.gig' },
+  { key: 'shift', labelKey: 'common.job_type.shift' },
 ];
 
 export function JobsScreen() {
@@ -64,6 +70,7 @@ export function JobsScreen() {
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const t = useTranslate();
 
   // Accept an initial search keyword from category tile / voice search.
   // We read this lazily once on mount and clear it from the navigation
@@ -197,13 +204,13 @@ export function JobsScreen() {
       haptic('success');
       exitSelection();
       void queryClient.invalidateQueries({ queryKey: ['applications', 'me'] });
-      Alert.alert('Applied', summarizeMassApply(result), [{ text: 'OK' }]);
+      Alert.alert(t('jobs.apply_alert.title'), summarizeMassApply(result, t), [{ text: t('common.ok') }]);
     },
     onError: (err) => {
       haptic('error');
       Alert.alert(
-        "Couldn't apply",
-        err instanceof Error ? err.message : 'Please try again.',
+        t('jobs.apply_alert.couldnt_apply_title'),
+        err instanceof Error ? err.message : t('jobs.apply_alert.please_try_again'),
       );
     },
   });
@@ -214,6 +221,7 @@ export function JobsScreen() {
     <Screen edges={['top']}>
       {selectionMode && (
         <SelectionBar
+          t={t}
           count={selectedIds.size}
           submitting={massApplyMutation.isPending}
           onCancel={exitSelection}
@@ -232,6 +240,7 @@ export function JobsScreen() {
           }}
           ListHeaderComponent={
             <Header
+              t={t}
               userName={user?.name ?? null}
               type={type}
               onChangeType={setType}
@@ -268,15 +277,16 @@ export function JobsScreen() {
             ) : (
               <EmptyState
                 glyph="◔"
-                eyebrow="QUIET HERE"
-                title="No jobs in this radius yet"
-                message="Try widening the area or check back in a bit — new posts land throughout the day."
+                eyebrow={t('jobs.empty.eyebrow')}
+                title={t('jobs.empty.title')}
+                message={t('jobs.empty.message')}
               />
             )
           }
           ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
           renderItem={({ item }) => (
             <JobCard
+              t={t}
               job={item}
               saved={savedIds.has(item.id)}
               selected={selectedIds.has(item.id)}
@@ -312,6 +322,7 @@ export function JobsScreen() {
         <View style={{ flex: 1 }}>
           <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing['2xl'] }}>
             <Header
+              t={t}
               userName={user?.name ?? null}
               type={type}
               onChangeType={setType}
@@ -356,6 +367,7 @@ export function JobsScreen() {
 const RADIUS_OPTIONS_KM = [5, 10, 15, 20, 25, 30, 40, 50, 100] as const;
 
 interface HeaderProps {
+  t: TFn;
   userName: string | null;
   type: JobType | 'all';
   onChangeType: (t: JobType | 'all') => void;
@@ -371,16 +383,17 @@ interface HeaderProps {
   onToggleSafeForWomen: () => void;
 }
 
-function timeOfDayCaption(): string {
+function timeOfDayCaption(t: TFn): string {
   const h = new Date().getHours();
-  if (h < 5) return 'STILL UP';
-  if (h < 12) return 'GOOD MORNING';
-  if (h < 17) return 'GOOD AFTERNOON';
-  if (h < 21) return 'GOOD EVENING';
-  return 'GOOD NIGHT';
+  if (h < 5) return t('jobs.greeting.still_up');
+  if (h < 12) return t('jobs.greeting.good_morning');
+  if (h < 17) return t('jobs.greeting.good_afternoon');
+  if (h < 21) return t('jobs.greeting.good_evening');
+  return t('jobs.greeting.good_night');
 }
 
 function Header({
+  t,
   userName,
   type,
   onChangeType,
@@ -399,10 +412,10 @@ function Header({
 
   const subtitle =
     coordsSource === 'gps'
-      ? `Within ${radiusKm} km of you`
+      ? t('jobs.subtitle.within_km_of_you', { km: radiusKm })
       : coordsSource === 'manual'
-        ? `Within ${radiusKm} km of your area`
-        : 'Demo location — turn on GPS to see your area';
+        ? t('jobs.subtitle.within_km_of_your_area', { km: radiusKm })
+        : t('jobs.subtitle.demo_location');
 
   // First name only (less likely to wrap, friendlier)
   const firstName = userName?.split(/\s+/)[0]?.trim() || null;
@@ -447,20 +460,28 @@ function Header({
       >
         <View style={{ flex: 1, gap: spacing.xs }}>
           <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-            {timeOfDayCaption()}
+            {timeOfDayCaption(t)}
           </Text>
           <Text variant="display" weight="medium" display>
-            {firstName ? `Hello, ${firstName} ` : 'Hello there '}
+            {firstName
+              ? t('jobs.greeting.hello_named', { name: firstName })
+              : t('jobs.greeting.hello_there')}
             <Text variant="display" weight="medium" display style={{ fontSize: 28 }}>
               👋
             </Text>
           </Text>
           <Text variant="bodyLarge" tone="secondary">
-            Find your next gig nearby.
+            {t('jobs.subtitle.find_gig')}
           </Text>
           <Text variant="footnote" tone="tertiary" style={{ marginTop: 2 }}>
             {subtitle}
-            {jobCount > 0 ? ` · ${jobCount} job${jobCount === 1 ? '' : 's'}` : ''}
+            {jobCount > 0
+              ? ' · ' +
+                t(
+                  jobCount === 1 ? 'jobs.job_count_one' : 'jobs.job_count_other',
+                  { count: jobCount },
+                )
+              : ''}
           </Text>
         </View>
 
@@ -493,7 +514,7 @@ function Header({
                   weight={active ? 'medium' : 'regular'}
                   style={{ color: active ? theme.brand.hero : theme.text.tertiary }}
                 >
-                  {v === 'list' ? 'List' : 'Map'}
+                  {v === 'list' ? t('jobs.view.list') : t('jobs.view.map')}
                 </Text>
               </Pressable>
             );
@@ -519,7 +540,7 @@ function Header({
         <TextInput
           value={search}
           onChangeText={onChangeSearch}
-          placeholder="Search by skill, title, company"
+          placeholder={t('jobs.search.placeholder')}
           placeholderTextColor={theme.text.tertiary}
           autoCorrect={false}
           autoCapitalize="none"
@@ -541,7 +562,7 @@ function Header({
       {/* Radius chips — horizontally scrollable so all options fit on small phones */}
       <View style={{ gap: spacing.xs }}>
         <Text variant="footnote" tone="tertiary" style={{ letterSpacing: 0.6 }}>
-          DISTANCE
+          {t('jobs.sections.distance')}
         </Text>
         <HScrollView
           horizontal
@@ -568,7 +589,7 @@ function Header({
                   weight={active ? 'medium' : 'regular'}
                   style={{ color: active ? theme.brand.hero : theme.text.secondary }}
                 >
-                  {km} km
+                  {t('jobs.km_chip', { km })}
                 </Text>
               </Pressable>
             );
@@ -598,7 +619,7 @@ function Header({
                 weight={active ? 'medium' : 'regular'}
                 style={{ color: active ? theme.brand.hero : theme.text.secondary }}
               >
-                {f.label}
+                {t(f.labelKey)}
               </Text>
             </Pressable>
           );
@@ -631,7 +652,7 @@ function Header({
             weight={safeForWomenOnly ? 'medium' : 'regular'}
             style={{ color: safeForWomenOnly ? '#065F46' : theme.text.secondary }}
           >
-            Women-safe only
+            {t('jobs.filters.women_safe_only')}
           </Text>
         </Pressable>
       </View>
@@ -646,10 +667,10 @@ function Header({
         }}
       >
         <Text variant="bodyLarge" weight="medium">
-          Recommended for you
+          {t('jobs.sections.recommended_for_you')}
         </Text>
         <Text variant="footnote" tone="hero" weight="medium">
-          See all →
+          {t('jobs.sections.see_all_arrow')}
         </Text>
       </View>
     </View>
@@ -659,6 +680,7 @@ function Header({
 // ─── Job card ────────────────────────────────────────────────────────────────
 
 interface JobCardProps {
+  t: TFn;
   job: PublicJob;
   saved: boolean;
   /** True when this card is part of the multi-select set. */
@@ -680,6 +702,7 @@ interface JobCardProps {
  * heart. Tapping toggles selection; long-press also toggles.
  */
 function JobCard({
+  t,
   job,
   saved,
   selected = false,
@@ -692,8 +715,8 @@ function JobCard({
 
   const distance = job.distanceMeters != null
     ? job.distanceMeters < 1000
-      ? `${job.distanceMeters} m`
-      : `${(job.distanceMeters / 1000).toFixed(1)} km`
+      ? t('common.units.meters_short', { n: job.distanceMeters })
+      : t('common.units.kilometers_short', { n: (job.distanceMeters / 1000).toFixed(1) })
     : null;
 
   return (
@@ -722,7 +745,7 @@ function JobCard({
             }}
           >
             <Avatar
-              name={job.employer?.name ?? 'Doondo Employer'}
+              name={job.employer?.name ?? t('jobs.card.default_employer')}
               photoUrl={job.employer?.photoUrl ?? null}
               size={44}
               premium={job.employer?.isVerified}
@@ -732,12 +755,12 @@ function JobCard({
                 {job.title}
               </Text>
               <Text variant="footnote" tone="secondary" numberOfLines={1}>
-                {job.employer?.name ?? 'Doondo Employer'}
+                {job.employer?.name ?? t('jobs.card.default_employer')}
               </Text>
             </View>
             <View style={{ alignItems: 'flex-end', gap: spacing.xs }}>
               <Text variant="caption" tone="tertiary">
-                {timeAgo(job.createdAt)}
+                {timeAgo(job.createdAt, t)}
               </Text>
               {selectionMode ? (
                 // Checkmark badge instead of heart when selecting jobs to apply.
@@ -793,18 +816,18 @@ function JobCard({
               gap: spacing.xs,
             }}
           >
-            {job.urgent && <Pill label="Urgent" tone="warning" leading="●" />}
+            {job.urgent && <Pill label={t('jobs.card.urgent')} tone="warning" leading="●" />}
             {job.safeForWomen && (
-              <Pill label="Women-safe" tone="success" leading="🛡" />
+              <Pill label={t('jobs.card.women_safe')} tone="success" leading="🛡" />
             )}
-            <Pill label={formatPay(job.pay)} tone="warning" />
-            <Pill label={formatType(job.type)} tone="neutral" />
+            <Pill label={formatPay(job.pay, t)} tone="warning" />
+            <Pill label={formatType(job.type, t)} tone="neutral" />
             {job.location.area && (
               <Pill label={`◉ ${job.location.area}`} tone="neutral" />
             )}
             {distance && <Pill label={distance} tone="neutral" />}
             {job.employer?.isVerified && (
-              <Pill label="Verified" tone="premium" leading="★" />
+              <Pill label={t('jobs.card.verified')} tone="premium" leading="★" />
             )}
           </View>
         </View>
@@ -813,57 +836,57 @@ function JobCard({
   );
 }
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: TFn): string {
   const ms = Date.now() - new Date(iso).getTime();
   const m = Math.floor(ms / 60_000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
+  if (m < 1) return t('jobs.card.time.just_now');
+  if (m < 60) return t('jobs.card.time.minutes_ago', { m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return t('jobs.card.time.hours_ago', { h });
   const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
+  if (d < 7) return t('jobs.card.time.days_ago', { d });
+  // For longer ago we render the actual date via the OS — keep undefined
+  // locale arg so the runtime picks based on the device's chosen locale.
   return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
 
-function formatPay(pay: PublicJob['pay']): string {
+function formatPay(pay: PublicJob['pay'], t: TFn): string {
   // amount is in smallest unit (paise for INR, cents for USD).
   const minor = pay.currency === 'INR' ? 100 : 100;
   const symbol = pay.currency === 'INR' ? '₹' : pay.currency === 'USD' ? '$' : pay.currency + ' ';
-  const lo = (pay.amount / minor).toLocaleString(undefined, {
+  // 'en-IN' for lakh/crore grouping that Indian users expect regardless of
+  // active UI language — see PR 1's formatPay docs.
+  const lo = (pay.amount / minor).toLocaleString('en-IN', {
     maximumFractionDigits: 0,
   });
   const hi = pay.amountMax
-    ? (pay.amountMax / minor).toLocaleString(undefined, { maximumFractionDigits: 0 })
+    ? (pay.amountMax / minor).toLocaleString('en-IN', { maximumFractionDigits: 0 })
     : null;
-  const periodMap: Record<PublicJob['pay']['period'], string> = {
-    hour: '/hr',
-    day: '/day',
-    week: '/wk',
-    month: '/mo',
-    fixed: ' fixed',
-  };
+  const periodKey =
+    pay.period === 'hour'
+      ? 'common.pay_period.suffix_hour'
+      : pay.period === 'day'
+        ? 'common.pay_period.suffix_day'
+        : pay.period === 'week'
+          ? 'common.pay_period.suffix_week'
+          : pay.period === 'month'
+            ? 'common.pay_period.suffix_month'
+            : 'common.pay_period.suffix_fixed';
   return hi
-    ? `${symbol}${lo}–${hi}${periodMap[pay.period]}`
-    : `${symbol}${lo}${periodMap[pay.period]}`;
+    ? `${symbol}${lo}–${hi}${t(periodKey)}`
+    : `${symbol}${lo}${t(periodKey)}`;
 }
 
-function formatType(t: JobType): string {
-  return (
-    {
-      full_time: 'Full-time',
-      part_time: 'Part-time',
-      gig: 'Gig',
-      shift: 'Shift',
-      contract: 'Contract',
-    } as const
-  )[t];
+function formatType(type: JobType, t: TFn): string {
+  return t(`common.job_type.${type}`);
 }
 
 // ─── Mass-apply UI helpers ───────────────────────────────────────────────────
 
 interface SelectionBarProps {
+  t: TFn;
   count: number;
   submitting: boolean;
   onCancel: () => void;
@@ -875,7 +898,7 @@ interface SelectionBarProps {
  * top so the FlatList still scrolls under it without nudging the safe-area
  * insets we already paid for in the parent <Screen>.
  */
-function SelectionBar({ count, submitting, onCancel, onApply }: SelectionBarProps) {
+function SelectionBar({ t, count, submitting, onCancel, onApply }: SelectionBarProps) {
   const { theme } = useTheme();
   return (
     <View
@@ -893,15 +916,15 @@ function SelectionBar({ count, submitting, onCancel, onApply }: SelectionBarProp
     >
       <Pressable onPress={onCancel} hitSlop={8} disabled={submitting}>
         <Text variant="footnote" weight="medium" tone="secondary">
-          Cancel
+          {t('jobs.selection.cancel')}
         </Text>
       </Pressable>
       <View style={{ flex: 1, alignItems: 'center' }}>
         <Text variant="bodyLarge" weight="medium">
-          {count} selected
+          {t('jobs.selection.count_selected', { count })}
         </Text>
         <Text variant="caption" tone="tertiary">
-          Long-press to add or remove
+          {t('jobs.selection.long_press_hint')}
         </Text>
       </View>
       <Pressable
@@ -916,7 +939,7 @@ function SelectionBar({ count, submitting, onCancel, onApply }: SelectionBarProp
         })}
       >
         <Text variant="footnote" weight="medium" style={{ color: '#FFFFFF' }}>
-          {submitting ? 'Applying…' : `Apply to ${count}`}
+          {submitting ? t('jobs.selection.applying') : t('jobs.selection.apply_to_count', { count })}
         </Text>
       </Pressable>
     </View>
@@ -926,30 +949,32 @@ function SelectionBar({ count, submitting, onCancel, onApply }: SelectionBarProp
 /**
  * Build the human-readable summary the result Alert shows after mass-apply.
  * Speaks to "what happened to your batch" without leaking server lingo.
+ * Each line uses i18next's _one/_other plural form so the count is rendered
+ * correctly across all 5 locales.
  */
-function summarizeMassApply(result: MassApplyResult): string {
+function summarizeMassApply(result: MassApplyResult, t: TFn): string {
   const lines: string[] = [];
+  const line = (count: number, base: string) => {
+    const key = count === 1 ? `jobs.mass_apply.${base}_one` : `jobs.mass_apply.${base}_other`;
+    return t(key, { count });
+  };
   if (result.applied > 0) {
-    lines.push(
-      `${result.applied} application${result.applied === 1 ? '' : 's'} sent.`,
-    );
+    lines.push(line(result.applied, 'applied'));
   }
   if (result.alreadyApplied > 0) {
-    lines.push(
-      `${result.alreadyApplied} you'd already applied to.`,
-    );
+    lines.push(line(result.alreadyApplied, 'already'));
   }
   const closed = result.results.filter((r) => r.status === 'job_not_open').length;
   if (closed > 0) {
-    lines.push(`${closed} closed before we could send.`);
+    lines.push(line(closed, 'closed'));
   }
   const missing = result.results.filter((r) => r.status === 'job_not_found').length;
   if (missing > 0) {
-    lines.push(`${missing} no longer available.`);
+    lines.push(line(missing, 'missing'));
   }
   const failed = result.results.filter((r) => r.status === 'failed').length;
   if (failed > 0) {
-    lines.push(`${failed} couldn't be sent — please try again.`);
+    lines.push(line(failed, 'failed'));
   }
-  return lines.length ? lines.join('\n') : 'No applications sent.';
+  return lines.length ? lines.join('\n') : t('jobs.mass_apply.none_sent');
 }

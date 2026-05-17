@@ -105,7 +105,19 @@ export function Button({
         opacity: disabled ? 0.5 : 1,
       })}
     >
-      <Text variant={s.textVariant} weight="medium" tone={v.tone}>
+      {/* Indic-language labels for actions like "Apply Now" can be 1.5-2x
+         longer than English (ಈಗ ಅರ್ಜಿ ಸಲ್ಲಿಸಿ vs Apply Now). Let the label
+         wrap to two lines and shrink to 85% so it never clips on the
+         smallest devices in any of our supported languages. */}
+      <Text
+        variant={s.textVariant}
+        weight="medium"
+        tone={v.tone}
+        numberOfLines={2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+        style={{ textAlign: 'center' }}
+      >
         {label}
       </Text>
     </Pressable>

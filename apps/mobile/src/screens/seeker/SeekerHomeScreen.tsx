@@ -53,11 +53,16 @@ import type { AppStackParamList } from '@/navigation/types';
 
 type HomeMode = 'today' | 'this_week' | 'career';
 const HOME_MODES: HomeMode[] = ['today', 'this_week', 'career'];
-const HOME_MODE_LABELS: Record<HomeMode, string> = {
-  today: 'Today',
-  this_week: 'This week',
-  career: 'Career',
+// Each mode maps to a translation key in `home.modes.*`. Resolved at render
+// time so the segmented control follows the active locale.
+const HOME_MODE_I18N_KEYS: Record<HomeMode, string> = {
+  today: 'home.modes.today',
+  this_week: 'home.modes.this_week',
+  career: 'home.modes.career',
 };
+
+/** Local alias matching the one in home/DenseJobFeed for helper signatures. */
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -68,7 +73,8 @@ const FALLBACK_COORDS: Coords = { lat: 12.9716, lng: 77.5946, source: 'manual' }
 
 interface Category {
   key: string;
-  label: string;
+  /** Translation key in `home.categories.*`. Resolved at render time. */
+  labelKey: string;
   emoji: string;
   /** Keyword fed into the Jobs tab's text-search box. */
   query: string;
@@ -76,11 +82,11 @@ interface Category {
 }
 
 const CATEGORIES: Category[] = [
-  { key: 'delivery', label: 'Delivery', emoji: '🛵', query: 'delivery', tint: categoryTints.delivery },
-  { key: 'driver', label: 'Driver', emoji: '🚗', query: 'driver', tint: categoryTints.driver },
-  { key: 'electrician', label: 'Electrician', emoji: '⚡', query: 'electrician', tint: categoryTints.electrician },
-  { key: 'helper', label: 'Helper', emoji: '🤝', query: 'helper', tint: categoryTints.helper },
-  { key: 'mason', label: 'Mason', emoji: '🧱', query: 'mason', tint: categoryTints.mason },
+  { key: 'delivery', labelKey: 'home.categories.delivery', emoji: '🛵', query: 'delivery', tint: categoryTints.delivery },
+  { key: 'driver', labelKey: 'home.categories.driver', emoji: '🚗', query: 'driver', tint: categoryTints.driver },
+  { key: 'electrician', labelKey: 'home.categories.electrician', emoji: '⚡', query: 'electrician', tint: categoryTints.electrician },
+  { key: 'helper', labelKey: 'home.categories.helper', emoji: '🤝', query: 'helper', tint: categoryTints.helper },
+  { key: 'mason', labelKey: 'home.categories.mason', emoji: '🧱', query: 'mason', tint: categoryTints.mason },
 ];
 
 export function SeekerHomeScreen() {
@@ -155,9 +161,9 @@ export function SeekerHomeScreen() {
     return (
       user?.location?.city ??
       user?.location?.area ??
-      (coords ? 'Your area' : 'Locating…')
+      (coords ? t('home.location.your_area') : t('home.location.locating'))
     );
-  }, [user?.location, coords]);
+  }, [user?.location, coords, t]);
 
   function openVoice() {
     haptic('selection');
@@ -205,7 +211,7 @@ export function SeekerHomeScreen() {
             onNotificationsPress={openNotifications}
             cityLabel={cityLabel}
           />
-          <ModeToggle value={mode} onChange={pickMode} />
+          <ModeToggle value={mode} onChange={pickMode} t={t} />
         </View>
         <View
           style={{ flex: 1, paddingHorizontal: spacing.xl, paddingTop: spacing.md }}
@@ -267,7 +273,7 @@ export function SeekerHomeScreen() {
         {/* Mode toggle — Today / This week / Career. Renders inline above
            the existing Career sections so a worker who prefers same-day
            gigs can switch with one tap and never see Career again. */}
-        <ModeToggle value={mode} onChange={pickMode} />
+        <ModeToggle value={mode} onChange={pickMode} t={t} />
 
         {/* Availability beacon — always available across all three modes
            because broadcasting is orthogonal to which feed the worker is
@@ -312,8 +318,13 @@ export function SeekerHomeScreen() {
               style={{ color: theme.text.secondary, marginTop: 1 }}
             >
               {jobsQuery.isLoading
-                ? 'Finding nearby jobs…'
-                : `${nearbyCount} nearby ${nearbyCount === 1 ? 'job' : 'jobs'}`}
+                ? t('home.location.finding_jobs')
+                : t(
+                    nearbyCount === 1
+                      ? 'home.location.nearby_count_one'
+                      : 'home.location.nearby_count_other',
+                    { count: nearbyCount },
+                  )}
             </Text>
           </View>
         </View>
@@ -404,7 +415,7 @@ export function SeekerHomeScreen() {
                 color: theme.text.tertiary,
               }}
             >
-              {t('home.categories').toUpperCase()}
+              {t('home.categories_section_label').toUpperCase()}
             </Text>
             <Pressable
               hitSlop={6}
@@ -457,7 +468,7 @@ export function SeekerHomeScreen() {
                   }}
                   numberOfLines={1}
                 >
-                  {c.label}
+                  {t(c.labelKey)}
                 </Text>
               </Pressable>
             ))}
@@ -517,7 +528,7 @@ export function SeekerHomeScreen() {
               }}
             >
               <Text variant="body" tone="secondary">
-                No jobs near you right now. Pull to refresh.
+                {t('home.jobs.empty_no_jobs_nearby')}
               </Text>
             </View>
           )}
@@ -564,7 +575,7 @@ export function SeekerHomeScreen() {
                       style={{ color: theme.text.secondary }}
                       numberOfLines={1}
                     >
-                      {j.employer?.companyName ?? j.employer?.name ?? 'Doondo Employer'}
+                      {j.employer?.companyName ?? j.employer?.name ?? t('home.jobs.default_employer')}
                       {j.employer?.isVerified ? '  ✓' : ''}
                     </Text>
                     <Text
@@ -574,7 +585,7 @@ export function SeekerHomeScreen() {
                     >
                       {j.location.city}
                       {j.distanceMeters != null
-                        ? ` · ${formatDistance(j.distanceMeters)}`
+                        ? ` · ${formatDistance(j.distanceMeters, t)}`
                         : ''}
                     </Text>
                   </View>
@@ -593,7 +604,7 @@ export function SeekerHomeScreen() {
                         color: theme.text.secondary,
                       }}
                     >
-                      {formatType(j.type)}
+                      {formatType(j.type, t)}
                     </Text>
                   </View>
                 </View>
@@ -614,7 +625,7 @@ export function SeekerHomeScreen() {
                       color: theme.accent.amber,
                     }}
                   >
-                    {formatPay(j.pay)}
+                    {formatPay(j.pay, t)}
                   </Text>
                   <View
                     style={{
@@ -636,7 +647,7 @@ export function SeekerHomeScreen() {
                         color: '#288f16',
                       }}
                     >
-                      Apply Now
+                      {t('home.jobs.apply_now')}
                     </Text>
                   </View>
                 </View>
@@ -659,9 +670,11 @@ export function SeekerHomeScreen() {
 function ModeToggle({
   value,
   onChange,
+  t,
 }: {
   value: HomeMode;
   onChange: (next: HomeMode) => void;
+  t: TFn;
 }) {
   return (
     <View
@@ -675,6 +688,7 @@ function ModeToggle({
     >
       {HOME_MODES.map((m) => {
         const active = m === value;
+        const label = t(HOME_MODE_I18N_KEYS[m]);
         // The blue pill background lives on a wrapper View — not on the
         // Pressable's dynamic style function — so RN can't drop it during
         // state transitions the way it was doing previously, leaving
@@ -697,7 +711,8 @@ function ModeToggle({
             <Pressable
               onPress={() => onChange(m)}
               accessibilityRole="button"
-              accessibilityLabel={`${HOME_MODE_LABELS[m]}${active ? ', selected' : ''}`}
+              accessibilityLabel={label}
+              accessibilityState={{ selected: active }}
               style={({ pressed }) => ({
                 paddingVertical: 8,
                 paddingHorizontal: 6,
@@ -719,7 +734,7 @@ function ModeToggle({
                   textAlign: 'center',
                 }}
               >
-                {HOME_MODE_LABELS[m]}
+                {label}
               </Text>
             </Pressable>
           </View>
@@ -821,35 +836,35 @@ function PremiumHomeHeader({
 
 // ─── Format helpers ──────────────────────────────────────────────────────────
 
-function formatDistance(m: number): string {
-  return m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1)} km`;
+function formatDistance(m: number, t: TFn): string {
+  return m < 1000
+    ? t('common.units.meters_short', { n: m })
+    : t('common.units.kilometers_short', { n: (m / 1000).toFixed(1) });
 }
 
-function formatType(t: PublicJob['type']): string {
-  return ({
-    full_time: 'Full-time',
-    part_time: 'Part-time',
-    gig: 'Gig',
-    shift: 'Shift',
-    contract: 'Contract',
-  } as const)[t];
+function formatType(type: PublicJob['type'], t: TFn): string {
+  return t(`common.job_type.${type}`);
 }
 
-function formatPay(pay: PublicJob['pay']): string {
+function formatPay(pay: PublicJob['pay'], t: TFn): string {
   const minor = 100;
   const symbol = pay.currency === 'INR' ? '₹' : pay.currency === 'USD' ? '$' : '';
-  const lo = (pay.amount / minor).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  // 'en-IN' for lakh/crore grouping — see DenseJobFeed.formatPayPrimary.
+  const lo = (pay.amount / minor).toLocaleString('en-IN', { maximumFractionDigits: 0 });
   const hi = pay.amountMax
-    ? (pay.amountMax / minor).toLocaleString(undefined, { maximumFractionDigits: 0 })
+    ? (pay.amountMax / minor).toLocaleString('en-IN', { maximumFractionDigits: 0 })
     : null;
-  const periodMap = {
-    hour: '/hr',
-    day: '/day',
-    week: '/wk',
-    month: '/mo',
-    fixed: ' fixed',
-  } as const;
+  const periodKey =
+    pay.period === 'hour'
+      ? 'common.pay_period.suffix_hour'
+      : pay.period === 'day'
+        ? 'common.pay_period.suffix_day'
+        : pay.period === 'week'
+          ? 'common.pay_period.suffix_week'
+          : pay.period === 'month'
+            ? 'common.pay_period.suffix_month'
+            : 'common.pay_period.suffix_fixed';
   return hi
-    ? `${symbol}${lo}–${hi}${periodMap[pay.period]}`
-    : `${symbol}${lo}${periodMap[pay.period]}`;
+    ? `${symbol}${lo}–${hi}${t(periodKey)}`
+    : `${symbol}${lo}${t(periodKey)}`;
 }

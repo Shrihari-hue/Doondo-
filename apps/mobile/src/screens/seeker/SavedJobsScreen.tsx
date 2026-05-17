@@ -28,16 +28,19 @@ import { useTheme } from '@/theme/useTheme';
 import { jobsApi } from '@/api/jobs.api';
 import { useAuth } from '@/hooks/useAuth';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
 import type { PublicJob } from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 export function SavedJobsScreen() {
   const { theme } = useTheme();
   const { isAuthenticated } = useAuth();
   const navigation = useNavigation<Nav>();
   const qc = useQueryClient();
+  const t = useTranslate();
 
   const query = useQuery({
     queryKey: ['jobs', 'saved'],
@@ -85,10 +88,10 @@ export function SavedJobsScreen() {
       >
         <View style={{ gap: spacing.xs }}>
           <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-            SAVED
+            {t('saved_jobs.eyebrow')}
           </Text>
           <Text variant="display" weight="medium" display>
-            Your shortlist.
+            {t('saved_jobs.title')}
           </Text>
         </View>
 
@@ -101,18 +104,18 @@ export function SavedJobsScreen() {
           <EmptyState
             glyph="✕"
             tone="warning"
-            eyebrow="OFFLINE"
-            title="Couldn't load your saved jobs"
-            message="Pull down to retry, or check your connection."
+            eyebrow={t('saved_jobs.error.eyebrow')}
+            title={t('saved_jobs.error.title')}
+            message={t('saved_jobs.error.message')}
             tall
           />
         ) : jobs.length === 0 ? (
           <EmptyState
             glyph="☆"
             tone="hero"
-            eyebrow="NOTHING SAVED"
-            title="Your shortlist is empty"
-            message="Tap the bookmark on any job card and it'll appear here for later."
+            eyebrow={t('saved_jobs.empty.eyebrow')}
+            title={t('saved_jobs.empty.title')}
+            message={t('saved_jobs.empty.message')}
             tall
           />
         ) : (
@@ -120,6 +123,7 @@ export function SavedJobsScreen() {
             {jobs.map((job) => (
               <SavedJobCard
                 key={job.id}
+                t={t}
                 job={job}
                 onOpen={() => {
                   haptic('selection');
@@ -139,10 +143,12 @@ export function SavedJobsScreen() {
 }
 
 function SavedJobCard({
+  t,
   job,
   onOpen,
   onUnsave,
 }: {
+  t: TFn;
   job: PublicJob;
   onOpen: () => void;
   onUnsave: () => void;
@@ -166,7 +172,7 @@ function SavedJobCard({
             }}
           >
             <Avatar
-              name={job.employer?.companyName ?? job.employer?.name ?? 'Employer'}
+              name={job.employer?.companyName ?? job.employer?.name ?? t('jobs.swipe.fallback_employer')}
               photoUrl={job.employer?.photoUrl ?? null}
               size={44}
               premium={job.employer?.isVerified}
@@ -188,9 +194,9 @@ function SavedJobCard({
             </Pressable>
           </View>
           <View style={{ flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' }}>
-            <Pill label={formatPay(job.pay)} tone="warning" />
+            <Pill label={formatPay(job.pay, t)} tone="warning" />
             {job.employer?.isVerified && (
-              <Pill label="Verified" tone="premium" leading="★" />
+              <Pill label={t('jobs.card.verified')} tone="premium" leading="★" />
             )}
           </View>
         </View>
@@ -199,21 +205,25 @@ function SavedJobCard({
   );
 }
 
-function formatPay(pay: PublicJob['pay']): string {
+function formatPay(pay: PublicJob['pay'], t: TFn): string {
   const minor = 100;
   const symbol = pay.currency === 'INR' ? '₹' : pay.currency === 'USD' ? '$' : pay.currency + ' ';
-  const lo = (pay.amount / minor).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  // 'en-IN' grouping for lakh/crore display, language-independent.
+  const lo = (pay.amount / minor).toLocaleString('en-IN', { maximumFractionDigits: 0 });
   const hi = pay.amountMax
-    ? (pay.amountMax / minor).toLocaleString(undefined, { maximumFractionDigits: 0 })
+    ? (pay.amountMax / minor).toLocaleString('en-IN', { maximumFractionDigits: 0 })
     : null;
-  const periodMap: Record<PublicJob['pay']['period'], string> = {
-    hour: '/hr',
-    day: '/day',
-    week: '/wk',
-    month: '/mo',
-    fixed: ' fixed',
-  };
+  const periodKey =
+    pay.period === 'hour'
+      ? 'common.pay_period.suffix_hour'
+      : pay.period === 'day'
+        ? 'common.pay_period.suffix_day'
+        : pay.period === 'week'
+          ? 'common.pay_period.suffix_week'
+          : pay.period === 'month'
+            ? 'common.pay_period.suffix_month'
+            : 'common.pay_period.suffix_fixed';
   return hi
-    ? `${symbol}${lo}–${hi}${periodMap[pay.period]}`
-    : `${symbol}${lo}${periodMap[pay.period]}`;
+    ? `${symbol}${lo}–${hi}${t(periodKey)}`
+    : `${symbol}${lo}${t(periodKey)}`;
 }

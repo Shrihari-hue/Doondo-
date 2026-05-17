@@ -16,6 +16,7 @@ import { Screen, Text, Card, Avatar, LoadingSpinner, EmptyState, Stars, ErrorPan
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRatings } from '@/hooks/useRatings';
+import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import type { AppStackParamList } from '@/navigation/types';
 
@@ -27,6 +28,7 @@ function RatingsScreenInner() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteParams>();
   const { user } = useAuth();
+  const t = useTranslate();
 
   const userId = route.params?.userId ?? user?.id ?? null;
   const isMyRatings = !route.params?.userId;
@@ -43,11 +45,11 @@ function RatingsScreenInner() {
       >
         <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
           <Text variant="body" tone="secondary">
-            ← Back
+            {t('ratings.back')}
           </Text>
         </Pressable>
         <Text variant="display" weight="medium" display>
-          {isMyRatings ? 'My ratings' : 'Ratings'}
+          {isMyRatings ? t('ratings.my_ratings') : t('ratings.others_ratings')}
         </Text>
         {data?.summary && data.summary.count > 0 && (
           <Stars score={data.summary.avg} count={data.summary.count} />
@@ -59,14 +61,14 @@ function RatingsScreenInner() {
           <LoadingSpinner />
         </View>
       ) : isError ? (
-        <ErrorPanel error={null} onRetry={() => void refetch()} title="Couldn't load ratings" />
+        <ErrorPanel error={null} onRetry={() => void refetch()} title={t('ratings.error_title')} />
       ) : !data || data.ratings.length === 0 ? (
         <EmptyState
-          title="No ratings yet"
+          title={t('ratings.empty_title')}
           message={
             isMyRatings
-              ? "Once an employer rates you after a hire, you'll see it here."
-              : 'This person hasn’t been rated yet.'
+              ? t('ratings.empty_my_message')
+              : t('ratings.empty_other_message')
           }
         />
       ) : (

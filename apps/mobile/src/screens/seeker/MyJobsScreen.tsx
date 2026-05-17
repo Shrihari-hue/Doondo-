@@ -22,17 +22,20 @@ import { useTheme } from '@/theme/useTheme';
 import { jobsApi } from '@/api/jobs.api';
 import { applicationsApi } from '@/api/applications.api';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import type { PublicJob } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type TabKey = 'saved' | 'applied';
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function MyJobsInner() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const t = useTranslate();
   const [tab, setTab] = useState<TabKey>('saved');
 
   const savedQuery = useQuery({
@@ -93,7 +96,7 @@ function MyJobsInner() {
               flex: 1,
             }}
           >
-            My Jobs
+            {t('my_jobs.title')}
           </Text>
         </View>
 
@@ -108,15 +111,15 @@ function MyJobsInner() {
             borderColor: theme.border.default,
           }}
         >
-          {(['saved', 'applied'] as TabKey[]).map((t) => {
-            const active = tab === t;
-            const count = t === 'saved' ? savedJobs.length : appliedJobs.length;
+          {(['saved', 'applied'] as TabKey[]).map((tabKey) => {
+            const active = tab === tabKey;
+            const count = tabKey === 'saved' ? savedJobs.length : appliedJobs.length;
             return (
               <Pressable
-                key={t}
+                key={tabKey}
                 onPress={() => {
                   haptic('selection');
-                  setTab(t);
+                  setTab(tabKey);
                 }}
                 style={{
                   flex: 1,
@@ -135,7 +138,7 @@ function MyJobsInner() {
                     color: active ? theme.brand.hero : theme.text.secondary,
                   }}
                 >
-                  {t === 'saved' ? 'Saved' : 'Applied'}
+                  {tabKey === 'saved' ? t('my_jobs.tabs.saved') : t('my_jobs.tabs.applied')}
                   {count > 0 ? `  (${count})` : ''}
                 </Text>
               </Pressable>
@@ -153,15 +156,15 @@ function MyJobsInner() {
       ) : activeList.length === 0 ? (
         <EmptyState
           glyph={tab === 'saved' ? '♡' : '✉'}
-          eyebrow={tab === 'saved' ? 'NOTHING SAVED' : 'NO APPLICATIONS'}
-          title={tab === 'saved' ? 'No saved jobs yet' : 'No applied jobs yet'}
+          eyebrow={tab === 'saved' ? t('my_jobs.empty.saved_eyebrow') : t('my_jobs.empty.applied_eyebrow')}
+          title={tab === 'saved' ? t('my_jobs.empty.saved_title') : t('my_jobs.empty.applied_title')}
           message={
             tab === 'saved'
-              ? 'Tap the heart on any job to save it for later.'
-              : 'Browse nearby jobs and tap Apply Now.'
+              ? t('my_jobs.empty.saved_message')
+              : t('my_jobs.empty.applied_message')
           }
           cta={{
-            label: 'Browse jobs',
+            label: t('my_jobs.empty.cta'),
             onPress: () => navigation.navigate('SeekerTabs', { screen: 'Jobs' } as never),
           }}
         />
@@ -181,7 +184,7 @@ function MyJobsInner() {
               tintColor={theme.brand.hero}
             />
           }
-          renderItem={({ item }) => <JobRow job={item} onPress={() => openJob(item)} />}
+          renderItem={({ item }) => <JobRow t={t} job={item} onPress={() => openJob(item)} />}
         />
       )}
     </Screen>
@@ -190,7 +193,7 @@ function MyJobsInner() {
 
 // ─── Row ─────────────────────────────────────────────────────────────────────
 
-function JobRow({ job, onPress }: { job: PublicJob; onPress: () => void }) {
+function JobRow({ t, job, onPress }: { t: TFn; job: PublicJob; onPress: () => void }) {
   const { theme } = useTheme();
   return (
     <Pressable onPress={onPress}>
@@ -218,7 +221,7 @@ function JobRow({ job, onPress }: { job: PublicJob; onPress: () => void }) {
               {job.title}
             </Text>
             <Text style={{ fontSize: 13, color: theme.text.secondary }} numberOfLines={1}>
-              {job.employer?.companyName ?? job.employer?.name ?? 'Doondo Employer'}
+              {job.employer?.companyName ?? job.employer?.name ?? t('jobs.card.default_employer')}
             </Text>
             <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 2 }}>
               {job.location.city}
@@ -231,7 +234,7 @@ function JobRow({ job, onPress }: { job: PublicJob; onPress: () => void }) {
               color: theme.accent.amber,
             }}
           >
-            {formatPay(job.pay)}
+            {formatPay(job.pay, t)}
           </Text>
         </View>
       </View>
@@ -239,23 +242,26 @@ function JobRow({ job, onPress }: { job: PublicJob; onPress: () => void }) {
   );
 }
 
-function formatPay(pay: PublicJob['pay']): string {
+function formatPay(pay: PublicJob['pay'], t: TFn): string {
   const minor = 100;
   const symbol = pay.currency === 'INR' ? '₹' : pay.currency === 'USD' ? '$' : '';
-  const lo = (pay.amount / minor).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const lo = (pay.amount / minor).toLocaleString('en-IN', { maximumFractionDigits: 0 });
   const hi = pay.amountMax
-    ? (pay.amountMax / minor).toLocaleString(undefined, { maximumFractionDigits: 0 })
+    ? (pay.amountMax / minor).toLocaleString('en-IN', { maximumFractionDigits: 0 })
     : null;
-  const periodMap = {
-    hour: '/hr',
-    day: '/day',
-    week: '/wk',
-    month: '/mo',
-    fixed: ' fixed',
-  } as const;
+  const periodKey =
+    pay.period === 'hour'
+      ? 'common.pay_period.suffix_hour'
+      : pay.period === 'day'
+        ? 'common.pay_period.suffix_day'
+        : pay.period === 'week'
+          ? 'common.pay_period.suffix_week'
+          : pay.period === 'month'
+            ? 'common.pay_period.suffix_month'
+            : 'common.pay_period.suffix_fixed';
   return hi
-    ? `${symbol}${lo}–${hi}${periodMap[pay.period]}`
-    : `${symbol}${lo}${periodMap[pay.period]}`;
+    ? `${symbol}${lo}–${hi}${t(periodKey)}`
+    : `${symbol}${lo}${t(periodKey)}`;
 }
 
 export function MyJobsScreen() {

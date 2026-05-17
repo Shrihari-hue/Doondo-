@@ -11,6 +11,10 @@ export function useAuth() {
   const user = useAuthStore((s) => s.user);
   const setSession = useAuthStore((s) => s.setSession);
   const logout = useAuthStore((s) => s.logout);
+  const savedAccounts = useAuthStore((s) => s.savedAccounts);
+  const activeAccountId = useAuthStore((s) => s.activeAccountId);
+  const addAccount = useAuthStore((s) => s.addAccount);
+  const switchAccount = useAuthStore((s) => s.switchAccount);
 
   return {
     status,
@@ -19,5 +23,10 @@ export function useAuth() {
     isBootstrapping: status === 'bootstrapping',
     setSession,
     logout,
+    // Multi-account
+    savedAccounts,
+    activeAccountId,
+    addAccount,
+    switchAccount,
   };
 }

@@ -13,15 +13,18 @@ import { Screen, Text, Card, LoadingSpinner, EmptyState, ErrorPanel } from '@/co
 import { useTheme } from '@/theme/useTheme';
 import { useNotifications, useMarkRead, useMarkAllRead } from '@/hooks/useNotifications';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import type { PublicNotification } from '@/api/notifications.api';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function NotificationsScreenInner() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
+  const t = useTranslate();
 
   const { data, isLoading, isError, refetch, isRefetching } = useNotifications(50);
   const markRead = useMarkRead();
@@ -108,7 +111,7 @@ function NotificationsScreenInner() {
       >
         <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
           <Text variant="body" tone="secondary">
-            ← Back
+            {t('notifications.back')}
           </Text>
         </Pressable>
         <View
@@ -119,12 +122,12 @@ function NotificationsScreenInner() {
           }}
         >
           <Text variant="display" weight="medium" display>
-            Notifications
+            {t('notifications.title')}
           </Text>
           {data && data.notifications.some((n) => !n.read) && (
             <Pressable onPress={onMarkAllRead} hitSlop={6}>
               <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
-                Mark all read
+                {t('notifications.mark_all_read')}
               </Text>
             </Pressable>
           )}
@@ -136,11 +139,11 @@ function NotificationsScreenInner() {
           <LoadingSpinner />
         </View>
       ) : isError ? (
-        <ErrorPanel error={null} onRetry={() => void refetch()} title="Couldn't load notifications" />
+        <ErrorPanel error={null} onRetry={() => void refetch()} title={t('notifications.error_title')} />
       ) : !data || data.notifications.length === 0 ? (
         <EmptyState
-          title="No notifications yet"
-          message="When you have applications, messages, or ratings, they'll show up here."
+          title={t('notifications.empty_title')}
+          message={t('notifications.empty_message')}
         />
       ) : (
         <FlatList
@@ -184,7 +187,7 @@ function NotificationsScreenInner() {
                       {item.body}
                     </Text>
                     <Text variant="caption" tone="tertiary">
-                      {formatRelative(item.createdAt)}
+                      {formatRelative(item.createdAt, t)}
                     </Text>
                   </View>
                 </View>
@@ -197,16 +200,20 @@ function NotificationsScreenInner() {
   );
 }
 
-function formatRelative(iso: string): string {
+function formatRelative(iso: string, t: TFn): string {
   const then = new Date(iso).getTime();
   const now = Date.now();
   const diffMin = Math.round((now - then) / 60_000);
-  if (diffMin < 1) return 'Just now';
-  if (diffMin < 60) return `${diffMin} min ago`;
+  if (diffMin < 1) return t('notifications.time.just_now');
+  if (diffMin < 60) return t('notifications.time.min_ago', { n: diffMin });
   const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} hr ago`;
+  if (diffHr < 24) return t('notifications.time.hr_ago', { n: diffHr });
   const diffDay = Math.round(diffHr / 24);
-  if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
+  if (diffDay < 7)
+    return t(
+      diffDay === 1 ? 'notifications.time.day_ago_one' : 'notifications.time.day_ago_other',
+      { n: diffDay },
+    );
   return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 

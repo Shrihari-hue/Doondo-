@@ -14,6 +14,15 @@ import * as SecureStore from 'expo-secure-store';
 
 export type SecureKey =
   | 'refreshToken'
+  /**
+   * Multi-account: JSON-encoded array of SavedAccount entries (see
+   * auth.store.ts). One entry per signed-in account on this device.
+   * `refreshToken` above continues to hold the ACTIVE account's token
+   * so bootstrap() can stay backward-compatible.
+   */
+  | 'savedAccounts'
+  /** Multi-account: id of the currently active account. */
+  | 'activeAccountId'
   | 'themePref'
   | 'languagePref'
   | 'notificationsEnabled'

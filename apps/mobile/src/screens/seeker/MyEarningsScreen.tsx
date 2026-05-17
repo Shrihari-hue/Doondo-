@@ -31,16 +31,19 @@ import { ApiError } from '@/api/errors';
 import { haptic } from '@/lib/haptics';
 import { useAuth } from '@/hooks/useAuth';
 import { sharePayReceiptPdf } from '@/lib/receiptPdf';
+import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function MyEarningsInner() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const t = useTranslate();
   const [logOpen, setLogOpen] = useState(false);
 
   const query = useQuery({
@@ -81,17 +84,18 @@ function MyEarningsInner() {
           <Text
             style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
           >
-            My Earnings
+            {t('earnings.title')}
           </Text>
           <Pressable
             onPress={() => {
               haptic('light');
               Alert.alert(
-                'How earnings work',
-                "Doondo records the pay each employer agreed to when you were hired. The total here is the value of every contract you've won — it does NOT include money actually moved to your bank yet.\n\nDirect bank payouts arrive in a future update. Until then, payment happens between you and the employer the way you agreed (cash, UPI, etc.). If an employer doesn't pay, message Doondo Support.",
-                [{ text: 'Got it' }],
+                t('earnings.info_dialog_title'),
+                t('earnings.info_dialog_body'),
+                [{ text: t('earnings.info_dialog_ok') }],
               );
             }}
+            accessibilityLabel={t('earnings.info_a11y')}
             hitSlop={12}
           >
             <Text style={{ fontSize: 18, color: '#FFFFFF' }}>ⓘ</Text>
@@ -106,7 +110,7 @@ function MyEarningsInner() {
             letterSpacing: 0.4,
           }}
         >
-          Contracts won
+          {t('earnings.contracts_won')}
         </Text>
         <Text
           style={{
@@ -129,15 +133,15 @@ function MyEarningsInner() {
           }}
         >
           <SummaryBlock
-            label="Pending"
+            label={t('earnings.summary_pending')}
             value={summary ? formatRupees(summary.pendingPaise) : '—'}
           />
           <SummaryBlock
-            label="Hires"
+            label={t('earnings.summary_hires')}
             value={summary ? String(summary.hireCount) : '—'}
           />
           <SummaryBlock
-            label="Cash logged"
+            label={t('earnings.summary_cash_logged')}
             value={summary ? formatRupees(summary.cashLogPaise) : '—'}
           />
         </View>
@@ -150,7 +154,7 @@ function MyEarningsInner() {
             setLogOpen(true);
           }}
           accessibilityRole="button"
-          accessibilityLabel="Log a cash earning"
+          accessibilityLabel={t('earnings.log_cta_a11y')}
           style={({ pressed }) => ({
             marginTop: spacing.lg,
             paddingVertical: spacing.sm + 2,
@@ -164,7 +168,7 @@ function MyEarningsInner() {
           })}
         >
           <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>
-            + Log cash earning
+            {t('earnings.log_cta')}
           </Text>
         </Pressable>
       </LinearGradient>
@@ -186,7 +190,7 @@ function MyEarningsInner() {
             marginBottom: spacing.sm,
           }}
         >
-          TRANSACTIONS
+          {t('earnings.transactions_eyebrow')}
         </Text>
 
         {query.isLoading ? (
@@ -195,10 +199,10 @@ function MyEarningsInner() {
           </View>
         ) : query.isError ? (
           <EmptyState
-            title="Couldn't load earnings"
-            message="Check your connection and try again."
+            title={t('earnings.error_title')}
+            message={t('earnings.error_message')}
             cta={{
-              label: 'Retry',
+              label: t('earnings.retry_cta'),
               onPress: () => {
                 haptic('selection');
                 void query.refetch();
@@ -208,11 +212,11 @@ function MyEarningsInner() {
         ) : transactions.length === 0 ? (
           <EmptyState
             glyph="💰"
-            eyebrow="NO EARNINGS YET"
-            title="No contracts yet"
-            message="Every job you're hired for shows up here with the pay the employer agreed to. Direct bank payouts arrive in a future update."
+            eyebrow={t('earnings.empty_eyebrow')}
+            title={t('earnings.empty_title')}
+            message={t('earnings.empty_message')}
             cta={{
-              label: 'Browse jobs',
+              label: t('earnings.empty_cta'),
               onPress: () => navigation.navigate('SeekerTabs', { screen: 'Jobs' } as never),
             }}
           />
@@ -232,7 +236,7 @@ function MyEarningsInner() {
                 tintColor={theme.brand.hero}
               />
             }
-            renderItem={({ item }) => <TransactionRow tx={item} />}
+            renderItem={({ item }) => <TransactionRow t={t} tx={item} />}
           />
         )}
       </View>
@@ -261,6 +265,7 @@ function LogCashEarningModal({
 }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const t = useTranslate();
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
 
@@ -268,9 +273,9 @@ function LogCashEarningModal({
     mutationFn: () => {
       const rupees = Number(amount.replace(/[^\d.]/g, ''));
       if (!Number.isFinite(rupees) || rupees <= 0) {
-        throw new Error('Enter a valid amount');
+        throw new Error(t('earnings.error_amount'));
       }
-      if (!description.trim()) throw new Error('Add a short description');
+      if (!description.trim()) throw new Error(t('earnings.error_desc'));
       return walletApi.logCash({
         amount: Math.round(rupees * 100),
         description: description.trim(),
@@ -286,12 +291,12 @@ function LogCashEarningModal({
     onError: (err) => {
       haptic('error');
       Alert.alert(
-        "Couldn't log",
+        t('earnings.couldnt_log_title'),
         err instanceof ApiError
           ? err.message
           : err instanceof Error
             ? err.message
-            : 'Try again.',
+            : t('earnings.error_default'),
       );
     },
   });
@@ -349,7 +354,7 @@ function LogCashEarningModal({
                 color: theme.text.tertiary,
               }}
             >
-              CASH EARNING
+              {t('earnings.log_modal_eyebrow')}
             </Text>
             <Text
               style={{
@@ -359,26 +364,24 @@ function LogCashEarningModal({
                 letterSpacing: -0.3,
               }}
             >
-              Log a cash gig
+              {t('earnings.log_modal_title')}
             </Text>
             <Text
               style={{ fontSize: 13, lineHeight: 19, color: theme.text.secondary }}
             >
-              Worked outside Doondo and got paid in cash? Add it here to keep
-              your earnings record complete — useful for loans, tax, and
-              remittance planning. Stays private to you.
+              {t('earnings.log_modal_body')}
             </Text>
           </View>
 
           <View style={{ gap: spacing.sm }}>
             <Text style={{ fontSize: 12, fontWeight: '600', color: theme.text.secondary }}>
-              Amount (₹)
+              {t('earnings.log_modal_amount_label')}
             </Text>
             <TextInput
               value={amount}
-              onChangeText={(t) => setAmount(t.replace(/[^\d]/g, ''))}
+              onChangeText={(text) => setAmount(text.replace(/[^\d]/g, ''))}
               keyboardType="number-pad"
-              placeholder="e.g. 800"
+              placeholder={t('earnings.log_modal_amount_placeholder')}
               placeholderTextColor={theme.text.tertiary}
               style={{
                 backgroundColor: theme.bg.surface,
@@ -392,12 +395,12 @@ function LogCashEarningModal({
               }}
             />
             <Text style={{ fontSize: 12, fontWeight: '600', color: theme.text.secondary }}>
-              What was the work?
+              {t('earnings.log_modal_desc_label')}
             </Text>
             <TextInput
               value={description}
               onChangeText={setDescription}
-              placeholder="e.g. Painting at Mr. Sharma's house"
+              placeholder={t('earnings.log_modal_desc_placeholder')}
               placeholderTextColor={theme.text.tertiary}
               autoCapitalize="sentences"
               maxLength={240}
@@ -431,7 +434,7 @@ function LogCashEarningModal({
               <Text
                 style={{ fontSize: 15, fontWeight: '600', color: theme.text.primary }}
               >
-                Cancel
+                {t('earnings.log_modal_cancel')}
               </Text>
             </Pressable>
             <Pressable
@@ -453,7 +456,7 @@ function LogCashEarningModal({
               })}
             >
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
-                {mutation.isPending ? 'Saving…' : 'Save'}
+                {mutation.isPending ? t('earnings.log_modal_saving') : t('earnings.log_modal_save')}
               </Text>
             </Pressable>
           </View>
@@ -488,7 +491,7 @@ function SummaryBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
-function TransactionRow({ tx }: { tx: PublicWalletTransaction }) {
+function TransactionRow({ t, tx }: { t: TFn; tx: PublicWalletTransaction }) {
   const { theme } = useTheme();
   const { user } = useAuth();
   const credit = tx.amount > 0;
@@ -502,11 +505,11 @@ function TransactionRow({ tx }: { tx: PublicWalletTransaction }) {
     try {
       const result = await sharePayReceiptPdf({ user, transaction: tx });
       if (!result.ok && result.reason !== 'unsupported') {
-        Alert.alert("Couldn't make receipt", result.message);
+        Alert.alert(t('earnings.receipt_error_title'), result.message);
       } else if (!result.ok) {
         Alert.alert(
-          'Receipt unavailable',
-          "We couldn't generate a PDF on this device. The amount is still recorded in your diary.",
+          t('earnings.receipt_unavailable_title'),
+          t('earnings.receipt_unavailable_body'),
         );
       }
     } finally {
@@ -566,12 +569,12 @@ function TransactionRow({ tx }: { tx: PublicWalletTransaction }) {
           <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
             {formatDate(tx.createdAt)} ·{' '}
             {tx.kind === 'cash_log'
-              ? 'Cash (self-logged)'
+              ? t('earnings.tx_status_cash_self_logged')
               : tx.status === 'settled'
-                ? 'Settled'
+                ? t('earnings.tx_status_settled')
                 : tx.status === 'pending'
-                  ? 'Pending'
-                  : 'Reversed'}
+                  ? t('earnings.tx_status_pending')
+                  : t('earnings.tx_status_reversed')}
           </Text>
         </View>
         <Text
@@ -603,7 +606,7 @@ function TransactionRow({ tx }: { tx: PublicWalletTransaction }) {
           })}
         >
           <Text style={{ fontSize: 12, fontWeight: '600', color: '#1E40AF' }}>
-            {issuing ? 'Preparing receipt…' : '📄 Generate receipt'}
+            {issuing ? t('earnings.preparing_receipt') : t('earnings.generate_receipt')}
           </Text>
         </Pressable>
       )}
@@ -614,7 +617,8 @@ function TransactionRow({ tx }: { tx: PublicWalletTransaction }) {
 function formatRupees(paise: number): string {
   const rupees = paise / 100;
   const sign = rupees < 0 ? '-' : '';
-  return `${sign}₹${Math.abs(rupees).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  // 'en-IN' grouping for lakh/crore display, regardless of UI language.
+  return `${sign}₹${Math.abs(rupees).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 }
 
 function formatDate(iso: string): string {

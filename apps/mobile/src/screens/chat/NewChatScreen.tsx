@@ -22,16 +22,19 @@ import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
 import { chatApi } from '@/api/chat.api';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import type { PublicApplication } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function NewChatInner() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const t = useTranslate();
 
   const appsQuery = useQuery({
     queryKey: ['applications', 'me'],
@@ -78,7 +81,7 @@ function NewChatInner() {
             flex: 1,
           }}
         >
-          New Chat
+          {t('new_chat.title')}
         </Text>
       </View>
 
@@ -90,7 +93,7 @@ function NewChatInner() {
           paddingBottom: spacing.md,
         }}
       >
-        Pick a job you've applied to — start the conversation with the employer.
+        {t('new_chat.hint')}
       </Text>
 
       {appsQuery.isLoading ? (
@@ -99,17 +102,17 @@ function NewChatInner() {
         </View>
       ) : appsQuery.isError ? (
         <EmptyState
-          title="Couldn't load applications"
-          message="Check your connection and try again."
-          cta={{ label: 'Retry', onPress: () => void appsQuery.refetch() }}
+          title={t('new_chat.error_title')}
+          message={t('new_chat.error_message')}
+          cta={{ label: t('new_chat.retry_cta'), onPress: () => void appsQuery.refetch() }}
         />
       ) : eligible.length === 0 ? (
         <EmptyState
           glyph="✉"
-          title="No applications yet"
-          message="Apply to a job first, then come back to start a chat with the employer."
+          title={t('new_chat.empty_title')}
+          message={t('new_chat.empty_message')}
           cta={{
-            label: 'Browse jobs',
+            label: t('new_chat.empty_cta'),
             onPress: () => navigation.navigate('SeekerTabs', { screen: 'Jobs' } as never),
           }}
         />
@@ -124,6 +127,7 @@ function NewChatInner() {
           keyExtractor={(a) => a.id}
           renderItem={({ item }) => (
             <AppRow
+              t={t}
               app={item}
               disabled={startChat.isPending}
               onPress={() => startChat.mutate(item.id)}
@@ -138,17 +142,19 @@ function NewChatInner() {
 // ─── Row ─────────────────────────────────────────────────────────────────────
 
 function AppRow({
+  t,
   app,
   disabled,
   onPress,
 }: {
+  t: TFn;
   app: PublicApplication;
   disabled: boolean;
   onPress: () => void;
 }) {
   const { theme } = useTheme();
   const employerName =
-    app.job?.employer?.companyName ?? app.job?.employer?.name ?? 'Employer';
+    app.job?.employer?.companyName ?? app.job?.employer?.name ?? t('new_chat.fallback_employer');
 
   return (
     <Pressable
@@ -183,7 +189,7 @@ function AppRow({
           style={{ fontSize: 13, color: theme.text.secondary }}
           numberOfLines={1}
         >
-          {app.job?.title ?? 'Job application'}
+          {app.job?.title ?? t('new_chat.fallback_job_application')}
         </Text>
       </View>
       <Text style={{ fontSize: 20, color: theme.text.tertiary }}>›</Text>

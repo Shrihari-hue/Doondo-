@@ -46,10 +46,12 @@ import {
   tenureMonths,
   type SuggestedAlert,
 } from '@/lib/workHistory';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
 import type { PublicUser, WorkExperience } from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function ResumePreviewInner() {
   const { theme } = useTheme();
@@ -58,6 +60,7 @@ function ResumePreviewInner() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const setStore = useAuthStore.setState;
+  const t = useTranslate();
 
   const entries = sortWorkHistory(user?.workHistory ?? []);
 
@@ -84,8 +87,8 @@ function ResumePreviewInner() {
     },
     onError: (err) => {
       haptic('error');
-      const msg = err instanceof ApiError ? err.message : 'Try again.';
-      Alert.alert("Couldn't delete resume", msg);
+      const msg = err instanceof ApiError ? err.message : t('resume_preview.try_again');
+      Alert.alert(t('resume_preview.couldnt_delete_title'), msg);
     },
   });
 
@@ -126,8 +129,8 @@ function ResumePreviewInner() {
 
     try {
       await Share.share({
-        title: `${user.name} — Resume`,
-        message: buildShareText(user, entries),
+        title: `${user.name}${t('resume_preview.share_title_suffix')}`,
+        message: buildShareText(user, entries, t),
       });
     } catch {
       // user dismissed
@@ -141,12 +144,12 @@ function ResumePreviewInner() {
 
   const onDelete = () => {
     Alert.alert(
-      'Delete resume?',
-      'Your work history will be cleared. You can build it again later.',
+      t('resume_preview.delete_title'),
+      t('resume_preview.delete_body'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('resume_preview.delete_cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('resume_preview.delete_confirm'),
           style: 'destructive',
           onPress: () => clearHistory.mutate(),
         },
@@ -169,11 +172,11 @@ function ResumePreviewInner() {
           </View>
           <EmptyState
             glyph="📝"
-            eyebrow="NO RESUME YET"
-            title="Build your resume"
-            message="Walk through your last 1–5 jobs and we'll turn it into something you can share with employers."
+            eyebrow={t('resume_preview.empty_eyebrow')}
+            title={t('resume_preview.empty_title')}
+            message={t('resume_preview.empty_message')}
             cta={{
-              label: 'Start the wizard',
+              label: t('resume_preview.empty_cta'),
               onPress: () => {
                 haptic('selection');
                 navigation.replace('ResumeBuilder');
@@ -215,11 +218,11 @@ function ResumePreviewInner() {
               flex: 1,
             }}
           >
-            My resume
+            {t('resume_preview.topbar_title')}
           </Text>
           <Pressable onPress={onEdit} hitSlop={8}>
             <Text style={{ fontSize: 14, fontWeight: '600', color: blue[600] }}>
-              Edit
+              {t('resume_preview.topbar_edit')}
             </Text>
           </Pressable>
         </View>
@@ -285,7 +288,7 @@ function ResumePreviewInner() {
                 ) : null}
               </View>
             </View>
-            <ContactRow user={user} />
+            <ContactRow user={user} t={t} />
           </LinearGradient>
         </View>
 
@@ -296,6 +299,7 @@ function ResumePreviewInner() {
             style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg }}
           >
             <SuggestionCard
+              t={t}
               suggestion={suggestion}
               onAccept={() => {
                 haptic('selection');
@@ -307,7 +311,7 @@ function ResumePreviewInner() {
 
         {/* Bio */}
         {user.bio ? (
-          <Section title="ABOUT ME">
+          <Section title={t('resume_preview.section_about')}>
             <View style={cardStyle(theme)}>
               <Text
                 style={{
@@ -324,7 +328,7 @@ function ResumePreviewInner() {
 
         {/* Skills */}
         {user.skills?.length ? (
-          <Section title="SKILLS">
+          <Section title={t('resume_preview.section_skills')}>
             <View
               style={[
                 cardStyle(theme),
@@ -361,17 +365,17 @@ function ResumePreviewInner() {
         ) : null}
 
         {/* Work history */}
-        <Section title={`EXPERIENCE · ${entries.length}`}>
+        <Section title={t('resume_preview.section_experience', { n: entries.length })}>
           <View style={{ gap: spacing.sm }}>
             {entries.map((e, i) => (
-              <WorkRow key={`${e.company}-${e.startDate}-${i}`} entry={e} />
+              <WorkRow key={`${e.company}-${e.startDate}-${i}`} t={t} entry={e} />
             ))}
           </View>
         </Section>
 
         {/* Education — shown only when the seeker has added entries. */}
         {user.education && user.education.length > 0 ? (
-          <Section title={`EDUCATION · ${user.education.length}`}>
+          <Section title={t('resume_preview.section_education', { n: user.education.length })}>
             <View style={{ gap: spacing.sm }}>
               {user.education.map((e, i) => (
                 <View
@@ -396,7 +400,7 @@ function ResumePreviewInner() {
                     {e.institution}
                   </Text>
                   <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 2 }}>
-                    {e.startYear} — {e.current ? 'Present' : e.endYear ?? '—'}
+                    {e.startYear} — {e.current ? t('resume_preview.education_present') : e.endYear ?? '—'}
                   </Text>
                 </View>
               ))}
@@ -406,20 +410,21 @@ function ResumePreviewInner() {
 
         {/* Verified-trade pills — surfaced when 3+ employers have
            endorsed the seeker on a trade. Highest trust signal we have. */}
-        <VerifiedTradesSection seekerId={user.id} />
+        <VerifiedTradesSection t={t} seekerId={user.id} />
 
         {/* Tested-trade pills — surfaced when the seeker has passed the
            skill assessment for that trade. Complementary to verified. */}
-        <TestedTradesSection seekerId={user.id} />
+        <TestedTradesSection t={t} seekerId={user.id} />
 
         {/* Earned course badges — taps through to Courses. Hidden when
            the seeker hasn't finished any course yet. */}
-        <BadgesSection />
+        <BadgesSection t={t} />
 
         {/* Work photos — horizontal carousel shown only when there are
            photos. Tap a photo for a fuller view (system image viewer). */}
         {user.workPhotos && user.workPhotos.length > 0 ? (
           <WorkPhotosWithVerifyBadges
+            t={t}
             photos={user.workPhotos}
             seekerId={user.id}
           />
@@ -435,7 +440,7 @@ function ResumePreviewInner() {
             paddingHorizontal: spacing.xl,
           }}
         >
-          Generated with Doondo · doondo.app
+          {t('resume_preview.footer_signature')}
         </Text>
       </ScrollView>
 
@@ -468,7 +473,7 @@ function ResumePreviewInner() {
           })}
         >
           <Text style={{ fontSize: 14, fontWeight: '600', color: '#B91C1C' }}>
-            Delete
+            {t('resume_preview.cta_delete')}
           </Text>
         </Pressable>
         <Pressable
@@ -489,7 +494,7 @@ function ResumePreviewInner() {
           })}
         >
           <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>
-            Share resume
+            {t('resume_preview.cta_share')}
           </Text>
         </Pressable>
       </View>
@@ -499,16 +504,19 @@ function ResumePreviewInner() {
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
 
-function ContactRow({ user }: { user: PublicUser }) {
+function ContactRow({ user, t }: { user: PublicUser; t: TFn }) {
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
       {user.phone ? <PillTag label={user.phone} icon="📞" /> : null}
       <PillTag label={user.email} icon="✉" />
       {user.experienceYears != null ? (
         <PillTag
-          label={`${user.experienceYears} ${
-            user.experienceYears === 1 ? 'yr' : 'yrs'
-          } experience`}
+          label={t(
+            user.experienceYears === 1
+              ? 'resume_preview.contact_years_one'
+              : 'resume_preview.contact_years_other',
+            { n: user.experienceYears },
+          )}
           icon="⏱"
         />
       ) : null}
@@ -540,13 +548,23 @@ function PillTag({ label, icon }: { label: string; icon: string }) {
 }
 
 function SuggestionCard({
+  t,
   suggestion,
   onAccept,
 }: {
+  t: TFn;
   suggestion: SuggestedAlert;
   onAccept: () => void;
 }) {
   const { theme } = useTheme();
+  // The body sentence carries different shapes depending on whether the
+  // seeker has a city in their profile; flatten the role token here so
+  // the translation receives one combined string instead of mixed inline
+  // markup the language couldn't reorder.
+  const role = suggestion.query ?? suggestion.name;
+  const body = suggestion.city
+    ? t('resume_preview.suggestion_body_with_city', { role, city: suggestion.city })
+    : t('resume_preview.suggestion_body_no_city', { role });
   return (
     <View
       style={{
@@ -584,7 +602,7 @@ function SuggestionCard({
             flex: 1,
           }}
         >
-          Get notified about jobs like these?
+          {t('resume_preview.suggestion_title')}
         </Text>
       </View>
       <Text
@@ -594,19 +612,7 @@ function SuggestionCard({
           color: theme.text.secondary,
         }}
       >
-        We can ping you when employers post{' '}
-        <Text style={{ fontWeight: '700', color: theme.text.primary }}>
-          {suggestion.query ?? suggestion.name}
-        </Text>
-        {suggestion.city ? (
-          <>
-            {' '}roles in{' '}
-            <Text style={{ fontWeight: '700', color: theme.text.primary }}>
-              {suggestion.city}
-            </Text>
-          </>
-        ) : null}
-        . You can edit or remove the alert any time.
+        {body}
       </Text>
       <Pressable
         onPress={onAccept}
@@ -621,7 +627,7 @@ function SuggestionCard({
         })}
       >
         <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
-          Set up alert
+          {t('resume_preview.suggestion_cta')}
         </Text>
       </Pressable>
     </View>
@@ -640,9 +646,11 @@ function SuggestionCard({
  * with the photo itself.
  */
 function WorkPhotosWithVerifyBadges({
+  t,
   photos,
   seekerId,
 }: {
+  t: TFn;
   photos: string[];
   seekerId: string;
 }) {
@@ -656,7 +664,7 @@ function WorkPhotosWithVerifyBadges({
     (verifyQuery.data?.verifications ?? []).map((v) => [v.photoIndex, v.count]),
   );
   return (
-    <Section title={`PHOTOS · ${photos.length}`}>
+    <Section title={t('resume_preview.section_photos', { n: photos.length })}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -696,7 +704,7 @@ function WorkPhotosWithVerifyBadges({
                   <Text
                     style={{ fontSize: 11, color: '#FFFFFF', fontWeight: '700' }}
                   >
-                    ✓ Verified by employer
+                    {t('resume_preview.verified_photo_label')}
                   </Text>
                 </View>
               ) : null}
@@ -714,7 +722,7 @@ function WorkPhotosWithVerifyBadges({
  * seeker can take the test alone) but a real one — they showed they
  * know the trade fundamentals.
  */
-function TestedTradesSection({ seekerId }: { seekerId: string }) {
+function TestedTradesSection({ t, seekerId }: { t: TFn; seekerId: string }) {
   const passed = useQuery({
     queryKey: ['skillTests', 'passed', seekerId],
     queryFn: () => skillTestsApi.passedForSeeker(seekerId),
@@ -727,12 +735,12 @@ function TestedTradesSection({ seekerId }: { seekerId: string }) {
   });
   const testIds = passed.data?.passedTestIds ?? [];
   if (testIds.length === 0) return null;
-  const titles = new Map((catalogue.data?.tests ?? []).map((t) => [t.id, t]));
+  const titles = new Map((catalogue.data?.tests ?? []).map((test) => [test.id, test]));
   return (
-    <Section title={`TESTED · ${testIds.length}`}>
+    <Section title={t('resume_preview.section_tested', { n: testIds.length })}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
         {testIds.map((id) => {
-          const t = titles.get(id);
+          const test = titles.get(id);
           return (
             <View
               key={id}
@@ -749,9 +757,9 @@ function TestedTradesSection({ seekerId }: { seekerId: string }) {
               }}
             >
               <Text style={{ fontSize: 14 }}>🧠</Text>
-              {t ? <Text style={{ fontSize: 12 }}>{t.emoji}</Text> : null}
+              {test ? <Text style={{ fontSize: 12 }}>{test.emoji}</Text> : null}
               <Text style={{ fontSize: 12, fontWeight: '700', color: '#78350F' }}>
-                Tested: {t ? t.title : prettifySkill(id)}
+                {t('resume_preview.tested_label', { name: test ? test.title : prettifySkill(id) })}
               </Text>
             </View>
           );
@@ -766,7 +774,7 @@ function TestedTradesSection({ seekerId }: { seekerId: string }) {
  * the endorsement threshold. Each pill says "✓ Verified electrician"
  * with the endorser count.
  */
-function VerifiedTradesSection({ seekerId }: { seekerId: string }) {
+function VerifiedTradesSection({ t, seekerId }: { t: TFn; seekerId: string }) {
   const query = useQuery({
     queryKey: ['endorsements', seekerId],
     queryFn: () => endorsementsApi.listForSeeker(seekerId),
@@ -775,7 +783,7 @@ function VerifiedTradesSection({ seekerId }: { seekerId: string }) {
   const verified = (query.data?.endorsements ?? []).filter((e) => e.verified);
   if (verified.length === 0) return null;
   return (
-    <Section title={`VERIFIED TRADES · ${verified.length}`}>
+    <Section title={t('resume_preview.section_verified', { n: verified.length })}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
         {verified.map((v) => (
           <View
@@ -796,7 +804,12 @@ function VerifiedTradesSection({ seekerId }: { seekerId: string }) {
             <Text style={{ fontSize: 12, fontWeight: '700', color: '#065F46' }}>
               {prettifySkill(v.trade)}
               {' · '}
-              {v.count} {v.count === 1 ? 'employer' : 'employers'}
+              {t(
+                v.count === 1
+                  ? 'resume_preview.verified_employer_one'
+                  : 'resume_preview.verified_employer_other',
+                { count: v.count },
+              )}
             </Text>
           </View>
         ))}
@@ -805,7 +818,7 @@ function VerifiedTradesSection({ seekerId }: { seekerId: string }) {
   );
 }
 
-function BadgesSection() {
+function BadgesSection({ t }: { t: TFn }) {
   const enrollmentsQuery = useQuery({
     queryKey: ['enrollments', 'me'],
     queryFn: () => coursesApi.myEnrollments(),
@@ -824,7 +837,7 @@ function BadgesSection() {
     (cataloguQuery.data?.courses ?? []).map((c) => [c.id, c]),
   );
   return (
-    <Section title={`COURSE BADGES · ${earned.length}`}>
+    <Section title={t('resume_preview.section_badges', { n: earned.length })}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -887,7 +900,7 @@ function Section({
   );
 }
 
-function WorkRow({ entry }: { entry: WorkExperience }) {
+function WorkRow({ t, entry }: { t: TFn; entry: WorkExperience }) {
   const { theme } = useTheme();
   const months = tenureMonths(entry);
   return (
@@ -926,7 +939,7 @@ function WorkRow({ entry }: { entry: WorkExperience }) {
             <Text
               style={{ fontSize: 10, fontWeight: '700', color: theme.status.success }}
             >
-              CURRENT
+              {t('resume_preview.current_badge')}
             </Text>
           </View>
         ) : null}
@@ -986,7 +999,7 @@ const cardStyle = (theme: ReturnType<typeof useTheme>['theme']) => ({
  * the recipient (WhatsApp, SMS, email) gets the same info as the
  * on-screen view, no PDF required.
  */
-function buildShareText(user: PublicUser, entries: WorkExperience[]): string {
+function buildShareText(user: PublicUser, entries: WorkExperience[], t: TFn): string {
   const lines: string[] = [];
   lines.push(user.name.toUpperCase());
   const contact: string[] = [];
@@ -1002,26 +1015,34 @@ function buildShareText(user: PublicUser, entries: WorkExperience[]): string {
   lines.push(contact.join(' · '));
   if (user.experienceYears != null) {
     lines.push(
-      `${user.experienceYears} ${
-        user.experienceYears === 1 ? 'year' : 'years'
-      } of experience`,
+      t(
+        user.experienceYears === 1
+          ? 'resume_preview.share_year_one'
+          : 'resume_preview.share_year_other',
+        { n: user.experienceYears },
+      ),
     );
   }
   if (user.rating) {
-    lines.push(`★ ${user.rating.avg.toFixed(1)} (${user.rating.count} reviews)`);
+    lines.push(
+      t('resume_preview.share_reviews', {
+        avg: user.rating.avg.toFixed(1),
+        count: user.rating.count,
+      }),
+    );
   }
   if (user.bio) {
     lines.push('');
-    lines.push('ABOUT');
+    lines.push(t('resume_preview.share_about'));
     lines.push(user.bio);
   }
   if (user.skills?.length) {
     lines.push('');
-    lines.push('SKILLS');
+    lines.push(t('resume_preview.share_skills'));
     lines.push(user.skills.join(' · '));
   }
   lines.push('');
-  lines.push('EXPERIENCE');
+  lines.push(t('resume_preview.share_experience'));
   for (const e of entries) {
     lines.push('');
     lines.push(`${e.role} — ${e.company}`);
@@ -1030,7 +1051,7 @@ function buildShareText(user: PublicUser, entries: WorkExperience[]): string {
   }
   lines.push('');
   lines.push('—');
-  lines.push('Generated with Doondo · doondo.app');
+  lines.push(t('resume_preview.footer_signature'));
   return lines.join('\n');
 }
 

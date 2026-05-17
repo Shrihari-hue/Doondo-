@@ -175,6 +175,17 @@ export type AppStackParamList = {
   Insurance: undefined;
   /** Modal: same-day Tinder-style swipe deck for Today-mode jobs. */
   JobSwipe: undefined;
+  /**
+   * Modal: add a second account (Instagram-style switcher target).
+   * Lives in AppStack because the user is already authenticated when
+   * they open it — auth.addAccount() pushes the new account into
+   * savedAccounts and switches without ejecting the original session.
+   *
+   * `role` locks the form to that role (no toggle) — defaults to
+   * 'employer' since the seeker profile's switcher is the primary
+   * entry point.
+   */
+  AddAccountSignup: { role?: UserRole } | undefined;
 };
 
 declare global {

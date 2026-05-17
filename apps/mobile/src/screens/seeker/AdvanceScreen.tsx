@@ -17,11 +17,13 @@ import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, EmptyState, LoadingSpinner } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { advancesApi, type PublicAdvance } from '@/api/advances.api';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 const AMOUNT_PRESETS_PAISE = [50_000, 100_000, 200_000, 500_000]; // ₹500 / ₹1k / ₹2k / ₹5k
 
@@ -29,20 +31,20 @@ function formatINR(paise: number): string {
   return `₹${Math.round(paise / 100).toLocaleString('en-IN')}`;
 }
 
-function statusCopy(s: PublicAdvance['status']): { label: string; color: string } {
+function statusCopy(s: PublicAdvance['status'], t: TFn): { label: string; color: string } {
   switch (s) {
     case 'requested':
-      return { label: 'Pending review', color: '#92400E' };
+      return { label: t('advance.status_requested'), color: '#92400E' };
     case 'approved':
-      return { label: 'Approved · awaiting payout', color: '#065F46' };
+      return { label: t('advance.status_approved'), color: '#065F46' };
     case 'paid':
-      return { label: 'Paid', color: '#047857' };
+      return { label: t('advance.status_paid'), color: '#047857' };
     case 'repaid':
-      return { label: 'Repaid', color: '#1F2937' };
+      return { label: t('advance.status_repaid'), color: '#1F2937' };
     case 'declined':
-      return { label: 'Declined', color: '#B91C1C' };
+      return { label: t('advance.status_declined'), color: '#B91C1C' };
     case 'cancelled':
-      return { label: 'Cancelled', color: '#6B7280' };
+      return { label: t('advance.status_cancelled'), color: '#6B7280' };
   }
 }
 
@@ -51,6 +53,7 @@ function Inner() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const t = useTranslate();
 
   const [amount, setAmount] = useState(AMOUNT_PRESETS_PAISE[1]!); // ₹1,000 default
   const [reason, setReason] = useState('');
@@ -70,13 +73,10 @@ function Inner() {
       haptic('success');
       void queryClient.invalidateQueries({ queryKey: ['advances', 'me'] });
       setReason('');
-      Alert.alert(
-        'Request received',
-        "We'll review your request and update you within a working day.",
-      );
+      Alert.alert(t('advance.request_received_title'), t('advance.request_received_body'));
     },
     onError: (err) =>
-      Alert.alert('Could not submit', (err as Error).message ?? 'Try again later.'),
+      Alert.alert(t('advance.could_not_submit_title'), (err as Error).message ?? t('advance.could_not_submit_default')),
   });
 
   const cancelMut = useMutation({
@@ -108,10 +108,10 @@ function Inner() {
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 22, fontWeight: '700', color: theme.text.primary }}>
-              Cash advance
+              {t('advance.title')}
             </Text>
             <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 2 }}>
-              Get a small advance against confirmed upcoming work. Capped at ₹5,000.
+              {t('advance.subtitle')}
             </Text>
           </View>
         </View>
@@ -128,7 +128,7 @@ function Inner() {
             gap: spacing.md,
           }}
         >
-          <Text style={{ fontSize: 13, color: theme.text.secondary }}>How much do you need?</Text>
+          <Text style={{ fontSize: 13, color: theme.text.secondary }}>{t('advance.form_how_much')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
             {AMOUNT_PRESETS_PAISE.map((a) => {
               const active = a === amount;
@@ -162,12 +162,12 @@ function Inner() {
             })}
           </View>
           <Text style={{ fontSize: 13, color: theme.text.secondary, marginTop: spacing.sm }}>
-            Why do you need it? (Optional, helps us review faster)
+            {t('advance.form_why_label')}
           </Text>
           <TextInput
             value={reason}
             onChangeText={setReason}
-            placeholder="e.g. School fees, hospital bill, family emergency"
+            placeholder={t('advance.form_why_placeholder')}
             multiline
             numberOfLines={3}
             style={{
@@ -198,13 +198,13 @@ function Inner() {
             }}
           >
             <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
-              {createMut.isPending ? 'Submitting…' : `Request ${formatINR(amount)}`}
+              {createMut.isPending
+                ? t('advance.form_submitting')
+                : t('advance.form_request_btn', { amount: formatINR(amount) })}
             </Text>
           </Pressable>
           <Text style={{ fontSize: 11, color: theme.text.tertiary, lineHeight: 16 }}>
-            Doondo reviews each request manually. We'll text you within a working day. There's no
-            interest charge in this preview, but a small processing fee may apply once we
-            partner with a lender — we'll always show it before you confirm.
+            {t('advance.form_disclaimer')}
           </Text>
         </View>
 
@@ -213,16 +213,16 @@ function Inner() {
           <Text
             style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1.6, color: theme.text.tertiary }}
           >
-            YOUR REQUESTS
+            {t('advance.requests_eyebrow')}
           </Text>
           {listQ.isLoading ? (
             <LoadingSpinner />
           ) : advances.length === 0 ? (
             <EmptyState
               glyph="📝"
-              eyebrow="NO REQUESTS YET"
-              title="You haven't asked for an advance"
-              message="Submit a request above. We typically respond within a working day."
+              eyebrow={t('advance.history_empty_eyebrow')}
+              title={t('advance.history_empty_title')}
+              message={t('advance.history_empty_message')}
             />
           ) : (
             <View
@@ -235,7 +235,7 @@ function Inner() {
               }}
             >
               {advances.map((a, i) => {
-                const sc = statusCopy(a.status);
+                const sc = statusCopy(a.status, t);
                 return (
                   <View
                     key={a.id}
@@ -272,7 +272,7 @@ function Inner() {
                       <Text
                         style={{ fontSize: 12, color: theme.text.primary, marginTop: 4, fontStyle: 'italic' }}
                       >
-                        Update from Doondo: {a.opsNote}
+                        {t('advance.history_update_from_doondo', { note: a.opsNote })}
                       </Text>
                     ) : null}
                     {a.status === 'requested' && (
@@ -281,7 +281,7 @@ function Inner() {
                         style={{ marginTop: 6, alignSelf: 'flex-start' }}
                       >
                         <Text style={{ fontSize: 12, color: '#B91C1C', fontWeight: '600' }}>
-                          Cancel request
+                          {t('advance.history_cancel_request')}
                         </Text>
                       </Pressable>
                     )}

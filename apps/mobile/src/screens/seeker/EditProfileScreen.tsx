@@ -38,7 +38,9 @@ import {
   normaliseSkill,
   prettifySkill,
   tradeEmoji,
+  tradeShortLabel,
 } from '@/lib/trades';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
 import type {
   Availability,
@@ -50,22 +52,14 @@ import type {
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'EditProfile'>;
 type Route = RouteProp<AppStackParamList, 'EditProfile'>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 export function EditProfileScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { user } = useAuth();
+  const t = useTranslate();
   if (!user) return null;
-
-  const titleMap: Record<typeof route.params.section, string> = {
-    basics: 'Edit basics',
-    location: 'Set your area',
-    skills: 'Your skills',
-    preferences: 'Work preferences',
-    resume: 'Your resume',
-    business_basics: 'Business details',
-    business_location: 'Business address',
-  };
 
   return (
     <Screen>
@@ -84,16 +78,16 @@ export function EditProfileScreen() {
         >
           <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
             <Text variant="footnote" tone="secondary">
-              Cancel
+              {t('edit_profile.cancel')}
             </Text>
           </Pressable>
 
           <View style={{ gap: spacing.xs }}>
             <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              PROFILE
+              {t('edit_profile.eyebrow')}
             </Text>
             <Text variant="display" weight="medium" display>
-              {titleMap[route.params.section]}
+              {t(`edit_profile.titles.${route.params.section}`)}
             </Text>
           </View>
 
@@ -117,6 +111,7 @@ export function EditProfileScreen() {
 function BasicsForm({ user }: { user: PublicUser }) {
   const navigation = useNavigation<Nav>();
   const setUser = useAuthStore.setState;
+  const t = useTranslate();
 
   const [name, setName] = useState(user.name);
   const [bio, setBio] = useState(user.bio ?? '');
@@ -139,31 +134,31 @@ function BasicsForm({ user }: { user: PublicUser }) {
     },
     onError: (err) => {
       haptic('error');
-      setError(err instanceof Error ? err.message : 'Failed to save');
+      setError(err instanceof Error ? err.message : t('edit_profile.error_save'));
     },
   });
 
   return (
     <View style={{ gap: spacing.lg }}>
       <FormError message={error} />
-      <TextField label="Full name" value={name} onChangeText={setName} />
+      <TextField label={t('edit_profile.basics.field_name')} value={name} onChangeText={setName} />
       <TextField
-        label="Short bio"
+        label={t('edit_profile.basics.field_bio')}
         value={bio}
         onChangeText={setBio}
-        placeholder="A line or two about you"
+        placeholder={t('edit_profile.basics.bio_placeholder')}
         multiline
         numberOfLines={3}
       />
       <TextField
-        label="Years of experience"
+        label={t('edit_profile.basics.field_experience')}
         value={experienceText}
         onChangeText={setExperienceText}
         keyboardType="number-pad"
-        placeholder="e.g. 3"
+        placeholder={t('edit_profile.basics.experience_placeholder')}
       />
       <Button
-        label={mutation.isPending ? 'Saving…' : 'Save'}
+        label={mutation.isPending ? t('edit_profile.saving') : t('edit_profile.save')}
         onPress={() => mutation.mutate()}
         disabled={mutation.isPending}
       />
@@ -177,6 +172,7 @@ function ResumeForm({ user }: { user: PublicUser }) {
   const navigation = useNavigation<Nav>();
   const { theme } = useTheme();
   const setUser = useAuthStore.setState;
+  const t = useTranslate();
 
   const [error, setError] = useState<string | null>(null);
 
@@ -190,9 +186,7 @@ function ResumeForm({ user }: { user: PublicUser }) {
       // and surface a friendly error instead of a metro-time crash.
       const picker = await import('expo-document-picker').catch(() => null);
       if (!picker) {
-        throw new Error(
-          'Resume picker not installed. Run: pnpm add expo-document-picker',
-        );
+        throw new Error(t('edit_profile.resume.error_picker_not_installed'));
       }
       const result = await picker.getDocumentAsync({
         type: [
@@ -204,14 +198,14 @@ function ResumeForm({ user }: { user: PublicUser }) {
         multiple: false,
       });
       if (result.canceled || !result.assets?.[0]) {
-        throw new Error('No file picked');
+        throw new Error(t('edit_profile.resume.error_no_file'));
       }
       const file = result.assets[0];
 
       // Cap raw size at ~900KB so the base64 payload (~1.2MB) stays under
       // the express body limit comfortably.
       if (file.size != null && file.size > 900_000) {
-        throw new Error('Resume must be under 900KB. Try compressing the PDF.');
+        throw new Error(t('edit_profile.resume.error_size_too_big'));
       }
 
       // Read the file as base64 and build a data URL.
@@ -238,7 +232,7 @@ function ResumeForm({ user }: { user: PublicUser }) {
     },
     onError: (err) => {
       haptic('error');
-      setError(err instanceof Error ? err.message : 'Could not upload resume');
+      setError(err instanceof Error ? err.message : t('edit_profile.resume.error_upload_default'));
     },
   });
 
@@ -250,7 +244,7 @@ function ResumeForm({ user }: { user: PublicUser }) {
     },
     onError: (err) => {
       haptic('error');
-      setError(err instanceof Error ? err.message : 'Could not remove resume');
+      setError(err instanceof Error ? err.message : t('edit_profile.resume.error_remove_default'));
     },
   });
 
@@ -259,8 +253,7 @@ function ResumeForm({ user }: { user: PublicUser }) {
       <FormError message={error} />
 
       <Text variant="body" tone="secondary">
-        Add a PDF or DOCX so employers can review your background. You can
-        replace it anytime — only your latest resume is shared.
+        {t('edit_profile.resume.body_hint')}
       </Text>
 
       {/* Current state card */}
@@ -281,16 +274,16 @@ function ResumeForm({ user }: { user: PublicUser }) {
             </Text>
             <Text variant="footnote" tone="secondary">
               {formatFileSize(user.resumeSizeBytes)} ·{' '}
-              {formatRelativeDate(user.resumeUploadedAt)}
+              {formatRelativeDate(user.resumeUploadedAt, t)}
             </Text>
           </>
         ) : (
           <>
             <Text variant="bodyLarge" weight="medium" tone="secondary">
-              No resume uploaded yet
+              {t('edit_profile.resume.no_resume_uploaded')}
             </Text>
             <Text variant="footnote" tone="tertiary">
-              PDF or DOCX, up to 900KB.
+              {t('edit_profile.resume.pdf_docx_hint')}
             </Text>
           </>
         )}
@@ -300,25 +293,23 @@ function ResumeForm({ user }: { user: PublicUser }) {
         <Button
           label={
             pickAndUploadMutation.isPending
-              ? hasResume
-                ? 'Uploading…'
-                : 'Uploading…'
+              ? t('edit_profile.resume.uploading')
               : hasResume
-                ? 'Replace resume'
-                : 'Upload resume'
+                ? t('edit_profile.resume.replace_resume')
+                : t('edit_profile.resume.upload_resume')
           }
           onPress={() => pickAndUploadMutation.mutate()}
           disabled={pickAndUploadMutation.isPending || removeMutation.isPending}
         />
         {hasResume && (
           <Button
-            label={removeMutation.isPending ? 'Removing…' : 'Remove resume'}
+            label={removeMutation.isPending ? t('edit_profile.resume.removing') : t('edit_profile.resume.remove_resume')}
             variant="danger"
             onPress={() => removeMutation.mutate()}
             disabled={removeMutation.isPending || pickAndUploadMutation.isPending}
           />
         )}
-        <Button label="Done" variant="ghost" onPress={() => navigation.goBack()} />
+        <Button label={t('edit_profile.resume.done_btn')} variant="ghost" onPress={() => navigation.goBack()} />
       </View>
     </View>
   );
@@ -334,25 +325,28 @@ function blobToBase64(blob: Blob): Promise<string> {
       const idx = dataUrl.indexOf(',');
       resolve(idx >= 0 ? dataUrl.slice(idx + 1) : dataUrl);
     };
+    // The Error message is a developer log path — left English; the user
+    // sees the translated "Could not upload resume" wrapper above.
     reader.onerror = () => reject(reader.error ?? new Error('Could not read file'));
     reader.readAsDataURL(blob);
   });
 }
 
 function formatFileSize(bytes: number | null | undefined): string {
+  // KB/MB/B units are universally read across languages — no translation needed.
   if (bytes == null) return '';
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function formatRelativeDate(iso: string | null | undefined): string {
+function formatRelativeDate(iso: string | null | undefined, t: TFn): string {
   if (!iso) return '';
   const ms = Date.now() - new Date(iso).getTime();
   const d = Math.floor(ms / 86_400_000);
-  if (d < 1) return 'today';
-  if (d < 7) return `${d}d ago`;
-  if (d < 30) return `${Math.floor(d / 7)}w ago`;
+  if (d < 1) return t('edit_profile.resume.file_relative_today');
+  if (d < 7) return t('edit_profile.resume.file_relative_d_ago', { n: d });
+  if (d < 30) return t('edit_profile.resume.file_relative_w_ago', { n: Math.floor(d / 7) });
   return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
@@ -361,6 +355,7 @@ function formatRelativeDate(iso: string | null | undefined): string {
 function LocationForm({ user }: { user: PublicUser }) {
   const navigation = useNavigation<Nav>();
   const setUser = useAuthStore.setState;
+  const t = useTranslate();
 
   const [city, setCity] = useState(user.location?.city ?? '');
   const [area, setArea] = useState(user.location?.area ?? '');
@@ -406,7 +401,7 @@ function LocationForm({ user }: { user: PublicUser }) {
     },
     onError: (err) => {
       haptic('error');
-      setError(err instanceof Error ? err.message : 'Failed to save');
+      setError(err instanceof Error ? err.message : t('edit_profile.error_save'));
     },
   });
 
@@ -418,7 +413,7 @@ function LocationForm({ user }: { user: PublicUser }) {
       setCoords({ lat: c.lat, lng: c.lng });
       haptic('selection');
     } else {
-      setError('Could not get your location. We will use a default for now.');
+      setError(t('edit_profile.location.error_detect_default'));
     }
   }
 
@@ -428,10 +423,10 @@ function LocationForm({ user }: { user: PublicUser }) {
       <Button
         label={
           detecting
-            ? 'Detecting…'
+            ? t('edit_profile.location.detecting')
             : coords
-              ? 'Re-detect my location'
-              : 'Detect my location'
+              ? t('edit_profile.location.re_detect')
+              : t('edit_profile.location.detect')
         }
         variant="secondary"
         onPress={() => void detect()}
@@ -439,25 +434,25 @@ function LocationForm({ user }: { user: PublicUser }) {
       />
       {coords && (
         <Text variant="footnote" tone="tertiary">
-          Using {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
+          {t('edit_profile.location.using_coords', { lat: coords.lat.toFixed(4), lng: coords.lng.toFixed(4) })}
         </Text>
       )}
-      <TextField label="City" value={city} onChangeText={setCity} placeholder="Bengaluru" />
+      <TextField label={t('edit_profile.location.field_city')} value={city} onChangeText={setCity} placeholder={t('edit_profile.location.city_placeholder')} />
       <TextField
-        label="Area / neighbourhood"
+        label={t('edit_profile.location.field_area')}
         value={area}
         onChangeText={setArea}
-        placeholder="Indiranagar"
+        placeholder={t('edit_profile.location.area_placeholder')}
       />
       <TextField
-        label="Pincode (optional)"
+        label={t('edit_profile.location.field_pincode')}
         value={pincode}
         onChangeText={setPincode}
         keyboardType="number-pad"
-        placeholder="560038"
+        placeholder={t('edit_profile.location.pincode_placeholder')}
       />
       <Button
-        label={mutation.isPending ? 'Saving…' : 'Save'}
+        label={mutation.isPending ? t('edit_profile.saving') : t('edit_profile.save')}
         onPress={() => mutation.mutate()}
         disabled={mutation.isPending || !city.trim()}
       />
@@ -471,6 +466,7 @@ function SkillsForm({ user }: { user: PublicUser }) {
   const navigation = useNavigation<Nav>();
   const setUser = useAuthStore.setState;
   const { theme } = useTheme();
+  const t = useTranslate();
 
   // Skills are stored as a flat lowercase string[] on the user. We
   // normalise everything we accept (whether from the picker or the
@@ -489,7 +485,7 @@ function SkillsForm({ user }: { user: PublicUser }) {
     },
     onError: (err) => {
       haptic('error');
-      setError(err instanceof Error ? err.message : 'Failed to save');
+      setError(err instanceof Error ? err.message : t('edit_profile.error_save'));
     },
   });
 
@@ -529,41 +525,68 @@ function SkillsForm({ user }: { user: PublicUser }) {
     <View style={{ gap: spacing.lg }}>
       <FormError message={error} />
       <Text variant="footnote" tone="secondary">
-        Tap what you can do. Up to 20. Don&apos;t see your trade? Add it as a
-        custom skill below.
+        {t('edit_profile.skills.hint')}
       </Text>
 
-      {/* Trade grid — the primary picker */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+      {/* Trade grid — the primary picker.
+       *
+       * Bug history: an earlier version used a parent View with
+       * `flexWrap: 'wrap' + gap`. On some devices the flex children
+       * (Pressable + nested Texts) wrapped at the Text level rather
+       * than the chip level, producing a layout where emojis stacked
+       * above labels and taps didn't register on the intended chip.
+       *
+       * This version forces each chip to be a single self-contained
+       * block: explicit flexShrink: 0, hard-coded contrasting colors
+       * (#FFFFFF / #2563EB and #1E293B / #F8FAFC) so the active state
+       * is unmistakable in both light and dark themes, and a hit-slop
+       * around each Pressable so taps near the chip edge still land.
+       */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {TRADES.map((trade) => {
           const active = skills.includes(trade.slug);
           return (
             <Pressable
               key={trade.slug}
               onPress={() => toggleTrade(trade.slug)}
+              hitSlop={4}
               accessibilityRole="button"
-              accessibilityLabel={`${trade.label}${active ? ', selected' : ''}`}
+              accessibilityLabel={
+                active
+                  ? t('edit_profile.skills.trade_a11y_selected', { label: trade.label })
+                  : t('edit_profile.skills.trade_a11y', { label: trade.label })
+              }
               style={({ pressed }) => ({
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 6,
-                paddingHorizontal: spacing.md,
-                paddingVertical: spacing.sm,
-                borderRadius: radii.pill,
-                backgroundColor: active ? '#2563EB' : theme.bg.surface,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 999,
+                backgroundColor: active ? '#2563EB' : '#1F2937',
                 borderWidth: active ? 0 : 1,
-                borderColor: theme.border.default,
+                borderColor: active ? '#2563EB' : '#374151',
                 opacity: pressed ? 0.7 : 1,
+                flexShrink: 0,
               })}
             >
               <Text style={{ fontSize: 14 }}>{trade.emoji}</Text>
               <Text
-                variant="footnote"
-                weight="medium"
-                style={{ color: active ? '#FFFFFF' : theme.text.primary }}
+                style={{
+                  fontSize: 13,
+                  fontWeight: '600',
+                  color: '#FFFFFF',
+                  flexShrink: 1,
+                }}
+                numberOfLines={1}
               >
-                {trade.label}
+                {tradeShortLabel(trade)}
               </Text>
+              {active && (
+                <Text style={{ fontSize: 12, color: '#FFFFFF', fontWeight: '700' }}>
+                  ✓
+                </Text>
+              )}
             </Pressable>
           );
         })}
@@ -572,13 +595,13 @@ function SkillsForm({ user }: { user: PublicUser }) {
       {/* Free-text fallback for whatever the catalogue doesn't cover */}
       <View style={{ gap: spacing.xs }}>
         <Text variant="footnote" weight="medium" tone="secondary">
-          Add a custom skill
+          {t('edit_profile.skills.add_custom_label')}
         </Text>
         <TextField
           label=""
           value={draft}
           onChangeText={setDraft}
-          placeholder="e.g. AC gas refilling"
+          placeholder={t('edit_profile.skills.add_custom_placeholder')}
           onSubmitEditing={commitDraft}
           returnKeyType="done"
         />
@@ -596,7 +619,7 @@ function SkillsForm({ user }: { user: PublicUser }) {
           }}
         >
           <Text variant="footnote" weight="medium" style={{ color: '#2563EB' }}>
-            + Add
+            {t('edit_profile.skills.add_btn')}
           </Text>
         </Pressable>
       </View>
@@ -606,7 +629,7 @@ function SkillsForm({ user }: { user: PublicUser }) {
       {customSkills.length > 0 && (
         <View style={{ gap: spacing.xs }}>
           <Text variant="footnote" weight="medium" tone="secondary">
-            Custom skills
+            {t('edit_profile.skills.custom_skills_label')}
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
             {customSkills.map((s) => (
@@ -623,7 +646,7 @@ function SkillsForm({ user }: { user: PublicUser }) {
         onPress={() => mutation.mutate()}
         disabled={mutation.isPending}
         accessibilityRole="button"
-        accessibilityLabel="Save skills"
+        accessibilityLabel={t('edit_profile.skills.save_a11y')}
         style={({ pressed }) => ({
           paddingVertical: 14,
           borderRadius: radii.lg,
@@ -639,7 +662,7 @@ function SkillsForm({ user }: { user: PublicUser }) {
         })}
       >
         <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
-          {mutation.isPending ? 'Saving…' : 'Save'}
+          {mutation.isPending ? t('edit_profile.saving') : t('edit_profile.save')}
         </Text>
       </Pressable>
 
@@ -651,7 +674,7 @@ function SkillsForm({ user }: { user: PublicUser }) {
           textAlign: 'center',
         }}
       >
-        {skills.length} / 20 selected
+        {t('edit_profile.skills.count_selected', { n: skills.length })}
       </Text>
     </View>
   );
@@ -664,6 +687,7 @@ function PreferencesForm({ user }: { user: PublicUser }) {
   const navigation = useNavigation<Nav>();
   const setUser = useAuthStore.setState;
   const { theme } = useTheme();
+  const t = useTranslate();
 
   const [availability, setAvailability] = useState<Availability | null>(user.availability);
   const [types, setTypes] = useState<JobType[]>(user.preferredJobTypes);
@@ -688,28 +712,30 @@ function PreferencesForm({ user }: { user: PublicUser }) {
     },
     onError: (err) => {
       haptic('error');
-      setError(err instanceof Error ? err.message : 'Failed to save');
+      setError(err instanceof Error ? err.message : t('edit_profile.error_save'));
     },
   });
 
-  function toggleType(t: JobType) {
-    setTypes((arr) => (arr.includes(t) ? arr.filter((x) => x !== t) : [...arr, t]));
+  function toggleType(jt: JobType) {
+    setTypes((arr) => (arr.includes(jt) ? arr.filter((x) => x !== jt) : [...arr, jt]));
     haptic('selection');
   }
 
-  const availabilityOptions: Array<{ key: Availability; label: string }> = [
-    { key: 'immediate', label: 'Immediately' },
-    { key: 'within_1_week', label: 'Within 1 week' },
-    { key: 'within_1_month', label: 'Within 1 month' },
-    { key: 'flexible', label: 'Flexible' },
+  // Labels resolved via translation keys; the enum keys stay as the source of truth.
+  const availabilityOptions: Array<{ key: Availability; labelKey: string }> = [
+    { key: 'immediate', labelKey: 'edit_profile.preferences.availability_immediate' },
+    { key: 'within_1_week', labelKey: 'edit_profile.preferences.availability_within_1_week' },
+    { key: 'within_1_month', labelKey: 'edit_profile.preferences.availability_within_1_month' },
+    { key: 'flexible', labelKey: 'edit_profile.preferences.availability_flexible' },
   ];
 
-  const typeOptions: Array<{ key: JobType; label: string }> = [
-    { key: 'full_time', label: 'Full-time' },
-    { key: 'part_time', label: 'Part-time' },
-    { key: 'gig', label: 'Gig' },
-    { key: 'shift', label: 'Shift' },
-    { key: 'contract', label: 'Contract' },
+  // Reuses the shared common.job_type.* keys established in PR 1.
+  const typeOptions: Array<{ key: JobType; labelKey: string }> = [
+    { key: 'full_time', labelKey: 'common.job_type.full_time' },
+    { key: 'part_time', labelKey: 'common.job_type.part_time' },
+    { key: 'gig', labelKey: 'common.job_type.gig' },
+    { key: 'shift', labelKey: 'common.job_type.shift' },
+    { key: 'contract', labelKey: 'common.job_type.contract' },
   ];
 
   return (
@@ -718,12 +744,12 @@ function PreferencesForm({ user }: { user: PublicUser }) {
 
       <View style={{ gap: spacing.sm }}>
         <Text variant="footnote" weight="medium" tone="secondary" style={{ letterSpacing: 1.0 }}>
-          APPLYING AS
+          {t('edit_profile.preferences.applying_as_label')}
         </Text>
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           {[
-            { key: 'solo' as const, label: 'Solo', helper: 'One person applying' },
-            { key: 'team' as const, label: 'Team', helper: 'Small crew applying together' },
+            { key: 'solo' as const, labelKey: 'edit_profile.preferences.solo_label', helperKey: 'edit_profile.preferences.solo_helper' },
+            { key: 'team' as const, labelKey: 'edit_profile.preferences.team_label', helperKey: 'edit_profile.preferences.team_helper' },
           ].map((o) => {
             const active = workType === o.key;
             return (
@@ -748,10 +774,10 @@ function PreferencesForm({ user }: { user: PublicUser }) {
                   weight="medium"
                   style={{ color: active ? theme.brand.hero : theme.text.primary }}
                 >
-                  {o.label}
+                  {t(o.labelKey)}
                 </Text>
                 <Text variant="footnote" tone="tertiary">
-                  {o.helper}
+                  {t(o.helperKey)}
                 </Text>
               </Pressable>
             );
@@ -761,17 +787,17 @@ function PreferencesForm({ user }: { user: PublicUser }) {
 
       {workType === 'team' ? (
         <TextField
-          label="Team size"
+          label={t('edit_profile.preferences.team_size_label')}
           value={teamSizeText}
           onChangeText={(v) => setTeamSizeText(v.replace(/[^\d]/g, ''))}
           keyboardType="number-pad"
-          helper="How many people are applying together?"
+          helper={t('edit_profile.preferences.team_size_helper')}
         />
       ) : null}
 
       <View style={{ gap: spacing.sm }}>
         <Text variant="footnote" weight="medium" tone="secondary" style={{ letterSpacing: 1.0 }}>
-          AVAILABILITY
+          {t('edit_profile.preferences.availability_label')}
         </Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
           {availabilityOptions.map((o) => {
@@ -797,7 +823,7 @@ function PreferencesForm({ user }: { user: PublicUser }) {
                   weight={active ? 'medium' : 'regular'}
                   style={{ color: active ? theme.brand.hero : theme.text.secondary }}
                 >
-                  {o.label}
+                  {t(o.labelKey)}
                 </Text>
               </Pressable>
             );
@@ -807,7 +833,7 @@ function PreferencesForm({ user }: { user: PublicUser }) {
 
       <View style={{ gap: spacing.sm }}>
         <Text variant="footnote" weight="medium" tone="secondary" style={{ letterSpacing: 1.0 }}>
-          INTERESTED IN
+          {t('edit_profile.preferences.interested_in_label')}
         </Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
           {typeOptions.map((o) => {
@@ -830,7 +856,7 @@ function PreferencesForm({ user }: { user: PublicUser }) {
                   weight={active ? 'medium' : 'regular'}
                   style={{ color: active ? theme.brand.hero : theme.text.secondary }}
                 >
-                  {o.label}
+                  {t(o.labelKey)}
                 </Text>
               </Pressable>
             );
@@ -839,7 +865,7 @@ function PreferencesForm({ user }: { user: PublicUser }) {
       </View>
 
       <Button
-        label={mutation.isPending ? 'Saving…' : 'Save'}
+        label={mutation.isPending ? t('edit_profile.saving') : t('edit_profile.save')}
         onPress={() => mutation.mutate()}
         disabled={mutation.isPending}
       />
@@ -859,6 +885,7 @@ function BusinessBasicsForm({ user }: { user: PublicUser }) {
   const navigation = useNavigation<Nav>();
   const setUser = useAuthStore.setState;
   const { theme } = useTheme();
+  const t = useTranslate();
 
   const [companyName, setCompanyName] = useState(user.companyName ?? '');
   const [businessType, setBusinessType] = useState<BusinessType | null>(user.businessType);
@@ -879,29 +906,29 @@ function BusinessBasicsForm({ user }: { user: PublicUser }) {
     },
     onError: (err) => {
       haptic('error');
-      setError(err instanceof Error ? err.message : 'Failed to save');
+      setError(err instanceof Error ? err.message : t('edit_profile.error_save'));
     },
   });
 
-  const types: Array<{ key: BusinessType; label: string }> = [
-    { key: 'individual', label: 'Individual' },
-    { key: 'shop', label: 'Shop' },
-    { key: 'restaurant', label: 'Restaurant' },
-    { key: 'salon', label: 'Salon' },
-    { key: 'agency', label: 'Agency' },
-    { key: 'startup', label: 'Startup' },
-    { key: 'enterprise', label: 'Enterprise' },
-    { key: 'other', label: 'Other' },
+  const types: Array<{ key: BusinessType; labelKey: string }> = [
+    { key: 'individual', labelKey: 'edit_profile.business_basics.type_individual' },
+    { key: 'shop', labelKey: 'edit_profile.business_basics.type_shop' },
+    { key: 'restaurant', labelKey: 'edit_profile.business_basics.type_restaurant' },
+    { key: 'salon', labelKey: 'edit_profile.business_basics.type_salon' },
+    { key: 'agency', labelKey: 'edit_profile.business_basics.type_agency' },
+    { key: 'startup', labelKey: 'edit_profile.business_basics.type_startup' },
+    { key: 'enterprise', labelKey: 'edit_profile.business_basics.type_enterprise' },
+    { key: 'other', labelKey: 'edit_profile.business_basics.type_other' },
   ];
 
   return (
     <View style={{ gap: spacing.lg }}>
       <FormError message={error} />
       <TextField
-        label="Business name"
+        label={t('edit_profile.business_basics.field_business_name')}
         value={companyName}
         onChangeText={setCompanyName}
-        placeholder="As you want it shown on job posts"
+        placeholder={t('edit_profile.business_basics.business_name_placeholder')}
       />
 
       <View style={{ gap: spacing.sm }}>
@@ -911,7 +938,7 @@ function BusinessBasicsForm({ user }: { user: PublicUser }) {
           tone="secondary"
           style={{ letterSpacing: 1.0 }}
         >
-          BUSINESS TYPE
+          {t('edit_profile.business_basics.business_type_label')}
         </Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
           {types.map((o) => {
@@ -937,7 +964,7 @@ function BusinessBasicsForm({ user }: { user: PublicUser }) {
                   weight={active ? 'medium' : 'regular'}
                   style={{ color: active ? theme.brand.hero : theme.text.secondary }}
                 >
-                  {o.label}
+                  {t(o.labelKey)}
                 </Text>
               </Pressable>
             );
@@ -946,16 +973,16 @@ function BusinessBasicsForm({ user }: { user: PublicUser }) {
       </View>
 
       <TextField
-        label="GSTIN (optional)"
+        label={t('edit_profile.business_basics.field_gstin')}
         value={gstin}
         onChangeText={(v) => setGstin(v.toUpperCase())}
         autoCapitalize="characters"
         autoCorrect={false}
-        placeholder="22AAAAA0000A1Z5"
+        placeholder={t('edit_profile.business_basics.gstin_placeholder')}
       />
 
       <Button
-        label={mutation.isPending ? 'Saving…' : 'Save'}
+        label={mutation.isPending ? t('edit_profile.saving') : t('edit_profile.save')}
         onPress={() => mutation.mutate()}
         disabled={mutation.isPending}
       />
@@ -968,6 +995,7 @@ function BusinessBasicsForm({ user }: { user: PublicUser }) {
 function BusinessLocationForm({ user }: { user: PublicUser }) {
   const navigation = useNavigation<Nav>();
   const setUser = useAuthStore.setState;
+  const t = useTranslate();
 
   const [city, setCity] = useState(user.employerLocation?.city ?? '');
   const [area, setArea] = useState(user.employerLocation?.area ?? '');
@@ -1008,7 +1036,7 @@ function BusinessLocationForm({ user }: { user: PublicUser }) {
     },
     onError: (err) => {
       haptic('error');
-      setError(err instanceof Error ? err.message : 'Failed to save');
+      setError(err instanceof Error ? err.message : t('edit_profile.error_save'));
     },
   });
 
@@ -1020,7 +1048,7 @@ function BusinessLocationForm({ user }: { user: PublicUser }) {
       setCoords({ lat: c.lat, lng: c.lng });
       haptic('selection');
     } else {
-      setError('Could not get your location. We will use a default for now.');
+      setError(t('edit_profile.location.error_detect_default'));
     }
   }
 
@@ -1028,27 +1056,27 @@ function BusinessLocationForm({ user }: { user: PublicUser }) {
     <View style={{ gap: spacing.lg }}>
       <FormError message={error} />
       <Button
-        label={detecting ? 'Detecting…' : coords ? 'Re-detect' : 'Detect my location'}
+        label={detecting ? t('edit_profile.location.detecting') : coords ? t('edit_profile.business_location.re_detect') : t('edit_profile.location.detect')}
         variant="secondary"
         onPress={() => void detect()}
         disabled={detecting}
       />
       {coords && (
         <Text variant="footnote" tone="tertiary">
-          Using {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
+          {t('edit_profile.location.using_coords', { lat: coords.lat.toFixed(4), lng: coords.lng.toFixed(4) })}
         </Text>
       )}
-      <TextField label="City" value={city} onChangeText={setCity} placeholder="Bengaluru" />
-      <TextField label="Area" value={area} onChangeText={setArea} placeholder="Indiranagar" />
+      <TextField label={t('edit_profile.location.field_city')} value={city} onChangeText={setCity} placeholder={t('edit_profile.location.city_placeholder')} />
+      <TextField label={t('edit_profile.location.field_area')} value={area} onChangeText={setArea} placeholder={t('edit_profile.location.area_placeholder')} />
       <TextField
-        label="Pincode (optional)"
+        label={t('edit_profile.location.field_pincode')}
         value={pincode}
         onChangeText={setPincode}
         keyboardType="number-pad"
-        placeholder="560038"
+        placeholder={t('edit_profile.location.pincode_placeholder')}
       />
       <Button
-        label={mutation.isPending ? 'Saving…' : 'Save'}
+        label={mutation.isPending ? t('edit_profile.saving') : t('edit_profile.save')}
         onPress={() => mutation.mutate()}
         disabled={mutation.isPending || !city.trim()}
       />

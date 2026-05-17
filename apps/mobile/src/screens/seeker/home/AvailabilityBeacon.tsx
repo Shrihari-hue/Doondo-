@@ -33,6 +33,7 @@ import { Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { TRADES, tradeShortLabel } from '@/lib/trades';
+import { useTranslate } from '@/i18n/useTranslate';
 import {
   availabilityApi,
   type PublicAvailability,
@@ -41,11 +42,14 @@ import { ApiError } from '@/api/errors';
 import type { Coords } from '@/lib/location';
 import type { PublicUser } from '@/api/types';
 
+// `subKey` is a translation key into home.beacon.sheet — the actual
+// displayed string is resolved at render time so the labels follow the
+// user's active locale rather than being baked in at module load.
 const DURATION_OPTIONS = [
-  { minutes: 60, label: '1h', sub: '1 hour' },
-  { minutes: 120, label: '2h', sub: '2 hours' },
-  { minutes: 240, label: '4h', sub: 'Half day' },
-  { minutes: 480, label: '8h', sub: 'Full day' },
+  { minutes: 60, label: '1h', subKey: 'home.beacon.sheet.duration_1h_sub' },
+  { minutes: 120, label: '2h', subKey: 'home.beacon.sheet.duration_2h_sub' },
+  { minutes: 240, label: '4h', subKey: 'home.beacon.sheet.duration_4h_sub' },
+  { minutes: 480, label: '8h', subKey: 'home.beacon.sheet.duration_8h_sub' },
 ] as const;
 
 // Trade grid sizing — 4 columns with consistent gaps. We compute once at
@@ -69,6 +73,7 @@ export function AvailabilityBeaconChip({
   user: PublicUser | null;
 }) {
   const { theme } = useTheme();
+  const t = useTranslate();
   const [sheetOpen, setSheetOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -87,7 +92,7 @@ export function AvailabilityBeaconChip({
     },
     onError: () => {
       haptic('error');
-      Alert.alert("Couldn't withdraw", 'Try again.');
+      Alert.alert(t('home.beacon.couldnt_withdraw_title'), t('home.beacon.couldnt_withdraw_body'));
     },
   });
 
@@ -97,12 +102,12 @@ export function AvailabilityBeaconChip({
 
   const onWithdraw = () => {
     Alert.alert(
-      'Stop broadcasting?',
-      "Employers near you will no longer see you as available.",
+      t('home.beacon.stop_confirm_title'),
+      t('home.beacon.stop_confirm_body'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Stop',
+          text: t('home.beacon.stop'),
           style: 'destructive',
           onPress: () => withdrawMutation.mutate(),
         },
@@ -135,7 +140,7 @@ export function AvailabilityBeaconChip({
         }}
         accessibilityRole="button"
         accessibilityLabel={
-          isLive ? 'Edit availability beacon' : 'Tell employers you are available'
+          isLive ? t('home.beacon.chip_a11y_active') : t('home.beacon.chip_a11y_inactive')
         }
         style={({ pressed }) => ({
           flexDirection: 'row',
@@ -167,8 +172,8 @@ export function AvailabilityBeaconChip({
             }}
           >
             {isLive
-              ? `Available — ${formatLeft(minutesLeft!)} left`
-              : "Tell employers I'm available now"}
+              ? t('home.beacon.chip_active_title', { left: formatLeft(minutesLeft!, t) })
+              : t('home.beacon.chip_inactive_title')}
           </Text>
           <Text
             style={{
@@ -179,8 +184,8 @@ export function AvailabilityBeaconChip({
             numberOfLines={1}
           >
             {isLive
-              ? `Until ${formatClock(active!.until)} · tap to edit`
-              : 'Nearby employers will see you in their list'}
+              ? t('home.beacon.chip_active_hint', { time: formatClock(active!.until) })
+              : t('home.beacon.chip_inactive_hint')}
           </Text>
         </View>
         {isLive ? (
@@ -201,7 +206,7 @@ export function AvailabilityBeaconChip({
             })}
           >
             <Text style={{ fontSize: 11, fontWeight: '700', color: '#065F46' }}>
-              Stop
+              {t('home.beacon.stop')}
             </Text>
           </Pressable>
         ) : null}
@@ -241,6 +246,7 @@ function AvailabilityBeaconSheet({
   onPublished: () => void;
 }) {
   const { theme } = useTheme();
+  const t = useTranslate();
 
   const [minutes, setMinutes] = useState<number>(120);
   const [tradeSlugs, setTradeSlugs] = useState<string[]>(
@@ -277,7 +283,7 @@ function AvailabilityBeaconSheet({
   const publishMutation = useMutation({
     mutationFn: () => {
       if (!coords) {
-        throw new Error("We need your location to broadcast. Try again in a moment.");
+        throw new Error(t('home.beacon.sheet.location_needed_error'));
       }
       // Build the recurring payload only when toggle is on AND at
       // least one day is picked. End must be after start.
@@ -306,13 +312,14 @@ function AvailabilityBeaconSheet({
     },
     onError: (err) => {
       haptic('error');
+      const fallback = t('home.beacon.sheet.couldnt_publish_title');
       const msg =
         err instanceof ApiError
           ? err.message
           : err instanceof Error
             ? err.message
-            : "Couldn't publish";
-      Alert.alert("Couldn't publish", msg);
+            : fallback;
+      Alert.alert(fallback, msg);
     },
   });
 
@@ -379,7 +386,7 @@ function AvailabilityBeaconSheet({
                 color: theme.text.tertiary,
               }}
             >
-              AVAILABILITY BEACON
+              {t('home.beacon.sheet.eyebrow')}
             </Text>
             <Text
               style={{
@@ -389,13 +396,14 @@ function AvailabilityBeaconSheet({
                 letterSpacing: -0.3,
               }}
             >
-              {existing ? 'Update your beacon' : 'Broadcast to nearby employers'}
+              {existing
+                ? t('home.beacon.sheet.title_existing')
+                : t('home.beacon.sheet.title_new')}
             </Text>
             <Text
               style={{ fontSize: 13, lineHeight: 19, color: theme.text.secondary }}
             >
-              Employers within ~10 km will see you in their &quot;workers
-              available now&quot; list with one-tap call.
+              {t('home.beacon.sheet.body')}
             </Text>
           </View>
 
@@ -408,10 +416,11 @@ function AvailabilityBeaconSheet({
                Active tile fills blue with a soft glow so the selection is
                obvious at a glance instead of reading as fade-on-fade. */}
             <View style={{ gap: spacing.sm }}>
-              <SectionLabel theme={theme}>HOW LONG?</SectionLabel>
+              <SectionLabel theme={theme}>{t('home.beacon.sheet.duration_title')}</SectionLabel>
               <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                 {DURATION_OPTIONS.map((o) => {
                   const active = minutes === o.minutes;
+                  const sub = t(o.subKey);
                   return (
                     <Pressable
                       key={o.minutes}
@@ -421,7 +430,11 @@ function AvailabilityBeaconSheet({
                       }}
                       accessibilityRole="button"
                       accessibilityState={{ selected: active }}
-                      accessibilityLabel={`${o.sub}${active ? ', selected' : ''}`}
+                      accessibilityLabel={
+                        active
+                          ? t('home.beacon.sheet.duration_a11y_selected', { sub })
+                          : t('home.beacon.sheet.duration_a11y', { sub })
+                      }
                       style={({ pressed }) => ({
                         flex: 1,
                         paddingVertical: spacing.md,
@@ -461,7 +474,7 @@ function AvailabilityBeaconSheet({
                           color: active ? 'rgba(255,255,255,0.85)' : theme.text.tertiary,
                         }}
                       >
-                        {o.sub}
+                        {sub}
                       </Text>
                     </Pressable>
                   );
@@ -480,7 +493,7 @@ function AvailabilityBeaconSheet({
                   justifyContent: 'space-between',
                 }}
               >
-                <SectionLabel theme={theme}>WHAT WORK?</SectionLabel>
+                <SectionLabel theme={theme}>{t('home.beacon.sheet.what_work_title')}</SectionLabel>
                 {tradeSlugs.length > 0 ? (
                   <View
                     style={{
@@ -493,7 +506,7 @@ function AvailabilityBeaconSheet({
                     <Text
                       style={{ fontSize: 11, fontWeight: '700', color: '#1E40AF' }}
                     >
-                      {tradeSlugs.length} selected
+                      {t('home.beacon.sheet.selected_count', { count: tradeSlugs.length })}
                     </Text>
                   </View>
                 ) : null}
@@ -505,15 +518,19 @@ function AvailabilityBeaconSheet({
                   gap: spacing.sm,
                 }}
               >
-                {TRADES.map((t) => {
-                  const active = tradeSlugs.includes(t.slug);
+                {TRADES.map((tradeItem) => {
+                  const active = tradeSlugs.includes(tradeItem.slug);
                   return (
                     <Pressable
-                      key={t.slug}
-                      onPress={() => toggleTrade(t.slug)}
+                      key={tradeItem.slug}
+                      onPress={() => toggleTrade(tradeItem.slug)}
                       accessibilityRole="button"
                       accessibilityState={{ selected: active }}
-                      accessibilityLabel={`${t.label}${active ? ', selected' : ''}`}
+                      accessibilityLabel={
+                        active
+                          ? t('home.beacon.sheet.trade_a11y_selected', { label: tradeItem.label })
+                          : t('home.beacon.sheet.trade_a11y', { label: tradeItem.label })
+                      }
                       style={({ pressed }) => ({
                         width: TRADE_TILE_WIDTH,
                         paddingVertical: spacing.sm + 2,
@@ -533,7 +550,7 @@ function AvailabilityBeaconSheet({
                         elevation: active ? 2 : 1,
                       })}
                     >
-                      <Text style={{ fontSize: 22, lineHeight: 26 }}>{t.emoji}</Text>
+                      <Text style={{ fontSize: 22, lineHeight: 26 }}>{tradeItem.emoji}</Text>
                       <Text
                         numberOfLines={1}
                         adjustsFontSizeToFit
@@ -545,7 +562,7 @@ function AvailabilityBeaconSheet({
                           color: active ? '#FFFFFF' : theme.text.primary,
                         }}
                       >
-                        {tradeShortLabel(t)}
+                        {tradeShortLabel(tradeItem)}
                       </Text>
                     </Pressable>
                   );
@@ -555,11 +572,11 @@ function AvailabilityBeaconSheet({
 
             {/* Note */}
             <View style={{ gap: spacing.sm }}>
-              <SectionLabel theme={theme}>NOTE FOR EMPLOYERS · OPTIONAL</SectionLabel>
+              <SectionLabel theme={theme}>{t('home.beacon.sheet.note_title')}</SectionLabel>
               <TextInput
                 value={note}
                 onChangeText={setNote}
-                placeholder="e.g. Have my own bike · can lift heavy"
+                placeholder={t('home.beacon.sheet.note_placeholder')}
                 placeholderTextColor={theme.text.tertiary}
                 style={{
                   backgroundColor: theme.bg.surface,
@@ -578,7 +595,7 @@ function AvailabilityBeaconSheet({
 
             {/* Recurring weekly schedule */}
             <View style={{ gap: spacing.sm }}>
-              <SectionLabel theme={theme}>WEEKLY SCHEDULE · OPTIONAL</SectionLabel>
+              <SectionLabel theme={theme}>{t('home.beacon.sheet.schedule_title')}</SectionLabel>
               <Pressable
                 onPress={() => {
                   haptic('selection');
@@ -620,11 +637,10 @@ function AvailabilityBeaconSheet({
                   <Text
                     style={{ fontSize: 14, fontWeight: '700', color: theme.text.primary }}
                   >
-                    Repeat every week
+                    {t('home.beacon.sheet.repeat_weekly_title')}
                   </Text>
                   <Text style={{ fontSize: 12, color: theme.text.secondary }}>
-                    Stay live on the same days + window without raising
-                    the beacon every day.
+                    {t('home.beacon.sheet.repeat_weekly_hint')}
                   </Text>
                 </View>
               </Pressable>
@@ -649,7 +665,11 @@ function AvailabilityBeaconSheet({
                             );
                           }}
                           accessibilityRole="button"
-                          accessibilityLabel={`Day ${i}${active ? ', selected' : ''}`}
+                          accessibilityLabel={
+                            active
+                              ? t('home.beacon.sheet.day_a11y_selected', { n: i })
+                              : t('home.beacon.sheet.day_a11y', { n: i })
+                          }
                           style={({ pressed }) => ({
                             width: 38,
                             height: 38,
@@ -682,7 +702,7 @@ function AvailabilityBeaconSheet({
                       <Text
                         style={{ fontSize: 11, fontWeight: '600', color: theme.text.tertiary }}
                       >
-                        FROM
+                        {t('home.beacon.sheet.from')}
                       </Text>
                       <TextInput
                         value={recurringStart}
@@ -707,7 +727,7 @@ function AvailabilityBeaconSheet({
                       <Text
                         style={{ fontSize: 11, fontWeight: '600', color: theme.text.tertiary }}
                       >
-                        TO
+                        {t('home.beacon.sheet.to')}
                       </Text>
                       <TextInput
                         value={recurringEnd}
@@ -730,8 +750,7 @@ function AvailabilityBeaconSheet({
                     </View>
                   </View>
                   <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
-                    Format HH:MM (24h). The beacon goes live automatically
-                    inside this window on the picked days.
+                    {t('home.beacon.sheet.format_hint')}
                   </Text>
                 </View>
               ) : null}
@@ -757,7 +776,7 @@ function AvailabilityBeaconSheet({
                 onClose();
               }}
               accessibilityRole="button"
-              accessibilityLabel="Cancel"
+              accessibilityLabel={t('common.cancel')}
               style={({ pressed }) => ({
                 paddingVertical: 16,
                 paddingHorizontal: spacing.xl,
@@ -773,14 +792,14 @@ function AvailabilityBeaconSheet({
               <Text
                 style={{ fontSize: 15, fontWeight: '600', color: theme.text.secondary }}
               >
-                Cancel
+                {t('common.cancel')}
               </Text>
             </Pressable>
             <Pressable
               onPress={() => publishMutation.mutate()}
               disabled={publishMutation.isPending}
               accessibilityRole="button"
-              accessibilityLabel="Broadcast availability"
+              accessibilityLabel={t('home.beacon.sheet.broadcast_a11y')}
               style={({ pressed }) => ({
                 flex: 1,
                 paddingVertical: 16,
@@ -805,10 +824,10 @@ function AvailabilityBeaconSheet({
                 }}
               >
                 {publishMutation.isPending
-                  ? 'Broadcasting…'
+                  ? t('home.beacon.sheet.broadcasting')
                   : existing
-                    ? 'Update beacon'
-                    : 'Broadcast now'}
+                    ? t('home.beacon.sheet.update_beacon')
+                    : t('home.beacon.sheet.broadcast_now')}
               </Text>
             </Pressable>
           </View>
@@ -849,12 +868,14 @@ function minutesUntil(iso: string): number {
   return Math.max(0, Math.round((target - Date.now()) / 60_000));
 }
 
-function formatLeft(minutes: number): string {
-  if (minutes < 1) return 'expiring';
-  if (minutes < 60) return `${minutes} min`;
+function formatLeft(minutes: number, t: (key: string, opts?: Record<string, unknown>) => string): string {
+  if (minutes < 1) return t('home.beacon.expiring');
+  if (minutes < 60) return t('home.beacon.minutes_short', { n: minutes });
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  return m === 0
+    ? t('home.beacon.hours_short', { h })
+    : t('home.beacon.hours_minutes_short', { h, m });
 }
 
 function formatClock(iso: string): string {

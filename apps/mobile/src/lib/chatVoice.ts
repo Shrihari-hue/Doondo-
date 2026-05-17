@@ -62,13 +62,24 @@ const RECORDING_OPTIONS = {
   },
 };
 
-// Resolve the expo-audio surface defensively. The v1.x package exposes
-// these as named exports, but if a stale build references the legacy
-// `Audio.*` namespace we fall back to that instead of crashing.
+// Resolve the expo-audio surface defensively.
+//
+// IMPORTANT: in expo-audio v1.x the `AudioRecorder` symbol exported at the
+// top of the package is a TYPE only — there is no runtime value at
+// `ExpoAudio.AudioRecorder`. The actual constructor lives on the native
+// module instance exported as `AudioModule` (i.e. `AudioModule.AudioRecorder`).
+// The official hook `useAudioRecorder` internally does `new AudioModule.AudioRecorder(...)`,
+// and we mirror that here because we need an imperative recorder for the
+// hold-to-record FAB, not a React hook.
+//
+// We also keep a legacy `Audio.*` fallback so a stale or pre-v1 install
+// won't crash the first time a seeker holds the mic button.
 const audioApi = ExpoAudio as unknown as {
   requestRecordingPermissionsAsync?: () => Promise<{ granted: boolean }>;
   setAudioModeAsync?: (mode: Record<string, unknown>) => Promise<void>;
-  AudioRecorder?: new (options: typeof RECORDING_OPTIONS) => RecorderInstance;
+  AudioModule?: {
+    AudioRecorder?: new (options: typeof RECORDING_OPTIONS) => RecorderInstance;
+  };
   Audio?: {
     requestRecordingPermissionsAsync?: () => Promise<{ granted: boolean }>;
     setAudioModeAsync?: (mode: Record<string, unknown>) => Promise<void>;
@@ -80,7 +91,7 @@ const audioApi = ExpoAudio as unknown as {
 
 interface RecorderInstance {
   uri: string | null;
-  prepareToRecordAsync?: () => Promise<void>;
+  prepareToRecordAsync?: (options?: typeof RECORDING_OPTIONS) => Promise<void>;
   record: () => Promise<void> | void;
   stop: () => Promise<void>;
 }
@@ -99,19 +110,24 @@ async function applyAudioMode(): Promise<void> {
   const set =
     audioApi.setAudioModeAsync ?? audioApi.Audio?.setAudioModeAsync ?? null;
   if (!set) return; // best-effort — recording can still work without explicit mode set
+  // `allowsRecording` and `playsInSilentMode` are iOS-only on v1.x; on Android
+  // the runtime just ignores the keys it doesn't recognise, so this is safe
+  // to send on both platforms.
   await set({ allowsRecording: true, playsInSilentMode: true });
 }
 
 async function createRecorder(): Promise<RecorderInstance> {
-  // New SDK 54 API — `new ExpoAudio.AudioRecorder(options)` then prepare + record.
-  if (audioApi.AudioRecorder) {
-    const r = new audioApi.AudioRecorder(RECORDING_OPTIONS);
+  // expo-audio v1.x — constructor lives on the native module.
+  const RecorderCtor = audioApi.AudioModule?.AudioRecorder;
+  if (RecorderCtor) {
+    const r = new RecorderCtor(RECORDING_OPTIONS);
     if (typeof r.prepareToRecordAsync === 'function') {
-      await r.prepareToRecordAsync();
+      // Pass options through to prepare so the v1.x option normaliser sees them.
+      await r.prepareToRecordAsync(RECORDING_OPTIONS);
     }
     return r;
   }
-  // Legacy `Audio.AudioRecorder.createAsync` fallback.
+  // Legacy `Audio.AudioRecorder.createAsync` fallback (expo-av / pre-v1 expo-audio).
   if (audioApi.Audio?.AudioRecorder?.createAsync) {
     return audioApi.Audio.AudioRecorder.createAsync(RECORDING_OPTIONS);
   }

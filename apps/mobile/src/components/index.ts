@@ -15,3 +15,4 @@ export { Stars } from './Stars';
 export { NotificationsBell } from './NotificationsBell';
 export { PaymentConfirmationPanel } from './PaymentConfirmationPanel';
 export { ErrorPanel } from './ErrorPanel';
+export { AccountSwitcherSheet } from './AccountSwitcherSheet';

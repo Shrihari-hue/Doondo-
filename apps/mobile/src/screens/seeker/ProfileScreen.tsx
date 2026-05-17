@@ -31,7 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { spacing, radii, blue } from '@doondo/tokens';
-import { Screen, Text, Button, Avatar } from '@/components';
+import { Screen, Text, Button, Avatar, AccountSwitcherSheet } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/auth.store';
@@ -46,6 +46,7 @@ import { ProfileCompletionMeter } from './ProfileCompletionMeter';
 import { useUnratedApplications } from '@/hooks/useRatings';
 import { pickProfilePhoto } from '@/lib/photo';
 import { haptic } from '@/lib/haptics';
+import { prettifySkill } from '@/lib/trades';
 import type { AppStackParamList } from '@/navigation/types';
 import type { PublicUser } from '@/api/types';
 
@@ -53,12 +54,36 @@ type Nav = NativeStackNavigationProp<AppStackParamList>;
 
 export function ProfileScreen() {
   const { theme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, savedAccounts } = useAuth();
   const setStore = useAuthStore.setState;
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const t = useTranslate();
   const [photoError, setPhotoError] = useState<string | null>(null);
+
+  /**
+   * Account switcher state. The Instagram-style top-left pill shows the
+   * active account name + a chevron. Tap behavior:
+   *   - Has another saved account (e.g. employer)  → open the switcher sheet
+   *   - Only one account on device                 → jump straight to the
+   *                                                  "Add Employer" signup
+   *
+   * The decision is made on tap so we always reflect the latest store
+   * state (a fresh signup could have added an account since mount).
+   */
+  const [switcherVisible, setSwitcherVisible] = useState(false);
+  const hasOtherAccount = savedAccounts.length > 1;
+  function onPressSwitcher() {
+    haptic('selection');
+    if (hasOtherAccount) {
+      setSwitcherVisible(true);
+    } else {
+      navigation.navigate('AddAccountSignup', { role: 'employer' });
+    }
+  }
+  function onAddEmployerFromSheet() {
+    navigation.navigate('AddAccountSignup', { role: 'employer' });
+  }
 
   // Real counts for the stats strip and menu subscripts.
   const applicationsQuery = useQuery({
@@ -93,7 +118,7 @@ export function ProfileScreen() {
     },
     onError: (err) => {
       haptic('error');
-      setPhotoError(err instanceof Error ? err.message : 'Failed to update photo');
+      setPhotoError(err instanceof Error ? err.message : t('profile_screen.update_photo_failed'));
     },
   });
 
@@ -108,7 +133,7 @@ export function ProfileScreen() {
       setPhotoError(
         err instanceof Error
           ? err.message
-          : 'Could not prepare that photo — try a different image.',
+          : t('profile_screen.could_not_prepare_photo'),
       );
     }
   }
@@ -151,9 +176,9 @@ export function ProfileScreen() {
   }
   function confirmSignOut() {
     haptic('warning');
-    Alert.alert('Sign out?', "You'll need to sign in again to use Doondo.", [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => void logout() },
+    Alert.alert(t('profile_screen.signout.confirm_title'), t('profile_screen.signout.confirm_body'), [
+      { text: t('profile_screen.signout.cancel'), style: 'cancel' },
+      { text: t('profile_screen.signout.confirm'), style: 'destructive', onPress: () => void logout() },
     ]);
   }
 
@@ -175,6 +200,59 @@ export function ProfileScreen() {
             alignItems: 'center',
           }}
         >
+          {/* ─── Top-left account switcher ───────────────────────────────
+              Instagram-style pill: "Shrinidhi ▾". Tap opens the switcher
+              sheet if another account is saved, otherwise jumps straight
+              into the "Add Employer account" signup.
+
+              Anchored absolutely so the centered avatar layout below it
+              doesn't have to be reshaped. */}
+          <Pressable
+            onPress={onPressSwitcher}
+            accessibilityRole="button"
+            accessibilityLabel={t('profile_screen.switch_account_a11y')}
+            hitSlop={8}
+            style={({ pressed }) => ({
+              position: 'absolute',
+              top: insets.top + spacing.sm,
+              left: spacing.lg,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: radii.pill,
+              backgroundColor: 'rgba(255,255,255,0.18)',
+              borderWidth: 0.5,
+              borderColor: 'rgba(255,255,255,0.32)',
+              opacity: pressed ? 0.75 : 1,
+              maxWidth: '70%',
+            })}
+          >
+            <Text
+              style={{
+                color: '#FFFFFF',
+                fontSize: 13,
+                fontWeight: '600',
+                letterSpacing: -0.1,
+              }}
+              numberOfLines={1}
+            >
+              {user.name}
+            </Text>
+            <Text
+              style={{
+                color: '#FFFFFF',
+                fontSize: 11,
+                fontWeight: '700',
+                marginTop: 1,
+              }}
+              allowFontScaling={false}
+            >
+              ▾
+            </Text>
+          </Pressable>
+
           {/* Avatar with halo glow + camera affordance */}
           <Pressable
             onPress={onChangePhoto}
@@ -266,7 +344,7 @@ export function ProfileScreen() {
                 }}
               >
                 <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>
-                  ✓ Verified Worker
+                  {t('profile_screen.verified_worker')}
                 </Text>
               </View>
             )}
@@ -287,7 +365,7 @@ export function ProfileScreen() {
                   {user.rating.avg.toFixed(1)}
                 </Text>
                 <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>
-                  · {user.rating.count} rated
+                  {t('profile_screen.rated_count', { count: user.rating.count })}
                 </Text>
               </View>
             ) : null}
@@ -303,7 +381,7 @@ export function ProfileScreen() {
               letterSpacing: 0.3,
             }}
           >
-            Member since {formatMemberSince(user.createdAt)}
+            {t('profile_screen.member_since', { when: formatMemberSince(user.createdAt) })}
           </Text>
 
           {/* Profile completion bar */}
@@ -323,7 +401,7 @@ export function ProfileScreen() {
                   letterSpacing: 0.4,
                 }}
               >
-                PROFILE COMPLETION
+                {t('profile_screen.profile_completion_label')}
               </Text>
               <Text
                 style={{
@@ -434,8 +512,8 @@ export function ProfileScreen() {
                   }}
                 >
                   {pendingRatingsCount === 1
-                    ? 'Rate your last employer'
-                    : `${pendingRatingsCount} ratings pending`}
+                    ? t('profile_screen.ratings_banner.title_one')
+                    : t('profile_screen.ratings_banner.title_other', { count: pendingRatingsCount })}
                 </Text>
                 <Text
                   style={{
@@ -446,8 +524,11 @@ export function ProfileScreen() {
                   numberOfLines={1}
                 >
                   {pendingRatingsCount === 1 && unrated[0]
-                    ? `${unrated[0].otherPartyName} · ${unrated[0].jobTitle}`
-                    : 'Help other workers by leaving a review.'}
+                    ? t('profile_screen.ratings_banner.body_one', {
+                        name: unrated[0].otherPartyName,
+                        job: unrated[0].jobTitle,
+                      })
+                    : t('profile_screen.ratings_banner.body_other')}
                 </Text>
               </View>
               <Text
@@ -457,7 +538,7 @@ export function ProfileScreen() {
                   color: theme.brand.hero,
                 }}
               >
-                Rate ›
+                {t('profile_screen.ratings_banner.cta')}
               </Text>
             </Pressable>
           </View>
@@ -491,19 +572,19 @@ export function ProfileScreen() {
             }}
           >
             <StatTile
-              label="Applications"
+              label={t('profile_screen.stats.applications')}
               value={String(applicationsCount)}
               onPress={openApplications}
             />
             <Divider vertical color={theme.border.subtle} />
             <StatTile
-              label="Saved jobs"
+              label={t('profile_screen.stats.saved_jobs')}
               value={String(savedCount)}
               onPress={openSavedJobs}
             />
             <Divider vertical color={theme.border.subtle} />
             <StatTile
-              label="Profile"
+              label={t('profile_screen.stats.profile')}
               value={`${profileCompletion}%`}
               onPress={() => goEdit('basics')}
             />
@@ -532,7 +613,7 @@ export function ProfileScreen() {
                     letterSpacing: 0.4,
                   }}
                 >
-                  You're looking for
+                  {t('profile_screen.salary.eyebrow')}
                 </Text>
                 {user.expectedSalary ? (
                   <View style={{ marginTop: 4 }}>
@@ -555,7 +636,7 @@ export function ProfileScreen() {
                         fontWeight: '500',
                       }}
                     >
-                      {periodLabel(user.expectedSalary.period)}
+                      {periodLabel(user.expectedSalary.period, t)}
                     </Text>
                   </View>
                 ) : (
@@ -567,7 +648,7 @@ export function ProfileScreen() {
                         fontWeight: '600',
                       }}
                     >
-                      Set your expected salary
+                      {t('profile_screen.salary.empty_title')}
                     </Text>
                     <Text
                       style={{
@@ -576,7 +657,7 @@ export function ProfileScreen() {
                         marginTop: 2,
                       }}
                     >
-                      Helps employers match the right roles
+                      {t('profile_screen.salary.empty_subtitle')}
                     </Text>
                   </View>
                 )}
@@ -586,7 +667,7 @@ export function ProfileScreen() {
               <Pressable
                 onPress={openSalaryEdit}
                 accessibilityRole="button"
-                accessibilityLabel="Edit expected salary"
+                accessibilityLabel={t('profile_screen.edit_salary_a11y')}
                 style={({ pressed }) => ({
                   paddingHorizontal: 18,
                   paddingVertical: 10,
@@ -602,7 +683,7 @@ export function ProfileScreen() {
                     fontWeight: '700',
                   }}
                 >
-                  Edit
+                  {t('profile_screen.salary.edit')}
                 </Text>
               </Pressable>
             </View>
@@ -614,14 +695,14 @@ export function ProfileScreen() {
             {user.skills.length === 0 ? (
               <View style={{ gap: spacing.xs }}>
                 <Text style={{ fontSize: 15, fontWeight: '600', color: theme.text.primary }}>
-                  Add your skills
+                  {t('profile_screen.skills_card.empty_title')}
                 </Text>
                 <Text style={{ fontSize: 13, color: theme.text.secondary }}>
-                  Employers find you faster when you list what you're good at.
+                  {t('profile_screen.skills_card.empty_subtitle')}
                 </Text>
                 <View style={{ marginTop: spacing.sm }}>
                   <Button
-                    label="Add skills"
+                    label={t('profile_screen.skills_card.empty_cta')}
                     variant="primary"
                     onPress={() => goEdit('skills')}
                   />
@@ -666,7 +747,7 @@ export function ProfileScreen() {
                       color: theme.brand.hero,
                     }}
                   >
-                    + Add or edit skills
+                    {t('profile_screen.skills_card.add_or_edit')}
                   </Text>
                 </Pressable>
               </View>
@@ -688,11 +769,16 @@ export function ProfileScreen() {
             <MenuRow
               icon="📋"
               tint="#DBEAFE"
-              label="My Applications"
+              label={t('profile.menu.applications')}
               subtitle={
                 applicationsCount === 0
-                  ? 'No applications yet'
-                  : `${applicationsCount} application${applicationsCount === 1 ? '' : 's'}`
+                  ? t('profile.menu.applications_empty')
+                  : t(
+                      applicationsCount === 1
+                        ? 'profile.menu.applications_count_one'
+                        : 'profile.menu.applications_count_other',
+                      { count: applicationsCount },
+                    )
               }
               onPress={openApplications}
             />
@@ -700,11 +786,11 @@ export function ProfileScreen() {
             <MenuRow
               icon="📂"
               tint="#FEF3C7"
-              label="My Jobs"
+              label={t('profile.menu.my_jobs')}
               subtitle={
                 savedCount === 0
-                  ? 'No saved jobs yet'
-                  : `${savedCount} saved`
+                  ? t('profile.menu.saved_empty')
+                  : t('profile.menu.saved_count', { count: savedCount })
               }
               onPress={openSavedJobs}
             />
@@ -712,8 +798,8 @@ export function ProfileScreen() {
             <MenuRow
               icon="🔔"
               tint="#FEE2E2"
-              label="Job Alerts"
-              subtitle="Get notified when matching jobs are posted"
+              label={t('profile.menu.job_alerts')}
+              subtitle={t('profile.menu.job_alerts_subtitle')}
               onPress={() => {
                 haptic('selection');
                 navigation.navigate('JobAlerts');
@@ -723,8 +809,8 @@ export function ProfileScreen() {
             <MenuRow
               icon="🪙"
               tint="#FDE68A"
-              label="Cash advance"
-              subtitle="Borrow against confirmed upcoming work (up to ₹5,000)"
+              label={t('profile_screen.menu_extra.cash_advance')}
+              subtitle={t('profile_screen.menu_extra.cash_advance_subtitle')}
               onPress={() => {
                 haptic('selection');
                 navigation.navigate('Advance');
@@ -734,8 +820,8 @@ export function ProfileScreen() {
             <MenuRow
               icon="🛡"
               tint="#DBEAFE"
-              label="Worker insurance"
-              subtitle="₹49/month accident cover · opt-in any time"
+              label={t('profile_screen.menu_extra.worker_insurance')}
+              subtitle={t('profile_screen.menu_extra.worker_insurance_subtitle')}
               onPress={() => {
                 haptic('selection');
                 navigation.navigate('Insurance');
@@ -747,8 +833,8 @@ export function ProfileScreen() {
             <MenuRow
               icon="📚"
               tint="#DDD6FE"
-              label="Training & courses"
-              subtitle="Earn badges that show on your resume"
+              label={t('profile.menu.training')}
+              subtitle={t('profile.menu.training_subtitle')}
               onPress={() => {
                 haptic('selection');
                 navigation.navigate('Courses');
@@ -758,8 +844,8 @@ export function ProfileScreen() {
             <MenuRow
               icon="🧠"
               tint="#FEF3C7"
-              label="Skill tests"
-              subtitle="Prove your trade — 5 questions, 4 to pass"
+              label={t('profile.menu.skill_tests')}
+              subtitle={t('profile.menu.skill_tests_subtitle')}
               onPress={() => {
                 haptic('selection');
                 navigation.navigate('SkillTests');
@@ -769,8 +855,8 @@ export function ProfileScreen() {
             <MenuRow
               icon="💬"
               tint="#E0E7FF"
-              label="Interview prep"
-              subtitle="Common questions, what to bring, how to talk pay"
+              label={t('profile_screen.menu_extra.interview_prep')}
+              subtitle={t('profile_screen.menu_extra.interview_prep_subtitle')}
               onPress={() => {
                 haptic('selection');
                 navigation.navigate('InterviewPrep');
@@ -780,8 +866,8 @@ export function ProfileScreen() {
             <MenuRow
               icon="👥"
               tint="#FCE7F3"
-              label="Find friends on Doondo"
-              subtitle="Match your contacts · invite friends, earn ₹100 per hire"
+              label={t('profile_screen.menu_extra.find_friends')}
+              subtitle={t('profile_screen.menu_extra.find_friends_subtitle')}
               onPress={() => {
                 haptic('selection');
                 navigation.navigate('FindFriends');
@@ -791,8 +877,8 @@ export function ProfileScreen() {
             <MenuRow
               icon="🤝"
               tint="#DBEAFE"
-              label="Trade buddies"
-              subtitle="Find a mentor in your trade — or mentor others"
+              label={t('profile_screen.menu_extra.trade_buddies')}
+              subtitle={t('profile_screen.menu_extra.trade_buddies_subtitle')}
               onPress={() => {
                 haptic('selection');
                 navigation.navigate('Mentors');
@@ -802,13 +888,16 @@ export function ProfileScreen() {
             <MenuRow
               icon="⭐"
               tint="#FDE68A"
-              label="Ratings & Reviews"
+              label={t('profile.menu.ratings')}
               subtitle={
                 user.rating && user.rating.count > 0
-                  ? `${user.rating.avg.toFixed(1)} from ${user.rating.count} ${
-                      user.rating.count === 1 ? 'rating' : 'ratings'
-                    }`
-                  : 'No ratings yet'
+                  ? t(
+                      user.rating.count === 1
+                        ? 'profile_screen.menu_extra.ratings_count_one'
+                        : 'profile_screen.menu_extra.ratings_count_other',
+                      { avg: user.rating.avg.toFixed(1), count: user.rating.count },
+                    )
+                  : t('profile.menu.ratings_empty')
               }
               onPress={openRatings}
             />
@@ -816,8 +905,8 @@ export function ProfileScreen() {
             <MenuRow
               icon="💰"
               tint="#D1FAE5"
-              label="My Earnings"
-              subtitle="Available with wallet"
+              label={t('profile.menu.earnings')}
+              subtitle={t('profile.menu.earnings_subtitle')}
               onPress={openEarnings}
             />
           </View>
@@ -828,11 +917,16 @@ export function ProfileScreen() {
             <MenuRow
               icon="📝"
               tint="#DDD6FE"
-              label={user.workHistory?.length ? 'My resume' : 'Build my resume'}
+              label={user.workHistory?.length ? t('profile_screen.menu_extra.my_resume') : t('profile_screen.menu_extra.build_resume')}
               subtitle={
                 user.workHistory?.length
-                  ? `${user.workHistory.length} job${user.workHistory.length === 1 ? '' : 's'} · tap to view or share`
-                  : 'Walk through your last 1–5 jobs'
+                  ? t(
+                      user.workHistory.length === 1
+                        ? 'profile_screen.menu_extra.my_resume_subtitle_one'
+                        : 'profile_screen.menu_extra.my_resume_subtitle_other',
+                      { count: user.workHistory.length },
+                    )
+                  : t('profile_screen.menu_extra.build_resume_subtitle')
               }
               onPress={() => {
                 haptic('selection');
@@ -849,24 +943,24 @@ export function ProfileScreen() {
             <MenuRow
               icon="✏️"
               tint="#E0E7FF"
-              label="Edit Profile Details"
-              subtitle="Name, bio, experience, availability"
+              label={t('profile.menu.edit_profile')}
+              subtitle={t('profile.menu.edit_profile_subtitle')}
               onPress={() => goEdit('basics')}
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
               icon="📥"
               tint="#FCE7F3"
-              label="Download Center"
-              subtitle="Saved posts and offline content"
+              label={t('profile.menu.downloads')}
+              subtitle={t('profile.menu.downloads_subtitle')}
               onPress={openDownloads}
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
               icon="⚙️"
               tint="#F1F5F9"
-              label="Settings"
-              subtitle="Language, notifications, theme"
+              label={t('profile.menu.settings')}
+              subtitle={t('profile.menu.settings_subtitle')}
               onPress={openSettings}
             />
           </View>
@@ -887,11 +981,18 @@ export function ProfileScreen() {
             <Text
               style={{ fontSize: 15, fontWeight: '600', color: theme.status.danger }}
             >
-              Sign out
+              {t('profile_screen.signout.button')}
             </Text>
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Account switcher bottom sheet — driven by the top-left pill. */}
+      <AccountSwitcherSheet
+        visible={switcherVisible}
+        onClose={() => setSwitcherVisible(false)}
+        onAddEmployer={onAddEmployerFromSheet}
+      />
     </Screen>
   );
 }
@@ -909,6 +1010,7 @@ export function ProfileScreen() {
  */
 function ProfileViewsBanner() {
   const { theme } = useTheme();
+  const t = useTranslate();
   const query = useQuery({
     queryKey: ['profile-views', 'me'],
     queryFn: () => profileViewsApi.summarize(),
@@ -919,8 +1021,8 @@ function ProfileViewsBanner() {
   if (!query.data || n === 0) return null;
   const subtitle =
     n >= 5
-      ? "You're getting noticed — keep your profile fresh to convert views into hires."
-      : 'Add work photos or a skill test to stand out.';
+      ? t('profile_screen.views_banner.subtitle_engaged')
+      : t('profile_screen.views_banner.subtitle_add_more');
   return (
     <View
       style={{
@@ -949,7 +1051,12 @@ function ProfileViewsBanner() {
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 15, fontWeight: '700', color: '#1E3A8A' }}>
-          {n} {n === 1 ? 'employer' : 'employers'} viewed your profile this week
+          {t(
+            n === 1
+              ? 'profile_screen.views_banner.title_one'
+              : 'profile_screen.views_banner.title_other',
+            { n },
+          )}
         </Text>
         <Text style={{ fontSize: 12, color: '#1E40AF', marginTop: 2 }}>
           {subtitle}
@@ -1005,16 +1112,21 @@ function SkillSuggestionsRail({ onEdit }: { onEdit: () => void }) {
             })}
           >
             <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1.4, color: '#047857' }}>
-              ADD SKILL · +{s.upliftPercent}%
+              {t('profile_screen.suggestions.eyebrow', { n: s.upliftPercent })}
             </Text>
             <Text style={{ fontSize: 16, fontWeight: '700', color: '#064E3B' }}>
               {prettifySkill(s.skill)}
             </Text>
             <Text style={{ fontSize: 12, color: '#065F46' }}>
-              {s.jobsNeedingIt} {s.jobsNeedingIt === 1 ? 'job needs it' : 'jobs need it'} near you
+              {t(
+                s.jobsNeedingIt === 1
+                  ? 'profile_screen.suggestions.jobs_need_one'
+                  : 'profile_screen.suggestions.jobs_need_other',
+                { count: s.jobsNeedingIt },
+              )}
             </Text>
             <Text style={{ fontSize: 11, fontWeight: '600', color: theme.brand.hero, marginTop: 4 }}>
-              Add to my skills →
+              {t('profile_screen.suggestions.add_to_skills')}
             </Text>
           </Pressable>
         ))}
@@ -1030,6 +1142,7 @@ function SkillSuggestionsRail({ onEdit }: { onEdit: () => void }) {
  */
 function ReferralMenuRow() {
   const navigation = useNavigation<Nav>();
+  const t = useTranslate();
   const query = useQuery({
     queryKey: ['referrals', 'me'],
     queryFn: () => referralsApi.myReferrals(),
@@ -1038,13 +1151,16 @@ function ReferralMenuRow() {
   const summary = query.data?.summary;
   const subtitle =
     summary && summary.totalBonusPaise > 0
-      ? `₹${Math.round(summary.totalBonusPaise / 100).toLocaleString()} earned · ${summary.hired} hired`
-      : 'Share jobs · earn ₹100 per hire';
+      ? t('profile_screen.referrals.subtitle_earned', {
+          amount: Math.round(summary.totalBonusPaise / 100).toLocaleString('en-IN'),
+          count: summary.hired,
+        })
+      : t('profile_screen.referrals.subtitle_empty');
   return (
     <MenuRow
       icon="💸"
       tint="#FEF3C7"
-      label="Referral credit"
+      label={t('profile.menu.referrals')}
       subtitle={subtitle}
       onPress={() => {
         haptic('selection');
@@ -1251,18 +1367,16 @@ function cardBase(theme: ReturnType<typeof useTheme>['theme']) {
 
 function formatSalary(s: NonNullable<PublicUser['expectedSalary']>): string {
   const symbol = s.currency === 'INR' ? '₹' : s.currency === 'USD' ? '$' : '';
-  const rupees = (s.amount / 100).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  // 'en-IN' for lakh/crore grouping regardless of UI language.
+  const rupees = (s.amount / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
   return `${symbol}${rupees}`;
 }
 
-function periodLabel(period: NonNullable<PublicUser['expectedSalary']>['period']): string {
-  return ({
-    hour: 'Per hour',
-    day: 'Per day',
-    week: 'Per week',
-    month: 'Per month',
-    fixed: 'Fixed total',
-  } as const)[period];
+function periodLabel(
+  period: NonNullable<PublicUser['expectedSalary']>['period'],
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  return t(`profile_screen.salary.period_${period}`);
 }
 
 function capitalize(s: string): string {

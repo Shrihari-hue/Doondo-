@@ -36,11 +36,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { haptic } from '@/lib/haptics';
 import { alertsApi, type PublicJobAlert } from '@/api/alerts.api';
 import { ApiError } from '@/api/errors';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
 import type { JobType } from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type Route = RouteProp<AppStackParamList, 'JobAlertForm'>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 const ALL_JOB_TYPES: JobType[] = ['full_time', 'part_time', 'gig', 'shift', 'contract'];
 
@@ -59,6 +61,7 @@ function JobAlertFormInner() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const t = useTranslate();
   const alertId = route.params?.alertId;
   const suggestion = route.params?.suggestion;
   const isEdit = Boolean(alertId);
@@ -115,8 +118,8 @@ function JobAlertFormInner() {
     },
     onError: (err) => {
       haptic('error');
-      const msg = err instanceof ApiError ? err.message : 'Try again.';
-      Alert.alert("Couldn't save alert", msg);
+      const msg = err instanceof ApiError ? err.message : t('job_alerts.try_again');
+      Alert.alert(t('job_alert_form.couldnt_save_title'), msg);
     },
   });
 
@@ -136,8 +139,8 @@ function JobAlertFormInner() {
     },
     onError: (err) => {
       haptic('error');
-      const msg = err instanceof ApiError ? err.message : 'Try again.';
-      Alert.alert("Couldn't save alert", msg);
+      const msg = err instanceof ApiError ? err.message : t('job_alerts.try_again');
+      Alert.alert(t('job_alert_form.couldnt_save_title'), msg);
     },
   });
 
@@ -145,7 +148,7 @@ function JobAlertFormInner() {
     Keyboard.dismiss();
     if (draft.name.trim().length < 1) {
       haptic('error');
-      Alert.alert('Add a name', 'Give your alert a short name to identify it.');
+      Alert.alert(t('job_alert_form.add_name_title'), t('job_alert_form.add_name_body'));
       return;
     }
     if (
@@ -156,8 +159,8 @@ function JobAlertFormInner() {
     ) {
       haptic('error');
       Alert.alert(
-        'Too broad',
-        'Add at least one criterion (keyword, city, job type, or urgent only) so we know what to ping you about.',
+        t('job_alert_form.too_broad_title'),
+        t('job_alert_form.too_broad_body'),
       );
       return;
     }
@@ -189,11 +192,11 @@ function JobAlertFormInner() {
       listQuery.data &&
       !existing
     ) {
-      Alert.alert('Alert not found', "This alert no longer exists.", [
-        { text: 'OK', onPress: () => navigation.goBack() },
+      Alert.alert(t('job_alert_form.alert_not_found_title'), t('job_alert_form.alert_not_found_body'), [
+        { text: t('job_alert_form.ok'), onPress: () => navigation.goBack() },
       ]);
     }
-  }, [isEdit, listQuery.isLoading, listQuery.isError, listQuery.data, existing, navigation]);
+  }, [isEdit, listQuery.isLoading, listQuery.isError, listQuery.data, existing, navigation, t]);
 
   return (
     <Screen edges={[]}>
@@ -222,7 +225,7 @@ function JobAlertFormInner() {
           <Text
             style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
           >
-            {isEdit ? 'Edit alert' : 'New alert'}
+            {isEdit ? t('job_alert_form.title_edit') : t('job_alert_form.title_new')}
           </Text>
         </View>
       </LinearGradient>
@@ -241,24 +244,24 @@ function JobAlertFormInner() {
           keyboardShouldPersistTaps="handled"
         >
           <Field
-            label="Name this alert"
-            placeholder="e.g. Delivery in Indiranagar"
+            label={t('job_alert_form.field_name_label')}
+            placeholder={t('job_alert_form.field_name_placeholder')}
             value={draft.name}
-            onChangeText={(t) => setDraft((d) => ({ ...d, name: t }))}
+            onChangeText={(text) => setDraft((d) => ({ ...d, name: text }))}
             autoCapitalize="sentences"
           />
           <Field
-            label="Keyword (optional)"
-            placeholder="e.g. delivery, helper, welder"
+            label={t('job_alert_form.field_keyword_label')}
+            placeholder={t('job_alert_form.field_keyword_placeholder')}
             value={draft.query}
-            onChangeText={(t) => setDraft((d) => ({ ...d, query: t }))}
+            onChangeText={(text) => setDraft((d) => ({ ...d, query: text }))}
             autoCapitalize="none"
           />
           <Field
-            label="City (optional)"
-            placeholder="e.g. Bengaluru"
+            label={t('job_alert_form.field_city_label')}
+            placeholder={t('job_alert_form.field_city_placeholder')}
             value={draft.city}
-            onChangeText={(t) => setDraft((d) => ({ ...d, city: t }))}
+            onChangeText={(text) => setDraft((d) => ({ ...d, city: text }))}
             autoCapitalize="words"
           />
 
@@ -272,15 +275,15 @@ function JobAlertFormInner() {
                 letterSpacing: 0.3,
               }}
             >
-              Job types (optional)
+              {t('job_alert_form.field_job_types_label')}
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-              {ALL_JOB_TYPES.map((t) => {
-                const active = draft.jobTypes.includes(t);
+              {ALL_JOB_TYPES.map((jt) => {
+                const active = draft.jobTypes.includes(jt);
                 return (
                   <Pressable
-                    key={t}
-                    onPress={() => toggleType(t)}
+                    key={jt}
+                    onPress={() => toggleType(jt)}
                     style={({ pressed }) => ({
                       paddingHorizontal: spacing.md,
                       paddingVertical: spacing.sm - 2,
@@ -298,14 +301,14 @@ function JobAlertFormInner() {
                         color: active ? '#FFFFFF' : theme.text.primary,
                       }}
                     >
-                      {prettyJobType(t)}
+                      {prettyJobType(jt, t)}
                     </Text>
                   </Pressable>
                 );
               })}
             </View>
             <Text style={{ fontSize: 11, color: theme.text.tertiary, marginTop: 2 }}>
-              Leave empty to match any type.
+              {t('job_alert_form.field_job_types_hint')}
             </Text>
           </View>
 
@@ -330,10 +333,10 @@ function JobAlertFormInner() {
               <Text
                 style={{ fontSize: 14, fontWeight: '600', color: theme.text.primary }}
               >
-                Urgent only
+                {t('job_alert_form.urgent_only_title')}
               </Text>
               <Text style={{ fontSize: 12, color: theme.text.tertiary }}>
-                Only ping me when an urgent job matches
+                {t('job_alert_form.urgent_only_hint')}
               </Text>
             </View>
             <Switch
@@ -361,7 +364,7 @@ function JobAlertFormInner() {
                 marginBottom: 4,
               }}
             >
-              YOU&apos;LL HEAR ABOUT
+              {t('job_alert_form.summary_eyebrow')}
             </Text>
             <Text
               style={{
@@ -370,7 +373,7 @@ function JobAlertFormInner() {
                 lineHeight: 20,
               }}
             >
-              {summariseDraft(draft)}
+              {summariseDraft(draft, t)}
             </Text>
           </View>
         </ScrollView>
@@ -399,7 +402,7 @@ function JobAlertFormInner() {
           })}
         >
           <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
-            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create alert'}
+            {saving ? t('job_alert_form.saving') : isEdit ? t('job_alert_form.save_changes') : t('job_alert_form.create_alert')}
           </Text>
         </Pressable>
       </View>
@@ -458,32 +461,21 @@ function Field({
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function prettyJobType(t: JobType): string {
-  switch (t) {
-    case 'full_time':
-      return 'Full-time';
-    case 'part_time':
-      return 'Part-time';
-    case 'gig':
-      return 'Gig';
-    case 'shift':
-      return 'Shift';
-    case 'contract':
-      return 'Contract';
-  }
+function prettyJobType(type: JobType, t: TFn): string {
+  return t(`common.job_type.${type}`);
 }
 
-function summariseDraft(d: Draft): string {
+function summariseDraft(d: Draft, t: TFn): string {
   const parts: string[] = [];
-  if (d.urgentOnly) parts.push('Urgent');
+  if (d.urgentOnly) parts.push(t('job_alert_form.summary_urgent'));
   if (d.jobTypes.length > 0) {
-    parts.push(d.jobTypes.map(prettyJobType).join('/'));
+    parts.push(d.jobTypes.map((jt) => prettyJobType(jt, t)).join('/'));
   } else {
-    parts.push('Any job type');
+    parts.push(t('job_alert_form.summary_any_type'));
   }
-  if (d.query.trim()) parts.push(`matching "${d.query.trim()}"`);
-  if (d.city.trim()) parts.push(`in ${d.city.trim()}`);
-  else parts.push('anywhere');
+  if (d.query.trim()) parts.push(t('job_alert_form.summary_matching', { q: d.query.trim() }));
+  if (d.city.trim()) parts.push(t('job_alert_form.summary_in_city', { city: d.city.trim() }));
+  else parts.push(t('job_alert_form.summary_anywhere'));
   return parts.join(' · ');
 }
 

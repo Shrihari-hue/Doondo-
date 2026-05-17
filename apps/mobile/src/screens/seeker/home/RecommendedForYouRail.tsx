@@ -18,22 +18,41 @@ import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { jobsApi } from '@/api/jobs.api';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
-function formatPay(pay: { amount: number; amountMax: number | null; period: string }): string {
+/**
+ * Localised pay formatter. `t` is passed in (instead of being read via
+ * useTranslate inside this helper) because helpers below the component
+ * tree can't call hooks. Standard pattern across the home subcomponents.
+ */
+function formatPay(
+  pay: { amount: number; amountMax: number | null; period: string },
+  t: (key: string) => string,
+): string {
   const min = Math.round(pay.amount / 100);
   const max = pay.amountMax ? Math.round(pay.amountMax / 100) : null;
   const range = max && max !== min ? `₹${min}–${max}` : `₹${min}`;
-  const period = pay.period === 'day' ? '/day' : pay.period === 'hour' ? '/hr' : `/${pay.period}`;
-  return `${range}${period}`;
+  const periodKey =
+    pay.period === 'hour'
+      ? 'common.pay_period.suffix_hour'
+      : pay.period === 'day'
+        ? 'common.pay_period.suffix_day'
+        : pay.period === 'week'
+          ? 'common.pay_period.suffix_week'
+          : pay.period === 'month'
+            ? 'common.pay_period.suffix_month'
+            : 'common.pay_period.suffix_fixed';
+  return `${range}${t(periodKey)}`;
 }
 
 export function RecommendedForYouRail() {
   const { theme } = useTheme();
   const { user } = useAuth();
   const navigation = useNavigation<Nav>();
+  const t = useTranslate();
   const query = useQuery({
     queryKey: ['jobs', 'recommended'],
     queryFn: () => jobsApi.recommended(),
@@ -56,10 +75,10 @@ export function RecommendedForYouRail() {
         }}
       >
         <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text.primary }}>
-          ✨ Recommended for you
+          {t('home.recommended.title')}
         </Text>
         <Text style={{ fontSize: 12, color: theme.text.tertiary }}>
-          Based on your resume
+          {t('home.recommended.subtitle')}
         </Text>
       </View>
       <ScrollView
@@ -92,13 +111,13 @@ export function RecommendedForYouRail() {
               {j.title}
             </Text>
             <Text style={{ fontSize: 12, color: theme.text.secondary }} numberOfLines={1}>
-              {j.employer?.companyName ?? j.employer?.name ?? 'Employer'}
+              {j.employer?.companyName ?? j.employer?.name ?? t('home.recommended.fallback_employer')}
               {j.location.area ? ` · ${j.location.area}` : ''}
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-              <Pill label={formatPay(j.pay)} tone="warning" />
-              {j.urgent && <Pill label="Urgent" tone="warning" leading="●" />}
-              {j.safeForWomen && <Pill label="Women-safe" tone="success" leading="🛡" />}
+              <Pill label={formatPay(j.pay, t)} tone="warning" />
+              {j.urgent && <Pill label={t('home.recommended.urgent_pill')} tone="warning" leading="●" />}
+              {j.safeForWomen && <Pill label={t('home.recommended.women_safe_pill')} tone="success" leading="🛡" />}
             </View>
           </Pressable>
         ))}

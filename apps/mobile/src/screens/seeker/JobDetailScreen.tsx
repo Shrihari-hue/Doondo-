@@ -38,6 +38,7 @@ import { contactApi } from '@/api/contact.api';
 import { useAuth } from '@/hooks/useAuth';
 import { ApiError } from '@/api/errors';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import {
   getJobOffline,
   isJobDownloaded,
@@ -50,6 +51,7 @@ import type { PublicJob } from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'JobDetail'>;
 type Route = RouteProp<AppStackParamList, 'JobDetail'>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function JobDetailScreenInner() {
   const navigation = useNavigation<Nav>();
@@ -57,6 +59,7 @@ function JobDetailScreenInner() {
   const { theme } = useTheme();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const t = useTranslate();
   const [appliedNow, setAppliedNow] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
@@ -178,12 +181,12 @@ function JobDetailScreenInner() {
     onError: (err) => {
       haptic('error');
       if (err instanceof ApiError && err.code === 'APPLICATION_ALREADY_EXISTS') {
-        setApplyError('You already applied to this job.');
+        setApplyError(t('job_detail.errors.already_applied'));
         setAppliedNow(true);
       } else if (err instanceof ApiError && err.code === 'JOB_NOT_OPEN') {
-        setApplyError('This job is no longer accepting applications.');
+        setApplyError(t('job_detail.errors.job_not_open'));
       } else {
-        setApplyError(err instanceof Error ? err.message : 'Something went wrong.');
+        setApplyError(err instanceof Error ? err.message : t('job_detail.errors.generic'));
       }
     },
   });
@@ -206,12 +209,12 @@ function JobDetailScreenInner() {
     onError: (err) => {
       haptic('error');
       if (err instanceof ApiError && err.code === 'APPLICATION_ALREADY_EXISTS') {
-        setApplyError("You've already shown interest in this job.");
+        setApplyError(t('job_detail.errors.already_interested'));
         setAppliedNow(true);
       } else if (err instanceof ApiError && err.code === 'JOB_NOT_OPEN') {
-        setApplyError('This job is no longer accepting applications.');
+        setApplyError(t('job_detail.errors.job_not_open'));
       } else {
-        setApplyError(err instanceof Error ? err.message : 'Something went wrong.');
+        setApplyError(err instanceof Error ? err.message : t('job_detail.errors.generic'));
       }
     },
   });
@@ -228,7 +231,7 @@ function JobDetailScreenInner() {
   if (detail.isLoading) {
     return (
       <Screen>
-        <Header onClose={() => navigation.goBack()} />
+        <Header t={t} onClose={() => navigation.goBack()} />
         <ScrollView
           contentContainerStyle={{
             paddingHorizontal: spacing.xl,
@@ -247,15 +250,15 @@ function JobDetailScreenInner() {
   if (detail.isError || !detail.data) {
     return (
       <Screen>
-        <Header onClose={() => navigation.goBack()} />
+        <Header t={t} onClose={() => navigation.goBack()} />
         <View style={{ flex: 1, justifyContent: 'center' }}>
           <EmptyState
             glyph="✕"
             tone="warning"
-            eyebrow="UNAVAILABLE"
-            title="Couldn't load this job"
-            message="It may have been removed, or your connection dropped."
-            cta={{ label: 'Close', onPress: () => navigation.goBack() }}
+            eyebrow={t('job_detail.load_error.eyebrow')}
+            title={t('job_detail.load_error.title')}
+            message={t('job_detail.load_error.message')}
+            cta={{ label: t('job_detail.load_error.close'), onPress: () => navigation.goBack() }}
           />
         </View>
       </Screen>
@@ -264,15 +267,15 @@ function JobDetailScreenInner() {
 
   const job = detail.data.job;
   const employerName =
-    job.employer?.companyName ?? job.employer?.name ?? 'Doondo Employer';
-  const typeLabel = formatType(job.type);
+    job.employer?.companyName ?? job.employer?.name ?? t('jobs.card.default_employer');
+  const typeLabel = formatType(job.type, t);
   const distanceLabel =
     job.distanceMeters != null
       ? job.distanceMeters < 1000
-        ? `${job.distanceMeters} m away`
-        : `${(job.distanceMeters / 1000).toFixed(1)} km away`
+        ? t('job_detail.distance_away_m', { n: job.distanceMeters })
+        : t('job_detail.distance_away_km', { n: (job.distanceMeters / 1000).toFixed(1) })
       : null;
-  const timeLabel = formatScheduleTime(job.schedule);
+  const timeLabel = formatScheduleTime(job.schedule, t);
 
   async function onShare() {
     haptic('light');
@@ -282,18 +285,24 @@ function JobDetailScreenInner() {
     // where, and a tappable Doondo link.
     const lines: string[] = [];
     lines.push(`💼 ${job.title}`);
-    if (employerName && employerName !== 'Doondo Employer') {
+    // Default-employer label comes from translations now, so we keep the
+    // raw English literal out of the comparison and just check whether
+    // the employer object actually has a name we should attribute.
+    if (
+      employerName &&
+      employerName !== t('jobs.card.default_employer')
+    ) {
       lines.push(`at ${employerName}`);
     }
     lines.push('');
-    lines.push(`💰 ${formatPay(job.pay)}`);
+    lines.push(`💰 ${formatPay(job.pay, t)}`);
     const where = [job.location.area, job.location.city]
       .filter(Boolean)
       .join(', ');
     if (where) lines.push(`📍 ${where}`);
-    if (job.urgent) lines.push(`⚡ Urgent — start soon`);
+    if (job.urgent) lines.push(t('job_detail.share.urgent_line'));
     lines.push('');
-    lines.push(`See and apply on Doondo:`);
+    lines.push(t('job_detail.share.see_apply'));
     // Carry the sharer's user id as ?ref= — if the recipient applies
     // via this link and gets hired, the sharer earns a ₹100 referral
     // bonus credited to their wallet.
@@ -301,7 +310,7 @@ function JobDetailScreenInner() {
     lines.push(`https://doondo.app/jobs/${job.id}${sharerRef}`);
     if (user?.id) {
       lines.push('');
-      lines.push('💰 If you get hired, I earn a ₹100 referral bonus.');
+      lines.push(t('job_detail.share.referral_bonus'));
     }
     try {
       await Share.share({
@@ -330,6 +339,7 @@ function JobDetailScreenInner() {
       )}
 
       <Header
+        t={t}
         onClose={() => navigation.goBack()}
         onShare={() => void onShare()}
         onDownloadToggle={() => void toggleDownload()}
@@ -407,11 +417,11 @@ function JobDetailScreenInner() {
 
           {/* Pay range */}
           <Text variant="display" weight="medium" style={{ color: theme.text.primary }} display>
-            {formatPay(job.pay)}
+            {formatPay(job.pay, t)}
           </Text>
 
           {/* Pay transparency — "Typical pay for X in Y: ₹450–600 / day" */}
-          <PayTransparencyLine job={job} />
+          <PayTransparencyLine job={job} t={t} />
         </View>
 
         {/* Pills with icon prefix */}
@@ -423,21 +433,22 @@ function JobDetailScreenInner() {
           {job.workMode && job.workMode !== 'onsite' ? (
             <DetailRow
               icon={job.workMode === 'remote' ? '🏠' : '🏢'}
-              label={job.workMode === 'remote' ? 'Fully remote' : 'Hybrid (some days at home)'}
+              label={job.workMode === 'remote' ? t('job_detail.work_mode.remote') : t('job_detail.work_mode.hybrid')}
             />
           ) : null}
           {job.urgent && (
-            <DetailRow icon="⚡" label="Urgent" tone={theme.status.warning} />
+            <DetailRow icon="⚡" label={t('job_detail.urgent_pill')} tone={theme.status.warning} />
           )}
         </View>
 
         {/* Job Description */}
         <View style={{ gap: spacing.sm }}>
           <Text variant="bodyLarge" weight="medium">
-            Job Description
+            {t('job_detail.section.description')}
           </Text>
           {job.audioDescriptionUrl ? (
             <AudioDescriptionPill
+              t={t}
               uri={job.audioDescriptionUrl}
               durationSeconds={job.audioDescriptionDurationSeconds ?? 0}
             />
@@ -451,11 +462,11 @@ function JobDetailScreenInner() {
         {job.skills.length > 0 && (
           <View style={{ gap: spacing.sm }}>
             <Text variant="bodyLarge" weight="medium">
-              Requirements
+              {t('job_detail.section.requirements')}
             </Text>
             <View style={{ gap: spacing.xs }}>
               {job.skills.map((s) => (
-                <RequirementItem key={s} label={requirementLabel(s)} color={theme.status.success} />
+                <RequirementItem key={s} label={requirementLabel(s, t)} color={theme.status.success} />
               ))}
             </View>
           </View>
@@ -467,14 +478,14 @@ function JobDetailScreenInner() {
         {!isTodayMode && !appliedNow ? (
           <View style={{ gap: spacing.sm }}>
             <Text variant="bodyLarge" weight="medium">
-              Cover letter
-              <Text variant="footnote" tone="tertiary"> · optional</Text>
+              {t('job_detail.cover_letter')}
+              <Text variant="footnote" tone="tertiary"> · {t('job_detail.cover_letter_optional')}</Text>
             </Text>
             <Text variant="footnote" tone="secondary">
-              Tell the employer why you&apos;re the right person. A short
-              note goes a long way for office and skilled roles.
+              {t('job_detail.cover_letter_hint')}
             </Text>
             <CoverNoteField
+              t={t}
               value={coverNote}
               onChange={setCoverNote}
             />
@@ -486,6 +497,7 @@ function JobDetailScreenInner() {
            with this Application so they can sanity-check before tapping. */}
         {!appliedNow && user?.workType === 'team' && (user.teamSize ?? 0) >= 2 ? (
           <TeamMembersField
+            t={t}
             teamSize={user.teamSize ?? 0}
             members={teamMembers}
             onChange={setTeamMembers}
@@ -496,14 +508,16 @@ function JobDetailScreenInner() {
           <Card premium>
             <View style={{ gap: spacing.sm, alignItems: 'center' }}>
               <Text variant="bodyLarge" weight="medium" tone="hero">
-                {isTodayMode ? 'Interest sent' : 'Application sent'}
+                {isTodayMode
+                  ? t('job_detail.applied_card.interest_sent_title')
+                  : t('job_detail.applied_card.applied_sent_title')}
               </Text>
               <Text variant="footnote" tone="secondary" style={{ textAlign: 'center' }}>
                 {isTodayMode
-                  ? 'You can call the employer now — they\'re expecting to hear from you.'
-                  : 'Track its status in the Applications tab.'}
+                  ? t('job_detail.applied_card.interest_sent_message')
+                  : t('job_detail.applied_card.applied_sent_message')}
               </Text>
-              <CallEmployerButton jobId={route.params.jobId} />
+              <CallEmployerButton t={t} jobId={route.params.jobId} />
             </View>
           </Card>
         )}
@@ -548,12 +562,12 @@ function JobDetailScreenInner() {
             <PrimaryStickyCTA
               label={
                 appliedNow
-                  ? '✓ Interest sent'
+                  ? t('job_detail.interest_sent')
                   : interestMutation.isPending
-                    ? 'Sending…'
-                    : "✋ I'm interested"
+                    ? t('job_detail.sending')
+                    : t('job_detail.im_interested')
               }
-              accessibilityLabel="I'm interested"
+              accessibilityLabel={t('job_detail.cta_a11y.im_interested')}
               disabled={appliedNow || interestMutation.isPending}
               onPress={() => {
                 if (appliedNow || interestMutation.isPending) return;
@@ -565,12 +579,12 @@ function JobDetailScreenInner() {
             <PrimaryStickyCTA
               label={
                 appliedNow
-                  ? 'Applied ✓'
+                  ? t('job_detail.applied')
                   : applyMutation.isPending
-                    ? 'Sending…'
-                    : 'Apply Now'
+                    ? t('job_detail.sending')
+                    : t('job_detail.apply_now')
               }
-              accessibilityLabel="Apply Now"
+              accessibilityLabel={t('job_detail.cta_a11y.apply_now')}
               disabled={appliedNow || applyMutation.isPending}
               onPress={() => {
                 if (appliedNow || applyMutation.isPending) return;
@@ -584,7 +598,7 @@ function JobDetailScreenInner() {
           onPress={toggleSave}
           disabled={saved === null}
           accessibilityRole="button"
-          accessibilityLabel={saved ? 'Unsave job' : 'Save job'}
+          accessibilityLabel={saved ? t('job_detail.save.unsave_a11y') : t('job_detail.save.save_a11y')}
           style={{
             width: 52,
             height: 52,
@@ -614,11 +628,13 @@ function JobDetailScreenInner() {
 // ─── Header ──────────────────────────────────────────────────────────────────
 
 function Header({
+  t,
   onClose,
   onShare,
   onDownloadToggle,
   downloaded,
 }: {
+  t: TFn;
   onClose: () => void;
   onShare?: () => void;
   onDownloadToggle?: () => void;
@@ -643,14 +659,14 @@ function Header({
         weight="medium"
         style={{ flex: 1, textAlign: 'center' }}
       >
-        Job Details
+        {t('job_detail.header_title')}
       </Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         {onDownloadToggle && (
           <Pressable
             onPress={onDownloadToggle}
             hitSlop={12}
-            accessibilityLabel={downloaded ? 'Remove from offline' : 'Save for offline'}
+            accessibilityLabel={downloaded ? t('job_detail.header.remove_offline_a11y') : t('job_detail.header.save_offline_a11y')}
           >
             <Text style={{ fontSize: 18, color: downloaded ? theme.brand.hero : theme.text.primary }}>
               {downloaded ? '📥' : '⤓'}
@@ -662,7 +678,7 @@ function Header({
             onPress={onShare}
             hitSlop={12}
             accessibilityRole="button"
-            accessibilityLabel="Share this job"
+            accessibilityLabel={t('job_detail.header.share_a11y')}
             style={({ pressed }) => ({
               width: 36,
               height: 36,
@@ -769,10 +785,12 @@ function PrimaryStickyCTA({
  * an honest list.
  */
 function TeamMembersField({
+  t,
   teamSize,
   members,
   onChange,
 }: {
+  t: TFn;
   teamSize: number;
   members: Array<{ name: string; phone: string }>;
   onChange: (next: Array<{ name: string; phone: string }>) => void;
@@ -808,10 +826,10 @@ function TeamMembersField({
         <Text style={{ fontSize: 18 }}>👥</Text>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E40AF' }}>
-            Applying as a team of {teamSize}
+            {t('job_detail.team.applying_as_team', { count: teamSize })}
           </Text>
           <Text style={{ fontSize: 12, color: '#1E3A8A', opacity: 0.85 }}>
-            Add your teammates so the employer knows who&apos;s coming.
+            {t('job_detail.team.add_teammates_hint')}
           </Text>
         </View>
       </View>
@@ -828,8 +846,8 @@ function TeamMembersField({
           <View style={{ flex: 1, gap: 4 }}>
             <TextInput
               value={m.name}
-              onChangeText={(t) => update(i, { name: t })}
-              placeholder={`Teammate ${i + 1} name`}
+              onChangeText={(text) => update(i, { name: text })}
+              placeholder={t('job_detail.team.teammate_name_placeholder', { n: i + 1 })}
               placeholderTextColor={theme.text.tertiary}
               autoCapitalize="words"
               style={{
@@ -845,8 +863,8 @@ function TeamMembersField({
             />
             <TextInput
               value={m.phone}
-              onChangeText={(t) => update(i, { phone: t })}
-              placeholder="+91 9876543210"
+              onChangeText={(text) => update(i, { phone: text })}
+              placeholder={t('job_detail.team.phone_placeholder')}
               placeholderTextColor={theme.text.tertiary}
               keyboardType="phone-pad"
               style={{
@@ -882,12 +900,12 @@ function TeamMembersField({
           })}
         >
           <Text style={{ fontSize: 12, fontWeight: '700', color: '#1E40AF' }}>
-            + Add teammate
+            {t('job_detail.team.add_teammate_btn')}
           </Text>
         </Pressable>
       ) : (
         <Text style={{ fontSize: 11, color: '#1E3A8A' }}>
-          Max {cap} teammates (you make {teamSize}).
+          {t('job_detail.team.max_teammates_msg', { cap, team: teamSize })}
         </Text>
       )}
     </View>
@@ -897,9 +915,11 @@ function TeamMembersField({
 // ─── Cover letter field ─────────────────────────────────────────────────────
 
 function CoverNoteField({
+  t,
   value,
   onChange,
 }: {
+  t: TFn;
   value: string;
   onChange: (next: string) => void;
 }) {
@@ -909,10 +929,8 @@ function CoverNoteField({
     <View style={{ gap: 4 }}>
       <TextInput
         value={value}
-        onChangeText={(t) => onChange(t.length <= 500 ? t : t.slice(0, 500))}
-        placeholder={
-          'e.g. I have 4 years of office admin experience and I can start immediately. Comfortable with Tally and Excel.'
-        }
+        onChangeText={(text) => onChange(text.length <= 500 ? text : text.slice(0, 500))}
+        placeholder={t('job_detail.cover_letter_field.placeholder')}
         placeholderTextColor={theme.text.tertiary}
         multiline
         textAlignVertical="top"
@@ -936,7 +954,7 @@ function CoverNoteField({
           textAlign: 'right',
         }}
       >
-        {remaining} characters left
+        {t('job_detail.cover_letter_field.chars_remaining', { n: remaining })}
       </Text>
     </View>
   );
@@ -953,7 +971,7 @@ function CoverNoteField({
  * provider (Exotel / Knowlarity), the reveal endpoint returns a masked
  * relay number instead — no client change needed.
  */
-function CallEmployerButton({ jobId }: { jobId: string }) {
+function CallEmployerButton({ t, jobId }: { t: TFn; jobId: string }) {
   const mutation = useMutation({
     mutationFn: () => contactApi.revealEmployer(jobId),
     onSuccess: (data) => {
@@ -961,22 +979,24 @@ function CallEmployerButton({ jobId }: { jobId: string }) {
       if (!phone) {
         haptic('error');
         Alert.alert(
-          "Couldn't call",
-          'The employer hasn\'t added a phone number yet. Try messaging them in chat.',
+          t('job_detail.call.couldnt_call_title'),
+          t('job_detail.call.couldnt_call_body'),
         );
         return;
       }
       haptic('selection');
       const clean = phone.replace(/[^\d+]/g, '');
       Linking.openURL(`tel:${clean}`).catch(() => {
-        Alert.alert("Couldn't open dialer", `Their number is ${phone}`);
+        Alert.alert(
+          t('job_detail.call.couldnt_open_dialer'),
+          t('job_detail.call.their_number_is', { phone }),
+        );
       });
     },
     onError: (err) => {
       haptic('error');
-      const msg =
-        err instanceof ApiError ? err.message : "Couldn't reveal contact.";
-      Alert.alert('Not available yet', msg);
+      const msg = err instanceof ApiError ? err.message : t('job_detail.call.couldnt_reveal');
+      Alert.alert(t('job_detail.call.not_available_yet'), msg);
     },
   });
 
@@ -985,7 +1005,7 @@ function CallEmployerButton({ jobId }: { jobId: string }) {
       onPress={() => mutation.mutate()}
       disabled={mutation.isPending}
       accessibilityRole="button"
-      accessibilityLabel="Call the employer"
+      accessibilityLabel={t('job_detail.call.call_a11y')}
       style={({ pressed }) => ({
         marginTop: 4,
         paddingVertical: 12,
@@ -1003,7 +1023,7 @@ function CallEmployerButton({ jobId }: { jobId: string }) {
       })}
     >
       <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
-        {mutation.isPending ? 'Opening dialer…' : '📞 Call employer'}
+        {mutation.isPending ? t('job_detail.call.opening_dialer') : t('job_detail.call.call_employer')}
       </Text>
     </Pressable>
   );
@@ -1019,9 +1039,11 @@ function CallEmployerButton({ jobId }: { jobId: string }) {
  * available" label and the seeker can still read the text.
  */
 function AudioDescriptionPill({
+  t,
   uri,
   durationSeconds,
 }: {
+  t: TFn;
   uri: string;
   durationSeconds: number;
 }) {
@@ -1139,8 +1161,7 @@ function AudioDescriptionPill({
       >
         <Text style={{ fontSize: 14 }}>🎙</Text>
         <Text style={{ fontSize: 12, color: '#1E40AF', flex: 1 }}>
-          Voice description ({formatSeconds(durationSeconds)}) — playback not
-          supported on this build.
+          {t('job_detail.audio.voice_unsupported', { duration: formatSeconds(durationSeconds) })}
         </Text>
       </View>
     );
@@ -1151,7 +1172,7 @@ function AudioDescriptionPill({
       onPress={toggle}
       disabled={supported !== true}
       accessibilityRole="button"
-      accessibilityLabel={playing ? 'Pause voice description' : 'Play voice description'}
+      accessibilityLabel={playing ? t('job_detail.audio.pause_a11y') : t('job_detail.audio.play_a11y')}
       style={({ pressed }) => ({
         flexDirection: 'row',
         alignItems: 'center',
@@ -1180,8 +1201,11 @@ function AudioDescriptionPill({
       </View>
       <Text style={{ fontSize: 13, fontWeight: '600', color: '#1E40AF', flex: 1 }}>
         {playing
-          ? `Playing… ${formatSeconds(elapsed)} / ${formatSeconds(durationSeconds)}`
-          : `Listen to job description (${formatSeconds(durationSeconds)})`}
+          ? t('job_detail.audio.voice_playing', {
+              elapsed: formatSeconds(elapsed),
+              duration: formatSeconds(durationSeconds),
+            })
+          : t('job_detail.audio.voice_listen', { duration: formatSeconds(durationSeconds) })}
       </Text>
     </Pressable>
   );
@@ -1200,7 +1224,7 @@ function formatSeconds(s: number): string {
  * enough data. Silent when sample size < 5 so the worker never sees
  * a misleading "typical" based on three outliers.
  */
-function PayTransparencyLine({ job }: { job: PublicJob }) {
+function PayTransparencyLine({ job, t }: { job: PublicJob; t: TFn }) {
   const { theme } = useTheme();
   const stats = useQuery({
     queryKey: [
@@ -1231,7 +1255,8 @@ function PayTransparencyLine({ job }: { job: PublicJob }) {
 
   const p25 = Math.round(stats.data.p25 / 100); // paise → rupees
   const p75 = Math.round(stats.data.p75 / 100);
-  const periodSuffix = formatPeriodShort(job.pay.period);
+  const periodSuffix = t(`job_detail.pay_transparency.period_${job.pay.period}`);
+  const typeLabel = t(`job_detail.pay_transparency.type_${job.type}`);
   const offerAmount = Math.round(job.pay.amount / 100);
 
   // Soft hint when this employer is significantly below the typical band.
@@ -1241,9 +1266,9 @@ function PayTransparencyLine({ job }: { job: PublicJob }) {
 
   let trailingNote: string | null = null;
   if (isLowOffer) {
-    trailingNote = '• Below typical range';
+    trailingNote = t('job_detail.pay_transparency.below_typical');
   } else if (isStrongOffer) {
-    trailingNote = '• Above typical range';
+    trailingNote = t('job_detail.pay_transparency.above_typical');
   }
 
   return (
@@ -1256,9 +1281,13 @@ function PayTransparencyLine({ job }: { job: PublicJob }) {
           lineHeight: 17,
         }}
       >
-        Typical pay for {prettyType(job.type)} in {job.location.city}: ₹
-        {p25.toLocaleString()}–{p75.toLocaleString()}
-        {periodSuffix}
+        {t('job_detail.pay_transparency.headline', {
+          type: typeLabel,
+          city: job.location.city,
+          p25: p25.toLocaleString('en-IN'),
+          p75: p75.toLocaleString('en-IN'),
+          period: periodSuffix,
+        })}
         {trailingNote ? (
           <Text
             style={{
@@ -1276,35 +1305,9 @@ function PayTransparencyLine({ job }: { job: PublicJob }) {
   );
 }
 
-function formatPeriodShort(period: PublicJob['pay']['period']): string {
-  switch (period) {
-    case 'hour':
-      return ' / hr';
-    case 'day':
-      return ' / day';
-    case 'week':
-      return ' / wk';
-    case 'month':
-      return ' / mo';
-    case 'fixed':
-      return ' (one-time)';
-  }
-}
-
-function prettyType(t: PublicJob['type']): string {
-  switch (t) {
-    case 'full_time':
-      return 'full-time roles';
-    case 'part_time':
-      return 'part-time roles';
-    case 'gig':
-      return 'gigs';
-    case 'shift':
-      return 'shift work';
-    case 'contract':
-      return 'contracts';
-  }
-}
+// formatPeriodShort + prettyType used to live here as English-only helpers;
+// they're now inlined into PayTransparencyLine via t() calls so they pick up
+// the active locale instead of being baked in at module load.
 
 function DetailRow({ icon, label, tone }: { icon: string; label: string; tone?: string }) {
   const { theme } = useTheme();
@@ -1319,6 +1322,8 @@ function DetailRow({ icon, label, tone }: { icon: string; label: string; tone?: 
 }
 
 function RequirementItem({ label, color }: { label: string; color: string }) {
+  // a11y label kept untranslated ('required') because screen readers cycle
+  // through visible labels separately; the checkmark glyph is decorative.
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
       <View
@@ -1332,7 +1337,7 @@ function RequirementItem({ label, color }: { label: string; color: string }) {
       >
         <Text
           style={{ fontSize: 18, lineHeight: 20, color }}
-          accessibilityLabel="required"
+          accessibilityElementsHidden
         >
           ✓
         </Text>
@@ -1344,70 +1349,73 @@ function RequirementItem({ label, color }: { label: string; color: string }) {
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
 
-function formatPay(pay: PublicJob['pay']): string {
+function formatPay(pay: PublicJob['pay'], t: TFn): string {
   const minor = 100;
   const symbol = pay.currency === 'INR' ? '₹' : pay.currency === 'USD' ? '$' : pay.currency + ' ';
-  const lo = (pay.amount / minor).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  // 'en-IN' grouping for lakh/crore display, language-independent — see PR 1.
+  const lo = (pay.amount / minor).toLocaleString('en-IN', { maximumFractionDigits: 0 });
   const hi = pay.amountMax
-    ? (pay.amountMax / minor).toLocaleString(undefined, { maximumFractionDigits: 0 })
+    ? (pay.amountMax / minor).toLocaleString('en-IN', { maximumFractionDigits: 0 })
     : null;
-  const periodMap = {
-    hour: '/hr',
-    day: '/day',
-    week: '/wk',
-    month: '/mo',
-    fixed: ' fixed',
-  } as const;
+  const periodKey =
+    pay.period === 'hour'
+      ? 'common.pay_period.suffix_hour'
+      : pay.period === 'day'
+        ? 'common.pay_period.suffix_day'
+        : pay.period === 'week'
+          ? 'common.pay_period.suffix_week'
+          : pay.period === 'month'
+            ? 'common.pay_period.suffix_month'
+            : 'common.pay_period.suffix_fixed';
   return hi
-    ? `${symbol}${lo} – ${symbol}${hi}${periodMap[pay.period]}`
-    : `${symbol}${lo}${periodMap[pay.period]}`;
+    ? `${symbol}${lo} – ${symbol}${hi}${t(periodKey)}`
+    : `${symbol}${lo}${t(periodKey)}`;
 }
 
-function formatType(t: PublicJob['type']): string {
-  return ({
-    full_time: 'Full Time',
-    part_time: 'Part Time',
-    gig: 'Gig',
-    shift: 'Shift',
-    contract: 'Contract',
-  } as const)[t];
+function formatType(type: PublicJob['type'], t: TFn): string {
+  return t(`common.job_type.${type}`);
 }
 
-function formatScheduleTime(schedule: PublicJob['schedule']): string | null {
+function formatScheduleTime(schedule: PublicJob['schedule'], t: TFn): string | null {
   if (!schedule) return null;
   const start = schedule.startTime;
   const end = schedule.endTime;
   if (start && end) {
+    // AM/PM token kept English-only — universally recognizable, and Indic
+    // locales for 12-hour clocks don't have a clean colloquial equivalent
+    // most readers prefer over "AM"/"PM".
     return `${prettyTime(start)} – ${prettyTime(end)}`;
   }
   if (schedule.hoursPerDay != null) {
-    return `${schedule.hoursPerDay} hr/day`;
+    return t('job_detail.schedule_hours', { n: schedule.hoursPerDay });
   }
   return null;
 }
 
-function prettyTime(t: string): string {
+function prettyTime(timeStr: string): string {
   // Server stores HH:mm in 24-hour. Convert to friendly 12-hour for the UI.
-  const [hStr, mStr] = t.split(':');
+  const [hStr, mStr] = timeStr.split(':');
   const h = Number(hStr);
   const m = mStr ?? '00';
-  if (!Number.isFinite(h)) return t;
+  if (!Number.isFinite(h)) return timeStr;
   const ampm = h >= 12 ? 'PM' : 'AM';
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${m} ${ampm}`;
 }
 
-function requirementLabel(skill: string): string {
-  // Skills come in lowercase from the form. Display them as "X required"
-  // to match the mockup ("Bike required", "Smartphone required"). If the
-  // skill already says "required" or similar, leave it.
+function requirementLabel(skill: string, t: TFn): string {
+  // Skills come in lowercase from the form. Display them as "X: Required"
+  // via the locale-aware suffix key so non-English readings stay natural.
   const trimmed = skill.trim();
   if (!trimmed) return '';
   const lower = trimmed.toLowerCase();
+  if (lower === 'driving' || lower === 'license' || lower === 'driving_license') {
+    return t('home.job_card.driving_license_required');
+  }
   if (lower.includes('required') || lower.includes('needed')) {
     return capitalize(trimmed);
   }
-  return `${capitalize(trimmed)} required`;
+  return t('home.job_card.skill_required_suffix', { skill: capitalize(trimmed) });
 }
 
 function capitalize(s: string): string {

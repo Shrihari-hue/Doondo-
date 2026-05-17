@@ -28,10 +28,12 @@ import { haptic } from '@/lib/haptics';
 import { alertsApi, type PublicJobAlert } from '@/api/alerts.api';
 import { ApiError } from '@/api/errors';
 import { suggestedAlertFromUser, type SuggestedAlert } from '@/lib/workHistory';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
 import type { JobType } from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function JobAlertsInner() {
   const { theme } = useTheme();
@@ -39,6 +41,7 @@ function JobAlertsInner() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const t = useTranslate();
   const suggestion = user ? suggestedAlertFromUser(user) : null;
 
   const query = useQuery({
@@ -68,8 +71,8 @@ function JobAlertsInner() {
     onError: (err, _input, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(['alerts', 'me'], ctx.prev);
       haptic('error');
-      const msg = err instanceof ApiError ? err.message : 'Try again.';
-      Alert.alert("Couldn't update alert", msg);
+      const msg = err instanceof ApiError ? err.message : t('job_alerts.try_again');
+      Alert.alert(t('job_alerts.couldnt_update_title'), msg);
     },
   });
 
@@ -81,8 +84,8 @@ function JobAlertsInner() {
     },
     onError: (err) => {
       haptic('error');
-      const msg = err instanceof ApiError ? err.message : 'Try again.';
-      Alert.alert("Couldn't delete alert", msg);
+      const msg = err instanceof ApiError ? err.message : t('job_alerts.try_again');
+      Alert.alert(t('job_alerts.couldnt_delete_title'), msg);
     },
   });
 
@@ -98,12 +101,12 @@ function JobAlertsInner() {
 
   const onDelete = (a: PublicJobAlert) => {
     Alert.alert(
-      'Delete alert?',
-      `"${a.name}" will be removed. You won't get notifications for it anymore.`,
+      t('job_alerts.delete_confirm_title'),
+      t('job_alerts.delete_confirm_body', { name: a.name }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('job_alerts.delete_cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('job_alerts.delete_confirm'),
           style: 'destructive',
           onPress: () => deleteMutation.mutate(a.id),
         },
@@ -142,11 +145,11 @@ function JobAlertsInner() {
           <Text
             style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
           >
-            Job alerts
+            {t('job_alerts.title')}
           </Text>
           <Pressable onPress={onAdd} hitSlop={10}>
             <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>
-              + Add
+              {t('job_alerts.add_btn')}
             </Text>
           </Pressable>
         </View>
@@ -157,8 +160,7 @@ function JobAlertsInner() {
             lineHeight: 19,
           }}
         >
-          Save criteria for the kinds of work you want. We&apos;ll ping you the
-          moment a new job matches — no scrolling required.
+          {t('job_alerts.intro')}
         </Text>
       </LinearGradient>
 
@@ -170,10 +172,10 @@ function JobAlertsInner() {
           </View>
         ) : query.isError ? (
           <EmptyState
-            title="Couldn't load alerts"
-            message="Check your connection and try again."
+            title={t('job_alerts.couldnt_load_title')}
+            message={t('job_alerts.couldnt_load_message')}
             cta={{
-              label: 'Retry',
+              label: t('job_alerts.retry_cta'),
               onPress: () => {
                 haptic('selection');
                 void query.refetch();
@@ -190,6 +192,7 @@ function JobAlertsInner() {
           >
             {suggestion ? (
               <SuggestionCard
+                t={t}
                 suggestion={suggestion}
                 onAccept={() => {
                   haptic('selection');
@@ -199,14 +202,14 @@ function JobAlertsInner() {
             ) : null}
             <EmptyState
               glyph="🔔"
-              eyebrow="NO ALERTS YET"
-              title={suggestion ? 'Or build one yourself' : 'Create your first alert'}
+              eyebrow={t('job_alerts.empty_eyebrow')}
+              title={suggestion ? t('job_alerts.empty_title_or_build') : t('job_alerts.empty_title_first')}
               message={
                 suggestion
-                  ? 'Save your own criteria — keyword, city, job type, urgent only.'
-                  : "Tell us what kind of work you want and we'll send a push when a matching job is posted."
+                  ? t('job_alerts.empty_message_with_suggestion')
+                  : t('job_alerts.empty_message_no_suggestion')
               }
-              cta={{ label: 'Add alert', onPress: onAdd }}
+              cta={{ label: t('job_alerts.empty_cta'), onPress: onAdd }}
             />
           </View>
         ) : (
@@ -227,6 +230,7 @@ function JobAlertsInner() {
             }
             renderItem={({ item }) => (
               <AlertRow
+                t={t}
                 alert={item}
                 onToggle={(enabled) =>
                   toggleMutation.mutate({ id: item.id, enabled })
@@ -245,11 +249,13 @@ function JobAlertsInner() {
 // ─── Pieces ──────────────────────────────────────────────────────────────────
 
 function AlertRow({
+  t,
   alert,
   onToggle,
   onEdit,
   onDelete,
 }: {
+  t: TFn;
   alert: PublicJobAlert;
   onToggle: (enabled: boolean) => void;
   onEdit: () => void;
@@ -296,7 +302,7 @@ function AlertRow({
             style={{ fontSize: 12, color: theme.text.secondary }}
             numberOfLines={2}
           >
-            {summariseCriteria(alert)}
+            {summariseCriteria(alert, t)}
           </Text>
           <View
             style={{
@@ -308,14 +314,19 @@ function AlertRow({
           >
             <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
               {alert.matchCount === 0
-                ? 'No matches yet'
-                : `${alert.matchCount} match${alert.matchCount === 1 ? '' : 'es'}`}
+                ? t('job_alerts.row_no_matches')
+                : t(
+                    alert.matchCount === 1
+                      ? 'job_alerts.row_matches_one'
+                      : 'job_alerts.row_matches_other',
+                    { count: alert.matchCount },
+                  )}
             </Text>
             {alert.lastMatchedAt ? (
               <>
                 <Text style={{ fontSize: 11, color: theme.text.tertiary }}>·</Text>
                 <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
-                  Last match {formatRelative(alert.lastMatchedAt)}
+                  {t('job_alerts.row_last_match', { when: formatRelative(alert.lastMatchedAt) })}
                 </Text>
               </>
             ) : null}
@@ -336,9 +347,11 @@ function AlertRow({
 }
 
 function SuggestionCard({
+  t,
   suggestion,
   onAccept,
 }: {
+  t: TFn;
   suggestion: SuggestedAlert;
   onAccept: () => void;
 }) {
@@ -381,7 +394,7 @@ function SuggestionCard({
             flex: 1,
           }}
         >
-          SUGGESTED FOR YOU
+          {t('job_alerts.suggestion_eyebrow')}
         </Text>
       </View>
       <Text
@@ -393,8 +406,7 @@ function SuggestionCard({
       <Text
         style={{ fontSize: 13, lineHeight: 19, color: theme.text.secondary }}
       >
-        Based on your resume. Tap below and tweak before saving — we&apos;ll
-        ping you when a matching job is posted.
+        {t('job_alerts.suggestion_body')}
       </Text>
       <Pressable
         onPress={onAccept}
@@ -409,38 +421,27 @@ function SuggestionCard({
         })}
       >
         <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
-          Use this suggestion
+          {t('job_alerts.suggestion_cta')}
         </Text>
       </Pressable>
     </View>
   );
 }
 
-function summariseCriteria(a: PublicJobAlert): string {
+function summariseCriteria(a: PublicJobAlert, t: TFn): string {
   const parts: string[] = [];
   if (a.query) parts.push(`"${a.query}"`);
   if (a.jobTypes.length > 0) {
-    parts.push(a.jobTypes.map(prettyJobType).join(' · '));
+    parts.push(a.jobTypes.map((jt) => prettyJobType(jt, t)).join(' · '));
   }
   if (a.city) parts.push(a.city);
-  if (a.urgentOnly) parts.push('urgent only');
-  if (parts.length === 0) return 'Any job, anywhere';
+  if (a.urgentOnly) parts.push(t('job_alerts.criteria_urgent_only'));
+  if (parts.length === 0) return t('job_alerts.criteria_any_job_anywhere');
   return parts.join(' · ');
 }
 
-function prettyJobType(t: JobType): string {
-  switch (t) {
-    case 'full_time':
-      return 'Full-time';
-    case 'part_time':
-      return 'Part-time';
-    case 'gig':
-      return 'Gig';
-    case 'shift':
-      return 'Shift';
-    case 'contract':
-      return 'Contract';
-  }
+function prettyJobType(type: JobType, t: TFn): string {
+  return t(`common.job_type.${type}`);
 }
 
 function formatRelative(iso: string): string {

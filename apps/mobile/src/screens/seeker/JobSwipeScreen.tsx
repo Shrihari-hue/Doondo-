@@ -38,20 +38,35 @@ import { applicationsApi } from '@/api/applications.api';
 import { haptic } from '@/lib/haptics';
 import { getCurrentCoords, type Coords } from '@/lib/location';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
 import type { PublicJob } from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_W * 0.25;
 
-function formatPay(p: PublicJob['pay']): string {
+function formatPay(p: PublicJob['pay'], t: TFn): string {
   const min = Math.round(p.amount / 100);
   const max = p.amountMax ? Math.round(p.amountMax / 100) : null;
-  const range = max && max !== min ? `₹${min}–${max}` : `₹${min}`;
-  const period = p.period === 'day' ? '/day' : p.period === 'hour' ? '/hr' : `/${p.period}`;
-  return `${range}${period}`;
+  // 'en-IN' grouping for the lakh/crore comma format Indian users expect.
+  const range =
+    max && max !== min
+      ? `₹${min.toLocaleString('en-IN')}–${max.toLocaleString('en-IN')}`
+      : `₹${min.toLocaleString('en-IN')}`;
+  const periodKey =
+    p.period === 'hour'
+      ? 'common.pay_period.suffix_hour'
+      : p.period === 'day'
+        ? 'common.pay_period.suffix_day'
+        : p.period === 'week'
+          ? 'common.pay_period.suffix_week'
+          : p.period === 'month'
+            ? 'common.pay_period.suffix_month'
+            : 'common.pay_period.suffix_fixed';
+  return `${range}${t(periodKey)}`;
 }
 
 function Inner() {
@@ -59,6 +74,7 @@ function Inner() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const t = useTranslate();
 
   const [coords, setCoords] = useState<Coords | null>(null);
   useMemo(() => {
@@ -186,10 +202,10 @@ function Inner() {
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text.primary }}>
-            Same-day swipe
+            {t('jobs.swipe.title')}
           </Text>
           <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
-            Swipe right to express interest · left to skip · up to save
+            {t('jobs.swipe.hint')}
           </Text>
         </View>
       </View>
@@ -207,9 +223,9 @@ function Inner() {
         ) : remaining.length === 0 ? (
           <EmptyState
             glyph="🌙"
-            eyebrow="THAT'S ALL"
-            title="No more jobs today"
-            message="Try the full list, or come back later — new urgent posts land throughout the day."
+            eyebrow={t('jobs.swipe.empty_eyebrow')}
+            title={t('jobs.swipe.empty_title')}
+            message={t('jobs.swipe.empty_message')}
           />
         ) : (
           remaining.map((job, i) => {
@@ -248,15 +264,15 @@ function Inner() {
                   style={{ flex: 1, gap: spacing.sm }}
                 >
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-                    {job.urgent && <Pill label="Urgent" tone="warning" leading="●" />}
-                    {job.safeForWomen && <Pill label="Women-safe" tone="success" leading="🛡" />}
-                    <Pill label={formatPay(job.pay)} tone="warning" />
+                    {job.urgent && <Pill label={t('jobs.card.urgent')} tone="warning" leading="●" />}
+                    {job.safeForWomen && <Pill label={t('jobs.card.women_safe')} tone="success" leading="🛡" />}
+                    <Pill label={formatPay(job.pay, t)} tone="warning" />
                   </View>
                   <Text style={{ fontSize: 24, fontWeight: '800', color: theme.text.primary }}>
                     {job.title}
                   </Text>
                   <Text style={{ fontSize: 14, color: theme.text.secondary }}>
-                    {job.employer?.companyName ?? job.employer?.name ?? 'Employer'}
+                    {job.employer?.companyName ?? job.employer?.name ?? t('jobs.swipe.fallback_employer')}
                     {job.location.area ? ` · ${job.location.area}` : ''}
                   </Text>
                   <Text numberOfLines={5} style={{ fontSize: 13, color: theme.text.secondary, lineHeight: 18 }}>
@@ -264,7 +280,7 @@ function Inner() {
                   </Text>
                   <View style={{ marginTop: 'auto', alignItems: 'center', gap: 4 }}>
                     <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
-                      Tap to see full details
+                      {t('jobs.swipe.tap_for_details')}
                     </Text>
                   </View>
                 </Pressable>
@@ -287,7 +303,7 @@ function Inner() {
                       }}
                     >
                       <Text style={{ color: '#10B981', fontWeight: '900', fontSize: 24 }}>
-                        INTERESTED
+                        {t('jobs.swipe.overlay_interested')}
                       </Text>
                     </Animated.View>
                     <Animated.View
@@ -305,7 +321,7 @@ function Inner() {
                       }}
                     >
                       <Text style={{ color: '#EF4444', fontWeight: '900', fontSize: 24 }}>
-                        SKIP
+                        {t('jobs.swipe.overlay_skip')}
                       </Text>
                     </Animated.View>
                     <Animated.View
@@ -322,7 +338,7 @@ function Inner() {
                       }}
                     >
                       <Text style={{ color: '#2563EB', fontWeight: '900', fontSize: 22 }}>
-                        SAVE
+                        {t('jobs.swipe.overlay_save')}
                       </Text>
                     </Animated.View>
                   </>

@@ -32,10 +32,14 @@ import { useTheme } from '@/theme/useTheme';
 import { jobsApi } from '@/api/jobs.api';
 import { TRADES, tradeShortLabel, tradeEmoji } from '@/lib/trades';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import { AvailabilityBeaconChip } from './AvailabilityBeacon';
 import type { PublicJob, PublicUser } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 import type { Coords } from '@/lib/location';
+
+/** Shared local alias — keeps the helper signatures readable. */
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -53,6 +57,7 @@ interface Props {
 export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
+  const t = useTranslate();
   const [tradeFilters, setTradeFilters] = useState<string[]>([]);
 
   // Join selected trade chips into a single space-separated query — the
@@ -97,18 +102,18 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
 
   const emptyTitle =
     mode === 'today'
-      ? 'No same-day jobs nearby'
-      : 'No short contracts posted this week';
+      ? t('home.feed.empty_today_title')
+      : t('home.feed.empty_this_week_title');
   const emptyHint =
     mode === 'today'
-      ? 'Pull to refresh, or switch to Career for longer-term roles.'
-      : 'Try a wider trade filter or check back tomorrow.';
+      ? t('home.feed.empty_today_hint')
+      : t('home.feed.empty_this_week_hint');
 
   // ─── Header — Hero + AvailabilityBeacon + Browse by trade ────────────────
   const renderHeader = useMemo(
     () => (
       <View style={{ gap: spacing.lg, marginBottom: spacing.md }}>
-        <HeroCard onExplore={onExploreJobs} />
+        <HeroCard onExplore={onExploreJobs} t={t} />
         <AvailabilityBeaconChip coords={coords} user={user} />
         <View style={{ gap: spacing.sm }}>
           <View
@@ -126,7 +131,7 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
                 letterSpacing: -0.3,
               }}
             >
-              Browse by trade
+              {t('home.feed.browse_by_trade')}
             </Text>
             <Pressable
               onPress={() => {
@@ -136,14 +141,20 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
               hitSlop={6}
             >
               <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563EB' }}>
-                View all →
+                {t('home.feed.view_all_arrow')}
               </Text>
             </Pressable>
           </View>
           {tradeFilters.length > 0 ? (
             <Pressable onPress={clearFilters} hitSlop={6} style={{ alignSelf: 'flex-start' }}>
               <Text style={{ fontSize: 12, color: '#2563EB', fontWeight: '600' }}>
-                Clear {tradeFilters.length} filter{tradeFilters.length > 1 ? 's' : ''}
+                {/* i18next picks _one vs _other based on the active locale's plural rule. */}
+                {t(
+                  tradeFilters.length === 1
+                    ? 'home.feed.clear_filters_one'
+                    : 'home.feed.clear_filters_other',
+                  { count: tradeFilters.length },
+                )}
               </Text>
             </Pressable>
           ) : null}
@@ -204,7 +215,7 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
         </View>
       </View>
     ),
-    [tradeFilters, theme, coords, user, onExploreJobs],
+    [tradeFilters, theme, coords, user, onExploreJobs, t],
   );
 
   if (!coords) {
@@ -214,7 +225,7 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
         <Text
           style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 8 }}
         >
-          Locating…
+          {t('home.feed.locating')}
         </Text>
       </View>
     );
@@ -237,7 +248,7 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
         />
       }
       renderItem={({ item }) => (
-        <PremiumJobCard job={item} onPress={openJob} mode={mode} />
+        <PremiumJobCard job={item} onPress={openJob} mode={mode} t={t} />
       )}
       ListEmptyComponent={
         query.isLoading ? (
@@ -272,7 +283,7 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
 
 // ─── Hero card — deep navy gradient w/ megaphone ────────────────────────────
 
-function HeroCard({ onExplore }: { onExplore: () => void }) {
+function HeroCard({ onExplore, t }: { onExplore: () => void; t: TFn }) {
   return (
     <View
       style={{
@@ -307,7 +318,7 @@ function HeroCard({ onExplore }: { onExplore: () => void }) {
               color: 'rgba(255,255,255,0.65)',
             }}
           >
-            OPPORTUNITIES DAILY
+            {t('home.hero.eyebrow')}
           </Text>
           <Text
             style={{
@@ -319,7 +330,7 @@ function HeroCard({ onExplore }: { onExplore: () => void }) {
               maxWidth: 220,
             }}
           >
-            Find the right jobs near you
+            {t('home.hero.headline')}
           </Text>
           {/* The white pill background lives on a wrapper View so it can't
              drop out during state transitions and leave dark-navy text
@@ -343,7 +354,7 @@ function HeroCard({ onExplore }: { onExplore: () => void }) {
                 onExplore();
               }}
               accessibilityRole="button"
-              accessibilityLabel="Explore jobs"
+              accessibilityLabel={t('home.hero.cta_a11y')}
               style={({ pressed }) => ({
                 paddingVertical: 12,
                 paddingHorizontal: spacing.lg,
@@ -362,7 +373,7 @@ function HeroCard({ onExplore }: { onExplore: () => void }) {
                   letterSpacing: 0.1,
                 }}
               >
-                Explore Jobs
+                {t('home.hero.cta')}
               </Text>
               <Text style={{ fontSize: 14, color: '#0F1A45', fontWeight: '800' }}>
                 →
@@ -398,10 +409,12 @@ function PremiumJobCard({
   job,
   onPress,
   mode,
+  t,
 }: {
   job: PublicJob;
   onPress: (j: PublicJob) => void;
   mode: FeedMode;
+  t: TFn;
 }) {
   const { theme } = useTheme();
 
@@ -409,7 +422,7 @@ function PremiumJobCard({
     .filter(Boolean)
     .join(', ');
   const distance =
-    job.distanceMeters != null ? formatDistance(job.distanceMeters) : null;
+    job.distanceMeters != null ? formatDistance(job.distanceMeters, t) : null;
 
   // The role icon — try to match the job to a trade catalogue emoji, fall
   // back to a generic briefcase if nothing matches. Skills array often
@@ -420,7 +433,10 @@ function PremiumJobCard({
     <Pressable
       onPress={() => onPress(job)}
       accessibilityRole="button"
-      accessibilityLabel={`${job.title}, ${formatPay(job.pay)}`}
+      accessibilityLabel={t('home.job_card.job_a11y_label', {
+        title: job.title,
+        pay: formatPay(job.pay, t),
+      })}
       style={({ pressed }) => ({
         backgroundColor: theme.bg.surface,
         borderRadius: 18,
@@ -490,7 +506,7 @@ function PremiumJobCard({
                 <Text
                   style={{ fontSize: 12, fontWeight: '700', color: '#2563EB' }}
                 >
-                  {distance} away
+                  {t('home.job_card.distance_away', { distance })}
                 </Text>
               ) : null}
             </View>
@@ -512,7 +528,7 @@ function PremiumJobCard({
             <Text
               style={{ fontSize: 11, fontWeight: '800', color: '#B91C1C', letterSpacing: 0.4 }}
             >
-              URGENT
+              {t('home.job_card.urgent')}
             </Text>
           </View>
         ) : null}
@@ -533,7 +549,7 @@ function PremiumJobCard({
           iconBg="#EEF2FF"
           iconColor="#172554"
           big={formatPayPrimary(job.pay)}
-          small={formatPaySuffix(job.pay)}
+          small={formatPaySuffix(job.pay, t)}
         />
         <StatDivider />
         {/* Schedule stat — show hours/day on top and the type below. When
@@ -542,18 +558,22 @@ function PremiumJobCard({
            (was 'Gig / Gig' on gig postings with no schedule). */}
         {(() => {
           const hrs = job.schedule?.hoursPerDay;
-          const type = formatType(job.type);
+          const type = formatType(job.type, t);
           return hrs != null ? (
-            <StatBox icon="🕐" big={`${hrs} hrs / day`} small={type} />
+            <StatBox
+              icon="🕐"
+              big={t('common.units.hours_per_day', { n: hrs })}
+              small={type}
+            />
           ) : (
-            <StatBox icon="🕐" big={type} small="Schedule" />
+            <StatBox icon="🕐" big={type} small={t('home.job_card.schedule')} />
           );
         })()}
         <StatDivider />
         <StatBox
           icon="📅"
-          big={job.urgent ? 'Start Today' : 'Flexible'}
-          small={job.urgent ? 'Immediate' : 'Schedule'}
+          big={job.urgent ? t('home.job_card.start_today') : t('home.job_card.flexible')}
+          small={job.urgent ? t('home.job_card.immediate') : t('home.job_card.schedule')}
         />
       </View>
 
@@ -583,7 +603,7 @@ function PremiumJobCard({
                 style={{ fontSize: 12, fontWeight: '600', color: '#1E40AF' }}
                 numberOfLines={1}
               >
-                {prettifyRequirement(s)}
+                {prettifyRequirement(s, t)}
               </Text>
             </View>
           ))}
@@ -595,7 +615,9 @@ function PremiumJobCard({
         onPress={() => onPress(job)}
         accessibilityRole="button"
         accessibilityLabel={
-          mode === 'today' ? 'Tap to call or apply' : 'View job'
+          mode === 'today'
+            ? t('home.job_card.tap_to_call_apply_a11y')
+            : t('home.job_card.view_job_a11y')
         }
         style={({ pressed }) => ({
           borderRadius: radii.pill,
@@ -631,7 +653,7 @@ function PremiumJobCard({
               letterSpacing: 0.3,
             }}
           >
-            {mode === 'today' ? 'Tap to call / apply' : 'View details'}
+            {mode === 'today' ? t('home.job_card.tap_to_call_apply') : t('home.job_card.view_details')}
           </Text>
         </LinearGradient>
       </Pressable>
@@ -731,80 +753,79 @@ function pickJobIcon(job: PublicJob): string {
   return '💼';
 }
 
-function formatPay(pay: PublicJob['pay']): string {
+function formatPay(pay: PublicJob['pay'], t: TFn): string {
   const min = Math.round(pay.amount / 100);
   const max = pay.amountMax ? Math.round(pay.amountMax / 100) : null;
   const range =
     max && max > min
-      ? `${min.toLocaleString()}–${max.toLocaleString()}`
-      : min.toLocaleString();
-  const suffix: Record<PublicJob['pay']['period'], string> = {
-    hour: ' / hr',
-    day: ' / day',
-    week: ' / wk',
-    month: ' / mo',
-    fixed: ' fixed',
-  };
-  return `₹${range}${suffix[pay.period]}`;
+      ? `${min.toLocaleString('en-IN')}–${max.toLocaleString('en-IN')}`
+      : min.toLocaleString('en-IN');
+  const suffix =
+    pay.period === 'hour'
+      ? ' ' + t('common.pay_period.suffix_hour')
+      : pay.period === 'day'
+        ? ' ' + t('common.pay_period.suffix_day')
+        : pay.period === 'week'
+          ? ' ' + t('common.pay_period.suffix_week')
+          : pay.period === 'month'
+            ? ' ' + t('common.pay_period.suffix_month')
+            : t('common.pay_period.suffix_fixed');
+  return `₹${range}${suffix}`;
 }
 
 function formatPayPrimary(pay: PublicJob['pay']): string {
   const min = Math.round(pay.amount / 100);
   const max = pay.amountMax ? Math.round(pay.amountMax / 100) : null;
+  // 'en-IN' for the lakh/crore grouping every Indian user expects (1,00,000),
+  // regardless of UI language — the digits and ₹ are universal.
   const range =
     max && max > min
-      ? `₹${min.toLocaleString()}–${max.toLocaleString()}`
-      : `₹${min.toLocaleString()}`;
+      ? `₹${min.toLocaleString('en-IN')}–${max.toLocaleString('en-IN')}`
+      : `₹${min.toLocaleString('en-IN')}`;
   return range;
 }
 
-function formatPaySuffix(pay: PublicJob['pay']): string {
+function formatPaySuffix(pay: PublicJob['pay'], t: TFn): string {
   switch (pay.period) {
     case 'hour':
-      return 'Per hour';
+      return t('common.pay_period.per_hour');
     case 'day':
-      return 'Per day';
+      return t('common.pay_period.per_day');
     case 'week':
-      return 'Per week';
+      return t('common.pay_period.per_week');
     case 'month':
-      return 'Per month';
+      return t('common.pay_period.per_month');
     case 'fixed':
-      return 'One-time';
+      return t('common.pay_period.one_time');
   }
 }
 
-function formatType(t: PublicJob['type']): string {
-  return (
-    {
-      full_time: 'Full Time',
-      part_time: 'Part Time',
-      gig: 'Gig',
-      shift: 'Shift',
-      contract: 'Contract',
-    } as const
-  )[t];
+function formatType(type: PublicJob['type'], t: TFn): string {
+  // Map the raw job-type enum onto the shared common.job_type translation keys.
+  return t(`common.job_type.${type}`);
 }
 
-function formatDistance(meters: number): string {
-  if (meters < 1000) return `${meters}m`;
-  return `${(meters / 1000).toFixed(1)}km`;
+function formatDistance(meters: number, t: TFn): string {
+  if (meters < 1000) return t('common.units.meters_short', { n: meters });
+  return t('common.units.kilometers_short', { n: (meters / 1000).toFixed(1) });
 }
 
-function prettifyRequirement(skill: string): string {
+function prettifyRequirement(skill: string, t: TFn): string {
   const trimmed = skill.trim();
   if (!trimmed) return '';
   // Map common slugs to the mockup-style "Label: Value" form when we can.
   const lower = trimmed.toLowerCase();
   if (lower === 'driving' || lower === 'license' || lower === 'driving_license') {
-    return 'Driving License: Required';
+    return t('home.job_card.driving_license_required');
   }
   if (lower.includes('experience')) return capitalize(trimmed);
-  // Default: capitalize first letter, append " Required" if it looks like
-  // a noun the user would otherwise have to figure out.
+  // Default: capitalize first letter, append " Required" via the translated
+  // suffix so non-English locales read naturally instead of "Lifting: Required"
+  // jammed onto a Kannada/Hindi word.
   if (lower.includes('required') || lower.includes('needed')) {
     return capitalize(trimmed);
   }
-  return `${capitalize(trimmed)}: Required`;
+  return t('home.job_card.skill_required_suffix', { skill: capitalize(trimmed) });
 }
 
 function capitalize(s: string): string {

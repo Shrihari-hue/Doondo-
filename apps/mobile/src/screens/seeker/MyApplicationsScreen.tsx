@@ -30,17 +30,20 @@ import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
 import { useUnratedApplications } from '@/hooks/useRatings';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import type { ApplicationStatus, PublicApplication } from '@/api/types';
 import type { UnratedApp } from '@/api/ratings.api';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function MyApplicationsInner() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const t = useTranslate();
 
   const query = useQuery({
     queryKey: ['applications', 'me'],
@@ -126,7 +129,7 @@ function MyApplicationsInner() {
             flex: 1,
           }}
         >
-          My Applications
+          {t('applications.title')}
         </Text>
       </View>
 
@@ -140,8 +143,17 @@ function MyApplicationsInner() {
               lineHeight: 19,
             }}
           >
-            {counts.open} awaiting reply · {counts.shortlisted} shortlisted ·{' '}
-            {interviewCount} interview{interviewCount === 1 ? '' : 's'} · {counts.hired} hired
+            {t(
+              interviewCount === 1
+                ? 'applications.pipeline_summary_one'
+                : 'applications.pipeline_summary_other',
+              {
+                open: counts.open,
+                shortlisted: counts.shortlisted,
+                interviewCount,
+                hired: counts.hired,
+              },
+            )}
           </Text>
         </View>
       ) : null}
@@ -159,11 +171,11 @@ function MyApplicationsInner() {
         >
           {(
             [
-              { key: 'open', label: 'Open', count: counts.open },
-              { key: 'shortlisted', label: 'Shortlisted', count: counts.shortlisted },
-              { key: 'hired', label: 'Hired', count: counts.hired },
-              { key: 'rejected', label: 'Rejected', count: counts.rejected },
-              { key: 'all', label: 'All', count: counts.all },
+              { key: 'open', labelKey: 'applications.filters.open', count: counts.open },
+              { key: 'shortlisted', labelKey: 'applications.filters.shortlisted', count: counts.shortlisted },
+              { key: 'hired', labelKey: 'applications.filters.hired', count: counts.hired },
+              { key: 'rejected', labelKey: 'applications.filters.rejected', count: counts.rejected },
+              { key: 'all', labelKey: 'applications.filters.all', count: counts.all },
             ] as const
           ).map((f) => {
             const active = filter === f.key;
@@ -191,7 +203,7 @@ function MyApplicationsInner() {
                     color: active ? '#FFFFFF' : theme.text.primary,
                   }}
                 >
-                  {f.label}
+                  {t(f.labelKey)}
                   {f.count > 0 ? ` · ${f.count}` : ''}
                 </Text>
               </Pressable>
@@ -209,11 +221,11 @@ function MyApplicationsInner() {
       ) : applications.length === 0 ? (
         <EmptyState
           glyph="✉"
-          eyebrow="NO APPLICATIONS YET"
-          title="You haven't applied to any jobs"
-          message="Browse nearby jobs and tap Apply — you'll see every application's status here."
+          eyebrow={t('applications.empty.eyebrow')}
+          title={t('applications.empty.title')}
+          message={t('applications.empty.message')}
           cta={{
-            label: 'Browse jobs',
+            label: t('applications.empty.cta'),
             onPress: () => navigation.navigate('SeekerTabs', { screen: 'Jobs' } as never),
           }}
         />
@@ -268,19 +280,19 @@ function MyApplicationsInner() {
                       }}
                       numberOfLines={1}
                     >
-                      {item.job?.title ?? 'Job application'}
+                      {item.job?.title ?? t('applications.fallback.job_application')}
                     </Text>
                     <Text
                       style={{ fontSize: 13, color: theme.text.secondary }}
                       numberOfLines={1}
                     >
-                      {item.job?.employer?.companyName ?? item.job?.employer?.name ?? 'Employer'}
+                      {item.job?.employer?.companyName ?? item.job?.employer?.name ?? t('applications.fallback.employer')}
                     </Text>
                     <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 2 }}>
-                      Applied {formatRelative(item.timeline.appliedAt)}
+                      {t('applications.applied_when', { when: formatRelative(item.timeline.appliedAt, t) })}
                     </Text>
                   </View>
-                  <StatusPill status={item.status} />
+                  <StatusPill t={t} status={item.status} />
                 </View>
 
                 {/* Payment confirmation — only when hired. */}
@@ -309,7 +321,7 @@ function MyApplicationsInner() {
                         color: theme.status.success,
                       }}
                     >
-                      Interview {formatInterviewWhen(item.interview.scheduledFor)}
+                      {t('applications.interview_scheduled', { when: formatInterviewWhen(item.interview.scheduledFor) })}
                     </Text>
                   </View>
                 )}
@@ -348,7 +360,7 @@ function MyApplicationsInner() {
                         color: theme.brand.hero,
                       }}
                     >
-                      Rate {unrated.otherPartyName}
+                      {t('applications.rate_now_title', { name: unrated.otherPartyName })}
                     </Text>
                     <Text
                       style={{
@@ -357,7 +369,7 @@ function MyApplicationsInner() {
                         fontWeight: '600',
                       }}
                     >
-                      Rate now ›
+                      {t('applications.rate_now_cta')}
                     </Text>
                   </Pressable>
                 )}
@@ -373,9 +385,9 @@ function MyApplicationsInner() {
 
 // ─── Status pill ─────────────────────────────────────────────────────────────
 
-function StatusPill({ status }: { status: ApplicationStatus }) {
+function StatusPill({ t, status }: { t: TFn; status: ApplicationStatus }) {
   const { theme } = useTheme();
-  const meta = statusMeta(status, theme);
+  const meta = statusMeta(status, theme, t);
   return (
     <View
       style={{
@@ -403,46 +415,50 @@ function StatusPill({ status }: { status: ApplicationStatus }) {
 function statusMeta(
   status: ApplicationStatus,
   theme: ReturnType<typeof useTheme>['theme'],
+  t: TFn,
 ) {
+  // Labels come from applications.status.* — colors stay local since they're
+  // theme-driven rather than translatable content.
+  const label = t(`applications.status.${status}`);
   switch (status) {
     case 'pending':
       return {
-        label: 'Pending',
+        label,
         bg: theme.bg.muted,
         border: theme.border.default,
         fg: theme.text.secondary,
       };
     case 'viewed':
       return {
-        label: 'Viewed',
+        label,
         bg: theme.status.infoSubtle,
         border: theme.status.infoBorder,
         fg: theme.status.info,
       };
     case 'shortlisted':
       return {
-        label: 'Shortlisted',
+        label,
         bg: theme.status.successSubtle,
         border: theme.status.successBorder,
         fg: theme.status.success,
       };
     case 'rejected':
       return {
-        label: 'Not selected',
+        label,
         bg: theme.status.dangerSubtle,
         border: theme.status.dangerBorder,
         fg: theme.status.danger,
       };
     case 'hired':
       return {
-        label: '✓ Hired',
+        label,
         bg: theme.status.successSubtle,
         border: theme.status.successBorder,
         fg: theme.status.success,
       };
     case 'withdrawn':
       return {
-        label: 'Withdrawn',
+        label,
         bg: theme.bg.muted,
         border: theme.border.default,
         fg: theme.text.tertiary,
@@ -452,16 +468,20 @@ function statusMeta(
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function formatRelative(iso: string): string {
+function formatRelative(iso: string, t: TFn): string {
   const then = new Date(iso).getTime();
   const now = Date.now();
   const diffMin = Math.round((now - then) / 60_000);
-  if (diffMin < 1) return 'just now';
-  if (diffMin < 60) return `${diffMin} min ago`;
+  if (diffMin < 1) return t('applications.time.just_now');
+  if (diffMin < 60) return t('applications.time.min_ago', { n: diffMin });
   const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} hr ago`;
+  if (diffHr < 24) return t('applications.time.hr_ago', { n: diffHr });
   const diffDay = Math.round(diffHr / 24);
-  if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
+  if (diffDay < 7)
+    return t(
+      diffDay === 1 ? 'applications.time.day_ago_one' : 'applications.time.day_ago_other',
+      { n: diffDay },
+    );
   return new Date(iso).toLocaleDateString(undefined, {
     day: 'numeric',
     month: 'short',

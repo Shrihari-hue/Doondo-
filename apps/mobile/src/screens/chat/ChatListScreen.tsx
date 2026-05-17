@@ -41,10 +41,12 @@ import { useTheme } from '@/theme/useTheme';
 import { chatApi } from '@/api/chat.api';
 import { useAuth } from '@/hooks/useAuth';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { PublicConversation } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 type TabKey = 'all' | 'employers' | 'support';
 
@@ -52,6 +54,7 @@ export function ChatListScreen() {
   const { isAuthenticated, user } = useAuth();
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
+  const t = useTranslate();
   const [tab, setTab] = useState<TabKey>('all');
 
   const query = useQuery({
@@ -93,7 +96,7 @@ export function ChatListScreen() {
         }
       >
         <Text variant="display" weight="medium" display>
-          Conversations
+          {t('chat_list.title')}
         </Text>
 
         {/* Segmented tabs */}
@@ -107,14 +110,14 @@ export function ChatListScreen() {
             borderColor: theme.border.default,
           }}
         >
-          {TABS.map((t) => {
-            const active = tab === t.key;
+          {TABS.map((tabDef) => {
+            const active = tab === tabDef.key;
             return (
               <Pressable
-                key={t.key}
+                key={tabDef.key}
                 onPress={() => {
                   haptic('selection');
-                  setTab(t.key);
+                  setTab(tabDef.key);
                 }}
                 style={{
                   flex: 1,
@@ -134,7 +137,7 @@ export function ChatListScreen() {
                     color: active ? theme.brand.hero : theme.text.secondary,
                   }}
                 >
-                  {t.label}
+                  {t(`chat_list.tabs.${tabDef.key}`)}
                 </Text>
               </Pressable>
             );
@@ -150,19 +153,20 @@ export function ChatListScreen() {
         ) : query.isError ? (
           <Card>
             <Text variant="bodyLarge" weight="medium">
-              Couldn't load chats.
+              {t('chat_list.error_title')}
             </Text>
             <Text variant="footnote" tone="secondary" style={{ marginTop: spacing.xs }}>
-              Pull down to retry.
+              {t('chat_list.error_hint')}
             </Text>
           </Card>
         ) : filtered.length === 0 ? (
-          <EmptyTab tab={tab} role={user?.role} />
+          <EmptyTab t={t} tab={tab} role={user?.role} />
         ) : (
           <View style={{ gap: spacing.sm }}>
             {filtered.map((c) => (
               <ConversationRow
                 key={c.id}
+                t={t}
                 conversation={c}
                 onPress={() =>
                   navigation.navigate('Conversation', { conversationId: c.id })
@@ -188,7 +192,7 @@ export function ChatListScreen() {
           borderTopColor: theme.border.default,
         }}
       >
-        <Button label="+ New Chat" onPress={newChat} />
+        <Button label={t('chat_list.new_chat_btn')} onPress={newChat} />
       </View>
     </Screen>
   );
@@ -222,16 +226,18 @@ function filterByTab(
 // ─── Row ─────────────────────────────────────────────────────────────────────
 
 function ConversationRow({
+  t,
   conversation,
   onPress,
 }: {
+  t: TFn;
   conversation: PublicConversation;
   onPress: () => void;
 }) {
   const { theme } = useTheme();
   const counterpart = conversation.counterpart;
   const displayName =
-    counterpart?.companyName ?? counterpart?.name ?? 'Conversation';
+    counterpart?.companyName ?? counterpart?.name ?? t('chat_list.fallback_name');
 
   const isUnread = conversation.unread > 0;
 
@@ -272,7 +278,7 @@ function ConversationRow({
               {displayName}
             </Text>
             <Text variant="footnote" tone="tertiary">
-              {timeShort(conversation.lastMessageAt)}
+              {timeShort(conversation.lastMessageAt, t)}
             </Text>
           </View>
           <View
@@ -289,7 +295,7 @@ function ConversationRow({
               numberOfLines={1}
               style={{ flex: 1 }}
             >
-              {conversation.lastMessagePreview ?? 'Say hello.'}
+              {conversation.lastMessagePreview ?? t('chat_list.preview_empty')}
             </Text>
             {isUnread && (
               <View
@@ -323,14 +329,14 @@ function ConversationRow({
 
 // ─── Empty per-tab ───────────────────────────────────────────────────────────
 
-function EmptyTab({ tab, role }: { tab: TabKey; role?: string }) {
+function EmptyTab({ t, tab, role }: { t: TFn; tab: TabKey; role?: string }) {
   if (tab === 'support') {
     return (
       <SharedEmptyState
         glyph="🛟"
-        eyebrow="SUPPORT"
-        title="No support chats yet"
-        message="Doondo Support threads will show up here. Reach out to support anytime if you need help."
+        eyebrow={t('chat_list.empty_support_eyebrow')}
+        title={t('chat_list.empty_support_title')}
+        message={t('chat_list.empty_support_message')}
       />
     );
   }
@@ -338,12 +344,12 @@ function EmptyTab({ tab, role }: { tab: TabKey; role?: string }) {
     return (
       <SharedEmptyState
         glyph="✉"
-        eyebrow="NO EMPLOYER CHATS"
-        title="No employer chats yet"
+        eyebrow={t('chat_list.empty_employers_eyebrow')}
+        title={t('chat_list.empty_employers_title')}
         message={
           role === 'employer'
-            ? 'Employer-to-employer messaging will land here when networking ships.'
-            : 'Once an employer shortlists you for a job, the chat opens here.'
+            ? t('chat_list.empty_employers_message_employer')
+            : t('chat_list.empty_employers_message_seeker')
         }
       />
     );
@@ -353,12 +359,12 @@ function EmptyTab({ tab, role }: { tab: TabKey; role?: string }) {
     <SharedEmptyState
       glyph="✉"
       tone="hero"
-      eyebrow="INBOX EMPTY"
-      title="No chats yet"
+      eyebrow={t('chat_list.empty_all_eyebrow')}
+      title={t('chat_list.empty_all_title')}
       message={
         role === 'employer'
-          ? 'Shortlist a candidate from the Applicants tab — a private chat opens automatically.'
-          : 'When an employer shortlists you for a job, you can chat with them right here. Apply to nearby jobs to get started.'
+          ? t('chat_list.empty_all_message_employer')
+          : t('chat_list.empty_all_message_seeker')
       }
       tall
     />
@@ -367,11 +373,11 @@ function EmptyTab({ tab, role }: { tab: TabKey; role?: string }) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function timeShort(iso: string): string {
+function timeShort(iso: string, t: TFn): string {
   const d = new Date(iso);
   const now = Date.now();
   const ms = now - d.getTime();
-  // Same-day → time of day.
+  // Same-day → time of day (system formatting).
   const day = 86_400_000;
   if (ms < day && d.toDateString() === new Date(now).toDateString()) {
     return d.toLocaleTimeString(undefined, {
@@ -379,8 +385,8 @@ function timeShort(iso: string): string {
       minute: '2-digit',
     });
   }
-  if (ms < 2 * day) return 'Yesterday';
+  if (ms < 2 * day) return t('chat_list.time_yesterday');
   const days = Math.floor(ms / day);
-  if (days < 7) return `${days} days ago`;
+  if (days < 7) return t('chat_list.time_days_ago', { n: days });
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }

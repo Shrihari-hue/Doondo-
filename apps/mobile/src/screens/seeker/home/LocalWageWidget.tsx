@@ -27,6 +27,7 @@ import { useTheme } from '@/theme/useTheme';
 import { jobsApi } from '@/api/jobs.api';
 import { prettifySkill } from '@/lib/trades';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { JobType, PublicUser } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 
@@ -59,6 +60,7 @@ function inrPerPeriod(paise: number): string {
 export function LocalWageWidget({ user }: Props) {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
+  const t = useTranslate();
 
   const trade = user?.skills?.[0] ?? null;
   const city = user?.location?.city ?? null;
@@ -122,13 +124,17 @@ export function LocalWageWidget({ user }: Props) {
         <Text
           style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1.4, color: '#92400E' }}
         >
-          LOCAL WAGE · LAST 30 DAYS
+          {t('home.wage.eyebrow')}
         </Text>
         <Text style={{ fontSize: 15, fontWeight: '700', color: '#78350F', marginTop: 2 }}>
-          {prettifySkill(trade)}s in {city} earn {range} per day
+          {t('home.wage.headline', {
+            trade: prettifySkill(trade),
+            city,
+            range,
+          })}
         </Text>
         <Text style={{ fontSize: 12, color: '#92400E', marginTop: 2 }}>
-          Based on {query.data?.sampleSize ?? 0} live posts. Tap to see them →
+          {t('home.wage.basis', { count: query.data?.sampleSize ?? 0 })}
         </Text>
       </View>
     </Pressable>

@@ -28,47 +28,49 @@ import { meApi } from '@/api/me.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/auth.store';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import type { AppStackParamList } from '@/navigation/types';
 import type { JobType } from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 /**
- * Each period option carries its own "when to use" copy. This is the
- * mental model from the user's perspective ("I want a daily wage" or
- * "I want a monthly salary") rather than the data model.
+ * Each period option references translation keys for its label, hint
+ * and sample-amount placeholder. Resolved at render time so the user's
+ * active locale drives the wording instead of the data model.
  */
 const PERIODS = [
   {
     key: 'day' as const,
-    label: 'Per day',
-    hint: 'Daily wage work — construction, helper, delivery on commission, mason',
-    samplePrompt: 'e.g. 600 — typical for daily-wage roles',
+    labelKey: 'edit_salary.period_label_day',
+    hintKey: 'edit_salary.period_hint_day',
+    samplePromptKey: 'edit_salary.sample_day',
   },
   {
     key: 'month' as const,
-    label: 'Per month',
-    hint: 'Full-time monthly salary — delivery boy at a company, salon assistant, retail staff',
-    samplePrompt: 'e.g. 15000 — typical for full-time roles',
+    labelKey: 'edit_salary.period_label_month',
+    hintKey: 'edit_salary.period_hint_month',
+    samplePromptKey: 'edit_salary.sample_month',
   },
   {
     key: 'hour' as const,
-    label: 'Per hour',
-    hint: 'Hourly contract or part-time work — tutoring, freelance, evening shifts',
-    samplePrompt: 'e.g. 100 — typical for hourly work',
+    labelKey: 'edit_salary.period_label_hour',
+    hintKey: 'edit_salary.period_hint_hour',
+    samplePromptKey: 'edit_salary.sample_hour',
   },
   {
     key: 'fixed' as const,
-    label: 'Fixed (per gig)',
-    hint: 'One-time job paid as a single amount — event photography, repairs, single tasks',
-    samplePrompt: 'e.g. 3000 — one-time payment',
+    labelKey: 'edit_salary.period_label_fixed',
+    hintKey: 'edit_salary.period_hint_fixed',
+    samplePromptKey: 'edit_salary.sample_fixed',
   },
   {
     key: 'week' as const,
-    label: 'Per week',
-    hint: 'Weekly wage — less common, used in some seasonal or contract roles',
-    samplePrompt: 'e.g. 4000 — for weekly-paid roles',
+    labelKey: 'edit_salary.period_label_week',
+    hintKey: 'edit_salary.period_hint_week',
+    samplePromptKey: 'edit_salary.sample_week',
   },
 ] as const;
 type Period = (typeof PERIODS)[number]['key'];
@@ -93,6 +95,7 @@ function EditExpectedSalaryInner() {
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
   const setStore = useAuthStore.setState;
+  const t = useTranslate();
 
   // Pre-fill from existing value (paise → rupees), or use the smart
   // default based on preferred job types.
@@ -118,7 +121,7 @@ function EditExpectedSalaryInner() {
     mutationFn: () => {
       const rupees = Number(amount.replace(/[^\d.]/g, ''));
       if (!Number.isFinite(rupees) || rupees <= 0) {
-        throw new Error('Enter a valid amount');
+        throw new Error(t('edit_salary.error_enter_valid'));
       }
       let maxPaise: number | null = null;
       const maxRupees = amountMax.trim()
@@ -126,7 +129,7 @@ function EditExpectedSalaryInner() {
         : NaN;
       if (Number.isFinite(maxRupees) && maxRupees > 0) {
         if (maxRupees < rupees) {
-          throw new Error('Max must be at least the minimum');
+          throw new Error(t('edit_salary.error_max_lt_min'));
         }
         maxPaise = Math.round(maxRupees * 100);
       }
@@ -146,7 +149,7 @@ function EditExpectedSalaryInner() {
     },
     onError: (err) => {
       haptic('error');
-      setError(err instanceof Error ? err.message : 'Could not save');
+      setError(err instanceof Error ? err.message : t('edit_salary.error_save_default'));
     },
   });
 
@@ -173,19 +176,19 @@ function EditExpectedSalaryInner() {
       >
         <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
           <Text variant="body" tone="secondary">
-            ← Cancel
+            {t('edit_salary.cancel_back')}
           </Text>
         </Pressable>
 
         <View style={{ gap: spacing.xs }}>
           <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-            EXPECTED SALARY
+            {t('edit_salary.eyebrow')}
           </Text>
           <Text variant="display" weight="medium" display>
-            How do you want to be paid?
+            {t('edit_salary.title')}
           </Text>
           <Text variant="footnote" tone="secondary">
-            Pick what matches the kind of work you want. Employers see this on your profile.
+            {t('edit_salary.hint')}
           </Text>
         </View>
 
@@ -202,7 +205,7 @@ function EditExpectedSalaryInner() {
               color: theme.text.tertiary,
             }}
           >
-            HOW YOU'RE PAID
+            {t('edit_salary.how_paid_eyebrow')}
           </Text>
           <View style={{ gap: spacing.sm }}>
             {PERIODS.map((p) => {
@@ -261,7 +264,7 @@ function EditExpectedSalaryInner() {
                         color: active ? theme.brand.hero : theme.text.primary,
                       }}
                     >
-                      {p.label}
+                      {t(p.labelKey)}
                     </Text>
                   </View>
                   <Text
@@ -273,7 +276,7 @@ function EditExpectedSalaryInner() {
                       lineHeight: 17,
                     }}
                   >
-                    {p.hint}
+                    {t(p.hintKey)}
                   </Text>
                 </Pressable>
               );
@@ -292,25 +295,25 @@ function EditExpectedSalaryInner() {
               color: theme.text.tertiary,
             }}
           >
-            AMOUNT (₹)
+            {t('edit_salary.amount_eyebrow')}
           </Text>
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             <View style={{ flex: 1 }}>
               <TextField
-                label="Minimum"
+                label={t('edit_salary.min_label')}
                 value={amount}
-                onChangeText={(t) => setAmount(t.replace(/[^\d]/g, ''))}
+                onChangeText={(text) => setAmount(text.replace(/[^\d]/g, ''))}
                 keyboardType="number-pad"
-                placeholder={activePeriodMeta.samplePrompt}
+                placeholder={t(activePeriodMeta.samplePromptKey)}
               />
             </View>
             <View style={{ flex: 1 }}>
               <TextField
-                label="Maximum (optional)"
+                label={t('edit_salary.max_label')}
                 value={amountMax}
-                onChangeText={(t) => setAmountMax(t.replace(/[^\d]/g, ''))}
+                onChangeText={(text) => setAmountMax(text.replace(/[^\d]/g, ''))}
                 keyboardType="number-pad"
-                placeholder="Stretch target"
+                placeholder={t('edit_salary.max_placeholder')}
               />
             </View>
           </View>
@@ -321,8 +324,7 @@ function EditExpectedSalaryInner() {
               lineHeight: 16,
             }}
           >
-            White-collar candidates: set both for a range. Daily-wage workers:
-            leave Maximum empty.
+            {t('edit_salary.amount_hint')}
           </Text>
         </View>
 
@@ -345,7 +347,7 @@ function EditExpectedSalaryInner() {
                 color: theme.brand.hero,
               }}
             >
-              EMPLOYERS WILL SEE
+              {t('edit_salary.preview_eyebrow')}
             </Text>
             <Text
               style={{
@@ -355,11 +357,11 @@ function EditExpectedSalaryInner() {
                 marginTop: 4,
               }}
             >
-              ₹{Number(amount).toLocaleString()}
+              ₹{Number(amount).toLocaleString('en-IN')}
               {amountMax.trim() && Number(amountMax) > Number(amount)
-                ? `–₹${Number(amountMax).toLocaleString()}`
+                ? `–₹${Number(amountMax).toLocaleString('en-IN')}`
                 : ''}{' '}
-              {periodSuffix(period)}
+              {periodSuffix(period, t)}
             </Text>
           </View>
         )}
@@ -371,7 +373,7 @@ function EditExpectedSalaryInner() {
             onPress={() => save.mutate()}
             disabled={save.isPending || amount.trim().length === 0}
             accessibilityRole="button"
-            accessibilityLabel="Save expected salary"
+            accessibilityLabel={t('edit_salary.save_a11y')}
             style={({ pressed }) => ({
               paddingVertical: 14,
               borderRadius: radii.lg,
@@ -398,14 +400,14 @@ function EditExpectedSalaryInner() {
                 fontWeight: '700',
               }}
             >
-              {save.isPending ? 'Saving…' : 'Save'}
+              {save.isPending ? t('edit_salary.saving_btn') : t('edit_salary.save_btn')}
             </Text>
           </Pressable>
           {user?.expectedSalary && (
             <Pressable
               onPress={clear}
               accessibilityRole="button"
-              accessibilityLabel="Clear expected salary"
+              accessibilityLabel={t('edit_salary.clear_a11y')}
               style={({ pressed }) => ({
                 paddingVertical: 12,
                 borderRadius: radii.lg,
@@ -424,7 +426,7 @@ function EditExpectedSalaryInner() {
                   fontWeight: '600',
                 }}
               >
-                Clear
+                {t('edit_salary.clear_btn')}
               </Text>
             </Pressable>
           )}
@@ -439,22 +441,15 @@ function EditExpectedSalaryInner() {
             lineHeight: 17,
           }}
         >
-          You can change this anytime. We use it to suggest jobs that
-          match your pay expectation.
+          {t('edit_salary.footer_note')}
         </Text>
       </ScrollView>
     </Screen>
   );
 }
 
-function periodSuffix(period: Period): string {
-  return ({
-    hour: '/ hour',
-    day: '/ day',
-    week: '/ week',
-    month: '/ month',
-    fixed: 'fixed',
-  } as const)[period];
+function periodSuffix(period: Period, t: TFn): string {
+  return t(`edit_salary.period_suffix_${period}`);
 }
 
 export function EditExpectedSalaryScreen() {

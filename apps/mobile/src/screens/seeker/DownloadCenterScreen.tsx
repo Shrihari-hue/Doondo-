@@ -20,17 +20,20 @@ import { Screen, Text, EmptyState, LoadingSpinner } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useDownloads, removeJobOffline } from '@/lib/downloads';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import type { PublicJob } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function DownloadCenterInner() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { items, loading, reload } = useDownloads();
+  const t = useTranslate();
 
   function openJob(j: PublicJob) {
     haptic('selection');
@@ -39,17 +42,21 @@ function DownloadCenterInner() {
 
   function removeOne(j: PublicJob) {
     haptic('warning');
-    Alert.alert('Remove from downloads?', `"${j.title}" will no longer be available offline.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          await removeJobOffline(j.id);
-          await reload();
+    Alert.alert(
+      t('download_center.remove_confirm_title'),
+      t('download_center.remove_confirm_body', { title: j.title }),
+      [
+        { text: t('download_center.remove_confirm_cancel'), style: 'cancel' },
+        {
+          text: t('download_center.remove_confirm_remove'),
+          style: 'destructive',
+          onPress: async () => {
+            await removeJobOffline(j.id);
+            await reload();
+          },
         },
-      },
-    ]);
+      ],
+    );
   }
 
   return (
@@ -70,7 +77,7 @@ function DownloadCenterInner() {
         <Text
           style={{ fontSize: 22, fontWeight: '700', color: theme.text.primary, flex: 1 }}
         >
-          Download Center
+          {t('download_center.title')}
         </Text>
       </View>
       <Text
@@ -81,8 +88,7 @@ function DownloadCenterInner() {
           paddingBottom: spacing.md,
         }}
       >
-        Jobs you've saved for offline viewing. Tap one to open it even
-        without a signal.
+        {t('download_center.hint')}
       </Text>
 
       {loading ? (
@@ -92,11 +98,11 @@ function DownloadCenterInner() {
       ) : items.length === 0 ? (
         <EmptyState
           glyph="📥"
-          eyebrow="NOTHING DOWNLOADED"
-          title="No offline jobs yet"
-          message="Open any job and tap the download icon to save it for offline."
+          eyebrow={t('download_center.empty_eyebrow')}
+          title={t('download_center.empty_title')}
+          message={t('download_center.empty_message')}
           cta={{
-            label: 'Browse jobs',
+            label: t('download_center.empty_cta'),
             onPress: () => navigation.navigate('SeekerTabs', { screen: 'Jobs' } as never),
           }}
         />
@@ -148,10 +154,10 @@ function DownloadCenterInner() {
                   >
                     {item.job.employer?.companyName ??
                       item.job.employer?.name ??
-                      'Doondo Employer'}
+                      t('download_center.fallback_employer')}
                   </Text>
                   <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
-                    Saved {formatRelative(item.cachedAt)}
+                    {t('download_center.saved_relative_label', { when: formatRelative(item.cachedAt, t) })}
                   </Text>
                 </View>
                 <Pressable onPress={() => removeOne(item.job)} hitSlop={8}>
@@ -166,11 +172,11 @@ function DownloadCenterInner() {
   );
 }
 
-function formatRelative(ms: number): string {
+function formatRelative(ms: number, t: TFn): string {
   const diff = Date.now() - ms;
-  if (diff < 60_000) return 'just now';
-  if (diff < 3_600_000) return `${Math.round(diff / 60_000)} min ago`;
-  if (diff < 86_400_000) return `${Math.round(diff / 3_600_000)} hr ago`;
+  if (diff < 60_000) return t('download_center.time_just_now');
+  if (diff < 3_600_000) return t('download_center.time_min_ago', { n: Math.round(diff / 60_000) });
+  if (diff < 86_400_000) return t('download_center.time_hr_ago', { n: Math.round(diff / 3_600_000) });
   return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 

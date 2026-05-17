@@ -16,11 +16,13 @@ import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, LoadingSpinner } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { insuranceApi, type InsuranceSubscription } from '@/api/insurance.api';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function inr(paise: number, opts?: { lakhs?: boolean }): string {
   if (opts?.lakhs && paise >= 10000000) {
@@ -32,16 +34,16 @@ function inr(paise: number, opts?: { lakhs?: boolean }): string {
   return `₹${Math.round(paise / 100).toLocaleString('en-IN')}`;
 }
 
-function statusCopy(s: InsuranceSubscription['status']): { label: string; color: string } {
+function statusCopy(s: InsuranceSubscription['status'], t: TFn): { label: string; color: string } {
   switch (s) {
     case 'pending':
-      return { label: 'Pending — ops review', color: '#92400E' };
+      return { label: t('insurance.status_pending'), color: '#92400E' };
     case 'active':
-      return { label: 'Active · cover live', color: '#065F46' };
+      return { label: t('insurance.status_active'), color: '#065F46' };
     case 'paused':
-      return { label: 'Paused', color: '#9CA3AF' };
+      return { label: t('insurance.status_paused'), color: '#9CA3AF' };
     case 'cancelled':
-      return { label: 'Cancelled', color: '#B91C1C' };
+      return { label: t('insurance.status_cancelled'), color: '#B91C1C' };
   }
 }
 
@@ -50,6 +52,7 @@ function Inner() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const t = useTranslate();
 
   const statusQ = useQuery({
     queryKey: ['insurance', 'me'],
@@ -61,13 +64,10 @@ function Inner() {
     onSuccess: () => {
       haptic('success');
       void queryClient.invalidateQueries({ queryKey: ['insurance', 'me'] });
-      Alert.alert(
-        "You're covered",
-        "Doondo's ops team will confirm your subscription within a working day.",
-      );
+      Alert.alert(t('insurance.opt_in_success_title'), t('insurance.opt_in_success_body'));
     },
     onError: (err) =>
-      Alert.alert('Could not opt in', (err as Error).message ?? 'Try again later.'),
+      Alert.alert(t('insurance.opt_in_error_title'), (err as Error).message ?? t('insurance.opt_in_error_default')),
   });
 
   const cancelMut = useMutation({
@@ -93,7 +93,7 @@ function Inner() {
   const tier = data?.tier;
   const activeOrPending =
     sub?.status === 'pending' || sub?.status === 'active' || sub?.status === 'paused';
-  const sc = sub ? statusCopy(sub.status) : null;
+  const sc = sub ? statusCopy(sub.status, t) : null;
 
   return (
     <Screen edges={[]}>
@@ -117,10 +117,10 @@ function Inner() {
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 22, fontWeight: '700', color: theme.text.primary }}>
-              Worker insurance
+              {t('insurance.title')}
             </Text>
             <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 2 }}>
-              Optional accident cover for the days you work.
+              {t('insurance.subtitle')}
             </Text>
           </View>
         </View>
@@ -142,15 +142,15 @@ function Inner() {
             }}
           >
             <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: '#BFDBFE' }}>
-              STANDARD COVER
+              {t('insurance.standard_cover_label')}
             </Text>
             <Text style={{ fontSize: 28, fontWeight: '800', color: '#FFFFFF' }}>
-              ₹{Math.round(tier.monthlyPremiumPaise / 100)} / month
+              {t('insurance.price_per_month', { n: Math.round(tier.monthlyPremiumPaise / 100) })}
             </Text>
             <View style={{ gap: spacing.xs, marginTop: spacing.sm }}>
-              <Bullet text={`${inr(tier.deathCoverPaise, { lakhs: true })} accidental death / disability`} />
-              <Bullet text={`${inr(tier.hospitalCashPerDayPaise)} / day hospital cash · up to ${tier.hospitalCashMaxDaysPerYear} days / year`} />
-              <Bullet text="Active during all hires made through Doondo" />
+              <Bullet text={t('insurance.bullet_death_disability', { amount: inr(tier.deathCoverPaise, { lakhs: true }) })} />
+              <Bullet text={t('insurance.bullet_hospital_cash', { amount: inr(tier.hospitalCashPerDayPaise), days: tier.hospitalCashMaxDaysPerYear })} />
+              <Bullet text={t('insurance.bullet_active_during_hires')} />
             </View>
             {sc && (
               <View
@@ -185,7 +185,7 @@ function Inner() {
               }}
             >
               <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 15 }}>
-                {optInMut.isPending ? 'Subscribing…' : 'Opt in for ₹49 / month'}
+                {optInMut.isPending ? t('insurance.opt_in_subscribing') : t('insurance.opt_in_btn')}
               </Text>
             </Pressable>
           )}
@@ -193,12 +193,12 @@ function Inner() {
             <Pressable
               onPress={() =>
                 Alert.alert(
-                  'Cancel cover?',
-                  "You'll stop being covered after this billing month.",
+                  t('insurance.cancel_confirm_title'),
+                  t('insurance.cancel_confirm_body'),
                   [
-                    { text: 'Keep cover', style: 'cancel' },
+                    { text: t('insurance.cancel_confirm_keep'), style: 'cancel' },
                     {
-                      text: 'Cancel cover',
+                      text: t('insurance.cancel_confirm_cancel'),
                       style: 'destructive',
                       onPress: () => cancelMut.mutate(),
                     },
@@ -214,14 +214,12 @@ function Inner() {
               }}
             >
               <Text style={{ color: '#B91C1C', fontWeight: '600', fontSize: 14 }}>
-                Cancel cover
+                {t('insurance.cancel_btn')}
               </Text>
             </Pressable>
           )}
           <Text style={{ fontSize: 11, color: theme.text.tertiary, lineHeight: 16 }}>
-            Preview only — Doondo is finalising the underwriter. Until then, ops will
-            manually confirm your subscription. You'll never be billed without the
-            policy being live.
+            {t('insurance.footer_disclaimer')}
           </Text>
         </View>
       </ScrollView>

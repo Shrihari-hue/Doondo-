@@ -12,8 +12,17 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation } from '@tanstack/react-query';
 
-import { spacing } from '@doondo/tokens';
-import { Screen, Text, Card, Pill, Button, Avatar, ThemeToggleCard } from '@/components';
+import { spacing, radii } from '@doondo/tokens';
+import {
+  Screen,
+  Text,
+  Card,
+  Pill,
+  Button,
+  Avatar,
+  ThemeToggleCard,
+  AccountSwitcherSheet,
+} from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/auth.store';
 import { meApi } from '@/api/me.api';
@@ -25,10 +34,35 @@ import type { AppStackParamList } from '@/navigation/types';
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
 export function EmployerProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, savedAccounts } = useAuth();
   const setStore = useAuthStore.setState;
   const navigation = useNavigation<Nav>();
   const [photoError, setPhotoError] = useState<string | null>(null);
+
+  /**
+   * Account switcher — mirrors the seeker profile pill. If the user only
+   * has the employer account on this device, the pill jumps to the
+   * "Add Seeker account" signup; otherwise it opens the sheet so they
+   * can switch back.
+   */
+  const [switcherVisible, setSwitcherVisible] = useState(false);
+  const hasOtherAccount = savedAccounts.length > 1;
+  function onPressSwitcher() {
+    haptic('selection');
+    if (hasOtherAccount) {
+      setSwitcherVisible(true);
+    } else {
+      navigation.navigate('AddAccountSignup', { role: 'seeker' });
+    }
+  }
+  function onAddFromSheet() {
+    // Sheet's footer wording reads "Add another account" when more than
+    // one is saved; here we send them into the role they DON'T have.
+    const missingRole = savedAccounts.some((a) => a.role === 'seeker')
+      ? 'employer'
+      : 'seeker';
+    navigation.navigate('AddAccountSignup', { role: missingRole });
+  }
 
   const photoMutation = useMutation({
     mutationFn: (dataUrl: string) => meApi.updateProfile({ photoUrl: dataUrl }),
@@ -81,6 +115,43 @@ export function EmployerProfileScreen() {
           gap: spacing['2xl'],
         }}
       >
+        {/* ─── Top-left account switcher ───────────────────────────────
+            Same Instagram-style pill as the seeker profile. We render
+            it as the first row of the ScrollView (the employer screen
+            has no hero gradient to overlay onto). */}
+        <View style={{ flexDirection: 'row' }}>
+          <Pressable
+            onPress={onPressSwitcher}
+            accessibilityRole="button"
+            accessibilityLabel="Switch account"
+            hitSlop={8}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: radii.pill,
+              backgroundColor: 'rgba(15, 23, 42, 0.06)',
+              opacity: pressed ? 0.65 : 1,
+              maxWidth: '70%',
+            })}
+          >
+            <Text
+              style={{ fontSize: 13, fontWeight: '600' }}
+              numberOfLines={1}
+            >
+              {user.companyName ?? user.name}
+            </Text>
+            <Text
+              style={{ fontSize: 11, fontWeight: '700', marginTop: 1 }}
+              allowFontScaling={false}
+            >
+              ▾
+            </Text>
+          </Pressable>
+        </View>
+
         {/* Identity */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg }}>
           <Pressable onPress={onChangePhoto} disabled={photoMutation.isPending}>
@@ -251,6 +322,14 @@ export function EmployerProfileScreen() {
 
         <Button label="Sign out" variant="secondary" onPress={() => void logout()} />
       </ScrollView>
+
+      {/* Account switcher bottom sheet — same component the seeker
+          profile uses, so we get identical behavior across roles. */}
+      <AccountSwitcherSheet
+        visible={switcherVisible}
+        onClose={() => setSwitcherVisible(false)}
+        onAddEmployer={onAddFromSheet}
+      />
     </Screen>
   );
 }

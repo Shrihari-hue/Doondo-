@@ -25,6 +25,7 @@ import { haptic } from '@/lib/haptics';
 import { allPrepGuides, findPrepGuide, type PrepGuide } from '@/lib/interviewPrep';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { useAccessibility } from '@/lib/accessibility';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
@@ -35,6 +36,7 @@ function Inner() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const access = useAccessibility();
+  const t = useTranslate();
 
   const guides = useMemo(() => allPrepGuides(), []);
   const initial = useMemo(
@@ -72,10 +74,10 @@ function Inner() {
                 color: theme.text.primary,
               }}
             >
-              Interview prep
+              {t('interview_prep.title')}
             </Text>
             <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 2 }}>
-              Punchy tips for your trade — what to expect, what to bring, how to talk pay.
+              {t('interview_prep.subtitle')}
             </Text>
           </View>
         </View>
@@ -127,22 +129,22 @@ function Inner() {
 
         {/* Sections */}
         <Section
-          title="Questions you'll probably hear"
+          title={t('interview_prep.section_questions')}
           icon="❓"
           items={active.questions}
-          onSpeak={(t) => access.speak(t)}
+          onSpeak={(text) => access.speak(text)}
         />
         <Section
-          title="What to bring"
+          title={t('interview_prep.section_bring')}
           icon="🎒"
           items={active.bring}
-          onSpeak={(t) => access.speak(t)}
+          onSpeak={(text) => access.speak(text)}
         />
         <Section
-          title="Talking about pay"
+          title={t('interview_prep.section_negotiation')}
           icon="💬"
           items={active.negotiation}
-          onSpeak={(t) => access.speak(t)}
+          onSpeak={(text) => access.speak(text)}
         />
 
         <View
@@ -156,8 +158,7 @@ function Inner() {
           }}
         >
           <Text style={{ fontSize: 12, color: theme.text.tertiary, lineHeight: 18 }}>
-            Tip: write the agreed pay in the Doondo chat with the employer before you
-            start. If anything changes later, the chat is your record.
+            {t('interview_prep.footer_tip')}
           </Text>
         </View>
       </ScrollView>
