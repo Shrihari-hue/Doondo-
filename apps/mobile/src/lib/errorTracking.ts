@@ -25,18 +25,27 @@ interface SentryModule {
 let sentry: SentryModule | null = null;
 let enabled = false;
 
+/**
+ * dynamicRequire — fully opaque to Metro's static analyzer.
+ *
+ * Modern Metro constant-folds `const name = 'x'; require(name)` back
+ * into a static `require('x')`, which means it tries to resolve the
+ * module + all its transitives at bundle time. Using `new Function`
+ * to wrap the require is the canonical way to truly defer resolution
+ * to runtime. The downside is `eval`-style code can be CSP-flagged,
+ * but React Native runtimes don't apply web CSPs, so this is safe.
+ */
+// eslint-disable-next-line @typescript-eslint/no-implied-eval
+const dynamicRequire = new Function('m', 'return require(m)') as (
+  m: string,
+) => unknown;
+
 function tryInit(): void {
   if (enabled) return;
   const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
   if (!dsn) return;
   try {
-    // Indirect require so Metro doesn't fail when sentry-expo isn't
-    // installed. Once you add the dep + DSN, Sentry initialises at
-    // runtime and starts capturing.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const name = 'sentry-expo';
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require(name) as Record<string, unknown>;
+    const mod = dynamicRequire('sentry-expo') as Record<string, unknown>;
     const initFn = (mod.init ?? (mod as { default?: { init?: unknown } }).default?.init) as
       | ((opts: Record<string, unknown>) => void)
       | undefined;

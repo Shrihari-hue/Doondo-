@@ -59,17 +59,17 @@ interface SpeechModule {
   isSpeakingAsync?: () => Promise<boolean>;
 }
 
+// Wrap require() in a Function-constructor so Metro's bundler can't
+// statically resolve the module and try to follow its transitives.
+// See errorTracking.ts for the same pattern + reasoning.
+// eslint-disable-next-line @typescript-eslint/no-implied-eval
+const dynamicRequire = new Function('m', 'return require(m)') as (
+  m: string,
+) => unknown;
+
 function getSpeech(): SpeechModule | null {
-  // Indirect require — Metro's static analyzer skips this because the
-  // module name comes from a variable, so the bundle succeeds even if
-  // expo-speech isn't installed. At runtime, if the package is present
-  // the require resolves; otherwise the catch returns null.
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, prefer-const
-    const name = 'expo-speech';
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require(name);
-    return mod as SpeechModule;
+    return dynamicRequire('expo-speech') as SpeechModule;
   } catch {
     return null;
   }

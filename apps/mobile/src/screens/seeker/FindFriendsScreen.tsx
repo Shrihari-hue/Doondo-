@@ -53,9 +53,8 @@ function Inner() {
 
   async function scan() {
     setState({ kind: 'loading' });
-    // Indirect require — Metro can't statically resolve a variable
-    // module name, so the bundle succeeds even when expo-contacts isn't
-    // installed. The UI degrades gracefully when the package is absent.
+    // Defer the require to runtime — Metro can't follow `new Function`,
+    // so the bundle succeeds even when expo-contacts isn't installed.
     interface ContactsModule {
       requestPermissionsAsync: () => Promise<{ status: string }>;
       getContactsAsync: (opts: { fields: string[]; pageSize?: number }) => Promise<{
@@ -65,10 +64,11 @@ function Inner() {
     }
     let Contacts: ContactsModule | null = null;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const name = 'expo-contacts';
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      Contacts = require(name) as ContactsModule;
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval
+      const dynReq = new Function('m', 'return require(m)') as (
+        m: string,
+      ) => unknown;
+      Contacts = dynReq('expo-contacts') as ContactsModule;
     } catch {
       setState({
         kind: 'unsupported',
