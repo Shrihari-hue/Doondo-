@@ -16,6 +16,9 @@
  *
  * Defaults: scale=1.0, tts=false. Older / low-literacy workers can crank
  * the scale to 1.5 (max) from Settings → Accessibility.
+ *
+ * NOTE: this file is `.tsx` (not `.ts`) because it contains JSX (the
+ * provider return). Metro can't parse JSX in `.ts` files.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getSecure, setSecure } from './secureStore';
