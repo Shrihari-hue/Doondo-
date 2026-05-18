@@ -97,14 +97,14 @@ export function EmployerProfileScreen() {
 
   const businessTypeLabel = (
     {
-      individual: 'Individual',
-      shop: 'Shop',
-      restaurant: 'Restaurant',
-      salon: 'Salon',
-      agency: 'Agency',
-      startup: 'Startup',
-      enterprise: 'Enterprise',
-      other: 'Other',
+      individual: t('employer.profile.business_type_individual'),
+      shop: t('employer.profile.business_type_shop'),
+      restaurant: t('employer.profile.business_type_restaurant'),
+      salon: t('employer.profile.business_type_salon'),
+      agency: t('employer.profile.business_type_agency'),
+      startup: t('employer.profile.business_type_startup'),
+      enterprise: t('employer.profile.business_type_enterprise'),
+      other: t('employer.profile.business_type_other'),
     } as Record<string, string>
   )[user.businessType ?? ''] ?? null;
 
@@ -126,7 +126,7 @@ export function EmployerProfileScreen() {
           <Pressable
             onPress={onPressSwitcher}
             accessibilityRole="button"
-            accessibilityLabel="Switch account"
+            accessibilityLabel={t('employer.profile.switch_a11y')}
             hitSlop={8}
             style={({ pressed }) => ({
               flexDirection: 'row',
@@ -167,7 +167,7 @@ export function EmployerProfileScreen() {
           </Pressable>
           <View style={{ flex: 1, gap: spacing.xs }}>
             <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              EMPLOYER
+              {t('employer.profile.eyebrow')}
             </Text>
             <Text variant="display" weight="medium" display>
               {user.companyName ?? user.name}
