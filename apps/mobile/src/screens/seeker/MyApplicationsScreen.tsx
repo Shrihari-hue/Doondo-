@@ -21,13 +21,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, LoadingSpinner, EmptyState, PaymentConfirmationPanel, ErrorPanel } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
+import { shiftCheckInApi } from '@/api/shiftCheckIn.api';
+import { captureShiftSelfie } from '@/lib/selfie';
+import { getCurrentCoords } from '@/lib/location';
 import { useUnratedApplications } from '@/hooks/useRatings';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
@@ -302,6 +305,13 @@ function MyApplicationsInner() {
                     role="seeker"
                     invalidateQueryKeys={[['applications', 'me']]}
                   />
+                ) : null}
+
+                {/* Shift check-in — only when hired. Reads the latest
+                    check-in for the application so the card knows
+                    whether to show "Check in" or "Check out" next. */}
+                {item.status === 'hired' ? (
+                  <ShiftCheckInCard applicationId={item.id} />
                 ) : null}
 
                 {/* Interview card — shown whenever there's a scheduled
@@ -624,6 +634,166 @@ function InterviewCard({
         {modeLabel}
         {where ? ` · ${where}` : ''}
       </Text>
+    </View>
+  );
+}
+
+/**
+ * Shift check-in card on the hired-application row.
+ *
+ * Reads the application's check-in history (cached) and decides
+ * which action to offer next:
+ *   - No prior check-in today → primary "Check in" button (warning tone).
+ *   - Last event was check-in → "Check out" button + the check-in time.
+ *   - Last event was check-out → "Check in again" (rare — same day re-entry).
+ *
+ * On tap:
+ *   1. Capture a selfie via the front camera (compressed by selfie.ts).
+ *   2. Get device coords (best-effort; fall back to last known).
+ *   3. Post to /applications/:id/check-in or /check-out.
+ *   4. Refresh the query so the card updates and the employer's row
+ *      gets the new state on their next fetch.
+ *
+ * Errors are surfaced inline so the seeker can retry without re-reading
+ * the doc.
+ */
+function ShiftCheckInCard({ applicationId }: { applicationId: string }) {
+  const { theme } = useTheme();
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const query = useQuery({
+    queryKey: ['shiftCheckIns', applicationId],
+    queryFn: () => shiftCheckInApi.list(applicationId),
+    staleTime: 30_000,
+  });
+
+  const checkIns = query.data?.checkIns ?? [];
+  const lastEvent = checkIns.length > 0 ? checkIns[checkIns.length - 1]! : null;
+  const nextKind: 'check_in' | 'check_out' =
+    lastEvent?.kind === 'check_in' ? 'check_out' : 'check_in';
+
+  async function onPress() {
+    if (busy) return;
+    setError(null);
+    setBusy(true);
+    haptic('selection');
+    try {
+      const selfie = await captureShiftSelfie();
+      if (!selfie) {
+        // User cancelled the camera.
+        return;
+      }
+      const coords = await getCurrentCoords();
+      if (!coords) {
+        setError('We need your location to check in. Allow location access in Settings.');
+        return;
+      }
+      if (nextKind === 'check_in') {
+        await shiftCheckInApi.checkIn(applicationId, {
+          selfieDataUrl: selfie.dataUrl,
+          lat: coords.lat,
+          lng: coords.lng,
+        });
+      } else {
+        await shiftCheckInApi.checkOut(applicationId, {
+          selfieDataUrl: selfie.dataUrl,
+          lat: coords.lat,
+          lng: coords.lng,
+        });
+      }
+      haptic('success');
+      await queryClient.invalidateQueries({
+        queryKey: ['shiftCheckIns', applicationId],
+      });
+    } catch (err) {
+      haptic('error');
+      setError(err instanceof Error ? err.message : 'Could not save check-in.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Active = currently checked in (the next action is check out).
+  const isActive = nextKind === 'check_out';
+  const lastTimeStr = lastEvent
+    ? new Date(lastEvent.timestamp).toLocaleTimeString(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : null;
+
+  return (
+    <View
+      style={{
+        padding: spacing.md,
+        borderRadius: radii.md,
+        backgroundColor: isActive ? theme.status.successSubtle : theme.bg.muted,
+        borderWidth: 0.5,
+        borderColor: isActive ? theme.status.successBorder : theme.border.default,
+        gap: spacing.sm,
+      }}
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.sm,
+        }}
+      >
+        <Text style={{ fontSize: 16 }}>{isActive ? '🟢' : '📍'}</Text>
+        <Text
+          style={{
+            flex: 1,
+            fontSize: 13,
+            fontWeight: '600',
+            color: isActive ? theme.status.success : theme.text.primary,
+          }}
+        >
+          {isActive
+            ? lastTimeStr
+              ? `On shift · checked in at ${lastTimeStr}`
+              : 'On shift'
+            : lastEvent
+              ? lastTimeStr
+                ? `Off shift · last out at ${lastTimeStr}`
+                : 'Off shift'
+              : 'Ready to check in'}
+        </Text>
+      </View>
+
+      {error && (
+        <Text
+          style={{
+            fontSize: 12,
+            color: theme.status.danger,
+          }}
+        >
+          {error}
+        </Text>
+      )}
+
+      <Pressable
+        onPress={onPress}
+        disabled={busy}
+        style={({ pressed }) => ({
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.md,
+          borderRadius: radii.pill,
+          backgroundColor: isActive ? theme.brand.hero : theme.status.success,
+          alignItems: 'center',
+          opacity: busy ? 0.5 : pressed ? 0.85 : 1,
+        })}
+      >
+        <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFDF7' }}>
+          {busy
+            ? 'Working…'
+            : nextKind === 'check_in'
+              ? 'Check in with selfie'
+              : 'Check out'}
+        </Text>
+      </Pressable>
     </View>
   );
 }

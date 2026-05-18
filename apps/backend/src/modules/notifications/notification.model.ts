@@ -37,6 +37,11 @@ export const NOTIFICATION_KINDS = [
   'application_ghosted',  // employer hasn't responded after the SLA window
   'skill_gap',            // rejection follow-up: "you were missing X, try this course"
   'doondo_score_changed', // your Doondo Score went up (or down) materially
+  'sos_alert',            // a Trust Circle contact or nearby peer triggered SOS
+  'shift_checkin',        // you (or your worker) checked in/out of a shift
+  'streak_milestone',     // crossed an apply/course/shift streak threshold (3/7/14/30)
+  'referral_bonus',       // someone you referred got hired; your bonus is credited
+  'hired_nearby',         // a worker near you got hired — social proof feed signal
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

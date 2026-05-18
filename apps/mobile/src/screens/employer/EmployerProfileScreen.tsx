@@ -175,10 +175,10 @@ export function EmployerProfileScreen() {
             <Pressable onPress={onChangePhoto} disabled={photoMutation.isPending}>
               <Text variant="footnote" tone="hero">
                 {photoMutation.isPending
-                  ? 'Updating photo…'
+                  ? t('employer.profile.photo_updating')
                   : user.photoUrl
-                    ? 'Change photo'
-                    : 'Add photo'}
+                    ? t('employer.profile.photo_change')
+                    : t('employer.profile.photo_add')}
               </Text>
             </Pressable>
             {photoError && (
@@ -203,15 +203,15 @@ export function EmployerProfileScreen() {
                 tone="secondary"
                 style={{ letterSpacing: 1.0 }}
               >
-                BUSINESS PROFILE
+                {t('employer.profile.completion_eyebrow')}
               </Text>
               <Text variant="display" weight="medium" display>
                 {user.profileCompletion}%
               </Text>
               <Text variant="footnote" tone="secondary">
                 {user.profileCompletion < 100
-                  ? 'Complete your profile so seekers trust your posts.'
-                  : 'Your business profile is complete.'}
+                  ? t('employer.profile.completion_incomplete')
+                  : t('employer.profile.completion_complete')}
               </Text>
             </View>
           </View>
@@ -219,23 +219,25 @@ export function EmployerProfileScreen() {
 
         {/* Business basics */}
         <SectionCard
-          label="BUSINESS"
-          title={user.companyName ?? 'Add your business name'}
-          subtitle={businessTypeLabel ?? 'Tap to set business type'}
+          label={t('employer.profile.section_business')}
+          title={user.companyName ?? t('employer.profile.business_empty_title')}
+          subtitle={businessTypeLabel ?? t('employer.profile.business_empty_subtitle')}
           onPress={() => goEdit('business_basics')}
+          t={t}
         />
 
         {/* Compliance */}
         <SectionCard
-          label="COMPLIANCE"
-          title={user.gstin ?? 'GSTIN not set'}
-          subtitle={user.gstin ? 'GST registration on file' : 'Add to verify your business'}
+          label={t('employer.profile.section_compliance')}
+          title={user.gstin ?? t('employer.profile.gstin_empty_title')}
+          subtitle={user.gstin ? t('employer.profile.gstin_set_subtitle') : t('employer.profile.gstin_empty_subtitle')}
           onPress={() => goEdit('business_basics')}
+          t={t}
         />
 
         {/* Business Location */}
         <SectionCard
-          label="LOCATION"
+          label={t('employer.profile.section_location')}
           title={
             user.employerLocation?.city
               ? `${
@@ -243,14 +245,15 @@ export function EmployerProfileScreen() {
                     ? user.employerLocation.area + ', '
                     : ''
                 }${user.employerLocation.city}`
-              : 'Set your business address'
+              : t('employer.profile.location_empty_title')
           }
           subtitle={
             user.employerLocation?.coordinates
-              ? 'GPS set'
-              : 'So seekers know where you operate from'
+              ? t('employer.profile.location_set_subtitle')
+              : t('employer.profile.location_empty_subtitle')
           }
           onPress={() => goEdit('business_location')}
+          t={t}
         />
 
         {/* Recovery phone — shown only for accounts that signed up before
@@ -273,13 +276,13 @@ export function EmployerProfileScreen() {
               >
                 <View style={{ gap: 2, flex: 1 }}>
                   <Text variant="bodyLarge" weight="medium">
-                    Add recovery phone
+                    {t('employer.profile.recovery_title')}
                   </Text>
                   <Text variant="footnote" tone="secondary">
-                    Needed to reset your password if you ever forget it.
+                    {t('employer.profile.recovery_body')}
                   </Text>
                 </View>
-                <Pill label="Add" tone="hero" />
+                <Pill label={t('employer.profile.recovery_pill')} tone="hero" />
               </View>
             </Card>
           </Pressable>
@@ -304,18 +307,18 @@ export function EmployerProfileScreen() {
             >
               <View style={{ gap: 2, flex: 1 }}>
                 <Text variant="bodyLarge" weight="medium">
-                  Verification
+                  {t('employer.profile.verification_title')}
                 </Text>
                 <Text variant="footnote" tone="secondary">
-                  {employerVerificationCopy(user)}
+                  {employerVerificationCopy(user, t)}
                 </Text>
               </View>
               {user.isVerified ? (
-                <Pill label="Verified" tone="premium" leading="★" />
+                <Pill label={t('employer.profile.verification_verified_pill')} tone="premium" leading="★" />
               ) : user.verificationStatus === 'pending' ? (
-                <Pill label="Continue" tone="hero" />
+                <Pill label={t('employer.profile.verification_continue')} tone="hero" />
               ) : (
-                <Pill label="Verify" tone="hero" />
+                <Pill label={t('employer.profile.verification_verify')} tone="hero" />
               )}
             </View>
           </Card>
@@ -323,7 +326,7 @@ export function EmployerProfileScreen() {
 
         <ThemeToggleCard />
 
-        <Button label="Sign out" variant="secondary" onPress={() => void logout()} />
+        <Button label={t('employer.profile.cta_signout')} variant="secondary" onPress={() => void logout()} />
       </ScrollView>
 
       {/* Account switcher bottom sheet — same component the seeker
@@ -342,11 +345,13 @@ function SectionCard({
   title,
   subtitle,
   onPress,
+  t,
 }: {
   label: string;
   title: string;
   subtitle: string;
   onPress: () => void;
+  t: TFn;
 }) {
   return (
     <Pressable onPress={onPress}>
@@ -368,7 +373,7 @@ function SectionCard({
               {label}
             </Text>
             <Text variant="footnote" tone="hero">
-              Edit
+              {t('employer.profile.edit')}
             </Text>
           </View>
           <Text variant="bodyLarge" weight="medium" numberOfLines={2}>
@@ -383,20 +388,23 @@ function SectionCard({
   );
 }
 
-function employerVerificationCopy(user: {
-  isVerified: boolean;
-  verificationStatus: string;
-  phoneVerified: boolean;
-  gstin: string | null;
-}): string {
-  if (user.isVerified) return 'Your business carries the gold ★ everywhere.';
+function employerVerificationCopy(
+  user: {
+    isVerified: boolean;
+    verificationStatus: string;
+    phoneVerified: boolean;
+    gstin: string | null;
+  },
+  t: TFn,
+): string {
+  if (user.isVerified) return t('employer.profile.verification_verified_copy');
   if (user.verificationStatus === 'pending' && user.phoneVerified) {
     return user.gstin
-      ? 'Phone confirmed — finish with a quick selfie.'
-      : 'Add a valid GSTIN, then finish with a selfie.';
+      ? t('employer.profile.verification_pending_with_gstin')
+      : t('employer.profile.verification_pending_no_gstin');
   }
   if (user.verificationStatus === 'rejected') {
-    return 'Verification didn’t pass. Tap to try again.';
+    return t('employer.profile.verification_rejected');
   }
-  return 'Confirm your phone + selfie to earn the gold ★.';
+  return t('employer.profile.verification_default');
 }

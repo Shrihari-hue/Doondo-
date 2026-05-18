@@ -46,6 +46,9 @@ import {
   triggerSos,
   type SosContact,
 } from '@/lib/sos';
+import { sosApi } from '@/api/sos.api';
+import { getCurrentCoords } from '@/lib/location';
+import { useQuery } from '@tanstack/react-query';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
@@ -70,6 +73,14 @@ function SosInner() {
   const [formName, setFormName] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Server-side Trust Circle status — drives the "X/3 contacts" pill
+  // and the upsell to add more contacts.
+  const trustQuery = useQuery({
+    queryKey: ['trustCircle'],
+    queryFn: () => sosApi.getTrustCircle(),
+    staleTime: 30_000,
+  });
 
   useEffect(() => {
     (async () => {
@@ -128,16 +139,85 @@ function SosInner() {
   };
 
   const onTriggerSos = async () => {
-    if (!contact) return;
     haptic('warning');
-    const result = await triggerSos({
-      contact,
-      senderName: user?.name ?? t('sos.sender_fallback_name'),
-    });
-    if (!result.opened) {
+
+    // Two-pronged fan-out:
+    //   1. Server side — push the user's Trust Circle (matched Doondo
+    //      users) + 2 nearest verified peers. Best-effort; failures
+    //      don't block the on-device SMS path because the SMS still
+    //      works when the seeker's phone has no internet.
+    //   2. On-device SMS to the legacy on-device contact (if set).
+    //      Opens the user's SMS composer so they see what's being
+    //      sent and can cancel.
+    let reach: { trustContactsPushed: number; peersPushed: number } | null = null;
+    let unmatchedFromServer: Array<{ name: string; phone: string }> = [];
+    try {
+      const coords = await getCurrentCoords().catch(() => null);
+      const res = await sosApi.trigger({
+        lat: coords?.lat,
+        lng: coords?.lng,
+      });
+      reach = {
+        trustContactsPushed: res.reach.trustContactsPushed,
+        peersPushed: res.reach.peersPushed,
+      };
+      unmatchedFromServer = res.unmatchedContacts.map((c) => ({
+        name: c.name,
+        phone: c.phone,
+      }));
+    } catch {
+      // Network or auth blip — fall through to local SMS. We surface
+      // the silent failure in the toast below if BOTH paths fail.
+    }
+
+    // On-device SMS — primary path for the legacy contact AND for any
+    // Trust Circle contact that didn't match a Doondo user. Loop
+    // sequentially so the OS composer can present each in turn.
+    const onDeviceTargets: SosContact[] = [];
+    if (contact) onDeviceTargets.push(contact);
+    for (const c of unmatchedFromServer) {
+      if (!onDeviceTargets.find((x) => x.phone === c.phone)) {
+        onDeviceTargets.push(c);
+      }
+    }
+
+    let smsOpened = false;
+    for (const target of onDeviceTargets) {
+      const r = await triggerSos({
+        contact: target,
+        senderName: user?.name ?? t('sos.sender_fallback_name'),
+      });
+      if (r.opened) {
+        smsOpened = true;
+        break; // Once one composer opens, let the user send/cancel before iterating.
+      }
+    }
+
+    // Summary toast.
+    if (reach) {
+      const parts: string[] = [];
+      if (reach.trustContactsPushed > 0) {
+        parts.push(
+          `${reach.trustContactsPushed} trust contact${reach.trustContactsPushed === 1 ? '' : 's'} notified`,
+        );
+      }
+      if (reach.peersPushed > 0) {
+        parts.push(
+          `${reach.peersPushed} nearby peer${reach.peersPushed === 1 ? '' : 's'} alerted`,
+        );
+      }
+      if (smsOpened) parts.push('SMS draft opened');
+      Alert.alert(
+        'Alert sent',
+        parts.length > 0 ? parts.join(' · ') : 'Help is on the way.',
+      );
+    } else if (smsOpened) {
+      // Server didn't respond but the local SMS did.
+      Alert.alert('SMS draft opened', 'Send the message to alert your contact.');
+    } else {
       Alert.alert(
         t('sos.couldnt_open_sms_title'),
-        result.reason ?? t('sos.couldnt_open_sms_default'),
+        t('sos.couldnt_open_sms_default'),
       );
     }
   };
@@ -213,6 +293,52 @@ function SosInner() {
             {t('sos.how_it_works_body')}
           </Text>
         </View>
+
+        {/* Trust Circle status — server-side fan-out summary */}
+        <Pressable
+          onPress={() => {
+            haptic('selection');
+            navigation.navigate('TrustCircle');
+          }}
+          style={{
+            marginHorizontal: spacing.xl,
+            padding: spacing.lg,
+            borderRadius: radii.lg,
+            backgroundColor: theme.bg.surface,
+            borderWidth: 0.5,
+            borderColor: theme.border.default,
+            marginBottom: spacing.xl,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.md,
+          }}
+        >
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: theme.brand.heroSubtle,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 18 }}>🛡️</Text>
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="bodyLarge" weight="medium">
+              Trust Circle
+            </Text>
+            <Text variant="footnote" tone="secondary">
+              {trustQuery.data
+                ? `${trustQuery.data.trustCircle.length}/3 contacts saved${trustQuery.data.isPeerResponder ? ' · peer responder on' : ''}`
+                : 'Up to 3 contacts get pushed when you SOS'}
+            </Text>
+          </View>
+          <Text style={{ fontSize: 13, fontWeight: '600', color: theme.brand.hero }}>
+            Manage ›
+          </Text>
+        </Pressable>
 
         {/* Contact card */}
         {!editing && contact ? (

@@ -74,6 +74,29 @@ router.get(
   validate(applicationIdParamsSchema),
   controller.skillGap,
 );
+
+// Shift check-in / check-out — selfie + geofence. Seeker only;
+// employer side reads via list.
+router.post(
+  '/:id/check-in',
+  requireAuth,
+  requireRole('seeker'),
+  validate(applicationIdParamsSchema),
+  controller.checkIn,
+);
+router.post(
+  '/:id/check-out',
+  requireAuth,
+  requireRole('seeker'),
+  validate(applicationIdParamsSchema),
+  controller.checkOut,
+);
+router.get(
+  '/:id/check-ins',
+  requireAuth,
+  validate(applicationIdParamsSchema),
+  controller.listCheckIns,
+);
 router.post(
   '/:id/withdraw',
   requireAuth,

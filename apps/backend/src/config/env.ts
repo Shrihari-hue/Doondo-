@@ -84,6 +84,23 @@ const schema = z.object({
    * with weekend gaps isn't unfairly punished.
    */
   GHOST_SLA_HOURS: z.coerce.number().int().positive().default(72),
+
+  // ─── Profile extraction (one-photo profile) ───────────────────────────
+  /**
+   * 'anthropic' calls the Anthropic Messages API with the supplied
+   * image; 'mock' returns a deterministic stub so the mobile UX can be
+   * tested without a real key. Default 'mock' in development so a
+   * fresh checkout works end-to-end without configuration; production
+   * deploys must set this to 'anthropic' explicitly.
+   */
+  PROFILE_EXTRACT_PROVIDER: z.enum(['anthropic', 'mock']).default('mock'),
+  /** Anthropic API key (required when PROFILE_EXTRACT_PROVIDER=anthropic). */
+  ANTHROPIC_API_KEY: z.string().optional(),
+  /**
+   * Model to use for vision extraction. Default a recent Sonnet — good
+   * vision quality at a reasonable cost. Override per environment.
+   */
+  ANTHROPIC_VISION_MODEL: z.string().default('claude-sonnet-4-6'),
   /**
    * Cron for the interview-reminder sweep. Default every 15 min on the
    * quarter-hour — cheap (small indexed query) and gives any rescheduled

@@ -28,6 +28,7 @@ import * as endorsementController from '@/modules/endorsements/endorsement.contr
 import * as skillTestController from '@/modules/skillTests/skillTests.controller';
 import * as profileViewService from '@/modules/me/profileView.service';
 import * as doondoScoreService from '@/modules/users/doondoScore.service';
+import * as sosService from '@/modules/sos/sos.service';
 import mentorsRouter from '@/modules/mentors/mentor.routes';
 import paymentsRouter from '@/modules/payments/payment.routes';
 import {
@@ -123,6 +124,59 @@ v1.get(
 // Public employer detail. Anyone (even unauthenticated) can pull this up —
 // it's the same trust signal a seeker uses to decide whether to apply.
 v1.get('/employers/:id', employersController.getEmployerProfile);
+
+// ─── SOS (safety) ───────────────────────────────────────────────────────────
+// `POST /sos/trigger` fans the alert to Trust Circle + 2 nearest verified
+// peers. Returns the unmatched trust-circle contacts so the mobile can open
+// SMS composers for them as a fallback.
+v1.post('/sos/trigger', requireAuth, async (req, res, next) => {
+  try {
+    const body = (req.body ?? {}) as { lat?: number; lng?: number; note?: string };
+    const lat = typeof body.lat === 'number' ? body.lat : undefined;
+    const lng = typeof body.lng === 'number' ? body.lng : undefined;
+    const result = await sosService.triggerSos({
+      userId: req.user!.id,
+      lat,
+      lng,
+      note: typeof body.note === 'string' ? body.note : undefined,
+    });
+    res.status(201).json({ ok: true, data: result, requestId: req.id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+v1.get('/sos/mine', requireAuth, async (req, res, next) => {
+  try {
+    const alerts = await sosService.listMyAlerts(req.user!.id);
+    res.json({ ok: true, data: { alerts }, requestId: req.id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+v1.post(
+  '/sos/:id/resolve',
+  requireAuth,
+  validate(
+    z.object({
+      params: z.object({
+        id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id'),
+      }),
+    }),
+  ),
+  async (req, res, next) => {
+    try {
+      const alert = await sosService.resolveAlert({
+        alertId: req.params.id!,
+        callerId: req.user!.id,
+      });
+      res.json({ ok: true, data: { alert }, requestId: req.id });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // Doondo Score — portable employability number. Public read so a
 // seeker can share their score outside the app (QR code, link, future

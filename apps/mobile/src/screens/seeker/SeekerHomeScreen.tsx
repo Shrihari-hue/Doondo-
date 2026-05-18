@@ -48,6 +48,7 @@ import { DenseJobFeed } from './home/DenseJobFeed';
 import { AvailabilityBeaconChip } from './home/AvailabilityBeacon';
 import { LocalWageWidget } from './home/LocalWageWidget';
 import { RecommendedForYouRail } from './home/RecommendedForYouRail';
+import { HiredNearbyRail } from './home/HiredNearbyRail';
 import type { PublicJob } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 
@@ -337,6 +338,10 @@ export function SeekerHomeScreen() {
         {/* Personalised "for you" rail — driven by /jobs/recommended.
             Self-hides when no scoreable matches exist. */}
         <RecommendedForYouRail />
+
+        {/* "Hired near you today" — anonymised social-proof rail.
+            Self-hides when the feed is empty (new city, dormant area). */}
+        <HiredNearbyRail />
 
         {/* Voice search hero card — gradient + shadow for premium depth */}
         <Pressable onPress={openVoice}>

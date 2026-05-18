@@ -101,6 +101,47 @@ export interface Education {
 export const WORK_TYPES = ['solo', 'team'] as const;
 export type WorkType = (typeof WORK_TYPES)[number];
 
+/**
+ * Streak counter for a single kind of activity (apply / course / shift).
+ *
+ * Tracked client-side as YYYY-MM-DD strings in India Standard Time so a
+ * worker who applies at 11pm and again at 1am the next day gets a
+ * streak bump, not a reset. `current` is the rolling consecutive count;
+ * `longest` is the personal best (never decreases); `totalDays` is the
+ * lifetime count of distinct active days (drives "X total apply days"
+ * lines on Profile).
+ *
+ * `lastDate` null = the user has never done this activity. `current` is
+ * always >= 0 and reflects how many consecutive days up to and
+ * including `lastDate` they were active.
+ */
+export interface StreakCounter {
+  current: number;
+  longest: number;
+  totalDays: number;
+  /** YYYY-MM-DD in IST. Null until first activity. */
+  lastDate?: string | null;
+}
+
+/**
+ * One person in the seeker's safety Trust Circle.
+ *
+ * Each entry is a contact who will be pinged on SOS in addition to the
+ * on-device emergency contact. We store name + phone + an optional
+ * relationship label so the recipient's notification reads naturally
+ * ("Priya's brother sent an SOS" vs "Priya from Doondo").
+ *
+ * Phone is required so the platform can route a push to that contact
+ * if they're already on Doondo (matched by phoneHash) AND optionally
+ * SMS them out-of-band later. Max 3 enforced at the schema level.
+ */
+export interface TrustCircleContact {
+  name: string;
+  phone: string;
+  /** Short relationship label: 'family' | 'friend' | 'employer' | other. */
+  relationship?: string | null;
+}
+
 export const BUSINESS_TYPES = [
   'individual',
   'shop',
@@ -260,6 +301,34 @@ export interface User {
    * for tuning the digest content.
    */
   lastDigestSentAt?: Date | null;
+  /**
+   * Three rolling activity streaks. Bumped by:
+   *   - apply  → `application.service.apply` on a new application
+   *   - course → `courses.service.completeLesson` on a lesson done
+   *   - shift  → `shiftCheckIn.service.createCheckIn` on a check_in
+   * Each is mutated atomically by `streaks.service.bumpStreak`, which
+   * also fires milestone pushes (3/7/14/30 days).
+   */
+  streaks: {
+    apply: StreakCounter;
+    course: StreakCounter;
+    shift: StreakCounter;
+  };
+  /**
+   * Up to 3 emergency contacts. Pinged in addition to the on-device
+   * SMS contact when the seeker triggers SOS. Stored backend-side so
+   * the alert still fires even if the seeker's phone is offline (the
+   * mobile is the *primary* dispatcher, the server is the safety net).
+   */
+  trustCircle: TrustCircleContact[];
+  /**
+   * Whether this user has opted in to receive SOS pings from nearby
+   * workers. The peer-responder pool is the second tier of an SOS
+   * fan-out: 2 verified peers within ~5km get pushed when anyone in
+   * the area triggers an alert. Default off — workers must explicitly
+   * agree to be in the pool because being woken at 2am is a real cost.
+   */
+  isPeerResponder: boolean;
   // ─── Employer profile (Phase 3) ─────────────────────────────────────────
   /** Trading / brand name shown on job posts. */
   companyName?: string | null;
@@ -337,6 +406,16 @@ export interface PublicUser {
   } | null;
   /** Profile-completion percent (0..100). Computed, not stored. */
   profileCompletion: number;
+  /** Safety Trust Circle — up to 3 emergency contacts the user has saved. */
+  trustCircle: TrustCircleContact[];
+  /** Whether this user has opted in to receive SOS pings from nearby workers. */
+  isPeerResponder: boolean;
+  /** Rolling activity streaks — drives the Profile streak strip. */
+  streaks: {
+    apply: StreakCounter;
+    course: StreakCounter;
+    shift: StreakCounter;
+  };
   /**
    * Aggregated rating summary. Null when this user has zero ratings —
    * lets the UI render "No ratings yet" rather than "0.0 ⭐". The avg
@@ -586,6 +665,54 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
     },
     expoPushTokens: { type: [String], default: [] },
     lastDigestSentAt: { type: Date, default: null },
+    streaks: {
+      type: new Schema(
+        {
+          apply: {
+            current: { type: Number, default: 0, min: 0 },
+            longest: { type: Number, default: 0, min: 0 },
+            totalDays: { type: Number, default: 0, min: 0 },
+            lastDate: { type: String, default: null },
+          },
+          course: {
+            current: { type: Number, default: 0, min: 0 },
+            longest: { type: Number, default: 0, min: 0 },
+            totalDays: { type: Number, default: 0, min: 0 },
+            lastDate: { type: String, default: null },
+          },
+          shift: {
+            current: { type: Number, default: 0, min: 0 },
+            longest: { type: Number, default: 0, min: 0 },
+            totalDays: { type: Number, default: 0, min: 0 },
+            lastDate: { type: String, default: null },
+          },
+        },
+        { _id: false },
+      ),
+      default: () => ({
+        apply: { current: 0, longest: 0, totalDays: 0, lastDate: null },
+        course: { current: 0, longest: 0, totalDays: 0, lastDate: null },
+        shift: { current: 0, longest: 0, totalDays: 0, lastDate: null },
+      }),
+    },
+    trustCircle: {
+      type: [
+        new Schema<TrustCircleContact>(
+          {
+            name: { type: String, required: true, trim: true, maxlength: 120 },
+            phone: { type: String, required: true, trim: true, maxlength: 30 },
+            relationship: { type: String, default: null, trim: true, maxlength: 40 },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+      validate: {
+        validator: (v: unknown[]) => Array.isArray(v) && v.length <= 3,
+        message: 'trustCircle may not exceed 3 entries',
+      },
+    },
+    isPeerResponder: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
 );
@@ -669,9 +796,36 @@ userSchema.method('toPublicJSON', function (
     employerLocation: empLocOut,
     profileCompletion: computeProfileCompletion(this),
     rating: opts?.rating && opts.rating.count > 0 ? opts.rating : null,
+    trustCircle: Array.isArray(this.trustCircle)
+      ? this.trustCircle.map((c) => ({
+          name: c.name,
+          phone: c.phone,
+          relationship: c.relationship ?? null,
+        }))
+      : [],
+    isPeerResponder: Boolean(this.isPeerResponder),
+    streaks: {
+      apply: serializeStreak(this.streaks?.apply),
+      course: serializeStreak(this.streaks?.course),
+      shift: serializeStreak(this.streaks?.shift),
+    },
     createdAt: this.createdAt.toISOString(),
   };
 });
+
+/**
+ * Defensive serializer for a single StreakCounter slot. Handles the
+ * case where a freshly-created user document has no streaks subdoc
+ * yet (older accounts, mocked test docs) by returning the zero shape.
+ */
+function serializeStreak(s: StreakCounter | null | undefined): StreakCounter {
+  return {
+    current: s?.current ?? 0,
+    longest: s?.longest ?? 0,
+    totalDays: s?.totalDays ?? 0,
+    lastDate: s?.lastDate ?? null,
+  };
+}
 
 /**
  * Lightweight scoring of "how complete is this profile". 7 fields each

@@ -36,6 +36,8 @@ import { MyEarningsScreen } from '@/screens/seeker/MyEarningsScreen';
 import { DownloadCenterScreen } from '@/screens/seeker/DownloadCenterScreen';
 import { EmployerDetailScreen } from '@/screens/seeker/EmployerDetailScreen';
 import { SosScreen } from '@/screens/seeker/SosScreen';
+import { TrustCircleScreen } from '@/screens/seeker/TrustCircleScreen';
+import { ProfileFromPhotoScreen } from '@/screens/seeker/ProfileFromPhotoScreen';
 import { ResumeBuilderScreen } from '@/screens/seeker/ResumeBuilderScreen';
 import { ResumePreviewScreen } from '@/screens/seeker/ResumePreviewScreen';
 import { JobAlertsScreen } from '@/screens/seeker/JobAlertsScreen';
@@ -206,6 +208,16 @@ export function AppNavigator() {
       <Stack.Screen
         name="Sos"
         component={SosScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="TrustCircle"
+        component={TrustCircleScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="ProfileFromPhoto"
+        component={ProfileFromPhotoScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen

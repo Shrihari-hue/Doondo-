@@ -140,7 +140,18 @@ export type AppStackParamList = {
   /** Modal: public employer detail (the "About this employer" page). */
   EmployerDetail: { userId: string };
   /** Modal: worker-safety SOS — pick contact + trigger help SMS. */
-  Sos: undefined;
+  Sos: { alertId?: string } | undefined;
+  /**
+   * Modal: manage the seeker's Trust Circle (up to 3 emergency
+   * contacts who get pushed on SOS) and the peer-responder opt-in.
+   */
+  TrustCircle: undefined;
+  /**
+   * Modal: snap a photo of a resume / ID / handwritten sheet and let
+   * AI fill the profile. Confirmation screen lets the seeker edit
+   * before saving. The biggest activation lever for low-literacy users.
+   */
+  ProfileFromPhoto: undefined;
   /** Modal: guided resume builder (1-5 jobs wizard). */
   ResumeBuilder: undefined;
   /** Modal: read-only resume preview, sharable. */

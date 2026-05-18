@@ -6,6 +6,18 @@ morning digest, Doondo Score) + roadmap doc.
 **Session 2:** 2 "Next" features (interview reminders, anonymous employer
 reviews) + cleanup of 9 pre-existing mobile type errors.
 
+**Session 3:** 2 "Next" features (SOS with Trust Circle, Live shift
+check-in with selfie + geofence) — the worker safety + attendance pair.
+
+**Session 4:** 1 transformative activation feature — one-photo profile
+(OCR resume snap with vision-AI extraction). The single biggest fix
+for the activation funnel for low-literacy users.
+
+**Session 5:** 3 retention/growth wins as a bundle — streaks (apply /
+course / shift days with milestone pushes), refer-a-friend payout +
+share card, and "hired near you today" social-proof rail. Closes the
+activation → trust → retention → growth loop.
+
 See `DOONDO_V2_ROADMAP.md` for the full backlog.
 
 ---
@@ -335,12 +347,354 @@ signal that's the basis for the "Workers say…" panel on EmployerDetail.
 
 ---
 
+---
+
+# Session 3 — SOS upgrade + Live shift check-in
+
+## Feature 8 — SOS with Trust Circle
+
+Worker safety primitive that fans an alert beyond the single on-device
+contact: up to 3 server-side Trust Circle contacts + 2 nearest verified
+peers. The on-device SMS path stays as the offline-safe fallback.
+
+**Backend**
+- `User.trustCircle: TrustCircleContact[]` (max 3) and
+  `User.isPeerResponder: boolean` added to the user model + public DTO.
+- New module `apps/backend/src/modules/sos/`:
+  - `sosAlert.model.ts` — durable receipt of every alert (geo-indexed,
+    fanout counts, resolution tracking).
+  - `sos.service.ts` — phone-hash matching for trust contacts, geo
+    query for the nearest 2 verified peer responders within 5 km,
+    parallel push fan-out via the existing Expo pipeline.
+- New endpoints:
+  - `GET /me/trust-circle` and `PUT /me/trust-circle` (CRUD, max 3
+    contacts, server-side validation).
+  - `POST /me/peer-responder` — opt-in toggle for the responder pool.
+  - `POST /sos/trigger` — fires the alert. Body
+    `{ lat?, lng?, note? }`. Returns the alert + reach counts + the
+    list of trust contacts whose phones DIDN'T match a Doondo user
+    (the device opens SMS composers for those).
+  - `GET /sos/mine` — the seeker's alert history.
+  - `POST /sos/:id/resolve` — any party to the alert can mark it resolved.
+- New notification kind `sos_alert` + push helper `sendSosAlertPush`.
+  Body includes a Google Maps link to the sender's last known location
+  so a responder can act without opening the app.
+
+**Mobile**
+- `PublicUser` extended with `trustCircle` and `isPeerResponder`.
+- New `sos.api.ts` with `getTrustCircle`, `putTrustCircle`,
+  `setPeerResponder`, `trigger`, `listMine`, `resolve`.
+- New screen `TrustCircleScreen`:
+  - 3 fixed slots, inline editing, no separate "add contact" modal.
+  - Relationship chips (Family / Friend / Employer / Other), with a
+    free-text input revealed when "Other" is selected.
+  - Optimistic peer-responder Switch with rollback on failure.
+  - All mutations save immediately so a half-edited row is never the
+    only record on the server.
+- `SosScreen` rewritten:
+  - New "Trust Circle" card up top showing X/3 contacts saved + peer
+    responder status, deeplinking to `TrustCircle`.
+  - SOS hold-to-trigger now does a TWO-PRONGED fan-out: calls
+    `sosApi.trigger` (server pushes matched Trust Circle users +
+    nearest verified peers) AND opens an SMS composer for any
+    unmatched contact. Either path failing alone is recoverable.
+  - Result toast summarizes reach ("2 trust contacts notified · 1
+    nearby peer alerted · SMS draft opened").
+- `Sos` route param updated to optionally accept `alertId` so push
+  taps can deep-link straight to a specific alert.
+
+**Tier ordering (worker's perspective, best to worst case)**
+1. Server-side Trust Circle members on Doondo → push within seconds.
+2. 2 nearest verified peers within 5 km → push.
+3. On-device SMS draft to the legacy contact + any unmatched Trust
+   Circle contact → user sees, taps Send. Works offline.
+
+---
+
+## Feature 9 — Live Shift Check-in (selfie + geofence)
+
+Daily attendance primitive — selfie + GPS proof that the worker was
+on-site. Unblocks the rest of the safety/score/payment chain.
+
+**Backend**
+- New `ShiftCheckIn` model
+  (`apps/backend/src/modules/applications/shiftCheckIn.model.ts`):
+  applicationId, kind (`check_in` / `check_out`), selfieUrl
+  (base64, `select: false`), 2dsphere-indexed geo Point,
+  `distanceFromJobMeters` (computed at write time).
+- New `shiftCheckIn.service.ts`:
+  - Authorizes the seeker on the application; status must be `hired`.
+  - Validates the selfie data URL format + size cap.
+  - Computes great-circle distance from `job.location.geo` and rejects
+    check-ins beyond 750 m as a soft fence. Jobs without coordinates
+    skip the fence (off-route / catering / delivery edge cases).
+  - Pushes the employer ("Priya checked in at 09:12 on Cook helper")
+    and sockets the seeker for cross-device sync.
+- New notification kind `shift_checkin` + push helper
+  `sendShiftCheckinPush`.
+- New endpoints:
+  - `POST /applications/:id/check-in` and `/check-out` (seeker only,
+    body `{ selfieDataUrl, lat, lng, timestamp? }`).
+  - `GET /applications/:id/check-ins` (both sides).
+
+**Mobile**
+- New `shiftCheckIn.api.ts` with `checkIn`, `checkOut`, `list`.
+- New `selfie.ts` capture utility — forces the front camera (no
+  library picker, so the selfie is real), walks
+  width × quality compression steps until the data URL fits the
+  server cap.
+- New `ShiftCheckInCard` on `MyApplicationsScreen` for any hired
+  application:
+  - Shows current shift status (`On shift since 09:12` /
+    `Off shift since 17:30` / `Ready to check in`).
+  - Single primary action button that swaps between
+    "Check in with selfie" and "Check out" based on the latest event.
+  - On tap: captures selfie → reads coords → posts → invalidates
+    cached check-ins so the card updates immediately.
+  - Inline error surface for permission denials / geofence rejections
+    so the worker can fix the problem without leaving the screen.
+- `PublicShiftCheckIn` type added to `api/types.ts`.
+
+---
+
+## Cross-cutting infra added (Session 3)
+
+| What | Where | Used by |
+|---|---|---|
+| `TrustCircleContact[]` on User | `users/user.model.ts` | SOS fan-out, future "vouched by" features |
+| `isPeerResponder` boolean | `users/user.model.ts` | Geo-indexed peer pool |
+| `SosAlert` model | `modules/sos/sosAlert.model.ts` | Audit trail, future admin dashboard |
+| `ShiftCheckIn` model | `modules/applications/shiftCheckIn.model.ts` | Foundation for attendance signal in Doondo Score v2, payment integrity, Crew Apply |
+| 2 new notification kinds | `notification.model.ts` | `sos_alert`, `shift_checkin` |
+| Front-camera selfie util | `mobile/lib/selfie.ts` | Reusable for future photo-verification flows (one-photo profile, etc.) |
+
+---
+
+## Verified (Session 3)
+
+- Backend `tsc --noEmit`: clean except `node-cron` and
+  `mongodb-memory-server` (both pending `pnpm install`).
+- Mobile `tsc --noEmit`: **0 errors** end-to-end.
+
+---
+
+---
+
+# Session 4 — One-photo profile
+
+The activation feature. Snap a photo of an old resume, an ID card,
+or a handwritten sheet → AI extracts name, skills, experience,
+work history, education, location → seeker confirms with inline
+edits → profile filled in 30 seconds instead of 5 form screens.
+
+## Feature 10 — One-photo profile (OCR via Anthropic Vision)
+
+**Backend**
+- New module `apps/backend/src/modules/profileExtract/profileExtract.service.ts`:
+  - Swappable provider pattern (mirrors `verification/sms.ts` design):
+    `MockExtractionProvider` for dev, `AnthropicExtractionProvider`
+    for production. The mock returns a deterministic fixture so the
+    mobile flow is end-to-end testable without an API key.
+  - Anthropic provider calls `POST https://api.anthropic.com/v1/messages`
+    with the image content block + a strict JSON-only system prompt
+    that lists the exact output schema and tells the model to NEVER
+    invent fields. Indian-context aware: handles Hindi / Tamil / Telugu
+    / Kannada / Bengali scripts, normalises trade words to known slugs
+    (cook, electrician, mason, delivery, etc.).
+  - Defensive normalization: every parsed field is type-checked and
+    bounds-checked before reaching the response. A hallucinated entry
+    is dropped, not surfaced.
+- New endpoint `POST /api/v1/me/profile/extract-from-photo`. Body
+  `{ imageDataUrl: string, locale?: string }`. Capped at 1.3MB to keep
+  vision-call costs and Express bodies sane.
+- New env keys: `PROFILE_EXTRACT_PROVIDER` (anthropic / mock — default
+  mock), `ANTHROPIC_API_KEY` (required for prod), `ANTHROPIC_VISION_MODEL`
+  (default `claude-sonnet-4-6`).
+
+**Mobile**
+- New `lib/profileDocument.ts` — pick from camera OR library, compress
+  with multiple longer-edge × quality steps until the data URL fits the
+  backend cap. Reuses the manipulation pipeline pattern from `selfie.ts`
+  but with larger target widths (resume text needs to stay legible).
+- New `api/profileExtract.api.ts` — thin wrapper around the new endpoint.
+- New `ExtractedProfile` + `ExtractedWorkExperience` + `ExtractedEducation`
+  types in `api/types.ts`.
+- New screen `ProfileFromPhotoScreen` with a clean 3-stage flow:
+  - **Pick** — two big buttons (Camera / Gallery), tips card.
+  - **Extracting** — image preview with a "Reading your photo…"
+    loading state. Calibrates the user's expectation to 5–15 seconds.
+  - **Confirm** — every extracted field shown with inline edits.
+    Name, bio, comma-separated skills, experience years, city + area
+    as side-by-side fields. Work history + education render as
+    summary cards (full edit is in the existing ResumeBuilder).
+    A confidence pill in the header tells the seeker whether to
+    glance ("Looks clear") or scrutinize ("Please review").
+  - **Save** — single button that fires PATCH `/me/profile` AND
+    PUT `/me/work-history` in sequence, then invalidates the auth
+    query so the rest of the app sees the new fields.
+- Registered as a modal in `AppNavigator`. Activation surface:
+  - New CTA banner on `ProfileScreen` for seekers with
+    `profileCompletion < 50` — brand-hero coloured, sits above the
+    pending-ratings banner, deeplinks to `ProfileFromPhoto`. Hides
+    automatically once the profile is healthy.
+
+## What it unlocks
+
+This was the largest leak in the activation funnel. Until now, the
+flow was: see jobs (60-sec first match) → sign up → hit a wall of
+profile-completion forms → drop. Now: see jobs → sign up → snap a
+photo → confirm → land on a real profile that the recommendations
+service can actually rank against. The downstream features
+(personalised digest, Doondo Score, anti-ghost, anonymous reviews)
+all compound on this — every signal in the app is more useful when
+the seeker's profile isn't blank.
+
+## Verified (Session 4)
+
+- Backend `tsc --noEmit`: clean except the install-pending
+  `node-cron` and `mongodb-memory-server` errors.
+- Mobile `tsc --noEmit`: **0 errors** end-to-end.
+
+## To run with real Anthropic Vision (instead of mock)
+
+In `.env`:
+```
+PROFILE_EXTRACT_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_VISION_MODEL=claude-sonnet-4-6
+```
+
+Restart the backend. The mobile flow is identical — the swap is
+backend-only.
+
+---
+
+---
+
+# Session 5 — Retention + growth bundle
+
+Three small features shipped together because they share infra and
+compound on what's already built. Together they close the
+activation → trust → retention → growth loop.
+
+## Feature 11 — Streaks (apply / course / shift days)
+
+**Backend**
+- `User.streaks: { apply, course, shift }` — each slot is
+  `{ current, longest, totalDays, lastDate (YYYY-MM-DD in IST) }`.
+- New service `apps/backend/src/modules/users/streaks.service.ts`
+  with `bumpStreak(userId, kind)`:
+  - Same-day re-fires are no-ops (idempotent).
+  - Yesterday → current + 1. Otherwise → reset to 1.
+  - Tracks longest + totalDays per kind.
+  - Detects exact threshold crossings at 3 / 7 / 14 / 30 days and
+    fires a single push per crossing.
+- Hooks added:
+  - `application.service.apply` → bumpStreak(seekerId, 'apply').
+  - `shiftCheckIn.service.createCheckIn` → bumpStreak on `check_in`
+    only (one day of work = one streak day, not two).
+  - `courses.service.completeLesson` → bumpStreak(seekerId, 'course').
+- New notification kind `streak_milestone` + push helper
+  `sendStreakMilestonePush`. Copy is warm + brief — pure dopamine,
+  no CTA.
+- All bumps are fire-and-forget so the originating action never
+  waits on a streak write.
+
+**Mobile**
+- `PublicUser.streaks` exposed in the API type.
+- New `StreakChip` component on `ProfileScreen` renders a 3-tile
+  strip (Apply / Learn / Show up). Active streaks (current > 0) get
+  a flame icon and brand-hero color; inactive ones show the
+  personal-best number with a "best N" hint to motivate restart.
+  Each tile deep-links to the relevant activity surface
+  (MyApplications, Courses, MyApplications).
+- The whole strip is hidden for users with zero totalDays so a
+  fresh profile doesn't show empty cells.
+
+## Feature 12 — Refer-a-friend payout + share card
+
+The referral pipeline already existed (record on apply via
+`?ref=`, credit ₹100 to the referrer's wallet on hire). This
+session adds the push + share-out surface.
+
+**Backend**
+- `referral.service.creditOnHire` now also fires
+  `sendReferralBonusPush` to the referrer with the referee's
+  first name and the credited amount. Deep-links to MyEarnings.
+- New notification kind `referral_bonus`.
+- `GET /me/referrals` already returned summary + history; no
+  schema changes needed.
+
+**Mobile**
+- `ReferralMenuRow` on `ProfileScreen` is now two-tone:
+  - When the seeker HAS earned bonuses → ledger mode:
+    "₹300 earned · 3 hires" → tap routes to MyEarnings.
+  - When they haven't → CTA mode: "Invite a friend · ₹100 when
+    they get hired" → tap opens the OS share sheet with the
+    seeker's referral link (`https://doondo.app/install?ref={userId}`).
+- The link's `?ref=` is already honored by the apply flow, so a
+  hire downstream credits the referrer through the existing
+  pipeline — no new schema, no new state machine.
+
+## Feature 13 — "Hired near you today" feed
+
+Anonymised social-proof rail on Home + push fan-out on hire.
+
+**Backend**
+- New service
+  `apps/backend/src/modules/applications/hiredNearby.service.ts`:
+  - `fanOutOnHire({ applicationId })` — runs on every hire
+    transition. Geo-finds verified active seekers within 10km of
+    the job, capped at 50 recipients, honors per-user `jobs`
+    notification preference, sends `sendHiredNearbyPush`.
+  - `listNearbyHires({ callerId, limit })` — pull-style feed
+    backed by a `$geoNear` aggregation on jobs near the caller's
+    saved home location followed by a recent-hires lookup.
+    Returns first-name only, job title, and area — never full
+    names, never exact coords.
+- Hooked into `application.service.transitionByEmployer` on the
+  `hired` transition (alongside the existing wallet credit + referral
+  credit fire-and-forget paths).
+- New endpoint `GET /me/hired-nearby?limit=N`.
+- New notification kind `hired_nearby` + push helper
+  `sendHiredNearbyPush`.
+
+**Mobile**
+- New `hiredNearby.api.ts` wrapper.
+- New `HiredNearbyEntry` type in `api/types.ts`.
+- New `HiredNearbyRail` component at
+  `screens/seeker/home/HiredNearbyRail.tsx`: horizontally-
+  scrolling card rail with green-dot live indicator + relative
+  time ("12 min ago" / "2 hr ago" / "yesterday"). Cards are
+  read-only — tapping them anywhere goes nowhere by design
+  (privacy of the hired worker).
+- Rail is wired into `SeekerHomeScreen` just after the existing
+  `RecommendedForYouRail`. Self-hides on empty.
+
+## Cross-cutting infra added (Session 5)
+
+| What | Where | Used by |
+|---|---|---|
+| `User.streaks` shape + bumpStreak | `users/streaks.service.ts` + model | Apply / course / shift days; reusable for future streak kinds |
+| `istDateString` helper | `users/streaks.service.ts` | All IST-day calculations (digest already had its own copy; can merge later) |
+| 3 new notification kinds | `notification.model.ts` | `streak_milestone`, `referral_bonus`, `hired_nearby` |
+| `hiredNearby.fanOutOnHire` | `applications/hiredNearby.service.ts` | Social-proof signal; reusable for future "X near you" feeds |
+| Share-sheet integration | `ProfileScreen` referral row | Pattern for future share surfaces (profile, badges, achievements) |
+
+## Verified (Session 5)
+
+- Backend `tsc --noEmit`: clean except `node-cron` /
+  `mongodb-memory-server` install-pending errors.
+- Mobile `tsc --noEmit`: **0 errors** end-to-end.
+
+---
+
 ## What's next
 
-`DOONDO_V2_ROADMAP.md` still has the prioritized plan. Sitting in the
-"Next" tranche after this session: one-photo profile (OCR resume),
-SOS upgrade with trust circle, streaks (small champagne-gold flair),
-refer-a-friend payout, re-engagement for 14-day dormant users,
-voice-note replies, live shift check-in with selfie + geofence, and a
-per-screen language toggle. Each one is 1–3 days of work — pick the
-ones that match what you're hearing from early users.
+The "Next" tranche after this session: voice-note replies with
+auto-transcription, quick-reply templates pre-translated,
+per-screen language toggle, re-engagement flow for 14-day dormant
+users, Doondo Pulse home-screen widget. Plus the "polish + i18n
+sweep" path that turns "shipped" into "feels launched" before a
+real beta. With the activation → trust → retention → growth loop
+now complete, polish is genuinely the highest-leverage move.

@@ -50,6 +50,29 @@ router.use('/', seekerEnrollmentsRouter);
 // Referral history + summary — drives the Profile "Referral credit" row.
 router.get('/referrals', requireAuth, referralController.listMyReferrals);
 
+// "Hired near you today" — anonymised social-proof feed for the Home
+// rail. Returns the last 5 hires within ~10 km of the caller's saved
+// home location.
+router.get('/hired-nearby', requireAuth, async (req, res, next) => {
+  try {
+    const { listNearbyHires } = await import(
+      '@/modules/applications/hiredNearby.service'
+    );
+    const limitRaw = req.query.limit;
+    const limit =
+      typeof limitRaw === 'string' && /^\d+$/.test(limitRaw)
+        ? Math.min(20, Math.max(1, parseInt(limitRaw, 10)))
+        : 5;
+    const entries = await listNearbyHires({
+      callerId: req.user!.id,
+      limit,
+    });
+    res.json({ ok: true, data: { entries }, requestId: req.id });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Advance / microloan stub — see modules/advances for the lifecycle.
 // Mounted at /me so all seeker-financial endpoints share the prefix.
 router.use('/', advancesRouter);
@@ -73,6 +96,100 @@ router.get('/notification-prefs', requireAuth, async (req, res, next) => {
         referrals: prefs.referrals ?? true,
       },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Trust Circle (Safety) ───────────────────────────────────────────────
+// Up to 3 emergency contacts who get a push on SOS. Stored backend-side
+// so an alert still fires even when the seeker's phone is offline (the
+// mobile is the primary dispatcher, the server is the safety net).
+router.get('/trust-circle', requireAuth, async (req, res, next) => {
+  try {
+    const { UserModel } = await import('@/modules/users/user.model');
+    const u = await UserModel.findById(req.user!.id)
+      .select('trustCircle isPeerResponder')
+      .lean();
+    res.json({
+      ok: true,
+      data: {
+        trustCircle: ((u as { trustCircle?: unknown[] } | null)?.trustCircle ?? []).map(
+          (c) => {
+            const contact = c as { name: string; phone: string; relationship?: string | null };
+            return {
+              name: contact.name,
+              phone: contact.phone,
+              relationship: contact.relationship ?? null,
+            };
+          },
+        ),
+        isPeerResponder: Boolean(
+          (u as { isPeerResponder?: boolean } | null)?.isPeerResponder,
+        ),
+      },
+      requestId: req.id,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/trust-circle', requireAuth, async (req, res, next) => {
+  try {
+    const body = (req.body ?? {}) as {
+      contacts?: Array<{ name?: unknown; phone?: unknown; relationship?: unknown }>;
+    };
+    const raw = Array.isArray(body.contacts) ? body.contacts.slice(0, 3) : [];
+    const cleaned: Array<{ name: string; phone: string; relationship: string | null }> = [];
+    for (const c of raw) {
+      if (typeof c?.name !== 'string' || c.name.trim().length === 0) continue;
+      if (typeof c?.phone !== 'string' || c.phone.trim().length < 6) continue;
+      cleaned.push({
+        name: c.name.trim().slice(0, 120),
+        phone: c.phone.trim().slice(0, 30),
+        relationship:
+          typeof c.relationship === 'string' && c.relationship.trim().length > 0
+            ? c.relationship.trim().slice(0, 40)
+            : null,
+      });
+    }
+    const { UserModel } = await import('@/modules/users/user.model');
+    const updated = await UserModel.findByIdAndUpdate(
+      req.user!.id,
+      { $set: { trustCircle: cleaned } },
+      { new: true },
+    )
+      .select('trustCircle isPeerResponder')
+      .lean();
+    res.json({
+      ok: true,
+      data: {
+        trustCircle: cleaned,
+        isPeerResponder: Boolean(
+          (updated as { isPeerResponder?: boolean } | null)?.isPeerResponder,
+        ),
+      },
+      requestId: req.id,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/peer-responder', requireAuth, async (req, res, next) => {
+  try {
+    const body = (req.body ?? {}) as { enabled?: unknown };
+    if (typeof body.enabled !== 'boolean') {
+      res.status(400).json({ ok: false, error: { code: 'VALIDATION_FAILED', message: '`enabled` must be a boolean.' } });
+      return;
+    }
+    const { UserModel } = await import('@/modules/users/user.model');
+    await UserModel.updateOne(
+      { _id: req.user!.id },
+      { $set: { isPeerResponder: body.enabled } },
+    );
+    res.json({ ok: true, data: { isPeerResponder: body.enabled }, requestId: req.id });
   } catch (err) {
     next(err);
   }
@@ -149,6 +266,55 @@ router.patch(
   validate(updateProfileSchema),
   controller.updateProfile,
 );
+
+// One-photo profile — POST a base64 image, get back a structured
+// partial profile. The mobile screen renders the result and the user
+// confirms/edits before submitting via the regular PATCH /me/profile.
+//
+// No Zod schema here because the only field is a single very-large
+// data URL — Express body limit + the inline check below are enough.
+router.post('/profile/extract-from-photo', requireAuth, async (req, res, next) => {
+  try {
+    const body = (req.body ?? {}) as { imageDataUrl?: unknown; locale?: unknown };
+    if (
+      typeof body.imageDataUrl !== 'string' ||
+      !body.imageDataUrl.startsWith('data:image/')
+    ) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: 'VALIDATION_FAILED',
+          message: 'imageDataUrl must be a base64 image data URL.',
+        },
+        requestId: req.id,
+      });
+      return;
+    }
+    // Cap the inbound image size — the mobile compresses to ~700KB so
+    // anything larger is suspicious and would bloat the vision call.
+    if (body.imageDataUrl.length > 1_300_000) {
+      res.status(413).json({
+        ok: false,
+        error: {
+          code: 'VALIDATION_FAILED',
+          message: 'Image is too large. Compress further on the device.',
+        },
+        requestId: req.id,
+      });
+      return;
+    }
+    const { extractProfileFromPhoto } = await import(
+      '@/modules/profileExtract/profileExtract.service'
+    );
+    const extracted = await extractProfileFromPhoto({
+      imageDataUrl: body.imageDataUrl,
+      locale: typeof body.locale === 'string' ? body.locale : undefined,
+    });
+    res.json({ ok: true, data: { extracted }, requestId: req.id });
+  } catch (err) {
+    next(err);
+  }
+});
 router.post(
   '/location',
   requireAuth,

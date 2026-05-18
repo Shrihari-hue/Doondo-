@@ -149,6 +149,19 @@ export async function completeLesson(
   }
 
   await enrolment.save();
+
+  // Bump the seeker's course-day streak. Same-day repeat completions
+  // are no-ops in the streak service so a worker who finishes 3
+  // lessons in a row still counts as one day. Fire-and-forget.
+  void (async () => {
+    try {
+      const { bumpStreak } = await import('@/modules/users/streaks.service');
+      await bumpStreak(seekerId, 'course');
+    } catch {
+      /* non-fatal */
+    }
+  })();
+
   return enrolment.toPublicJSON();
 }
 

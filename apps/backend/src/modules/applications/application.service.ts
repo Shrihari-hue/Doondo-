@@ -153,6 +153,17 @@ export async function apply(input: ApplyInput): Promise<PublicApplication> {
       timestamp: app.appliedAt.toISOString(),
     });
 
+    // Bump the seeker's apply-day streak. Fire-and-forget — the streak
+    // service silently no-ops on a same-day re-apply.
+    void (async () => {
+      try {
+        const { bumpStreak } = await import('@/modules/users/streaks.service');
+        await bumpStreak(input.seekerId, 'apply');
+      } catch (err) {
+        logger.warn({ err, seekerId: input.seekerId }, 'apply streak bump failed');
+      }
+    })();
+
     return app.toPublicJSON();
   } catch (err) {
     if (isDuplicateKey(err)) throw errors.applicationAlreadyExists();
@@ -581,6 +592,18 @@ export async function transitionByEmployer(
         });
       } catch (err) {
         logger.warn({ err, applicationId: app.id }, 'referral credit failed');
+      }
+    })();
+
+    // Fan-out "hired near you" social-proof pings to up to 50 verified
+    // seekers within 10 km of the job. Best-effort; the hire itself is
+    // already persisted.
+    void (async () => {
+      try {
+        const { fanOutOnHire } = await import('./hiredNearby.service');
+        await fanOutOnHire({ applicationId: app.id });
+      } catch (err) {
+        logger.warn({ err, applicationId: app.id }, 'hired-nearby fan-out failed');
       }
     })();
   }

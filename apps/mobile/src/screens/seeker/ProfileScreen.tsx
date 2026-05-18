@@ -23,7 +23,7 @@
  */
 
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Share, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -446,6 +446,67 @@ export function ProfileScreen() {
           )}
         </LinearGradient>
 
+        {/* ─── One-photo profile banner ──────────────────────────────
+            For seekers whose profile is still <50% complete, surface
+            the photo-to-profile flow as the highest-leverage next
+            step. We hide it once the profile is healthy so the
+            full-completion case stays clean.
+        ──────────────────────────────────────────────────────────── */}
+        {profileCompletion < 50 && (
+          <View
+            style={{
+              paddingHorizontal: spacing.xl,
+              marginTop: -spacing['2xl'],
+              marginBottom: spacing.md,
+            }}
+          >
+            <Pressable
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('ProfileFromPhoto');
+              }}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing.md,
+                padding: spacing.lg,
+                borderRadius: radii.lg,
+                backgroundColor: theme.brand.hero,
+                opacity: pressed ? 0.9 : 1,
+                shadowColor: theme.brand.hero,
+                shadowOpacity: 0.25,
+                shadowRadius: 16,
+                shadowOffset: { width: 0, height: 8 },
+                elevation: 4,
+              })}
+            >
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: 'rgba(255,253,247,0.2)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 22 }}>📸</Text>
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFDF7' }}>
+                  Snap a photo to fill your profile
+                </Text>
+                <Text variant="footnote" style={{ color: 'rgba(255,253,247,0.85)' }}>
+                  30 seconds. Resume, ID, or a handwritten sheet — all work.
+                </Text>
+              </View>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFDF7' }}>
+                Start ›
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
         {/* ─── Pending ratings banner ────────────────────────────────
             Shows above the stats strip whenever the seeker has hired
             applications they haven't rated yet. Tapping the banner
@@ -541,6 +602,46 @@ export function ProfileScreen() {
                 {t('profile_screen.ratings_banner.cta')}
               </Text>
             </Pressable>
+          </View>
+        )}
+
+        {/* ─── Streak strip ───────────────────────────────────────────
+            Three small chips showing apply / course / shift streaks.
+            Active streaks (current > 0 and within the last day) get a
+            flame icon; the rest stay calm. Tap → MyApplications,
+            Courses, or MyJobs respectively. We hide the whole strip
+            for users who have no streaks yet — empty state would just
+            be visual noise on a fresh profile. */}
+        {user && (user.streaks?.apply?.totalDays > 0 ||
+          user.streaks?.course?.totalDays > 0 ||
+          user.streaks?.shift?.totalDays > 0) && (
+          <View
+            style={{
+              paddingHorizontal: spacing.xl,
+              marginTop: spacing.md,
+              marginBottom: spacing.md,
+              flexDirection: 'row',
+              gap: spacing.sm,
+            }}
+          >
+            <StreakChip
+              label="Apply"
+              current={user.streaks?.apply?.current ?? 0}
+              longest={user.streaks?.apply?.longest ?? 0}
+              onPress={() => navigation.navigate('MyApplications')}
+            />
+            <StreakChip
+              label="Learn"
+              current={user.streaks?.course?.current ?? 0}
+              longest={user.streaks?.course?.longest ?? 0}
+              onPress={() => navigation.navigate('Courses')}
+            />
+            <StreakChip
+              label="Show up"
+              current={user.streaks?.shift?.current ?? 0}
+              longest={user.streaks?.shift?.longest ?? 0}
+              onPress={() => navigation.navigate('MyApplications')}
+            />
           </View>
         )}
 
@@ -1136,12 +1237,27 @@ function SkillSuggestionsRail({ onEdit }: { onEdit: () => void }) {
 }
 
 /**
- * MenuRow variant for referral credits. Queries the seeker's referral
- * summary so the subtitle shows actual rupees earned ("Referral credit:
- * ₹300 — 3 hires").
+ * MenuRow variant for referral credits.
+ *
+ * Two-tone behaviour:
+ *   - When the seeker HAS earned bonuses, the row reads as ledger:
+ *     "₹300 earned · 3 hires" and tapping routes to MyEarnings.
+ *   - When they haven't, the row reads as a CTA: "Invite a friend ·
+ *     ₹100 when they get hired" and tapping opens the OS share sheet
+ *     with a prefilled message + the user's referral link.
+ *
+ * The referral link carries the seeker's user id as `?ref=...` —
+ * the apply flow already records this on the Application so a hire
+ * naturally credits this referrer via the existing pipeline.
+ *
+ * The base URL is intentionally a placeholder for v1 and should be
+ * swapped to a real universal-link host once that's stood up.
  */
+const REFERRAL_LINK_BASE = 'https://doondo.app/install';
+
 function ReferralMenuRow() {
   const navigation = useNavigation<Nav>();
+  const { user } = useAuth();
   const t = useTranslate();
   const query = useQuery({
     queryKey: ['referrals', 'me'],
@@ -1149,24 +1265,111 @@ function ReferralMenuRow() {
     staleTime: 60_000,
   });
   const summary = query.data?.summary;
-  const subtitle =
-    summary && summary.totalBonusPaise > 0
-      ? t('profile_screen.referrals.subtitle_earned', {
-          amount: Math.round(summary.totalBonusPaise / 100).toLocaleString('en-IN'),
-          count: summary.hired,
-        })
-      : t('profile_screen.referrals.subtitle_empty');
+  const hasEarned = Boolean(summary && summary.totalBonusPaise > 0);
+
+  const subtitle = hasEarned
+    ? t('profile_screen.referrals.subtitle_earned', {
+        amount: Math.round((summary?.totalBonusPaise ?? 0) / 100).toLocaleString('en-IN'),
+        count: summary?.hired ?? 0,
+      })
+    : 'Invite a friend · ₹100 when they get hired';
+
+  const onPress = () => {
+    haptic('selection');
+    if (hasEarned) {
+      navigation.navigate('MyEarnings');
+      return;
+    }
+    if (!user?.id) return;
+    const link = `${REFERRAL_LINK_BASE}?ref=${user.id}`;
+    const message =
+      `I'm using Doondo to find work near me. Try it — when you get hired, we both earn ₹100.\n\n${link}`;
+    void Share.share({
+      message,
+      url: link,
+    }).catch(() => undefined);
+  };
+
   return (
     <MenuRow
       icon="💸"
       tint="#FEF3C7"
-      label={t('profile.menu.referrals')}
+      label={hasEarned ? t('profile.menu.referrals') : 'Refer a friend'}
       subtitle={subtitle}
-      onPress={() => {
-        haptic('selection');
-        navigation.navigate('MyEarnings');
-      }}
+      onPress={onPress}
     />
+  );
+}
+
+/**
+ * StreakChip — one of three tiles on the Profile streak strip.
+ *
+ * The chip lights up with a flame icon and brand-hero color when the
+ * current streak is active (> 0). Otherwise it shows the longest
+ * streak as a softer hint ("Best 5") to motivate restarts. Tap routes
+ * to the relevant activity surface so the worker can take action.
+ */
+function StreakChip({
+  label,
+  current,
+  longest,
+  onPress,
+}: {
+  label: string;
+  current: number;
+  longest: number;
+  onPress: () => void;
+}) {
+  const { theme } = useTheme();
+  const active = current > 0;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flex: 1,
+        padding: spacing.md,
+        borderRadius: radii.lg,
+        borderWidth: 0.5,
+        borderColor: active ? theme.brand.heroBorder : theme.border.default,
+        backgroundColor: active ? theme.brand.heroSubtle : theme.bg.surface,
+        opacity: pressed ? 0.85 : 1,
+        gap: 4,
+        alignItems: 'flex-start',
+      })}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        {active && <Text style={{ fontSize: 14 }}>🔥</Text>}
+        <Text
+          style={{
+            fontSize: 18,
+            fontWeight: '700',
+            color: active ? theme.brand.hero : theme.text.primary,
+          }}
+        >
+          {active ? current : longest > 0 ? longest : 0}
+        </Text>
+      </View>
+      <Text
+        style={{
+          fontSize: 11,
+          fontWeight: '600',
+          letterSpacing: 0.6,
+          color: theme.text.secondary,
+        }}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+      <Text
+        style={{
+          fontSize: 10,
+          color: theme.text.tertiary,
+          fontWeight: '500',
+        }}
+      >
+        {active ? `day${current === 1 ? '' : 's'}` : longest > 0 ? `best ${longest}` : 'start today'}
+      </Text>
+    </Pressable>
   );
 }
 

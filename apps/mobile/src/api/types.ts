@@ -208,10 +208,123 @@ export interface PublicUser {
     coordinates: [number, number] | null;
   } | null;
   profileCompletion: number;
+  /** Safety Trust Circle — up to 3 emergency contacts the user has saved. */
+  trustCircle: Array<{
+    name: string;
+    phone: string;
+    relationship: string | null;
+  }>;
+  /** Whether this user has opted in to receive SOS pings from nearby workers. */
+  isPeerResponder: boolean;
+  /**
+   * Three rolling activity streaks. Each kind is bumped server-side by
+   * the relevant action and drives the streak strip on Profile.
+   * `lastDate` is YYYY-MM-DD in IST; null until the user has ever done
+   * the activity.
+   */
+  streaks: {
+    apply: StreakCounter;
+    course: StreakCounter;
+    shift: StreakCounter;
+  };
   createdAt: string;
 }
 
+export interface StreakCounter {
+  current: number;
+  longest: number;
+  totalDays: number;
+  lastDate: string | null;
+}
+
+export interface HiredNearbyEntry {
+  applicationId: string;
+  hiredFirstName: string;
+  jobTitle: string;
+  area: string | null;
+  city: string | null;
+  hiredAt: string;
+}
+
 export type BusinessType = NonNullable<PublicUser['businessType']>;
+
+// ─── SOS + Shift check-in ──────────────────────────────────────────────────
+
+export interface SosTriggerReach {
+  trustContactsPushed: number;
+  trustContactsUnmatched: number;
+  peersPushed: number;
+}
+
+export interface PublicSosAlert {
+  id: string;
+  triggeredBy: string;
+  location: { lat: number; lng: number } | null;
+  note: string | null;
+  fanout: SosTriggerReach;
+  resolvedAt: string | null;
+  createdAt: string;
+}
+
+export interface SosTriggerResponse {
+  alert: PublicSosAlert;
+  reach: SosTriggerReach;
+  /** Trust-circle contacts whose phone hash didn't match a Doondo user. */
+  unmatchedContacts: Array<{
+    name: string;
+    phone: string;
+    relationship: string | null;
+  }>;
+}
+
+// ─── Profile extraction (one-photo profile) ─────────────────────────────────
+
+export interface ExtractedWorkExperience {
+  company: string;
+  role: string;
+  startDate: string; // YYYY-MM
+  endDate: string | null;
+  current: boolean;
+  description: string | null;
+}
+
+export interface ExtractedEducation {
+  degree: string;
+  institution: string;
+  fieldOfStudy: string | null;
+  startYear: number;
+  endYear: number | null;
+  current: boolean;
+}
+
+export interface ExtractedProfile {
+  name: string | null;
+  bio: string | null;
+  skills: string[];
+  experienceYears: number | null;
+  workHistory: ExtractedWorkExperience[];
+  education: ExtractedEducation[];
+  location: { city: string | null; area: string | null };
+  notes: string | null;
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export type ShiftCheckInKind = 'check_in' | 'check_out';
+
+export interface PublicShiftCheckIn {
+  id: string;
+  applicationId: string;
+  seekerId: string;
+  employerId: string;
+  jobId: string;
+  kind: ShiftCheckInKind;
+  /** Selfie data URL — present when the caller is a party to the application. */
+  selfieUrl: string | null;
+  location: { lat: number; lng: number };
+  distanceFromJobMeters: number | null;
+  timestamp: string;
+  createdAt: string;
+}
 
 // ─── Jobs ────────────────────────────────────────────────────────────────────
 

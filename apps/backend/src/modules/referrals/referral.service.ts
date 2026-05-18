@@ -11,6 +11,8 @@ import {
   type PublicReferral,
 } from './referral.model';
 import { WalletTransactionModel } from '@/modules/wallet/walletTransaction.model';
+import { UserModel } from '@/modules/users/user.model';
+import { sendReferralBonusPush } from '@/lib/push';
 
 /** ₹100 bonus when the referee gets hired. Tune freely. */
 export const REFERRAL_BONUS_PAISE = 10_000; // ₹100 in paise
@@ -93,6 +95,25 @@ export async function creditOnHire(input: {
   referral.bonusPaise = REFERRAL_BONUS_PAISE;
   referral.hiredAt = new Date();
   await referral.save();
+
+  // Push the referrer so they see the credit immediately. Best-effort.
+  void (async () => {
+    try {
+      const referee = await UserModel.findById(referral.refereeId).select('name').lean();
+      const refereeName =
+        (referee as { name?: string } | null)?.name?.split(' ')[0] ?? 'A friend';
+      await sendReferralBonusPush({
+        recipientId: referral.referrerId.toString(),
+        refereeName,
+        bonusPaise: REFERRAL_BONUS_PAISE,
+      });
+    } catch (err) {
+      logger.warn(
+        { err, referrerId: referral.referrerId.toString() },
+        'referral bonus push failed',
+      );
+    }
+  })();
 }
 
 export async function listForReferrer(

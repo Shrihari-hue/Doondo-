@@ -6,6 +6,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { errors } from '@/lib/errors';
 import * as applicationService from './application.service';
 import * as skillGapService from './skillGap.service';
+import * as shiftCheckInService from './shiftCheckIn.service';
 
 const ok = (req: Request, res: Response, status: number, data: unknown) => {
   res.status(status).json({ ok: true, data, requestId: req.id });
@@ -206,6 +207,70 @@ export async function withdraw(
     if (!req.user) throw errors.unauthorized();
     const application = await applicationService.withdraw(req.user.id, req.params.id!);
     ok(req, res, 200, { application });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── Shift check-in (Session 3) ─────────────────────────────────────────────
+
+/**
+ * POST /applications/:id/check-in or /check-out — record a shift event.
+ * Body: { selfieDataUrl, lat, lng, timestamp? }
+ */
+function shiftHandler(kind: 'check_in' | 'check_out') {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) throw errors.unauthorized();
+      const body = req.body as {
+        selfieDataUrl?: string;
+        lat?: number;
+        lng?: number;
+        timestamp?: string;
+      };
+      if (typeof body.selfieDataUrl !== 'string') {
+        throw errors.validation(
+          { selfieDataUrl: 'required' },
+          'A selfie is required to check in.',
+        );
+      }
+      if (typeof body.lat !== 'number' || typeof body.lng !== 'number') {
+        throw errors.validation(
+          { lat: typeof body.lat, lng: typeof body.lng },
+          'Location is required to check in.',
+        );
+      }
+      const checkIn = await shiftCheckInService.createCheckIn({
+        callerId: req.user.id,
+        applicationId: req.params.id!,
+        kind,
+        selfieDataUrl: body.selfieDataUrl,
+        lat: body.lat,
+        lng: body.lng,
+        timestamp: body.timestamp,
+      });
+      ok(req, res, 201, { checkIn });
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
+export const checkIn = shiftHandler('check_in');
+export const checkOut = shiftHandler('check_out');
+
+export async function listCheckIns(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const checkIns = await shiftCheckInService.listForApplication({
+      callerId: req.user.id,
+      applicationId: req.params.id!,
+    });
+    ok(req, res, 200, { checkIns });
   } catch (err) {
     next(err);
   }

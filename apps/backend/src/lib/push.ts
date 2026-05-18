@@ -508,6 +508,233 @@ export async function sendMorningDigestPush(input: {
 }
 
 /**
+ * Streak milestone push — celebratory ping when the seeker crosses
+ * 3 / 7 / 14 / 30 consecutive days of an activity (apply, course,
+ * shift). Brief, warm, no CTA — the goal is the dopamine, not a
+ * routing change.
+ */
+export async function sendStreakMilestonePush(input: {
+  recipientId: string;
+  kind: 'apply' | 'course' | 'shift';
+  days: number;
+}): Promise<void> {
+  const verb =
+    input.kind === 'apply'
+      ? 'applying'
+      : input.kind === 'course'
+        ? 'learning'
+        : 'showing up';
+  const title = `${input.days}-day ${input.kind} streak 🔥`;
+  const body = `Nice work — ${input.days} days of ${verb} in a row.`;
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'streak_milestone',
+    title,
+    body,
+    deeplink: { screen: 'Profile' },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'jobs',
+      data: {
+        type: 'streak:milestone',
+        kind: input.kind,
+        days: input.days,
+      },
+    })),
+  );
+}
+
+/**
+ * Referral bonus push — fired when a worker the seeker referred gets
+ * hired and the bonus has been credited to their wallet. Deeplinks to
+ * the earnings ledger so the seeker can verify the credit.
+ */
+export async function sendReferralBonusPush(input: {
+  recipientId: string;
+  refereeName: string;
+  bonusPaise: number;
+}): Promise<void> {
+  const rupees = Math.round(input.bonusPaise / 100);
+  const title = `+₹${rupees} referral bonus`;
+  const body = `${input.refereeName} got hired through your share. Bonus credited to your wallet.`;
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'referral_bonus',
+    title,
+    body,
+    deeplink: { screen: 'MyEarnings' },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'jobs',
+      data: {
+        type: 'referral:bonus',
+        bonusPaise: input.bonusPaise,
+      },
+    })),
+  );
+}
+
+/**
+ * "Hired near you" push — social-proof signal sent to verified
+ * seekers within a few km when someone gets hired. Drops the hired
+ * worker's full name to keep them anonymous; uses a first name only,
+ * plus the trade, plus the area.
+ */
+export async function sendHiredNearbyPush(input: {
+  recipientId: string;
+  hiredFirstName: string;
+  jobTitle: string;
+  area: string | null;
+}): Promise<void> {
+  const where = input.area ? ` in ${input.area}` : ' nearby';
+  const title = 'Hired near you';
+  const body = `${input.hiredFirstName} was just hired as ${input.jobTitle}${where}.`;
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'hired_nearby',
+    title,
+    body,
+    deeplink: { screen: 'Home' },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'jobs',
+      data: {
+        type: 'hired:nearby',
+      },
+    })),
+  );
+}
+
+/**
+ * SOS alert push — high-urgency notification to a Trust Circle contact
+ * or a nearby verified peer when someone triggers SOS.
+ *
+ * Body intentionally short and exact. Tap deeplinks to the Sos screen
+ * so the responder can see the alert details + the sender's last
+ * known location. Channel `applications` is reused for now — SDK 54
+ * notification channels are limited and a separate `safety` channel
+ * adds little value over the existing high-priority default.
+ */
+export async function sendSosAlertPush(input: {
+  recipientId: string;
+  fromName: string;
+  /** "family" / "friend" / "employer" / "peer" — drives the copy. */
+  relationship: string;
+  alertId: string;
+  locationLink: string | null;
+}): Promise<void> {
+  const title = '🚨 SOS — needs help';
+  const body = input.locationLink
+    ? `${input.fromName} (${input.relationship}) triggered SOS. Location: ${input.locationLink}`
+    : `${input.fromName} (${input.relationship}) triggered SOS. Location unavailable — please call.`;
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'sos_alert',
+    title,
+    body,
+    deeplink: { screen: 'Sos', params: { alertId: input.alertId } },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'applications',
+      data: {
+        type: 'sos:alert',
+        alertId: input.alertId,
+        fromName: input.fromName,
+        relationship: input.relationship,
+      },
+    })),
+  );
+}
+
+/**
+ * Shift check-in / check-out push to the OTHER side. The seeker
+ * arriving on-site pushes the employer ("Priya checked in at 09:12"),
+ * and check-out pushes them again ("Priya checked out at 17:30").
+ *
+ * Lets the employer know without opening the app — particularly
+ * useful when the employer is running 3 sites at once and wants a
+ * passive ping when each worker shows up.
+ */
+export async function sendShiftCheckinPush(input: {
+  recipientId: string;
+  /** Who did the check-in/out (usually the seeker's name). */
+  actorName: string;
+  kind: 'check_in' | 'check_out';
+  jobTitle?: string;
+  applicationId: string;
+}): Promise<void> {
+  const title = input.kind === 'check_in' ? 'Worker checked in' : 'Worker checked out';
+  const body = input.jobTitle
+    ? `${input.actorName} ${input.kind === 'check_in' ? 'checked in' : 'checked out'} on "${input.jobTitle}"`
+    : `${input.actorName} ${input.kind === 'check_in' ? 'checked in' : 'checked out'}`;
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'shift_checkin',
+    title,
+    body,
+    deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'applications',
+      data: {
+        type: input.kind === 'check_in' ? 'shift:check_in' : 'shift:check_out',
+        applicationId: input.applicationId,
+      },
+    })),
+  );
+}
+
+/**
  * Push + in-app row when someone is rated. The push module fires this from
  * the ratings service after a successful create.
  */
