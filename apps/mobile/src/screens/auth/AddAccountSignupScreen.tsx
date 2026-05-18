@@ -37,6 +37,7 @@ import { ApiError } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
 import type { UserRole } from '@/api/types';
 
@@ -55,6 +56,7 @@ export function AddAccountSignupScreen() {
   const route = useRoute<Route>();
   const { user, addAccount } = useAuth();
   const { theme } = useTheme();
+  const t = useTranslate();
 
   const role: UserRole = route.params?.role ?? 'employer';
   const isEmployer = role === 'employer';
@@ -79,17 +81,17 @@ export function AddAccountSignupScreen() {
     const errors: FieldErrors = {};
     if (!name.trim())
       errors.name = isEmployer
-        ? 'Your business name helps workers recognize you'
-        : 'Your name helps employers recognize you';
-    if (!email.trim()) errors.email = 'Email is required';
-    if (!password) errors.password = 'Choose a password';
-    else if (password.length < 8) errors.password = 'At least 8 characters';
+        ? t('auth.add_account_signup.err_name_employer')
+        : t('auth.add_account_signup.err_name_default');
+    if (!email.trim()) errors.email = t('auth.add_account_signup.err_email_required');
+    if (!password) errors.password = t('auth.add_account_signup.err_password_required');
+    else if (password.length < 8) errors.password = t('auth.add_account_signup.err_password_short');
     else if (!/[A-Za-z]/.test(password) || !/\d/.test(password))
-      errors.password = 'Mix letters and numbers';
+      errors.password = t('auth.add_account_signup.err_password_mix');
     if (!phone.trim()) {
-      errors.phone = "We'll use this to reset your password if you forget it";
+      errors.phone = t('auth.add_account_signup.err_phone_required');
     } else if (!/^\+?[0-9\s-]{6,20}$/.test(phone.trim())) {
-      errors.phone = 'Enter a valid phone number';
+      errors.phone = t('auth.add_account_signup.err_phone_invalid');
     }
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -118,18 +120,17 @@ export function AddAccountSignupScreen() {
       if (err instanceof ApiError) {
         if (err.code === 'AUTH_EMAIL_TAKEN') {
           setFieldErrors({
-            email:
-              'An account with this email already exists — use a different email for this employer account',
+            email: t('auth.add_account_signup.err_email_taken'),
           });
         } else if (err.code === 'RATE_LIMITED') {
-          setFormError('Too many attempts. Try again in a minute.');
+          setFormError(t('auth.add_account_signup.err_rate_limited'));
         } else if (err.validationIssues) {
           setFieldErrors(mapValidation(err.validationIssues));
         } else {
           setFormError(err.message);
         }
       } else {
-        setFormError('Something went wrong. Please try again.');
+        setFormError(t('auth.add_account_signup.err_generic'));
       }
     } finally {
       setSubmitting(false);
@@ -153,14 +154,13 @@ export function AddAccountSignupScreen() {
         >
           <View style={{ gap: spacing.xs }}>
             <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              {isEmployer ? 'ADD EMPLOYER ACCOUNT' : 'ADD ACCOUNT'}
+              {isEmployer ? t('auth.add_account_signup.eyebrow_employer') : t('auth.add_account_signup.eyebrow_default')}
             </Text>
             <Text variant="titleLarge" weight="medium">
-              {isEmployer ? 'Start hiring on Doondo' : 'Add another account'}
+              {isEmployer ? t('auth.add_account_signup.title_employer') : t('auth.add_account_signup.title_default')}
             </Text>
             <Text variant="footnote" tone="secondary" style={{ marginTop: spacing.xs }}>
-              Your {user?.role === 'seeker' ? 'seeker' : 'current'} account stays
-              signed in — you can switch back any time from your profile.
+              {user?.role === 'seeker' ? t('auth.add_account_signup.subtitle_seeker') : t('auth.add_account_signup.subtitle_default')}
             </Text>
           </View>
 
@@ -182,10 +182,10 @@ export function AddAccountSignupScreen() {
                 color: theme.brand.hero,
               }}
             >
-              You're creating an Employer account
+              {t('auth.add_account_signup.banner_title')}
             </Text>
             <Text style={{ fontSize: 12, color: theme.text.secondary }}>
-              Post jobs, review applicants, and chat with workers.
+              {t('auth.add_account_signup.banner_body')}
             </Text>
           </View>
 
@@ -193,46 +193,46 @@ export function AddAccountSignupScreen() {
 
           <View style={{ gap: spacing.lg }}>
             <TextField
-              label={isEmployer ? 'Business name' : 'Name'}
+              label={isEmployer ? t('auth.add_account_signup.name_label_employer') : t('auth.add_account_signup.name_label_default')}
               value={name}
               onChangeText={(v) => {
                 setName(v);
                 if (fieldErrors.name) setFieldErrors((s) => ({ ...s, name: undefined }));
               }}
-              placeholder={isEmployer ? 'Your business or company name' : 'Your full name'}
+              placeholder={isEmployer ? t('auth.add_account_signup.name_placeholder_employer') : t('auth.add_account_signup.name_placeholder_default')}
               autoCapitalize="words"
               autoComplete="name"
               error={fieldErrors.name ?? null}
               helper={
                 isEmployer
-                  ? 'This is what workers will see on your job posts.'
+                  ? t('auth.add_account_signup.name_helper_employer')
                   : undefined
               }
             />
             <TextField
-              label="Email"
+              label={t('auth.add_account_signup.email_label')}
               value={email}
               onChangeText={(v) => {
                 setEmail(v);
                 if (fieldErrors.email) setFieldErrors((s) => ({ ...s, email: undefined }));
               }}
-              placeholder="employer@example.com"
+              placeholder={t('auth.add_account_signup.email_placeholder')}
               autoCapitalize="none"
               autoComplete="email"
               autoCorrect={false}
               keyboardType="email-address"
               textContentType="emailAddress"
               error={fieldErrors.email ?? null}
-              helper="Must be different from your current account's email."
+              helper={t('auth.add_account_signup.email_helper')}
             />
             <TextField
-              label="Password"
+              label={t('auth.add_account_signup.password_label')}
               value={password}
               onChangeText={(v) => {
                 setPassword(v);
                 if (fieldErrors.password) setFieldErrors((s) => ({ ...s, password: undefined }));
               }}
-              placeholder="8+ chars, mix letters and numbers"
+              placeholder={t('auth.add_account_signup.password_placeholder')}
               autoCapitalize="none"
               autoComplete="password-new"
               textContentType="newPassword"
@@ -240,17 +240,17 @@ export function AddAccountSignupScreen() {
               error={fieldErrors.password ?? null}
             />
             <TextField
-              label="Phone"
+              label={t('auth.add_account_signup.phone_label')}
               value={phone}
               onChangeText={(v) => {
                 setPhone(v);
                 if (fieldErrors.phone) setFieldErrors((s) => ({ ...s, phone: undefined }));
               }}
-              placeholder="+91 9876543210"
+              placeholder={t('auth.add_account_signup.phone_placeholder')}
               autoComplete="tel"
               keyboardType="phone-pad"
               textContentType="telephoneNumber"
-              helper="Used to reset your password if you forget it."
+              helper={t('auth.add_account_signup.phone_helper')}
               error={fieldErrors.phone ?? null}
             />
           </View>
@@ -259,16 +259,16 @@ export function AddAccountSignupScreen() {
             <Button
               label={
                 submitting
-                  ? 'Creating account…'
+                  ? t('auth.add_account_signup.cta_creating')
                   : isEmployer
-                    ? 'Create employer account'
-                    : 'Create account'
+                    ? t('auth.add_account_signup.cta_create_employer')
+                    : t('auth.add_account_signup.cta_create_default')
               }
               onPress={onSubmit}
               disabled={submitting}
             />
             <Button
-              label="Cancel"
+              label={t('auth.add_account_signup.cta_cancel')}
               variant="ghost"
               onPress={() => navigation.goBack()}
               disabled={submitting}

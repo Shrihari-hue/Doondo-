@@ -8,17 +8,19 @@
  * No fake data — the rating is created via the real /ratings endpoint.
  */
 
-import { useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, Switch, TextInput, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Button, FormError, Card } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useCreateRating } from '@/hooks/useRatings';
+import { useAuth } from '@/hooks/useAuth';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
+import { tagsForRole, type TagDescriptor } from '@/lib/reviewTagCatalog';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
@@ -30,12 +32,37 @@ function LeaveRatingScreenInner() {
   const route = useRoute<RouteParams>();
   const { applicationId, revieweeName, jobTitle } = route.params;
   const t = useTranslate();
+  const { user } = useAuth();
 
   const [score, setScore] = useState<number>(0);
   const [comment, setComment] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  // Default to TRUE when a seeker reviews an employer — the most common
+  // case, and anonymity is the whole point of the trust pipeline. When an
+  // employer is reviewing a seeker (where attribution helps the worker
+  // build a reputation), we default to attributed.
+  const reviewerRole = user?.role ?? 'seeker';
+  const revieweeRole: 'employer' | 'seeker' =
+    reviewerRole === 'seeker' ? 'employer' : 'seeker';
+  const [anonymous, setAnonymous] = useState<boolean>(revieweeRole === 'employer');
   const [error, setError] = useState<string | null>(null);
 
+  const catalog: ReadonlyArray<TagDescriptor> = useMemo(
+    () => tagsForRole(revieweeRole),
+    [revieweeRole],
+  );
+
   const mutation = useCreateRating();
+
+  const MAX_TAGS = 4;
+  function toggleTag(slug: string) {
+    haptic('selection');
+    setTags((cur) => {
+      if (cur.includes(slug)) return cur.filter((s) => s !== slug);
+      if (cur.length >= MAX_TAGS) return cur;
+      return [...cur, slug];
+    });
+  }
 
   function submit() {
     if (score < 1 || score > 5) {
@@ -49,6 +76,8 @@ function LeaveRatingScreenInner() {
         applicationId,
         score,
         comment: comment.trim() || undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        anonymous: anonymous || undefined,
       },
       {
         onSuccess: () => {
@@ -138,6 +167,67 @@ function LeaveRatingScreenInner() {
           </View>
         </Card>
 
+        {/* Structured tags — multi-select, capped at MAX_TAGS so the
+            review stays focused on what mattered most. Positive and
+            negative tags share the rail but render with different
+            tones so the reviewer sees what each pick means. */}
+        <View style={{ gap: spacing.sm }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'baseline',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
+              WHAT STOOD OUT?
+            </Text>
+            <Text variant="caption" tone="tertiary">
+              {tags.length}/{MAX_TAGS}
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+            {catalog.map((tag) => {
+              const active = tags.includes(tag.slug);
+              const positive = tag.polarity === 'positive';
+              const activeBg = positive
+                ? theme.status.successSubtle
+                : theme.status.warningSubtle;
+              const activeBorder = positive
+                ? theme.status.successBorder
+                : theme.status.warningBorder;
+              const activeColor = positive
+                ? theme.status.success
+                : theme.status.warning;
+              const atLimit = !active && tags.length >= MAX_TAGS;
+              return (
+                <Pressable
+                  key={tag.slug}
+                  onPress={() => !atLimit && toggleTag(tag.slug)}
+                  disabled={atLimit}
+                  style={({ pressed }) => ({
+                    paddingVertical: spacing.xs,
+                    paddingHorizontal: spacing.md,
+                    borderRadius: radii.pill,
+                    borderWidth: 0.5,
+                    borderColor: active ? activeBorder : theme.border.default,
+                    backgroundColor: active ? activeBg : theme.bg.surface,
+                    opacity: pressed || atLimit ? 0.5 : 1,
+                  })}
+                >
+                  <Text
+                    variant="footnote"
+                    weight={active ? 'medium' : 'regular'}
+                    style={{ color: active ? activeColor : theme.text.secondary }}
+                  >
+                    {tag.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
         {/* Optional comment */}
         <View style={{ gap: spacing.sm }}>
           <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
@@ -171,6 +261,46 @@ function LeaveRatingScreenInner() {
               {t('leave_rating.char_count', { n: comment.length })}
             </Text>
           </View>
+        </View>
+
+        {/* Anonymous toggle — opt-in / opt-out depending on direction.
+            Seeker→employer defaults to anonymous (protect the worker
+            from retaliation). Employer→seeker defaults to attributed
+            (a named good review helps the worker get hired again). */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.md,
+            padding: spacing.md,
+            borderRadius: radii.lg,
+            borderWidth: 0.5,
+            borderColor: theme.border.default,
+            backgroundColor: theme.bg.surface,
+          }}
+        >
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="bodyLarge" weight="medium">
+              Post anonymously
+            </Text>
+            <Text variant="footnote" tone="secondary">
+              {anonymous
+                ? `Your name and photo won't appear. The review still counts toward ${revieweeName}'s public score.`
+                : `Your name and photo will appear next to this review.`}
+            </Text>
+          </View>
+          <Switch
+            value={anonymous}
+            onValueChange={(v) => {
+              haptic('selection');
+              setAnonymous(v);
+            }}
+            trackColor={{
+              false: theme.border.default,
+              true: theme.brand.hero,
+            }}
+            thumbColor="#FFFDF7"
+          />
         </View>
 
         <Button

@@ -33,6 +33,7 @@ import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Pill, Button } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import type { AppStackParamList, SeekerTabParamList } from '@/navigation/types';
 
@@ -51,12 +52,12 @@ type LangCode = (typeof LANGUAGES)[number]['code'];
 
 // ─── Popular searches — surfaced as quick-tap chips below the mic ───────────
 
-const POPULAR_SEARCHES = [
-  'Delivery jobs',
-  'Electrician jobs',
-  'Driver jobs',
-  'Helper jobs',
-  'Mason jobs',
+const POPULAR_SEARCH_KEYS = [
+  'voice_search.popular_delivery',
+  'voice_search.popular_electrician',
+  'voice_search.popular_driver',
+  'voice_search.popular_helper',
+  'voice_search.popular_mason',
 ] as const;
 
 // ─── Speech-to-text adapter ──────────────────────────────────────────────────
@@ -124,6 +125,7 @@ async function loadRecognizer(): Promise<Recognizer | null> {
 function VoiceSearchScreenInner() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
+  const t = useTranslate();
 
   const [lang, setLang] = useState<LangCode>('en-IN');
   const [isListening, setIsListening] = useState(false);
@@ -251,28 +253,28 @@ function VoiceSearchScreenInner() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
           <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
             <Text variant="body" tone="secondary">
-              ← Back
+              {t('voice_search.back')}
             </Text>
           </Pressable>
           <Text variant="bodyLarge" weight="medium" style={{ flex: 1 }}>
-            Voice Search
+            {t('voice_search.header_title')}
           </Text>
         </View>
 
         {/* Language picker */}
         <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
           <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-            LANGUAGE
+            {t('voice_search.language_label')}
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-            {LANGUAGES.map((l) => {
-              const active = lang === l.code;
+            {LANGUAGES.map((langItem) => {
+              const active = lang === langItem.code;
               return (
                 <Pressable
-                  key={l.code}
+                  key={langItem.code}
                   onPress={() => {
                     haptic('selection');
-                    setLang(l.code);
+                    setLang(langItem.code);
                   }}
                   style={{
                     paddingHorizontal: spacing.md,
@@ -288,7 +290,7 @@ function VoiceSearchScreenInner() {
                     weight={active ? 'medium' : 'regular'}
                     style={{ color: active ? theme.brand.hero : theme.text.secondary }}
                   >
-                    {l.label}
+                    {langItem.label}
                   </Text>
                 </Pressable>
               );
@@ -334,17 +336,17 @@ function VoiceSearchScreenInner() {
         <View style={{ gap: spacing.sm, alignItems: 'center' }}>
           {voiceAvailable === false ? (
             <Text variant="footnote" tone="warning" style={{ textAlign: 'center' }}>
-              Voice input isn't available on this device. Type your search below.
+              {t('voice_search.unavailable')}
             </Text>
           ) : (
             <Text variant="bodyLarge" weight="medium" style={{ textAlign: 'center' }}>
               {isListening
-                ? 'Listening… speak your skill'
-                : 'What kind of work are you looking for?'}
+                ? t('voice_search.listening')
+                : t('voice_search.prompt')}
             </Text>
           )}
           <Text variant="footnote" tone="tertiary" style={{ textAlign: 'center' }}>
-            Tell your skill…
+            {t('voice_search.tell_your_skill')}
           </Text>
         </View>
 
@@ -363,7 +365,7 @@ function VoiceSearchScreenInner() {
           <TextInput
             value={transcript}
             onChangeText={setTranscript}
-            placeholder={isListening ? 'Listening…' : 'Or type to search'}
+            placeholder={isListening ? t('voice_search.input_listening') : t('voice_search.input_placeholder')}
             placeholderTextColor={theme.text.tertiary}
             multiline
             style={{
@@ -387,7 +389,7 @@ function VoiceSearchScreenInner() {
                 commitTranscript();
               }}
               accessibilityRole="button"
-              accessibilityLabel="Search jobs"
+              accessibilityLabel={t('voice_search.a11y_search_jobs')}
               style={({ pressed }) => ({
                 backgroundColor: '#2563EB',
                 paddingVertical: 14,
@@ -410,7 +412,7 @@ function VoiceSearchScreenInner() {
                   letterSpacing: 0.2,
                 }}
               >
-                Search jobs
+                {t('voice_search.search_jobs')}
               </Text>
             </Pressable>
           </View>
@@ -419,14 +421,17 @@ function VoiceSearchScreenInner() {
         {/* Popular searches */}
         <View style={{ marginTop: spacing['2xl'], gap: spacing.sm }}>
           <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-            POPULAR SEARCHES
+            {t('voice_search.popular_searches')}
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-            {POPULAR_SEARCHES.map((q) => (
-              <Pressable key={q} onPress={() => runSearch(q)}>
-                <Pill label={q} tone="neutral" />
-              </Pressable>
-            ))}
+            {POPULAR_SEARCH_KEYS.map((key) => {
+              const label = t(key);
+              return (
+                <Pressable key={key} onPress={() => runSearch(label)}>
+                  <Pill label={label} tone="neutral" />
+                </Pressable>
+              );
+            })}
           </View>
         </View>
       </ScrollView>

@@ -18,6 +18,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { spacing, radii } from '@doondo/tokens';
 import { Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
+import { useTranslate } from '@/i18n/useTranslate';
 import { haptic } from '@/lib/haptics';
 import { paymentsApi, type PaymentIntent } from '@/api/payments.api';
 
@@ -36,6 +37,7 @@ export function UpiPaymentPanel({
   suggestedAmountPaise,
 }: Props) {
   const { theme } = useTheme();
+  const t = useTranslate();
   const queryClient = useQueryClient();
   const [amountRupees, setAmountRupees] = useState(
     suggestedAmountPaise ? String(Math.round(suggestedAmountPaise / 100)) : '',
@@ -60,13 +62,17 @@ export function UpiPaymentPanel({
         void Linking.openURL(data.intent.upiUri).catch(() => undefined);
       } else {
         Alert.alert(
-          'No UPI app found',
-          `Pay ${formatINR(data.intent.amountPaise)} to ${data.intent.seekerVpa} with reference ${data.intent.ref}.`,
+          t('employer.upi.no_upi_title'),
+          t('employer.upi.no_upi_body', {
+            amount: formatINR(data.intent.amountPaise),
+            vpa: data.intent.seekerVpa,
+            ref: data.intent.ref,
+          }),
         );
       }
     },
     onError: (err) =>
-      Alert.alert('Could not create payment', (err as Error).message),
+      Alert.alert(t('employer.upi.could_not_create'), (err as Error).message),
   });
 
   const markPaidMut = useMutation({
@@ -76,7 +82,7 @@ export function UpiPaymentPanel({
       setIntent(null);
       setAmountRupees('');
       void queryClient.invalidateQueries({ queryKey: ['payments', 'mine'] });
-      Alert.alert('Marked paid', "The worker's earnings have been updated.");
+      Alert.alert(t('employer.upi.marked_paid_title'), t('employer.upi.marked_paid_body'));
     },
   });
 
@@ -92,14 +98,14 @@ export function UpiPaymentPanel({
       }}
     >
       <Text style={{ fontSize: 13, fontWeight: '700', color: theme.text.primary }}>
-        💸 Pay via UPI
+        {t('employer.upi.title')}
       </Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
         <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text.primary }}>₹</Text>
         <TextInput
           value={amountRupees}
           onChangeText={(v) => setAmountRupees(v.replace(/[^0-9]/g, ''))}
-          placeholder="Amount"
+          placeholder={t('employer.upi.amount_placeholder')}
           keyboardType="number-pad"
           style={{
             flex: 1,
@@ -115,7 +121,7 @@ export function UpiPaymentPanel({
         <Pressable
           onPress={() => {
             if (!amountRupees || Number(amountRupees) <= 0) {
-              Alert.alert('Enter an amount');
+              Alert.alert(t('employer.upi.enter_amount'));
               return;
             }
             createMut.mutate();
@@ -130,14 +136,14 @@ export function UpiPaymentPanel({
           }}
         >
           <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
-            {createMut.isPending ? '…' : 'Open UPI app'}
+            {createMut.isPending ? '…' : t('employer.upi.cta_open')}
           </Text>
         </Pressable>
       </View>
       {intent && (
         <View style={{ gap: 6 }}>
           <Text style={{ fontSize: 12, color: theme.text.secondary }}>
-            Ref {intent.ref} · {intent.seekerVpa}
+            {t('employer.upi.ref_label', { ref: intent.ref, vpa: intent.seekerVpa })}
           </Text>
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             <Pressable
@@ -152,7 +158,7 @@ export function UpiPaymentPanel({
               }}
             >
               <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
-                ✓ I paid
+                {t('employer.upi.cta_paid')}
               </Text>
             </Pressable>
             <Pressable
@@ -166,7 +172,7 @@ export function UpiPaymentPanel({
               }}
             >
               <Text style={{ color: theme.text.secondary, fontWeight: '600', fontSize: 13 }}>
-                Cancel
+                {t('employer.upi.cta_cancel')}
               </Text>
             </Pressable>
           </View>

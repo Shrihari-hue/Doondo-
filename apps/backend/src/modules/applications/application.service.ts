@@ -25,7 +25,7 @@ import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import * as walletService from '@/modules/wallet/wallet.service';
 import { emitToUser } from '@/sockets/bus';
-import { sendApplicationStatusPush, sendInterviewPush } from '@/lib/push';
+import { sendApplicationStatusPush, sendInterviewPush, sendSkillGapPush } from '@/lib/push';
 import { JobModel, type PublicJob } from '@/modules/jobs/job.model';
 import { UserModel } from '@/modules/users/user.model';
 import {
@@ -506,6 +506,28 @@ export async function transitionByEmployer(
       break;
     case 'rejected':
       app.rejectedAt = now;
+      // Compute the missing-skill snapshot at the moment of rejection so
+      // it's stable even if the seeker later adds the skill to their
+      // profile. Best-effort: a lookup failure here is non-fatal —
+      // skipping the snapshot means the seeker's UI falls back to a
+      // generic rejection message, which is still acceptable.
+      try {
+        const { diffSkills } = await import('./skillGap.service');
+        const [jobForGap, seekerForGap] = await Promise.all([
+          JobModel.findById(app.jobId).select('skills').lean(),
+          UserModel.findById(app.seekerId).select('skills').lean(),
+        ]);
+        const jobSkills = (jobForGap?.skills as string[] | undefined) ?? [];
+        const seekerSkills =
+          (seekerForGap as { skills?: string[] } | null)?.skills ?? [];
+        const missing = diffSkills(jobSkills, seekerSkills);
+        app.rejectionReasons = missing.length > 0 ? missing : null;
+      } catch (err) {
+        logger.warn(
+          { err, applicationId: app.id },
+          'rejection skill-gap snapshot failed (non-fatal)',
+        );
+      }
       break;
     case 'hired':
       app.hiredAt = now;
@@ -592,8 +614,37 @@ export async function transitionByEmployer(
 
   // Push (best-effort) — for users who have the app closed or backgrounded.
   // We hydrate the job title for a friendlier message body.
+  //
+  // Rejection special case: when we have a skill-gap snapshot AND can
+  // recommend a course, we send the skill-gap push (which deep-links
+  // to CourseDetail) instead of the generic rejection push. The
+  // generic push is still sent when there's no actionable gap.
   void (async () => {
     const job = await JobModel.findById(app.jobId).select('title').lean();
+    if (next === 'rejected' && Array.isArray(app.rejectionReasons) && app.rejectionReasons.length > 0) {
+      try {
+        const { rankCoursesForGap } = await import('./skillGap.service');
+        const top = rankCoursesForGap(app.rejectionReasons, job?.title ?? null)[0];
+        if (top) {
+          const primary = top.addressesSkills[0] ?? app.rejectionReasons[0]!;
+          void sendSkillGapPush({
+            recipientId: app.seekerId.toString(),
+            jobTitle: job?.title,
+            missingSkill: primary,
+            courseId: top.course.id,
+            courseTitle: top.course.title,
+            durationMinutes: top.course.totalDurationMinutes,
+            applicationId: app.id,
+          });
+          return;
+        }
+      } catch (err) {
+        logger.warn(
+          { err, applicationId: app.id },
+          'skill-gap push failed, falling back to generic',
+        );
+      }
+    }
     void sendApplicationStatusPush({
       recipientId: app.seekerId.toString(),
       status: next,
@@ -805,6 +856,8 @@ export async function scheduleInterview(
     status: 'scheduled',
     scheduledAt: new Date(),
     cancelledAt: null,
+    // Cleared on reschedule so the new time gets its own reminder.
+    reminderSentAt: null,
   };
   await app.save();
 

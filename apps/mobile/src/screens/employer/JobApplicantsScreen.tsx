@@ -13,6 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { spacing } from '@doondo/tokens';
 import { Screen, Text, SkeletonCard, EmptyState } from '@/components';
 import { useTheme } from '@/theme/useTheme';
+import { useTranslate } from '@/i18n/useTranslate';
 import { applicationsApi } from '@/api/applications.api';
 import { ApplicantCard } from './ApplicantCard';
 import type { AppStackParamList } from '@/navigation/types';
@@ -24,6 +25,7 @@ export function JobApplicantsScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { theme } = useTheme();
+  const t = useTranslate();
 
   const query = useQuery({
     queryKey: ['applicants', 'job', route.params.jobId],
@@ -52,20 +54,20 @@ export function JobApplicantsScreen() {
       >
         <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
           <Text variant="footnote" tone="secondary">
-            ← Back
+            {t('employer.back')}
           </Text>
         </Pressable>
 
         <View style={{ gap: spacing.xs }}>
           <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-            APPLICANTS
+            {t('employer.applicants.eyebrow')}
           </Text>
           <Text variant="display" weight="medium" display numberOfLines={2}>
-            {route.params.jobTitle ?? 'Applicants'}
+            {route.params.jobTitle ?? t('employer.applicants.per_job_title')}
           </Text>
           {applicants.length > 0 && (
             <Text variant="footnote" tone="secondary">
-              {applicants.length} total
+              {t('employer.applicants.per_job_total', { n: applicants.length })}
             </Text>
           )}
         </View>
@@ -79,18 +81,18 @@ export function JobApplicantsScreen() {
           <EmptyState
             glyph="✕"
             tone="warning"
-            eyebrow="OFFLINE"
-            title="Couldn't load applicants"
-            message="Pull down to retry, or check your connection."
+            eyebrow={t('employer.applicants.offline_eyebrow')}
+            title={t('employer.applicants.offline_title')}
+            message={t('employer.applicants.offline_message')}
             tall
           />
         ) : applicants.length === 0 ? (
           <EmptyState
             glyph="◔"
             tone="hero"
-            eyebrow="WAITING ROOM"
-            title="No applicants yet"
-            message="When someone applies, you'll see them here. Verified candidates show a champagne ring around their avatar."
+            eyebrow={t('employer.applicants.empty_waiting_eyebrow')}
+            title={t('employer.applicants.empty_no_applicants_title')}
+            message={t('employer.applicants.empty_no_applicants_per_job')}
             tall
           />
         ) : (

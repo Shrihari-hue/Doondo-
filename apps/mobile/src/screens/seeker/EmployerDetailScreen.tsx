@@ -26,23 +26,36 @@ import { Screen, Text, LoadingSpinner, EmptyState, Avatar, Stars } from '@/compo
 import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { employersApi, type EmployerProfile } from '@/api/employers.api';
+import { ratingsApi, type TagSummary, type TagSummaryEntry } from '@/api/ratings.api';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
 import type { PublicJob } from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type Route = RouteProp<AppStackParamList, 'EmployerDetail'>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function EmployerDetailInner() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
+  const t = useTranslate();
   const { userId } = route.params;
 
   const query = useQuery({
     queryKey: ['employer', userId],
     queryFn: () => employersApi.getProfile(userId),
+    staleTime: 60_000,
+  });
+
+  // Aggregated structured-tag signal — "Workers say…" badges. Independent
+  // of the main profile query so a slow ratings aggregation never blocks
+  // the page render. Re-runs when the employer id changes.
+  const tagSummaryQuery = useQuery({
+    queryKey: ['employer', userId, 'tagSummary'],
+    queryFn: () => ratingsApi.tagSummary(userId, 'employer'),
     staleTime: 60_000,
   });
 
@@ -65,10 +78,10 @@ function EmployerDetailInner() {
     return (
       <Screen>
         <EmptyState
-          title="Couldn't load employer"
-          message="Check your connection and try again."
+          title={t('employer_detail.error_title')}
+          message={t('employer_detail.error_message')}
           cta={{
-            label: 'Retry',
+            label: t('employer_detail.retry'),
             onPress: () => {
               haptic('selection');
               void query.refetch();
@@ -97,19 +110,25 @@ function EmployerDetailInner() {
           />
         }
         ListHeaderComponent={
-          <Header
-            profile={profile}
-            insets={insets}
-            displayName={displayName}
-            onBack={() => navigation.goBack()}
-          />
+          <View>
+            <Header
+              profile={profile}
+              insets={insets}
+              displayName={displayName}
+              onBack={() => navigation.goBack()}
+              t={t}
+            />
+            {tagSummaryQuery.data && (
+              <TagSummaryPanel summary={tagSummaryQuery.data} />
+            )}
+          </View>
         }
         ListEmptyComponent={
           <EmptyState
             glyph="📭"
-            eyebrow="NO ACTIVE JOBS"
-            title="No openings right now"
-            message={`${displayName} doesn't have any active jobs at the moment. Check back soon.`}
+            eyebrow={t('employer_detail.no_active_eyebrow')}
+            title={t('employer_detail.no_active_title')}
+            message={t('employer_detail.no_active_message', { name: displayName })}
           />
         }
         contentContainerStyle={{
@@ -118,7 +137,7 @@ function EmployerDetailInner() {
         ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
         renderItem={({ item }) => (
           <View style={{ paddingHorizontal: spacing.xl }}>
-            <JobRow job={item} onPress={() => onJobPress(item.id)} />
+            <JobRow job={item} onPress={() => onJobPress(item.id)} t={t} />
           </View>
         )}
         ListFooterComponent={
@@ -132,14 +151,142 @@ function EmployerDetailInner() {
                 paddingHorizontal: spacing.xl,
               }}
             >
-              {stats.jobsCount - stats.activeJobsCount} older
-              {stats.jobsCount - stats.activeJobsCount === 1 ? ' job' : ' jobs'} have been
-              filled or closed.
+              {t('employer_detail.older_jobs_footer', {
+                count: stats.jobsCount - stats.activeJobsCount,
+                n: stats.jobsCount - stats.activeJobsCount,
+              })}
             </Text>
           ) : null
         }
       />
     </Screen>
+  );
+}
+
+// ─── Workers say… (tag summary) ────────────────────────────────────────────
+
+/**
+ * Renders the aggregated structured-tag signal from prior reviews.
+ *
+ * Visual rules:
+ *   - Up to 6 positive tags shown as green chips with the ratio
+ *     ("Paid on time · 92%"). Empty tags are filtered out so a
+ *     no-review employer doesn't show a wall of zeroes.
+ *   - Negative tags (paid late, felt unsafe) get a warning chip when
+ *     their ratio exceeds 25%. Below that threshold they're hidden —
+ *     one disgruntled reviewer shouldn't define an employer.
+ *   - When the employer has zero reviews, the panel renders a quiet
+ *     "Not enough reviews yet" line so the missing data is acknowledged.
+ *   - The whole panel is hidden if there aren't enough reviews to
+ *     compute meaningful ratios (< 3).
+ */
+function TagSummaryPanel({ summary }: { summary: TagSummary }) {
+  const { theme } = useTheme();
+
+  // Volume gate — below 3 reviews ratios are too noisy to surface.
+  if (summary.totalReviews < 3) return null;
+
+  const positive = summary.tags
+    .filter((t) => t.polarity === 'positive' && t.count > 0)
+    .sort((a, b) => b.ratio - a.ratio)
+    .slice(0, 6);
+  const negative = summary.tags
+    .filter((t) => t.polarity === 'negative' && t.ratio >= 0.25)
+    .sort((a, b) => b.ratio - a.ratio)
+    .slice(0, 3);
+
+  if (positive.length === 0 && negative.length === 0) return null;
+
+  return (
+    <View
+      style={{
+        marginHorizontal: spacing.xl,
+        marginTop: spacing.lg,
+        marginBottom: spacing.md,
+        padding: spacing.lg,
+        borderRadius: radii.lg,
+        borderWidth: 0.5,
+        borderColor: theme.border.default,
+        backgroundColor: theme.bg.surface,
+        gap: spacing.md,
+      }}
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
+          WORKERS SAY
+        </Text>
+        <Text variant="caption" tone="tertiary">
+          {summary.totalReviews}{' '}
+          {summary.totalReviews === 1 ? 'review' : 'reviews'}
+        </Text>
+      </View>
+
+      {positive.length > 0 && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+          {positive.map((tag) => (
+            <TagChip key={tag.slug} tag={tag} variant="positive" />
+          ))}
+        </View>
+      )}
+
+      {negative.length > 0 && (
+        <View style={{ gap: spacing.xs }}>
+          <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.0 }}>
+            HEADS UP
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+            {negative.map((tag) => (
+              <TagChip key={tag.slug} tag={tag} variant="negative" />
+            ))}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function TagChip({
+  tag,
+  variant,
+}: {
+  tag: TagSummaryEntry;
+  variant: 'positive' | 'negative';
+}) {
+  const { theme } = useTheme();
+  const bg =
+    variant === 'positive' ? theme.status.successSubtle : theme.status.warningSubtle;
+  const border =
+    variant === 'positive' ? theme.status.successBorder : theme.status.warningBorder;
+  const color =
+    variant === 'positive' ? theme.status.success : theme.status.warning;
+  const pct = Math.round(tag.ratio * 100);
+  return (
+    <View
+      style={{
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.md,
+        borderRadius: radii.pill,
+        borderWidth: 0.5,
+        borderColor: border,
+        backgroundColor: bg,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+      }}
+    >
+      <Text variant="footnote" weight="medium" style={{ color }}>
+        {tag.label}
+      </Text>
+      <Text variant="caption" weight="medium" style={{ color, opacity: 0.85 }}>
+        · {pct}%
+      </Text>
+    </View>
   );
 }
 
@@ -150,11 +297,13 @@ function Header({
   insets,
   displayName,
   onBack,
+  t,
 }: {
   profile: EmployerProfile;
   insets: { top: number };
   displayName: string;
   onBack: () => void;
+  t: TFn;
 }) {
   const { theme } = useTheme();
   const { employer, stats } = profile;
@@ -196,7 +345,7 @@ function Header({
             style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
             numberOfLines={1}
           >
-            About employer
+            {t('employer_detail.header_title')}
           </Text>
         </View>
 
@@ -239,7 +388,7 @@ function Header({
                   }}
                 >
                   <Text style={{ fontSize: 10, color: '#FFFFFF', fontWeight: '700' }}>
-                    ✓ VERIFIED
+                    {t('employer_detail.verified_badge')}
                   </Text>
                 </View>
               )}
@@ -263,7 +412,7 @@ function Header({
               </View>
             ) : (
               <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>
-                No ratings yet
+                {t('employer_detail.no_ratings')}
               </Text>
             )}
           </View>
@@ -287,11 +436,11 @@ function Header({
           elevation: 3,
         }}
       >
-        <Stat label="Jobs posted" value={stats.jobsCount} />
+        <Stat label={t('employer_detail.stat_jobs')} value={stats.jobsCount} />
         <Divider />
-        <Stat label="Hires made" value={stats.hiresCount} />
+        <Stat label={t('employer_detail.stat_hires')} value={stats.hiresCount} />
         <Divider />
-        <Stat label="Member" value={memberSince} />
+        <Stat label={t('employer_detail.stat_member')} value={memberSince} />
       </View>
 
       {/* Bio */}
@@ -311,7 +460,7 @@ function Header({
               marginBottom: spacing.sm,
             }}
           >
-            ABOUT
+            {t('employer_detail.section_about')}
           </Text>
           <Text style={{ fontSize: 14, lineHeight: 21, color: theme.text.secondary }}>
             {profile.employer.bio}
@@ -335,7 +484,7 @@ function Header({
             color: theme.text.tertiary,
           }}
         >
-          ACTIVE JOBS · {stats.activeJobsCount}
+          {t('employer_detail.active_jobs_section', { n: stats.activeJobsCount })}
         </Text>
       </View>
     </View>
@@ -394,7 +543,7 @@ function Divider() {
   );
 }
 
-function JobRow({ job, onPress }: { job: PublicJob; onPress: () => void }) {
+function JobRow({ job, onPress, t }: { job: PublicJob; onPress: () => void; t: TFn }) {
   const { theme } = useTheme();
   return (
     <Pressable
@@ -426,7 +575,7 @@ function JobRow({ job, onPress }: { job: PublicJob; onPress: () => void }) {
             {job.title}
           </Text>
           <Text style={{ fontSize: 12, color: theme.text.tertiary }} numberOfLines={1}>
-            {formatPay(job.pay)} · {job.location.area ?? job.location.city}
+            {formatPay(job.pay, t)} · {job.location.area ?? job.location.city}
           </Text>
         </View>
         <Text style={{ fontSize: 18, color: theme.text.tertiary }}>›</Text>
@@ -447,16 +596,16 @@ function prettyBusinessType(t: string): string {
   return t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function formatPay(pay: PublicJob['pay']): string {
+function formatPay(pay: PublicJob['pay'], t: TFn): string {
   const rupees = Math.round(pay.amount / 100);
   const periodLabel: Record<PublicJob['pay']['period'], string> = {
-    hour: '/hr',
-    day: '/day',
-    week: '/wk',
-    month: '/mo',
-    fixed: ' fixed',
+    hour: t('job.pay_period.suffix_hour'),
+    day: t('job.pay_period.suffix_day'),
+    week: t('job.pay_period.suffix_week'),
+    month: t('job.pay_period.suffix_month'),
+    fixed: t('job.pay_period.suffix_fixed'),
   };
-  return `₹${rupees.toLocaleString()}${periodLabel[pay.period]}`;
+  return `₹${rupees.toLocaleString('en-IN')}${periodLabel[pay.period]}`;
 }
 
 // ─── Export ──────────────────────────────────────────────────────────────────

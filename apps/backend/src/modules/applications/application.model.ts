@@ -55,6 +55,12 @@ export interface Interview {
   status: InterviewStatus;
   scheduledAt: Date;
   cancelledAt?: Date | null;
+  /**
+   * When the pre-interview reminder push was dispatched. Set by the
+   * scheduler sweep so a single interview only fires one reminder.
+   * Cleared on reschedule so the new time gets its own reminder.
+   */
+  reminderSentAt?: Date | null;
 }
 
 // ─── Document interface ─────────────────────────────────────────────────────
@@ -115,6 +121,24 @@ export interface Application {
   rejectedAt?: Date | null;
   hiredAt?: Date | null;
   withdrawnAt?: Date | null;
+  /**
+   * Skill slugs the seeker was missing relative to the job at the moment
+   * of rejection. Computed server-side as `job.skills \ seeker.skills` —
+   * not employer-provided. Drives the "Skill gap" CTA on MyApplications:
+   * the seeker sees the missing skill and a recommended course inline.
+   * Null until the application is rejected (and even then null if the
+   * seeker matched every skill on the post).
+   */
+  rejectionReasons?: string[] | null;
+  /**
+   * Set by the anti-ghost cron sweep when an employer hasn't moved a
+   * pending application past `pending` within the SLA window (default
+   * 72h). Used by the seeker UI to surface a "Ghosted" pill and by the
+   * employer-side score to count repeat offenses. Persisted so the
+   * sweep is idempotent — a row that's already flagged isn't re-pushed
+   * to the seeker.
+   */
+  flaggedAsGhostedAt?: Date | null;
   /** Latest interview attached to this application, if any. */
   interview?: Interview | null;
   createdAt: Date;
@@ -130,6 +154,8 @@ export interface PublicInterview {
   status: InterviewStatus;
   scheduledAt: string;
   cancelledAt: string | null;
+  /** ISO timestamp of the pre-interview reminder push (null until sent). */
+  reminderSentAt: string | null;
 }
 
 interface ApplicationMethods {
@@ -168,6 +194,10 @@ export interface PublicApplication {
     hiredAt: string | null;
     withdrawnAt: string | null;
   };
+  /** Computed missing-skill slugs at rejection time. Null until rejected. */
+  rejectionReasons: string[] | null;
+  /** ISO timestamp when the anti-ghost sweep flagged this. Null otherwise. */
+  flaggedAsGhostedAt: string | null;
   /** Latest interview, if scheduled. Surfaces in both employer + seeker views. */
   interview: PublicInterview | null;
   /** Hydrated by the service when listing for the seeker. */
@@ -242,6 +272,8 @@ const applicationSchema = new Schema<Application, ApplicationModel, ApplicationM
     rejectedAt: { type: Date, default: null },
     hiredAt: { type: Date, default: null },
     withdrawnAt: { type: Date, default: null },
+    rejectionReasons: { type: [String], default: null },
+    flaggedAsGhostedAt: { type: Date, default: null, index: true },
     interview: {
       type: new Schema<Interview>(
         {
@@ -253,6 +285,7 @@ const applicationSchema = new Schema<Application, ApplicationModel, ApplicationM
           status: { type: String, enum: INTERVIEW_STATUSES, default: 'scheduled' },
           scheduledAt: { type: Date, default: Date.now },
           cancelledAt: { type: Date, default: null },
+          reminderSentAt: { type: Date, default: null },
         },
         { _id: false },
       ),
@@ -305,6 +338,13 @@ applicationSchema.method('toPublicJSON', function (
       hiredAt: this.hiredAt ? this.hiredAt.toISOString() : null,
       withdrawnAt: this.withdrawnAt ? this.withdrawnAt.toISOString() : null,
     },
+    rejectionReasons:
+      Array.isArray(this.rejectionReasons) && this.rejectionReasons.length > 0
+        ? [...this.rejectionReasons]
+        : null,
+    flaggedAsGhostedAt: this.flaggedAsGhostedAt
+      ? this.flaggedAsGhostedAt.toISOString()
+      : null,
     interview: this.interview
       ? {
           scheduledFor: this.interview.scheduledFor.toISOString(),
@@ -316,6 +356,9 @@ applicationSchema.method('toPublicJSON', function (
           scheduledAt: this.interview.scheduledAt.toISOString(),
           cancelledAt: this.interview.cancelledAt
             ? this.interview.cancelledAt.toISOString()
+            : null,
+          reminderSentAt: this.interview.reminderSentAt
+            ? this.interview.reminderSentAt.toISOString()
             : null,
         }
       : null,

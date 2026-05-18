@@ -7,6 +7,7 @@ import { Screen, Text, Button, TextField, FormError } from '@/components';
 import { authApi } from '@/api/auth.api';
 import { ApiError } from '@/api/errors';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AuthStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'ForgotPasswordCode'>;
@@ -26,6 +27,7 @@ type CodeRoute = RouteProp<AuthStackParamList, 'ForgotPasswordCode'>;
 export function ForgotPasswordCodeScreen() {
   const navigation = useNavigation<Nav>();
   const { phone } = useRoute<CodeRoute>().params;
+  const t = useTranslate();
 
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -40,7 +42,7 @@ export function ForgotPasswordCodeScreen() {
 
     const trimmed = code.trim();
     if (!/^[0-9]{6}$/.test(trimmed)) {
-      setCodeError('Enter the 6-digit code');
+      setCodeError(t('auth.forgot_code.err_code_invalid'));
       return;
     }
 
@@ -54,25 +56,25 @@ export function ForgotPasswordCodeScreen() {
       if (err instanceof ApiError) {
         switch (err.code) {
           case 'VERIFICATION_OTP_INVALID':
-            setCodeError('That code is incorrect. Try again.');
+            setCodeError(t('auth.forgot_code.err_code_wrong'));
             break;
           case 'VERIFICATION_OTP_EXPIRED':
-            setFormError('This code has expired. Request a new one.');
+            setFormError(t('auth.forgot_code.err_code_expired'));
             break;
           case 'VERIFICATION_OTP_TOO_MANY':
-            setFormError('Too many wrong attempts. Request a new code.');
+            setFormError(t('auth.forgot_code.err_code_too_many'));
             break;
           case 'VERIFICATION_OTP_NOT_FOUND':
-            setFormError('No active code for this number. Request a new one.');
+            setFormError(t('auth.forgot_code.err_code_not_found'));
             break;
           case 'RATE_LIMITED':
-            setFormError('Too many attempts. Try again in a minute.');
+            setFormError(t('auth.forgot_code.err_rate_limited'));
             break;
           default:
             setFormError(err.message);
         }
       } else {
-        setFormError('Something went wrong. Please try again.');
+        setFormError(t('auth.forgot_code.err_generic'));
       }
     } finally {
       setSubmitting(false);
@@ -91,9 +93,9 @@ export function ForgotPasswordCodeScreen() {
     } catch (err) {
       haptic('error');
       if (err instanceof ApiError && err.code === 'RATE_LIMITED') {
-        setFormError('Slow down — wait a minute before requesting another code.');
+        setFormError(t('auth.forgot_code.err_resend_rate'));
       } else {
-        setFormError('Could not resend the code. Try again in a moment.');
+        setFormError(t('auth.forgot_code.err_resend_generic'));
       }
     } finally {
       setResending(false);
@@ -117,20 +119,20 @@ export function ForgotPasswordCodeScreen() {
         >
           <View style={{ gap: spacing.xs }}>
             <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              RESET PASSWORD
+              {t('auth.forgot_code.eyebrow')}
             </Text>
             <Text variant="titleLarge" weight="medium">
-              Enter the code
+              {t('auth.forgot_code.title')}
             </Text>
             <Text variant="body" tone="secondary">
-              We sent a 6-digit code to {phone}. It expires in 10 minutes.
+              {t('auth.forgot_code.subtitle', { phone })}
             </Text>
           </View>
 
           <FormError message={formError} />
 
           <TextField
-            label="6-digit code"
+            label={t('auth.forgot_code.code_label')}
             value={code}
             onChangeText={(v) => {
               // Numeric-only, max 6 digits — the keyboard already does this
@@ -138,7 +140,7 @@ export function ForgotPasswordCodeScreen() {
               setCode(v.replace(/[^0-9]/g, '').slice(0, 6));
               if (codeError) setCodeError(null);
             }}
-            placeholder="123456"
+            placeholder={t('auth.forgot_code.code_placeholder')}
             keyboardType="number-pad"
             textContentType="oneTimeCode"
             autoComplete="sms-otp"
@@ -149,18 +151,18 @@ export function ForgotPasswordCodeScreen() {
 
           <View style={{ gap: spacing.md }}>
             <Button
-              label={submitting ? 'Verifying…' : 'Verify code'}
+              label={submitting ? t('auth.forgot_code.cta_verifying') : t('auth.forgot_code.cta_verify')}
               onPress={onSubmit}
               disabled={submitting}
             />
             <Button
-              label={resending ? 'Sending…' : 'Resend code'}
+              label={resending ? t('auth.forgot_code.cta_resending') : t('auth.forgot_code.cta_resend')}
               variant="secondary"
               onPress={onResend}
               disabled={resending || submitting}
             />
             <Button
-              label="Use a different number"
+              label={t('auth.forgot_code.cta_different_number')}
               variant="ghost"
               onPress={() => navigation.goBack()}
             />

@@ -253,6 +253,13 @@ export interface User {
    * pushing. Cleared on logout via clearPushToken.
    */
   expoPushTokens: string[];
+  /**
+   * Last time the morning-digest job sent this user a push. Used to
+   * keep the cron idempotent within a day (if the scheduler fires
+   * twice for any reason we don't double-send) and as a dev signal
+   * for tuning the digest content.
+   */
+  lastDigestSentAt?: Date | null;
   // ─── Employer profile (Phase 3) ─────────────────────────────────────────
   /** Trading / brand name shown on job posts. */
   companyName?: string | null;
@@ -578,6 +585,7 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
       default: [],
     },
     expoPushTokens: { type: [String], default: [] },
+    lastDigestSentAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

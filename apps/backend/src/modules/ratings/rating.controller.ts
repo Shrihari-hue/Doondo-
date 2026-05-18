@@ -8,10 +8,12 @@ import * as service from './rating.service';
 export async function create(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const userId = req.user!.id;
-    const { applicationId, score, comment } = req.body as {
+    const { applicationId, score, comment, tags, anonymous } = req.body as {
       applicationId: string;
       score: number;
       comment?: string;
+      tags?: string[];
+      anonymous?: boolean;
     };
 
     const rating = await service.createRating({
@@ -19,6 +21,8 @@ export async function create(req: Request, res: Response, next: NextFunction): P
       applicationId,
       score,
       comment,
+      tags,
+      anonymous,
     });
 
     res.status(201).json({
@@ -46,6 +50,33 @@ export async function listForUser(req: Request, res: Response, next: NextFunctio
       data: { ratings, summary },
       requestId: req.id,
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Aggregated tag summary for a user — "Workers say…" style trust
+ * signals on the EmployerDetail screen. Public so unauthenticated
+ * browsers see the same info that drives the seeker's decision.
+ *
+ * `role` query param selects which catalog to roll up against:
+ *   - 'employer' (default) → tags seekers used to review THIS user as
+ *     an employer (paid on time, safe site, etc).
+ *   - 'seeker' → tags employers used to review THIS user as a seeker
+ *     (punctual, hardworking, etc).
+ */
+export async function tagSummary(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const userId = req.params.id!;
+    const roleRaw = (req.query.role as string | undefined) ?? 'employer';
+    const role: 'employer' | 'seeker' = roleRaw === 'seeker' ? 'seeker' : 'employer';
+    const summary = await service.summarizeTagsForUser(userId, role);
+    res.json({ ok: true, data: summary, requestId: req.id });
   } catch (err) {
     next(err);
   }

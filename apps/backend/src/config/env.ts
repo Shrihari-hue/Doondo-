@@ -58,6 +58,45 @@ const schema = z.object({
   OTP_TTL_SECONDS: z.coerce.number().int().positive().default(600),
   /** Per-phone rate limit on /verification/phone/start (per minute). */
   OTP_SEND_PER_MINUTE: z.coerce.number().int().positive().default(2),
+
+  // ─── Scheduler (Phase 2 post-MVP additions) ───────────────────────────
+  /** Master switch for all crons. Set to "false" in test/CI to skip boot. */
+  SCHEDULER_ENABLED: z
+    .union([z.literal('true'), z.literal('false')])
+    .default('true')
+    .transform((v) => v === 'true'),
+  /**
+   * Cron expression for the morning digest. Default 01:30 UTC = 07:00 IST,
+   * which matches the "open the app with chai" window for most Indian
+   * users. Use 6-field cron if you need second-level precision.
+   */
+  DIGEST_CRON: z.string().default('30 1 * * *'),
+  /**
+   * Cron for the anti-ghost sweep. Default top-of-hour every hour; the
+   * sweep itself is cheap (indexed query + small fan-out) so hourly is
+   * fine.
+   */
+  GHOST_SWEEP_CRON: z.string().default('0 * * * *'),
+  /**
+   * Hours an employer has to move an application past `pending` before
+   * the sweep flags it as ghosted. Default 72h (3 days) — tight enough
+   * that seekers don't wait forever, loose enough that a busy employer
+   * with weekend gaps isn't unfairly punished.
+   */
+  GHOST_SLA_HOURS: z.coerce.number().int().positive().default(72),
+  /**
+   * Cron for the interview-reminder sweep. Default every 15 min on the
+   * quarter-hour — cheap (small indexed query) and gives any rescheduled
+   * interview at most a 15-minute reminder lag.
+   */
+  INTERVIEW_REMINDER_CRON: z.string().default('*/15 * * * *'),
+  /**
+   * Minutes before the scheduled interview to send the reminder push.
+   * Default 60 — long enough that the worker can finish a current task
+   * and head to the interview, short enough that the reminder is fresh
+   * in mind.
+   */
+  INTERVIEW_REMINDER_LEAD_MINUTES: z.coerce.number().int().positive().default(60),
 });
 
 const parsed = schema.safeParse(process.env);

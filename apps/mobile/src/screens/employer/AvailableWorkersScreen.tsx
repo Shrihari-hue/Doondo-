@@ -30,6 +30,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { spacing, radii, blue } from '@doondo/tokens';
 import { Screen, Text, LoadingSpinner, EmptyState, Avatar, Stars } from '@/components';
 import { useTheme } from '@/theme/useTheme';
+import { useTranslate } from '@/i18n/useTranslate';
 import { haptic } from '@/lib/haptics';
 import { getCurrentCoords, type Coords } from '@/lib/location';
 import {
@@ -42,6 +43,7 @@ import { prettifySkill, tradeEmoji } from '@/lib/trades';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 // Tagged `manual` because it isn't device GPS — satisfies the Coords
 // interface so consumers can branch on the source if they want to.
@@ -51,6 +53,7 @@ export function AvailableWorkersScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const t = useTranslate();
   const [coords, setCoords] = useState<Coords | null>(null);
 
   useEffect(() => {
@@ -86,8 +89,8 @@ export function AvailableWorkersScreen() {
       if (!phone) {
         haptic('error');
         Alert.alert(
-          "Couldn't call",
-          'This worker hasn\'t added a phone number to their profile.',
+          t('employer.available_workers.no_phone_title'),
+          t('employer.available_workers.no_phone_body'),
         );
         return;
       }
@@ -95,16 +98,16 @@ export function AvailableWorkersScreen() {
       const clean = phone.replace(/[^\d+]/g, '');
       Linking.openURL(`tel:${clean}`).catch(() => {
         Alert.alert(
-          "Couldn't open dialer",
-          'Your phone\'s dialer isn\'t available. The number is ' + phone,
+          t('employer.available_workers.no_dialer_title'),
+          t('employer.available_workers.no_dialer_body', { phone }),
         );
       });
     },
     onError: (err) => {
       haptic('error');
       const msg =
-        err instanceof ApiError ? err.message : "Couldn't reveal contact.";
-      Alert.alert('Not available', msg);
+        err instanceof ApiError ? err.message : t('employer.available_workers.not_available_default');
+      Alert.alert(t('employer.available_workers.not_available_title'), msg);
     },
   });
 
@@ -143,7 +146,7 @@ export function AvailableWorkersScreen() {
               flex: 1,
             }}
           >
-            Available right now
+            {t('employer.available_workers.header_title')}
           </Text>
         </View>
         <Text
@@ -153,8 +156,7 @@ export function AvailableWorkersScreen() {
             color: 'rgba(255,255,255,0.85)',
           }}
         >
-          Workers who broadcast their availability within ~15 km. Tap to
-          call — they&apos;ve opted in to be reached.
+          {t('employer.available_workers.header_subtitle')}
         </Text>
       </LinearGradient>
 
@@ -165,10 +167,10 @@ export function AvailableWorkersScreen() {
           </View>
         ) : query.isError ? (
           <EmptyState
-            title="Couldn't load"
-            message="Check your connection and try again."
+            title={t('employer.available_workers.error_title')}
+            message={t('employer.available_workers.error_message')}
             cta={{
-              label: 'Retry',
+              label: t('employer.available_workers.retry'),
               onPress: () => {
                 haptic('selection');
                 void query.refetch();
@@ -178,9 +180,9 @@ export function AvailableWorkersScreen() {
         ) : availabilities.length === 0 ? (
           <EmptyState
             glyph="📡"
-            eyebrow="NOBODY BROADCASTING"
-            title="No workers available right now"
-            message="When a worker raises their availability beacon nearby, they'll show up here. Pull to refresh."
+            eyebrow={t('employer.available_workers.empty_eyebrow')}
+            title={t('employer.available_workers.empty_title')}
+            message={t('employer.available_workers.empty_message')}
           />
         ) : (
           <FlatList
@@ -203,6 +205,7 @@ export function AvailableWorkersScreen() {
                 item={item}
                 onCall={() => callMutation.mutate(item.seeker.id)}
                 calling={callMutation.isPending}
+                t={t}
               />
             )}
           />
@@ -218,10 +221,12 @@ function AvailabilityRow({
   item,
   onCall,
   calling,
+  t,
 }: {
   item: NearbyAvailability;
   onCall: () => void;
   calling: boolean;
+  t: TFn;
 }) {
   const { theme } = useTheme();
   const minutesLeft = Math.max(
@@ -230,8 +235,8 @@ function AvailabilityRow({
   );
   const distanceLabel =
     item.distanceMeters < 1000
-      ? `${item.distanceMeters}m`
-      : `${(item.distanceMeters / 1000).toFixed(1)}km`;
+      ? t('employer.available_workers.meters_short', { n: item.distanceMeters })
+      : t('employer.available_workers.kilometers_short', { n: (item.distanceMeters / 1000).toFixed(1) });
 
   return (
     <View
@@ -269,7 +274,7 @@ function AvailabilityRow({
             {item.seeker.isVerified ? '  ✓' : ''}
           </Text>
           <Text style={{ fontSize: 12, color: theme.text.tertiary }} numberOfLines={1}>
-            {distanceLabel} away · {minutesLeft > 0 ? `${minutesLeft}m left` : 'expiring'}
+            {distanceLabel} · {minutesLeft > 0 ? t('employer.available_workers.minutes_left', { n: minutesLeft }) : t('employer.available_workers.expiring')}
             {item.location.area ? ` · ${item.location.area}` : ''}
           </Text>
           {item.seeker.rating ? (
@@ -335,7 +340,7 @@ function AvailabilityRow({
         onPress={onCall}
         disabled={calling}
         accessibilityRole="button"
-        accessibilityLabel={`Call ${item.seeker.name}`}
+        accessibilityLabel={t('employer.available_workers.call_a11y', { name: item.seeker.name })}
         style={({ pressed }) => ({
           backgroundColor: '#2563EB',
           paddingVertical: 12,
@@ -351,7 +356,7 @@ function AvailabilityRow({
         })}
       >
         <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
-          {calling ? 'Opening dialer…' : '📞 Call now'}
+          {calling ? t('employer.available_workers.opening_dialer') : t('employer.available_workers.call_now')}
         </Text>
       </Pressable>
     </View>

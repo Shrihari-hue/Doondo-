@@ -21,6 +21,7 @@ import { Screen, Text, Avatar, EmptyState, LoadingSpinner } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import {
   findFriendsApi,
@@ -31,6 +32,7 @@ import {
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 type LoadState =
   | { kind: 'idle' }
@@ -44,6 +46,7 @@ function Inner() {
   const { user } = useAuth();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const t = useTranslate();
   const [state, setState] = useState<LoadState>({ kind: 'idle' });
 
   useEffect(() => {
@@ -72,7 +75,7 @@ function Inner() {
     } catch {
       setState({
         kind: 'unsupported',
-        message: 'Contacts access needs the expo-contacts package.',
+        message: t('find_friends.unsupported_module'),
       });
       return;
     }
@@ -108,7 +111,7 @@ function Inner() {
     } catch (err) {
       setState({
         kind: 'unsupported',
-        message: (err as Error)?.message ?? 'Could not load contacts.',
+        message: (err as Error)?.message ?? t('find_friends.unsupported_default'),
       });
     }
   }
@@ -117,7 +120,7 @@ function Inner() {
     const ref = user?.id ?? '';
     const link = `https://doondo.app/?ref=${ref}`;
     const msg = encodeURIComponent(
-      `Join me on Doondo — find work near you. ${link}`,
+      t('find_friends.whatsapp_text', { link }),
     );
     void Linking.openURL(`whatsapp://send?phone=${phone}&text=${msg}`).catch(
       () => {
@@ -134,7 +137,7 @@ function Inner() {
       // Seekers can't chat each other yet; show a friendly toast.
       Alert.alert(
         f.name,
-        `${f.name} is already on Doondo. Worker-to-worker chat is coming soon.`,
+        t('find_friends.seeker_alert_body', { name: f.name }),
       );
     }
   }
@@ -162,10 +165,10 @@ function Inner() {
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 22, fontWeight: '700', color: theme.text.primary }}>
-              Find friends
+              {t('find_friends.title')}
             </Text>
             <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 2 }}>
-              Match your phone contacts against Doondo. Numbers never leave your device in plaintext.
+              {t('find_friends.subtitle')}
             </Text>
           </View>
         </View>
@@ -174,7 +177,7 @@ function Inner() {
           <View style={{ alignItems: 'center', padding: spacing.xl }}>
             <LoadingSpinner />
             <Text style={{ marginTop: spacing.md, fontSize: 13, color: theme.text.secondary }}>
-              Scanning your contacts privately…
+              {t('find_friends.scanning')}
             </Text>
           </View>
         )}
@@ -183,9 +186,9 @@ function Inner() {
           <View style={{ paddingHorizontal: spacing.xl }}>
             <EmptyState
               glyph="📵"
-              eyebrow="PERMISSION"
-              title="Contacts access not granted"
-              message="To find friends already on Doondo, allow contacts access in your phone settings, then come back to this screen."
+              eyebrow={t('find_friends.permission_eyebrow')}
+              title={t('find_friends.permission_title')}
+              message={t('find_friends.permission_message')}
             />
             <Pressable
               onPress={() => void Linking.openSettings()}
@@ -199,7 +202,7 @@ function Inner() {
               }}
             >
               <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
-                Open settings
+                {t('find_friends.open_settings')}
               </Text>
             </Pressable>
           </View>
@@ -209,8 +212,8 @@ function Inner() {
           <View style={{ paddingHorizontal: spacing.xl }}>
             <EmptyState
               glyph="⚠️"
-              eyebrow="UNAVAILABLE"
-              title="Couldn't load contacts"
+              eyebrow={t('find_friends.unsupported_eyebrow')}
+              title={t('find_friends.unsupported_title')}
               message={state.message}
             />
           </View>
@@ -218,12 +221,12 @@ function Inner() {
 
         {state.kind === 'ready' && (
           <>
-            <Section title={`ON DOONDO · ${state.matched.length}`}>
+            <Section title={t('find_friends.on_doondo_section', { n: state.matched.length })}>
               {state.matched.length === 0 ? (
                 <Text
                   style={{ color: theme.text.tertiary, fontSize: 13, paddingHorizontal: spacing.lg }}
                 >
-                  None of your contacts are on Doondo yet. Invite a friend below — you earn ₹100 when they're hired.
+                  {t('find_friends.on_doondo_empty')}
                 </Text>
               ) : (
                 state.matched.map((f) => (
@@ -251,18 +254,18 @@ function Inner() {
                         {f.name}
                       </Text>
                       <Text style={{ fontSize: 12, color: theme.text.tertiary }}>
-                        {f.role === 'employer' ? 'Employer on Doondo' : 'Worker on Doondo'}
+                        {f.role === 'employer' ? t('find_friends.role_employer') : t('find_friends.role_seeker')}
                       </Text>
                     </View>
                     <Text style={{ color: theme.brand.hero, fontSize: 12, fontWeight: '600' }}>
-                      Open →
+                      {t('find_friends.open_arrow')}
                     </Text>
                   </Pressable>
                 ))
               )}
             </Section>
 
-            <Section title="INVITE & EARN">
+            <Section title={t('find_friends.invite_section')}>
               <Text
                 style={{
                   paddingHorizontal: spacing.lg,
@@ -270,7 +273,7 @@ function Inner() {
                   fontSize: 13,
                 }}
               >
-                Share Doondo with the rest of your contacts. Earn ₹100 each time a worker you refer is hired.
+                {t('find_friends.invite_blurb')}
               </Text>
               <View style={{ paddingHorizontal: spacing.lg, gap: spacing.sm }}>
                 {state.uncheckedNumbers.slice(0, 8).map((num) => (
@@ -293,7 +296,7 @@ function Inner() {
                       {num}
                     </Text>
                     <Text style={{ fontSize: 12, fontWeight: '600', color: '#10B981' }}>
-                      Invite →
+                      {t('find_friends.invite_arrow')}
                     </Text>
                   </Pressable>
                 ))}

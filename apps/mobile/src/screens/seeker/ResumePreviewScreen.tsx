@@ -346,7 +346,7 @@ function ResumePreviewInner() {
                     paddingHorizontal: spacing.sm,
                     paddingVertical: 4,
                     borderRadius: radii.pill,
-                    backgroundColor: theme.bg.subtle,
+                    backgroundColor: theme.bg.muted,
                   }}
                 >
                   <Text

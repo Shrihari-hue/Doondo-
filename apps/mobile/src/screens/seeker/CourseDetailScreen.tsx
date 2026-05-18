@@ -28,6 +28,7 @@ import { Screen, Text, LoadingSpinner, EmptyState } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import {
   coursesApi,
   type PublicCourseDetail,
@@ -39,6 +40,7 @@ import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type Route = RouteProp<AppStackParamList, 'CourseDetail'>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function CourseDetailInner() {
   const { theme } = useTheme();
@@ -46,6 +48,7 @@ function CourseDetailInner() {
   const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const t = useTranslate();
 
   const { courseId } = route.params;
 
@@ -76,8 +79,8 @@ function CourseDetailInner() {
     onError: (err) => {
       haptic('error');
       Alert.alert(
-        "Couldn't enroll",
-        err instanceof ApiError ? err.message : 'Try again.',
+        t('course_detail.couldnt_enroll'),
+        err instanceof ApiError ? err.message : t('course_detail.try_again'),
       );
     },
   });
@@ -91,8 +94,8 @@ function CourseDetailInner() {
         // Slight delay so the modal can dismiss before the badge alert.
         setTimeout(() => {
           Alert.alert(
-            "🏅 Badge earned",
-            "You've completed this course. The badge now shows on your resume.",
+            t('course_detail.badge_alert_title'),
+            t('course_detail.badge_alert_body'),
           );
         }, 250);
       } else {
@@ -102,8 +105,8 @@ function CourseDetailInner() {
     onError: (err) => {
       haptic('error');
       Alert.alert(
-        "Couldn't mark complete",
-        err instanceof ApiError ? err.message : 'Try again.',
+        t('course_detail.couldnt_complete'),
+        err instanceof ApiError ? err.message : t('course_detail.try_again'),
       );
     },
   });
@@ -121,9 +124,9 @@ function CourseDetailInner() {
     return (
       <Screen>
         <EmptyState
-          title="Couldn't load this course"
-          message="Check your connection and try again."
-          cta={{ label: 'Retry', onPress: () => void detail.refetch() }}
+          title={t('course_detail.error_title')}
+          message={t('course_detail.error_message')}
+          cta={{ label: t('course_detail.retry'), onPress: () => void detail.refetch() }}
         />
       </Screen>
     );
@@ -194,7 +197,11 @@ function CourseDetailInner() {
                 {course.title}
               </Text>
               <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>
-                {course.lessons.length} lessons · {course.totalDurationMinutes} min · {course.level}
+                {t('course_detail.header_meta', {
+                  n: course.lessons.length,
+                  min: course.totalDurationMinutes,
+                  level: course.level,
+                })}
               </Text>
               {isCompleted ? (
                 <View
@@ -212,7 +219,7 @@ function CourseDetailInner() {
                 >
                   <Text style={{ fontSize: 12 }}>🏅</Text>
                   <Text style={{ fontSize: 11, fontWeight: '700', color: '#78350F' }}>
-                    BADGE EARNED
+                    {t('course_detail.badge_earned')}
                   </Text>
                 </View>
               ) : null}
@@ -246,7 +253,7 @@ function CourseDetailInner() {
                 color: theme.text.tertiary,
               }}
             >
-              YOUR PROGRESS
+              {t('course_detail.your_progress')}
             </Text>
             <Text
               style={{ fontSize: 12, fontWeight: '600', color: theme.text.secondary }}
@@ -284,7 +291,7 @@ function CourseDetailInner() {
               })}
             >
               <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
-                {enrollMutation.isPending ? 'Starting…' : 'Start course'}
+                {enrollMutation.isPending ? t('course_detail.starting') : t('course_detail.start_course')}
               </Text>
             </Pressable>
           ) : null}
@@ -306,7 +313,7 @@ function CourseDetailInner() {
               color: theme.text.tertiary,
             }}
           >
-            LESSONS
+            {t('course_detail.lessons_section')}
           </Text>
           {course.lessons.map((lesson, i) => {
             const done = completedLessonIds.has(lesson.id);
@@ -318,7 +325,7 @@ function CourseDetailInner() {
                   setOpenLesson(lesson);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={`Open lesson: ${lesson.title}`}
+                accessibilityLabel={t('course_detail.a11y_open_lesson', { title: lesson.title })}
                 style={({ pressed }) => ({
                   backgroundColor: theme.bg.surface,
                   borderRadius: radii.lg,
@@ -363,7 +370,7 @@ function CourseDetailInner() {
                     {lesson.title}
                   </Text>
                   <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
-                    {lesson.durationMinutes} min read
+                    {t('course_detail.lesson_min_read', { n: lesson.durationMinutes })}
                   </Text>
                 </View>
                 <Text style={{ fontSize: 18, color: theme.text.tertiary }}>›</Text>
@@ -383,6 +390,7 @@ function CourseDetailInner() {
           setOpenLesson(null);
         }}
         completing={completeMutation.isPending}
+        t={t}
       />
     </Screen>
   );
@@ -396,12 +404,14 @@ function LessonModal({
   onClose,
   onComplete,
   completing,
+  t,
 }: {
   lesson: PublicCourseLesson | null;
   completed: boolean;
   onClose: () => void;
   onComplete: () => void;
   completing: boolean;
+  t: TFn;
 }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
@@ -443,7 +453,7 @@ function LessonModal({
                   {lesson.title}
                 </Text>
                 <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
-                  {lesson.durationMinutes} min read
+                  {t('course_detail.lesson_min_read', { n: lesson.durationMinutes })}
                 </Text>
               </View>
             </View>
@@ -479,7 +489,7 @@ function LessonModal({
                 onPress={onComplete}
                 disabled={completed || completing}
                 accessibilityRole="button"
-                accessibilityLabel={completed ? 'Lesson completed' : 'Mark this lesson complete'}
+                accessibilityLabel={completed ? t('course_detail.a11y_completed') : t('course_detail.a11y_mark_complete')}
                 style={({ pressed }) => ({
                   paddingVertical: 14,
                   borderRadius: radii.pill,
@@ -502,10 +512,10 @@ function LessonModal({
               >
                 <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
                   {completed
-                    ? '✓ Completed'
+                    ? t('course_detail.lesson_complete_done')
                     : completing
-                      ? 'Saving…'
-                      : 'Mark as complete'}
+                      ? t('course_detail.lesson_complete_saving')
+                      : t('course_detail.lesson_complete_cta')}
                 </Text>
               </Pressable>
             </View>

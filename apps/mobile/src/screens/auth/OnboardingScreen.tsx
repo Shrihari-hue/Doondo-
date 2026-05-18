@@ -35,40 +35,39 @@ import { spacing, radii, blue } from '@doondo/tokens';
 import { Screen, Text, Button } from '@/components';
 import { setSecure } from '@/lib/secureStore';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AuthStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface Slide {
   emoji: string;
-  eyebrow: string;
-  title: string;
-  body: string;
+  eyebrowKey: string;
+  titleKey: string;
+  bodyKey: string;
 }
 
 const SLIDES: Slide[] = [
   {
     emoji: '🎤',
-    eyebrow: 'JUST SPEAK',
-    title: 'Find work by voice',
-    body:
-      "Tell us what you're looking for in your language — English, Kannada, Hindi, Tamil, or Telugu. We do the searching.",
+    eyebrowKey: 'auth.onboarding.slide1_eyebrow',
+    titleKey: 'auth.onboarding.slide1_title',
+    bodyKey: 'auth.onboarding.slide1_body',
   },
   {
     emoji: '⚡',
-    eyebrow: 'ONE TAP',
-    title: 'Apply in seconds',
-    body:
-      'See nearby jobs that match your skills. Tap Apply Now and you’re done. The employer sees your profile right away.',
+    eyebrowKey: 'auth.onboarding.slide2_eyebrow',
+    titleKey: 'auth.onboarding.slide2_title',
+    bodyKey: 'auth.onboarding.slide2_body',
   },
   {
     emoji: '⭐',
-    eyebrow: 'BUILD TRUST',
-    title: 'Get hired, get rated',
-    body:
-      "Every hire shows up in your earnings. After the work's done, you and the employer rate each other — your reputation grows.",
+    eyebrowKey: 'auth.onboarding.slide3_eyebrow',
+    titleKey: 'auth.onboarding.slide3_title',
+    bodyKey: 'auth.onboarding.slide3_body',
   },
 ];
 
@@ -77,6 +76,7 @@ const ONBOARDING_SEEN_KEY = 'onboardingSeen';
 export function OnboardingScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const t = useTranslate();
   const [index, setIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -143,11 +143,11 @@ export function OnboardingScreen() {
               letterSpacing: -0.5,
             }}
           >
-            Doondo
+            {t('auth.onboarding.brand')}
           </Text>
           <Pressable onPress={skip} hitSlop={12}>
             <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', fontWeight: '600' }}>
-              Skip
+              {t('auth.onboarding.skip')}
             </Text>
           </Pressable>
         </View>
@@ -163,7 +163,7 @@ export function OnboardingScreen() {
           style={{ flex: 1 }}
         >
           {SLIDES.map((s, i) => (
-            <SlideView key={i} slide={s} />
+            <SlideView key={i} slide={s} t={t} />
           ))}
         </ScrollView>
 
@@ -208,7 +208,7 @@ export function OnboardingScreen() {
                 color: blue[700],
               }}
             >
-              {index === SLIDES.length - 1 ? 'Get started' : 'Next'}
+              {index === SLIDES.length - 1 ? t('auth.onboarding.get_started') : t('auth.onboarding.next')}
             </Text>
           </Pressable>
         </View>
@@ -217,7 +217,7 @@ export function OnboardingScreen() {
   );
 }
 
-function SlideView({ slide }: { slide: Slide }) {
+function SlideView({ slide, t }: { slide: Slide; t: TFn }) {
   return (
     <View
       style={{
@@ -252,7 +252,7 @@ function SlideView({ slide }: { slide: Slide }) {
             letterSpacing: 1.8,
           }}
         >
-          {slide.eyebrow}
+          {t(slide.eyebrowKey)}
         </Text>
         <Text
           style={{
@@ -265,7 +265,7 @@ function SlideView({ slide }: { slide: Slide }) {
             paddingHorizontal: spacing.lg,
           }}
         >
-          {slide.title}
+          {t(slide.titleKey)}
         </Text>
         <Text
           style={{
@@ -276,7 +276,7 @@ function SlideView({ slide }: { slide: Slide }) {
             paddingHorizontal: spacing.lg,
           }}
         >
-          {slide.body}
+          {t(slide.bodyKey)}
         </Text>
       </View>
     </View>

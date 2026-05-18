@@ -34,6 +34,8 @@ interface ParticipantSummary {
   name: string;
   photoUrl: string | null;
   isVerified: boolean;
+  /** Role of the counterpart — drives the chat-list tab filter (Employers / Support). */
+  role?: 'seeker' | 'employer' | 'admin';
   /** Only set for employer participants — used in chat-list rendering. */
   companyName?: string | null;
 }
@@ -163,6 +165,7 @@ export async function listMine(
         name: u.name,
         photoUrl: u.photoUrl ?? null,
         isVerified: Boolean(u.isVerified),
+        role: u.role,
         companyName: u.role === 'employer' ? (u.companyName ?? null) : null,
       } as ParticipantSummary,
     ]),
@@ -215,6 +218,7 @@ export async function findById(
           name: counterpart.name,
           photoUrl: counterpart.photoUrl ?? null,
           isVerified: Boolean(counterpart.isVerified),
+          role: counterpart.role,
           companyName:
             counterpart.role === 'employer' ? (counterpart.companyName ?? null) : null,
         }

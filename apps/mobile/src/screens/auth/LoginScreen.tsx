@@ -8,6 +8,7 @@ import { authApi } from '@/api/auth.api';
 import { ApiError } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AuthStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
@@ -20,6 +21,7 @@ interface FieldErrors {
 export function LoginScreen() {
   const navigation = useNavigation<Nav>();
   const { setSession } = useAuth();
+  const t = useTranslate();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,8 +36,8 @@ export function LoginScreen() {
 
     if (!email.trim() || !password) {
       setFieldErrors({
-        email: !email.trim() ? 'Email is required' : undefined,
-        password: !password ? 'Password is required' : undefined,
+        email: !email.trim() ? t('auth.login.err_email_required') : undefined,
+        password: !password ? t('auth.login.err_password_required') : undefined,
       });
       return;
     }
@@ -50,16 +52,16 @@ export function LoginScreen() {
       haptic('error');
       if (err instanceof ApiError) {
         if (err.code === 'AUTH_INVALID_CREDENTIALS') {
-          setFormError('Email or password is incorrect.');
+          setFormError(t('auth.login.err_invalid_credentials'));
         } else if (err.code === 'RATE_LIMITED') {
-          setFormError('Too many sign-in attempts. Try again in a minute.');
+          setFormError(t('auth.login.err_rate_limited'));
         } else if (err.validationIssues) {
           setFieldErrors(mapValidation(err.validationIssues));
         } else {
           setFormError(err.message);
         }
       } else {
-        setFormError('Something went wrong. Please try again.');
+        setFormError(t('auth.login.err_generic'));
       }
     } finally {
       setSubmitting(false);
@@ -83,10 +85,10 @@ export function LoginScreen() {
         >
           <View style={{ gap: spacing.xs }}>
             <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              SIGN IN
+              {t('auth.login.eyebrow')}
             </Text>
             <Text variant="titleLarge" weight="medium">
-              Welcome back
+              {t('auth.login.title')}
             </Text>
           </View>
 
@@ -94,13 +96,13 @@ export function LoginScreen() {
 
           <View style={{ gap: spacing.lg }}>
             <TextField
-              label="Email"
+              label={t('auth.login.email_label')}
               value={email}
               onChangeText={(v) => {
                 setEmail(v);
                 if (fieldErrors.email) setFieldErrors((s) => ({ ...s, email: undefined }));
               }}
-              placeholder="you@example.com"
+              placeholder={t('auth.login.email_placeholder')}
               autoCapitalize="none"
               autoComplete="email"
               autoCorrect={false}
@@ -110,13 +112,13 @@ export function LoginScreen() {
               returnKeyType="next"
             />
             <TextField
-              label="Password"
+              label={t('auth.login.password_label')}
               value={password}
               onChangeText={(v) => {
                 setPassword(v);
                 if (fieldErrors.password) setFieldErrors((s) => ({ ...s, password: undefined }));
               }}
-              placeholder="At least 8 characters"
+              placeholder={t('auth.login.password_placeholder')}
               autoCapitalize="none"
               autoComplete="current-password"
               autoCorrect={false}
@@ -130,12 +132,12 @@ export function LoginScreen() {
 
           <View style={{ gap: spacing.md }}>
             <Button
-              label={submitting ? 'Signing in…' : 'Sign in'}
+              label={submitting ? t('auth.login.cta_signing_in') : t('auth.login.cta_signin')}
               onPress={onSubmit}
               disabled={submitting}
             />
             <Button
-              label="Forgot password?"
+              label={t('auth.login.cta_forgot')}
               variant="ghost"
               onPress={() => navigation.navigate('ForgotPassword')}
             />
@@ -143,7 +145,7 @@ export function LoginScreen() {
 
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.xs }}>
             <Text variant="footnote" tone="secondary">
-              Don't have an account?
+              {t('auth.login.no_account')}
             </Text>
             <Text
               variant="footnote"
@@ -151,7 +153,7 @@ export function LoginScreen() {
               tone="hero"
               onPress={() => navigation.navigate('Signup')}
             >
-              Create one
+              {t('auth.login.create_one')}
             </Text>
           </View>
         </ScrollView>

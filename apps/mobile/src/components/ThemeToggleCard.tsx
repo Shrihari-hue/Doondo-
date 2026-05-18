@@ -29,7 +29,13 @@ export function ThemeToggleCard() {
   const { theme, scheme, isManual, setScheme, followSystem } = useTheme();
 
   // Resolve current selection: 'system' if not manual, else the active scheme.
-  const active: OptionKey = isManual ? scheme : 'system';
+  // The seekerLight variant collapses to 'light' for the toggle — it's not a
+  // user-facing pick yet, it's an internal "seeker tint" the app applies.
+  const active: OptionKey = !isManual
+    ? 'system'
+    : scheme === 'seekerLight'
+      ? 'light'
+      : scheme;
 
   function onSelect(next: OptionKey) {
     if (next === 'system') followSystem();

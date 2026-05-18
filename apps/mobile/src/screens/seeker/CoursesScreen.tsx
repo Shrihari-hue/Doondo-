@@ -30,6 +30,7 @@ import { Screen, Text, LoadingSpinner, EmptyState } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import {
   coursesApi,
   type PublicCourseSummary,
@@ -38,11 +39,13 @@ import {
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function CoursesInner() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const t = useTranslate();
 
   const catalogue = useQuery({
     queryKey: ['courses', 'catalogue'],
@@ -94,7 +97,7 @@ function CoursesInner() {
           <Text
             style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
           >
-            Training & courses
+            {t('courses.header_title')}
           </Text>
         </View>
         <Text
@@ -104,8 +107,7 @@ function CoursesInner() {
             color: 'rgba(255,255,255,0.85)',
           }}
         >
-          Short lessons that take 15–25 minutes. Finish all the lessons and
-          earn a badge that shows on your resume.
+          {t('courses.header_blurb')}
         </Text>
       </LinearGradient>
 
@@ -115,10 +117,10 @@ function CoursesInner() {
         </View>
       ) : catalogue.isError ? (
         <EmptyState
-          title="Couldn't load courses"
-          message="Check your connection and try again."
+          title={t('courses.error_title')}
+          message={t('courses.error_message')}
           cta={{
-            label: 'Retry',
+            label: t('courses.retry'),
             onPress: () => {
               haptic('selection');
               void catalogue.refetch();
@@ -147,6 +149,7 @@ function CoursesInner() {
               courses={courses}
               earned={earned}
               inProgress={inProgress}
+              t={t}
             />
           }
           renderItem={({ item }) => {
@@ -156,6 +159,7 @@ function CoursesInner() {
                 course={item}
                 enrolment={enrolment ?? null}
                 onPress={() => open(item)}
+                t={t}
               />
             );
           }}
@@ -171,10 +175,12 @@ function BadgeStrip({
   courses,
   earned,
   inProgress,
+  t,
 }: {
   courses: PublicCourseSummary[];
   earned: PublicEnrollment[];
   inProgress: PublicEnrollment[];
+  t: TFn;
 }) {
   const { theme } = useTheme();
   if (earned.length === 0 && inProgress.length === 0) {
@@ -189,7 +195,7 @@ function BadgeStrip({
             marginBottom: spacing.xs,
           }}
         >
-          ALL COURSES
+          {t('courses.all_courses')}
         </Text>
       </View>
     );
@@ -208,7 +214,7 @@ function BadgeStrip({
               color: theme.text.tertiary,
             }}
           >
-            YOUR BADGES · {earned.length}
+            {t('courses.your_badges', { n: earned.length })}
           </Text>
           <ScrollView
             horizontal
@@ -257,7 +263,7 @@ function BadgeStrip({
               color: theme.text.tertiary,
             }}
           >
-            IN PROGRESS · {inProgress.length}
+            {t('courses.in_progress', { n: inProgress.length })}
           </Text>
         </View>
       ) : null}
@@ -271,7 +277,7 @@ function BadgeStrip({
             color: theme.text.tertiary,
           }}
         >
-          ALL COURSES
+          {t('courses.all_courses')}
         </Text>
       </View>
     </View>
@@ -284,10 +290,12 @@ function CourseCard({
   course,
   enrolment,
   onPress,
+  t,
 }: {
   course: PublicCourseSummary;
   enrolment: PublicEnrollment | null;
   onPress: () => void;
+  t: TFn;
 }) {
   const { theme } = useTheme();
   const isCompleted = Boolean(enrolment?.completedAt);
@@ -299,7 +307,7 @@ function CourseCard({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Open course: ${course.title}`}
+      accessibilityLabel={t('courses.card_a11y', { title: course.title })}
       style={({ pressed }) => ({
         backgroundColor: theme.bg.surface,
         borderRadius: radii.lg,
@@ -361,7 +369,7 @@ function CourseCard({
             }}
           >
             <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
-              {course.lessonCount} lessons · {course.totalDurationMinutes} min
+              {t('courses.card_lessons_meta', { n: course.lessonCount, min: course.totalDurationMinutes })}
             </Text>
             <Text style={{ fontSize: 11, color: theme.text.tertiary }}>·</Text>
             <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
@@ -390,7 +398,7 @@ function CourseCard({
             />
           </View>
           <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
-            {enrolment.completedLessonsCount} / {course.lessonCount} lessons done
+            {t('courses.progress_meta', { done: enrolment.completedLessonsCount, total: course.lessonCount })}
           </Text>
         </View>
       ) : null}

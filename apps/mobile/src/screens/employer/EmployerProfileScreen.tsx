@@ -28,15 +28,18 @@ import { useAuthStore } from '@/stores/auth.store';
 import { meApi } from '@/api/me.api';
 import { pickProfilePhoto } from '@/lib/photo';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import { ProfileCompletionOrb } from '../seeker/ProfileCompletionOrb';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 export function EmployerProfileScreen() {
   const { user, logout, savedAccounts } = useAuth();
   const setStore = useAuthStore.setState;
   const navigation = useNavigation<Nav>();
+  const t = useTranslate();
   const [photoError, setPhotoError] = useState<string | null>(null);
 
   /**
@@ -72,7 +75,7 @@ export function EmployerProfileScreen() {
     },
     onError: (err) => {
       haptic('error');
-      setPhotoError(err instanceof Error ? err.message : 'Failed to update photo');
+      setPhotoError(err instanceof Error ? err.message : t('employer.profile.photo_failed'));
     },
   });
 

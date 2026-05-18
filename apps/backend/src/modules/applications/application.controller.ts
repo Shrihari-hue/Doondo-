@@ -5,6 +5,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { errors } from '@/lib/errors';
 import * as applicationService from './application.service';
+import * as skillGapService from './skillGap.service';
 
 const ok = (req: Request, res: Response, status: number, data: unknown) => {
   res.status(status).json({ ok: true, data, requestId: req.id });
@@ -168,6 +169,29 @@ export async function detail(req: Request, res: Response, next: NextFunction): P
     if (!req.user) throw errors.unauthorized();
     const application = await applicationService.findById(req.user.id, req.params.id!);
     ok(req, res, 200, { application });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Skill-gap read endpoint — used by the seeker's MyApplications screen
+ * after a rejection to surface "you were missing X — try this course".
+ * Returns an empty result when the application isn't rejected or when
+ * the seeker matched every required skill.
+ */
+export async function skillGap(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const result = await skillGapService.computeForApplication({
+      seekerId: req.user.id,
+      applicationId: req.params.id!,
+    });
+    ok(req, res, 200, result);
   } catch (err) {
     next(err);
   }

@@ -9,7 +9,13 @@ interface Props extends ViewProps {
   edges?: Edge[];
   /** Override the canvas background. Defaults to theme.bg.canvas. */
   background?: string;
-  children: React.ReactNode;
+  /**
+   * Screen contents. Optional so callers can render `<Screen />` as a
+   * blank canvas while waiting for an async user/profile lookup — the
+   * background still tints correctly, the user just sees a clean
+   * canvas instead of a flash of nothing.
+   */
+  children?: React.ReactNode;
 }
 
 /**

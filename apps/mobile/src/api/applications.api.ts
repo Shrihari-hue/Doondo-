@@ -7,6 +7,7 @@ import type {
   ApplicationStatus,
   InterviewMode,
   PublicApplication,
+  SkillGapResponse,
   WorkExperience,
 } from './types';
 
@@ -122,6 +123,14 @@ export const applicationsApi = {
 
   detail: (applicationId: string) =>
     apiRequest<{ application: PublicApplication }>(`/applications/${applicationId}`),
+
+  /**
+   * "What was I missing?" — fetches the seeker-facing skill-gap result
+   * for a rejected application. Empty arrays + null course when the
+   * application isn't rejected or the seeker matched every skill.
+   */
+  skillGap: (applicationId: string) =>
+    apiRequest<SkillGapResponse>(`/applications/${applicationId}/skill-gap`),
 
   withdraw: (applicationId: string) =>
     apiRequest<{ application: PublicApplication }>(

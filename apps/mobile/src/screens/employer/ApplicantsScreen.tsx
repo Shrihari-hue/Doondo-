@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, SkeletonCard, EmptyState } from '@/components';
 import { useTheme } from '@/theme/useTheme';
+import { useTranslate } from '@/i18n/useTranslate';
 import { applicationsApi } from '@/api/applications.api';
 import { haptic } from '@/lib/haptics';
 import { getCurrentCoords } from '@/lib/location';
@@ -24,17 +25,18 @@ import { ApplicantCard } from './ApplicantCard';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
-const STATUS_FILTERS: Array<{ key: ApplicationStatus | 'all'; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'pending', label: 'New' },
-  { key: 'viewed', label: 'Viewed' },
-  { key: 'shortlisted', label: 'Shortlisted' },
-  { key: 'hired', label: 'Hired' },
+const STATUS_FILTERS: Array<{ key: ApplicationStatus | 'all'; labelKey: string }> = [
+  { key: 'all', labelKey: 'employer.applicants.filter_all' },
+  { key: 'pending', labelKey: 'employer.applicants.filter_pending' },
+  { key: 'viewed', labelKey: 'employer.applicants.filter_viewed' },
+  { key: 'shortlisted', labelKey: 'employer.applicants.filter_shortlisted' },
+  { key: 'hired', labelKey: 'employer.applicants.filter_hired' },
 ];
 
 export function ApplicantsScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
+  const t = useTranslate();
   const [filter, setFilter] = useState<ApplicationStatus | 'all'>('all');
 
   const query = useQuery({
@@ -90,10 +92,10 @@ export function ApplicantsScreen() {
       >
         <View style={{ gap: spacing.xs }}>
           <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-            APPLICANTS
+            {t('employer.applicants.eyebrow')}
           </Text>
           <Text variant="display" weight="medium" display>
-            People who want this.
+            {t('employer.applicants.title')}
           </Text>
         </View>
 
@@ -106,7 +108,7 @@ export function ApplicantsScreen() {
             navigation.navigate('AvailableWorkers');
           }}
           accessibilityRole="button"
-          accessibilityLabel="See workers available right now"
+          accessibilityLabel={t('employer.applicants.available_now_a11y')}
           style={({ pressed }) => ({
             padding: spacing.md,
             borderRadius: radii.lg,
@@ -142,8 +144,8 @@ export function ApplicantsScreen() {
               }}
             >
               {hasAvailableWorkers
-                ? 'Workers available right now'
-                : 'Available workers'}
+                ? t('employer.applicants.available_now_title')
+                : t('employer.applicants.available_off_title')}
             </Text>
             <Text
               style={{
@@ -154,8 +156,8 @@ export function ApplicantsScreen() {
               numberOfLines={1}
             >
               {hasAvailableWorkers
-                ? 'Workers nearby broadcasting "available now" — tap to view'
-                : 'When workers are broadcasting nearby, they show up here'}
+                ? t('employer.applicants.available_now_subtitle')
+                : t('employer.applicants.available_off_subtitle')}
             </Text>
           </View>
           <Text
@@ -193,7 +195,7 @@ export function ApplicantsScreen() {
                   weight={active ? 'medium' : 'regular'}
                   style={{ color: active ? theme.brand.hero : theme.text.secondary }}
                 >
-                  {f.label}
+                  {t(f.labelKey)}
                 </Text>
               </Pressable>
             );
@@ -209,25 +211,25 @@ export function ApplicantsScreen() {
           <EmptyState
             glyph="✕"
             tone="warning"
-            eyebrow="OFFLINE"
-            title="Couldn't load applicants"
-            message="Pull down to retry, or check your connection."
+            eyebrow={t('employer.applicants.offline_eyebrow')}
+            title={t('employer.applicants.offline_title')}
+            message={t('employer.applicants.offline_message')}
             tall
           />
         ) : applicants.length === 0 ? (
           <EmptyState
             glyph="◔"
             tone="hero"
-            eyebrow={filter === 'all' ? 'WAITING ROOM' : 'EMPTY FILTER'}
+            eyebrow={filter === 'all' ? t('employer.applicants.empty_waiting_eyebrow') : t('employer.applicants.empty_filter_eyebrow')}
             title={
               filter === 'all'
-                ? 'No applicants yet'
-                : `No applicants in “${filter}”`
+                ? t('employer.applicants.empty_no_applicants_title')
+                : t('employer.applicants.empty_filter_title', { filter })
             }
             message={
               filter === 'all'
-                ? 'Once someone applies to one of your jobs, they\'ll show up here.'
-                : 'Try a different filter, or wait for new applications.'
+                ? t('employer.applicants.empty_no_applicants_message')
+                : t('employer.applicants.empty_filter_message')
             }
             tall
           />

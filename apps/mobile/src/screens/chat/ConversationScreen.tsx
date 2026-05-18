@@ -51,11 +51,13 @@ import { pickChatImage } from '@/lib/chatImage';
 import { pickChatVideo } from '@/lib/chatVideo';
 import { VoiceRecorder, VOICE_MAX_SECONDS } from '@/lib/chatVoice';
 import { Image } from 'react-native';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { MessageAttachment, PublicMessage } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'Conversation'>;
 type Route = RouteProp<AppStackParamList, 'Conversation'>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 /**
  * Top-level export wraps in seekerLight palette ONLY when the current
@@ -79,6 +81,7 @@ function ConversationScreenInner() {
   const { user } = useAuth();
   const { theme } = useTheme();
   const queryClient = useQueryClient();
+  const t = useTranslate();
   const [draft, setDraft] = useState('');
 
   const conversationId = route.params.conversationId;
@@ -167,7 +170,7 @@ function ConversationScreenInner() {
   const counterpart = headerQuery.data?.conversation.counterpart;
   const job = headerQuery.data?.conversation.job;
   const displayName =
-    counterpart?.companyName ?? counterpart?.name ?? 'Conversation';
+    counterpart?.companyName ?? counterpart?.name ?? t('conversation.fallback_name');
 
   function onSend() {
     const trimmed = draft.trim();
@@ -181,11 +184,11 @@ function ConversationScreenInner() {
    */
   function onAttach() {
     haptic('light');
-    Alert.alert('Send attachment', 'Choose what to send.', [
-      { text: '📷 Camera', onPress: () => void attachImage('camera') },
-      { text: '🖼  From gallery', onPress: () => void attachImage('library') },
-      { text: '🎬 Video clip', onPress: () => void attachVideo() },
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('conversation.attach_alert_title'), t('conversation.attach_alert_body'), [
+      { text: t('conversation.attach_camera'), onPress: () => void attachImage('camera') },
+      { text: t('conversation.attach_gallery'), onPress: () => void attachImage('library') },
+      { text: t('conversation.attach_video'), onPress: () => void attachVideo() },
+      { text: t('conversation.attach_cancel'), style: 'cancel' },
     ]);
   }
 
@@ -203,8 +206,8 @@ function ConversationScreenInner() {
       const message =
         err instanceof Error
           ? err.message
-          : 'Could not prepare that photo — try a different image.';
-      Alert.alert("Couldn't send photo", message);
+          : t('conversation.photo_error_default');
+      Alert.alert(t('conversation.photo_error_title'), message);
       haptic('error');
     }
   }
@@ -223,8 +226,8 @@ function ConversationScreenInner() {
       const message =
         err instanceof Error
           ? err.message
-          : 'Could not prepare that video. Try a shorter clip.';
-      Alert.alert("Couldn't send video", message);
+          : t('conversation.video_error_default');
+      Alert.alert(t('conversation.video_error_title'), message);
       haptic('error');
     }
   }
@@ -257,8 +260,8 @@ function ConversationScreenInner() {
       const msg =
         err instanceof Error
           ? err.message
-          : 'Could not start recording. Check microphone permission.';
-      Alert.alert("Couldn't record", msg);
+          : t('conversation.voice_record_error_default');
+      Alert.alert(t('conversation.voice_record_error_title'), msg);
       haptic('error');
       setRecording(false);
     }
@@ -293,8 +296,8 @@ function ConversationScreenInner() {
       haptic('selection');
     } catch (err) {
       const msg =
-        err instanceof Error ? err.message : 'Voice note failed to save.';
-      Alert.alert("Couldn't send voice", msg);
+        err instanceof Error ? err.message : t('conversation.voice_send_error_default');
+      Alert.alert(t('conversation.voice_send_error_title'), msg);
       haptic('error');
     }
   }
@@ -349,12 +352,12 @@ function ConversationScreenInner() {
                 {displayName}
               </Text>
               {counterpart?.isVerified && (
-                <Pill label="Verified" tone="premium" leading="★" />
+                <Pill label={t('conversation.verified_pill')} tone="premium" leading="★" />
               )}
             </View>
             {job?.title && (
               <Text variant="caption" tone="tertiary" numberOfLines={1}>
-                re: {job.title}
+                {t('conversation.re_prefix', { title: job.title })}
               </Text>
             )}
           </View>
@@ -376,12 +379,12 @@ function ConversationScreenInner() {
             }}
           >
             <Text variant="bodyLarge" weight="medium">
-              Say hello.
+              {t('conversation.empty_say_hello')}
             </Text>
             <Text variant="footnote" tone="secondary" style={{ textAlign: 'center' }}>
               {user?.role === 'employer'
-                ? 'Ask about availability, location, or set up a quick call.'
-                : 'A short, friendly intro goes a long way.'}
+                ? t('conversation.empty_hint_employer')
+                : t('conversation.empty_hint_seeker')}
             </Text>
           </View>
         ) : (
@@ -404,6 +407,7 @@ function ConversationScreenInner() {
                   isMine={item.senderId === user?.id}
                   showTail={!sameSenderAsNext}
                   isVerifiedCounterpart={Boolean(counterpart?.isVerified)}
+                  t={t}
                 />
               );
             }}
@@ -444,7 +448,7 @@ function ConversationScreenInner() {
             <TextInput
               value={draft}
               onChangeText={setDraft}
-              placeholder="Message…"
+              placeholder={t('conversation.composer_placeholder')}
               placeholderTextColor={theme.text.tertiary}
               multiline
               style={{
@@ -463,7 +467,7 @@ function ConversationScreenInner() {
               onPressIn={() => void startVoice()}
               onPressOut={() => void stopVoice(true)}
               accessibilityRole="button"
-              accessibilityLabel="Hold to record voice note"
+              accessibilityLabel={t('conversation.a11y_hold_to_record')}
               style={{
                 width: 44,
                 height: 44,
@@ -514,14 +518,17 @@ function ConversationScreenInner() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={{ color: '#FFFFFF', fontSize: 18, lineHeight: 20 }}>●</Text>
               <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
-                Recording  {formatSeconds(recordSeconds)} / {formatSeconds(VOICE_MAX_SECONDS)}
+                {t('conversation.recording_status', {
+                  elapsed: formatSeconds(recordSeconds),
+                  max: formatSeconds(VOICE_MAX_SECONDS),
+                })}
               </Text>
             </View>
             <Pressable
               onPress={() => void stopVoice(false)}
               hitSlop={8}
             >
-              <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Cancel</Text>
+              <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>{t('conversation.recording_cancel')}</Text>
             </Pressable>
           </View>
         )}
@@ -576,11 +583,13 @@ function MessageBubble({
   isMine,
   showTail,
   isVerifiedCounterpart,
+  t,
 }: {
   message: PublicMessage;
   isMine: boolean;
   showTail: boolean;
   isVerifiedCounterpart: boolean;
+  t: TFn;
 }) {
   const { theme } = useTheme();
   const failed = message.id.startsWith('failed-');
@@ -620,6 +629,7 @@ function MessageBubble({
             isMine={isMine}
             captionBg={bg}
             captionFg={fg}
+            t={t}
           />
         ) : message.kind === 'voice' && message.attachment ? (
           <VoiceAttachment attachment={message.attachment} isMine={isMine} fg={fg} />
@@ -648,7 +658,7 @@ function MessageBubble({
             color: message.readAt ? champagne[300] : undefined,
           }}
         >
-          {message.readAt ? 'Read' : 'Sent'}
+          {message.readAt ? t('conversation.receipt_read') : t('conversation.receipt_sent')}
         </Text>
       )}
       {failed && (
@@ -657,7 +667,7 @@ function MessageBubble({
           tone="danger"
           style={{ alignSelf: 'flex-end', marginTop: 2, marginRight: 6 }}
         >
-          Failed — pull down to retry
+          {t('conversation.send_failed')}
         </Text>
       )}
     </View>
@@ -672,12 +682,14 @@ function ImageAttachment({
   isMine,
   captionBg,
   captionFg,
+  t,
 }: {
   attachment: MessageAttachment;
   caption: string;
   isMine: boolean;
   captionBg: string;
   captionFg: string;
+  t: TFn;
 }) {
   // Reserve a 4:3 layout slot when we don't have dimensions, otherwise
   // use the real aspect ratio so the bubble doesn't jump when the image
@@ -701,7 +713,7 @@ function ImageAttachment({
           backgroundColor: '#00000020',
         }}
         resizeMode="cover"
-        accessibilityLabel={caption ? `Photo: ${caption}` : 'Photo'}
+        accessibilityLabel={caption ? t('conversation.photo_a11y_with_caption', { caption }) : t('conversation.photo_a11y')}
       />
       {caption.length > 0 && (
         <View

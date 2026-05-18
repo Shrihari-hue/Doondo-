@@ -1185,7 +1185,7 @@ function MonthField({
         placeholderTextColor={theme.text.tertiary}
         autoCapitalize="words"
         style={{
-          backgroundColor: disabled ? theme.bg.subtle : theme.bg.surface,
+          backgroundColor: disabled ? theme.bg.muted : theme.bg.surface,
           borderWidth: 0.5,
           borderColor: theme.border.subtle,
           borderRadius: radii.md,

@@ -43,6 +43,7 @@ export function ApplicantDetailScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const queryClient = useQueryClient();
+  const { theme } = useTheme();
   const [showHired, setShowHired] = useState(false);
 
   // We keep the applicant detail in cache (seeded from list views) when

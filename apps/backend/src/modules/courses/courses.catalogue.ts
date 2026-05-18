@@ -45,6 +45,14 @@ export interface Course {
   totalDurationMinutes: number;
   /** Trade slugs this course is most relevant to. Used for sort/recommend. */
   relevantTrades: string[];
+  /**
+   * Skill slugs the course actually teaches. Granular — a single course
+   * can teach several skills. Used by skillGap.service to recommend a
+   * course when a seeker is rejected for a job whose `Job.skills` list
+   * the seeker doesn't yet have. Empty = course is trade-only and not a
+   * skill-gap candidate.
+   */
+  teachesSkills: string[];
   lessons: CourseLesson[];
 }
 
@@ -61,6 +69,7 @@ const customerServiceBasics: Course = {
   level: 'beginner',
   totalDurationMinutes: 22,
   relevantTrades: ['shop_assistant', 'cashier', 'waiter', 'salon', 'kitchen_helper'],
+  teachesSkills: ['customer_service', 'communication', 'complaint_handling', 'upselling'],
   lessons: [
     {
       id: 'greet',
@@ -134,6 +143,7 @@ const deliveryRiderEssentials: Course = {
   level: 'beginner',
   totalDurationMinutes: 24,
   relevantTrades: ['delivery', 'driver_light'],
+  teachesSkills: ['road_safety', 'app_navigation', 'customer_service', 'time_management', 'rating_management'],
   lessons: [
     {
       id: 'safety',
@@ -211,6 +221,7 @@ const electricalSafety: Course = {
   level: 'intermediate',
   totalDurationMinutes: 25,
   relevantTrades: ['electrician', 'mechanic'],
+  teachesSkills: ['electrical_safety', 'wiring', 'circuit_testing', 'tool_use', 'risk_assessment'],
   lessons: [
     {
       id: 'turn_it_off',
@@ -289,6 +300,7 @@ const workplaceSafety: Course = {
   level: 'beginner',
   totalDurationMinutes: 18,
   relevantTrades: ['helper', 'mason', 'carpenter', 'warehouse', 'kitchen_helper', 'cleaner'],
+  teachesSkills: ['workplace_safety', 'ppe_use', 'manual_lifting', 'first_aid_basics', 'labour_rights'],
   lessons: [
     {
       id: 'ppe',
@@ -365,6 +377,7 @@ const englishAtWork: Course = {
     'driver_light',
     'security_guard',
   ],
+  teachesSkills: ['english', 'communication', 'customer_service', 'numeracy'],
   lessons: [
     {
       id: 'greetings',

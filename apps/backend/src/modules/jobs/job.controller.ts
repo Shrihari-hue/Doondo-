@@ -29,6 +29,24 @@ export async function today(req: Request, res: Response, next: NextFunction): Pr
   }
 }
 
+/**
+ * Preview — public, returns up to 5 jobs for the unauthenticated
+ * role-picker flow ("60-second first match"). Body delegates to the
+ * service which handles trade bias + verified employer boost.
+ */
+export async function preview(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await jobService.findFirstMatch(req.query as never);
+    ok(req, res, 200, result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function thisWeek(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const result = await jobService.findThisWeek(req.query as never);

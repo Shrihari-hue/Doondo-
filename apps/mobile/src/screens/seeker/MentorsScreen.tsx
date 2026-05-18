@@ -22,12 +22,14 @@ import { Screen, Text, Avatar, EmptyState, LoadingSpinner } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { mentorsApi, type PublicMentor } from '@/api/mentors.api';
 import { prettifySkill } from '@/lib/trades';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function Inner() {
   const { theme } = useTheme();
@@ -35,6 +37,7 @@ function Inner() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const t = useTranslate();
 
   const trade = user?.skills?.[0] ?? '';
   const city = user?.location?.city ?? '';
@@ -61,10 +64,10 @@ function Inner() {
       setActiveRequestMentor(null);
       setMessage('');
       void queryClient.invalidateQueries({ queryKey: ['mentors', 'mine'] });
-      Alert.alert('Sent', 'Your mentor will see your request and reach out soon.');
+      Alert.alert(t('mentors.sent_title'), t('mentors.sent_body'));
     },
     onError: (err) =>
-      Alert.alert('Could not send', (err as Error).message ?? 'Try again later.'),
+      Alert.alert(t('mentors.error_title'), (err as Error).message ?? t('mentors.error_default')),
   });
 
   const mentors = mentorsQ.data?.mentors ?? [];
@@ -91,10 +94,10 @@ function Inner() {
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 22, fontWeight: '700', color: theme.text.primary }}>
-              Trade buddies
+              {t('mentors.title')}
             </Text>
             <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 2 }}>
-              Connect with experienced workers in {trade ? prettifySkill(trade) : 'your trade'} near you.
+              {t('mentors.subtitle', { trade: trade ? prettifySkill(trade) : t('mentors.fallback_trade') })}
             </Text>
           </View>
         </View>
@@ -103,9 +106,9 @@ function Inner() {
           <View style={{ paddingHorizontal: spacing.xl }}>
             <EmptyState
               glyph="🧭"
-              eyebrow="SET UP FIRST"
-              title="Add your trade and city"
-              message="To find a mentor, add at least one skill and your city to your profile."
+              eyebrow={t('mentors.setup_eyebrow')}
+              title={t('mentors.setup_title')}
+              message={t('mentors.setup_message')}
             />
           </View>
         ) : mentorsQ.isLoading ? (
@@ -116,13 +119,13 @@ function Inner() {
           <View style={{ paddingHorizontal: spacing.xl }}>
             <EmptyState
               glyph="🔍"
-              eyebrow="NO MENTORS YET"
-              title={`No ${prettifySkill(trade)} mentors in ${city} yet`}
-              message="Check back soon — or volunteer to be a mentor yourself."
+              eyebrow={t('mentors.empty_eyebrow')}
+              title={t('mentors.empty_title', { trade: prettifySkill(trade), city })}
+              message={t('mentors.empty_message')}
             />
           </View>
         ) : (
-          <Section title={`MENTORS · ${mentors.length}`}>
+          <Section title={t('mentors.list_section', { n: mentors.length })}>
             {mentors.map((m) => (
               <Pressable
                 key={m.id}
@@ -147,7 +150,12 @@ function Inner() {
                     {m.name}
                   </Text>
                   <Text style={{ fontSize: 12, color: theme.text.tertiary }}>
-                    {prettifySkill(m.trade)} · {m.city} · {m.activeMentees}/{m.monthlyCap} mentees this month
+                    {t('mentors.mentor_meta', {
+                      trade: prettifySkill(m.trade),
+                      city: m.city,
+                      active: m.activeMentees,
+                      cap: m.monthlyCap,
+                    })}
                   </Text>
                   {m.bio ? (
                     <Text
@@ -159,7 +167,7 @@ function Inner() {
                   ) : null}
                 </View>
                 <Text style={{ color: theme.brand.hero, fontSize: 12, fontWeight: '700' }}>
-                  Request →
+                  {t('mentors.request_arrow')}
                 </Text>
               </Pressable>
             ))}
@@ -167,7 +175,7 @@ function Inner() {
         )}
 
         {(mineQ.data?.asMentee.length ?? 0) > 0 && (
-          <Section title="YOUR REQUESTS">
+          <Section title={t('mentors.requests_section')}>
             {mineQ.data!.asMentee.map((r) => (
               <View
                 key={r.id}
@@ -179,16 +187,16 @@ function Inner() {
                 }}
               >
                 <Text style={{ fontSize: 13, fontWeight: '600', color: theme.text.primary }}>
-                  {prettifySkill(r.trade)} mentor · {r.city}
+                  {t('mentors.request_row_title', { trade: prettifySkill(r.trade), city: r.city })}
                 </Text>
                 <Text style={{ fontSize: 11, color: theme.text.tertiary, marginTop: 2 }}>
                   {r.status === 'pending'
-                    ? 'Waiting for the mentor to respond.'
+                    ? t('mentors.status_pending')
                     : r.status === 'accepted'
-                      ? 'Accepted — they will reach out to you.'
+                      ? t('mentors.status_accepted')
                       : r.status === 'declined'
-                        ? 'Declined.'
-                        : 'Ended.'}
+                        ? t('mentors.status_declined')
+                        : t('mentors.status_ended')}
                 </Text>
               </View>
             ))}
@@ -198,7 +206,7 @@ function Inner() {
         {/* Become a mentor — short form. We let any seeker toggle this;
             the backend enforces the actual eligibility on more complete
             data. */}
-        <BecomeMentorPanel user={user ?? null} />
+        <BecomeMentorPanel user={user ?? null} t={t} />
       </ScrollView>
 
       {/* Request modal */}
@@ -224,15 +232,15 @@ function Inner() {
             }}
           >
             <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text.primary }}>
-              Request {activeRequestMentor.name}
+              {t('mentors.modal_title', { name: activeRequestMentor.name })}
             </Text>
             <Text style={{ fontSize: 13, color: theme.text.secondary }}>
-              Write a short message — what would you like to learn?
+              {t('mentors.modal_hint')}
             </Text>
             <TextInput
               value={message}
               onChangeText={setMessage}
-              placeholder="I'd love to learn how you handle…"
+              placeholder={t('mentors.modal_placeholder')}
               multiline
               numberOfLines={4}
               style={{
@@ -259,7 +267,7 @@ function Inner() {
                 }}
               >
                 <Text style={{ color: theme.text.secondary, fontWeight: '600' }}>
-                  Cancel
+                  {t('mentors.modal_cancel')}
                 </Text>
               </Pressable>
               <Pressable
@@ -284,7 +292,7 @@ function Inner() {
                 }}
               >
                 <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
-                  {requestMut.isPending ? 'Sending…' : 'Send request'}
+                  {requestMut.isPending ? t('mentors.modal_sending') : t('mentors.modal_send')}
                 </Text>
               </Pressable>
             </View>
@@ -295,7 +303,17 @@ function Inner() {
   );
 }
 
-function BecomeMentorPanel({ user }: { user: { skills?: string[]; location?: { city?: string } } | null }) {
+function BecomeMentorPanel({
+  user,
+  t,
+}: {
+  // `location.city` is nullable on PublicUser but this panel only ever
+  // reads it as "what city should I prefill the mentor form with?", so
+  // we widen the contract to accept null too. This used to fail the
+  // PublicUser → narrow-prop coercion at the call site.
+  user: { skills?: string[]; location?: { city?: string | null } | null } | null;
+  t: TFn;
+}) {
   const { theme } = useTheme();
   const queryClient = useQueryClient();
   const [bio, setBio] = useState('');
@@ -306,12 +324,12 @@ function BecomeMentorPanel({ user }: { user: { skills?: string[]; location?: { c
     mutationFn: (b: string) => mentorsApi.become({ trade, city, bio: b }),
     onSuccess: () => {
       haptic('success');
-      Alert.alert('You\'re a mentor', "Workers in your trade can now request mentorship.");
+      Alert.alert(t('mentors.become_success_title'), t('mentors.become_success_body'));
       void queryClient.invalidateQueries({ queryKey: ['mentors'] });
       setBio('');
     },
     onError: (err) =>
-      Alert.alert('Could not enable', (err as Error).message ?? 'Try again later.'),
+      Alert.alert(t('mentors.become_error_title'), (err as Error).message ?? t('mentors.error_default')),
   });
 
   if (!trade || !city) return null;
@@ -329,16 +347,15 @@ function BecomeMentorPanel({ user }: { user: { skills?: string[]; location?: { c
       }}
     >
       <Text style={{ fontSize: 15, fontWeight: '700', color: '#1E3A8A' }}>
-        Become a mentor
+        {t('mentors.become_title')}
       </Text>
       <Text style={{ fontSize: 12, color: '#1E40AF', lineHeight: 18 }}>
-        Help newer {prettifySkill(trade)}s in {city} get started. Set a short bio
-        — workers will request you from this same screen. You can stop anytime.
+        {t('mentors.become_blurb', { trade: prettifySkill(trade), city })}
       </Text>
       <TextInput
         value={bio}
         onChangeText={setBio}
-        placeholder="I've been a driver for 7 years and can help with…"
+        placeholder={t('mentors.become_placeholder')}
         multiline
         numberOfLines={3}
         style={{
@@ -364,7 +381,7 @@ function BecomeMentorPanel({ user }: { user: { skills?: string[]; location?: { c
         }}
       >
         <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
-          {becomeMut.isPending ? 'Saving…' : 'Make me a mentor'}
+          {becomeMut.isPending ? t('mentors.become_saving') : t('mentors.become_cta')}
         </Text>
       </Pressable>
     </View>

@@ -65,6 +65,15 @@ router.get(
   validate(applicationIdParamsSchema),
   controller.detail,
 );
+// Seeker — "what was I missing?" for a rejected application. Returns
+// missing skills + the best recommended course. Empty when not rejected.
+router.get(
+  '/:id/skill-gap',
+  requireAuth,
+  requireRole('seeker'),
+  validate(applicationIdParamsSchema),
+  controller.skillGap,
+);
 router.post(
   '/:id/withdraw',
   requireAuth,

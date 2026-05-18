@@ -7,6 +7,7 @@ import { Screen, Text, Button, TextField, FormError } from '@/components';
 import { authApi } from '@/api/auth.api';
 import { ApiError } from '@/api/errors';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AuthStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'>;
@@ -29,6 +30,7 @@ type Nav = NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'>;
  */
 export function ForgotPasswordScreen() {
   const navigation = useNavigation<Nav>();
+  const t = useTranslate();
 
   const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -42,11 +44,11 @@ export function ForgotPasswordScreen() {
 
     const trimmed = phone.trim();
     if (!trimmed) {
-      setPhoneError('Phone number is required');
+      setPhoneError(t('auth.forgot.err_phone_required'));
       return;
     }
     if (!/^\+?[0-9\s-]{6,20}$/.test(trimmed)) {
-      setPhoneError('Enter a valid phone number');
+      setPhoneError(t('auth.forgot.err_phone_invalid'));
       return;
     }
 
@@ -64,17 +66,17 @@ export function ForgotPasswordScreen() {
       haptic('error');
       if (err instanceof ApiError) {
         if (err.code === 'RATE_LIMITED') {
-          setFormError('Too many reset requests. Try again in a minute.');
+          setFormError(t('auth.forgot.err_rate_limited'));
         } else if (err.code === 'VALIDATION_FAILED' && err.validationIssues) {
           const phoneIssue = err.validationIssues.find(
             (i) => i.path[i.path.length - 1] === 'phone',
           );
-          setPhoneError(phoneIssue?.message ?? 'Enter a valid phone number');
+          setPhoneError(phoneIssue?.message ?? t('auth.forgot.err_phone_invalid'));
         } else {
           setFormError(err.message);
         }
       } else {
-        setFormError('Something went wrong. Please try again.');
+        setFormError(t('auth.forgot.err_generic'));
       }
     } finally {
       setSubmitting(false);
@@ -98,26 +100,26 @@ export function ForgotPasswordScreen() {
         >
           <View style={{ gap: spacing.xs }}>
             <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              RESET PASSWORD
+              {t('auth.forgot.eyebrow')}
             </Text>
             <Text variant="titleLarge" weight="medium">
-              Enter your phone
+              {t('auth.forgot.title')}
             </Text>
             <Text variant="body" tone="secondary">
-              We'll text a 6-digit code to the number on your account.
+              {t('auth.forgot.subtitle')}
             </Text>
           </View>
 
           <FormError message={formError} />
 
           <TextField
-            label="Phone"
+            label={t('auth.forgot.phone_label')}
             value={phone}
             onChangeText={(v) => {
               setPhone(v);
               if (phoneError) setPhoneError(null);
             }}
-            placeholder="+91 9876543210"
+            placeholder={t('auth.forgot.phone_placeholder')}
             autoComplete="tel"
             keyboardType="phone-pad"
             textContentType="telephoneNumber"
@@ -128,12 +130,12 @@ export function ForgotPasswordScreen() {
 
           <View style={{ gap: spacing.md }}>
             <Button
-              label={submitting ? 'Sending code…' : 'Send code'}
+              label={submitting ? t('auth.forgot.cta_sending') : t('auth.forgot.cta_send')}
               onPress={onSubmit}
               disabled={submitting}
             />
             <Button
-              label="Back to sign in"
+              label={t('auth.forgot.cta_back')}
               variant="ghost"
               onPress={() => navigation.goBack()}
             />

@@ -70,11 +70,10 @@ export function computeCompleteness(user: PublicUser | null): CompletenessResult
     expectedSalary: Boolean(user.expectedSalary && user.expectedSalary.amount > 0),
     bio: hasValue(user.bio),
     workHistory: Array.isArray(user.workHistory) && user.workHistory.length > 0,
-    workPhotos:
-      Array.isArray(user.workHistory) &&
-      user.workHistory.some(
-        (w) => Array.isArray(w.photos) && w.photos.length > 0,
-      ),
+    // Work photos live at the top level on User (PublicUser.workPhotos) —
+    // they're not nested per work-history entry. The original check was
+    // pre-data-model-refactor and never matched anything.
+    workPhotos: Array.isArray(user.workPhotos) && user.workPhotos.length > 0,
     location: hasValue(user.location?.city),
   };
   let score = 0;

@@ -89,7 +89,9 @@ export async function pickChatImage(opts: Options = {}): Promise<ChatImageResult
   // The base64 length is a tight estimate of the encoded size.
   let sizeBytes = Math.ceil(manipulated.base64.length * 0.75);
   try {
-    const info = await FileSystem.getInfoAsync(manipulated.uri, { size: true });
+    // `size` is always returned on the result in current expo-file-system —
+    // the `{ size: true }` option was removed in SDK 54+.
+    const info = await FileSystem.getInfoAsync(manipulated.uri);
     if (info.exists && typeof (info as { size?: number }).size === 'number') {
       sizeBytes = (info as { size: number }).size;
     }

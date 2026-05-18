@@ -92,6 +92,32 @@ export const jobsApi = {
     ),
 
   /**
+   * "60-second first match" — public, returns up to 5 jobs ranked for a
+   * pre-signup seeker. Used by the FirstMatchPreview screen wedged
+   * between RolePicker and Signup. `trade` biases ranking; it's not a
+   * hard filter so we always have something to show.
+   */
+  preview: (p: {
+    lat: number;
+    lng: number;
+    radius?: number;
+    trade?: string;
+    jobType?: JobType;
+    limit?: number;
+  }) =>
+    apiRequest<{ jobs: PublicJob[] }>(
+      `/jobs/preview${qs({
+        lat: p.lat,
+        lng: p.lng,
+        radius: p.radius,
+        trade: p.trade,
+        jobType: p.jobType,
+        limit: p.limit,
+      })}`,
+      { auth: false },
+    ),
+
+  /**
    * "Today" feed — urgent + freshly-posted gigs within walking distance.
    * Same response shape as nearby; the seeker home swaps between them
    * by tab. Public endpoint so the worker can browse before signing in.

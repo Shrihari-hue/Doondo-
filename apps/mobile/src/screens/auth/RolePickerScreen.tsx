@@ -23,84 +23,32 @@ import {
 import type { UserRole } from '@/api/types';
 import type { AuthStackParamList } from '@/navigation/types';
 import { useTheme } from '@/theme/useTheme';
+import { useTranslate } from '@/i18n/useTranslate';
+import { useLocale } from '@/i18n/LanguageProvider';
+import { SUPPORTED_LOCALES, type SupportedLocale } from '@/i18n';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'RolePicker'>;
 type Choice = Exclude<UserRole, 'admin'>;
-type Lang = 'en' | 'hi';
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const FIND_WORK_IMAGE = require('../../../assets/images/find-work-card.jpeg');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const HIRE_WORKERS_IMAGE = require('../../../assets/images/hire-workers-card.jpeg');
 
-const COPY = {
-  en: {
-    eyebrow: 'LESS WHO HIRED THEM?, MORE WHO FOUND THEM? 😌',
-    title: 'Choose your side.',
-    subtitle: 'One clean start for finding work or building a team nearby.',
-    signIn: 'Sign in',
-    seekerBadge: 'FOR JOB SEEKERS',
-    seekerTitle1: 'Find work',
-    seekerTitle2: 'near you.',
-    seekerBody: 'Discover local jobs that match your skills, schedule, and lifestyle.',
-    seekerItems: [
-      ['Nearby jobs', 'Find opportunities close to home.'],
-      ['Quick hiring', 'Connect and get hired faster.'],
-      ['Trusted employers', 'Work with verified businesses.'],
-    ],
-    seekerFooter: 'Safe. Simple. Local.',
-    seekerCta: 'I want to find work',
-    employerBadge: 'FOR EMPLOYERS',
-    employerTitle1: 'Hire local',
-    employerTitle2: 'talent.',
-    employerBody: 'Find reliable people nearby and hire faster without the usual friction.',
-    employerItems: [
-      ['Post a job in minutes', 'Create and publish jobs quickly and easily.'],
-      ['Get local applicants', 'Connect with nearby, relevant candidates.'],
-      ['Hire with confidence', 'Review verified profiles before you decide.'],
-    ],
-    employerFooterLead: 'Build your team from your neighborhood.',
-    employerFooter: 'Safe. Simple. Local.',
-    employerCta: 'I want to hire workers',
-  },
-  hi: {
-    eyebrow: 'LESS WHO HIRED THEM?, MORE WHO FOUND THEM? 😌',
-    title: 'Apna rasta chuno.',
-    subtitle: 'Kaam dhoondhne ya team banane ke liye ek clean shuruaat.',
-    signIn: 'Sign in',
-    seekerBadge: 'FOR JOB SEEKERS',
-    seekerTitle1: 'Kaam dhoondo',
-    seekerTitle2: 'apne paas.',
-    seekerBody: 'Local jobs dekho jo tumhari skills, timing aur lifestyle se match karein.',
-    seekerItems: [
-      ['Nearby jobs', 'Ghar ke paas opportunities pao.'],
-      ['Quick hiring', 'Jaldi connect ho aur hire ho jao.'],
-      ['Trusted employers', 'Verified businesses ke saath kaam karo.'],
-    ],
-    seekerFooter: 'Safe. Simple. Local.',
-    seekerCta: 'Mujhe kaam dhoondna hai',
-    employerBadge: 'FOR EMPLOYERS',
-    employerTitle1: 'Local',
-    employerTitle2: 'talent hire karo.',
-    employerBody: 'Paas ke reliable log dhoondo aur bina friction ke jaldi hire karo.',
-    employerItems: [
-      ['Post a job in minutes', 'Job jaldi aur easily publish karo.'],
-      ['Get local applicants', 'Nearby relevant candidates se connect karo.'],
-      ['Hire with confidence', 'Verified profiles dekhkar decision lo.'],
-    ],
-    employerFooterLead: 'Apne area se team banao.',
-    employerFooter: 'Safe. Simple. Local.',
-    employerCta: 'Mujhe workers hire karne hain',
-  },
-} as const;
+// Language toggle on the role picker now cycles through all 5 supported
+// locales, persisting via the LanguageProvider so the rest of the app
+// stays in sync. The legacy `lang: 'en' | 'hi'` COPY object was replaced
+// with i18next-backed t() calls; full translations live in role_picker.* in
+// each src/i18n/locales/<code>.json.
 
 export function RolePickerScreen() {
   const navigation = useNavigation<Nav>();
   const { theme, scheme, setScheme } = useTheme();
   const { width } = useWindowDimensions();
-  const [lang, setLang] = useState<Lang>('en');
+  const t = useTranslate();
+  const { locale, setLocale } = useLocale();
 
-  const copy = COPY[lang];
   const isLight = scheme === 'light';
   const stacked = width < 1120;
   const compact = width < 820;
@@ -132,19 +80,19 @@ export function RolePickerScreen() {
     const before = await getNotificationPermissionStatus();
     if (before === 'granted') {
       setPushStatus('granted');
-      setPushBanner("You're all set — notifications are on.");
+      setPushBanner(t('role_picker.push_all_set'));
     } else if (before === 'unsupported') {
       setPushStatus('unsupported');
-      setPushBanner('Notifications need a development build (Phase 5).');
+      setPushBanner(t('role_picker.push_dev_build'));
     } else {
       const result = await requestPushPermissionFromLanding();
       setPushStatus(result);
       setPushBanner(
         result === 'granted'
-          ? 'Notifications are on. We will let you know when there is news.'
+          ? t('role_picker.push_granted')
           : result === 'denied'
-            ? 'Notifications are off. Enable from Settings if you change your mind.'
-            : 'Notifications need a development build (Phase 5).',
+            ? t('role_picker.push_denied')
+            : t('role_picker.push_dev_build'),
       );
     }
     setTimeout(() => setPushBanner(null), 3500);
@@ -162,11 +110,12 @@ export function RolePickerScreen() {
   function pickWorkType(workType: 'solo' | 'team', teamSize?: number) {
     haptic('selection');
     setSeekerChoiceOpen(false);
+    // "60-second first match" — show seekers real jobs before asking
+    // them to sign up. workType + teamSize ride along so Signup still
+    // gets the right presets once the seeker continues from preview.
     navigation.navigate(
-      'Signup',
-      teamSize != null
-        ? { role: 'seeker', workType, teamSize }
-        : { role: 'seeker', workType },
+      'FirstMatchPreview',
+      teamSize != null ? { workType, teamSize } : { workType },
     );
   }
 
@@ -234,11 +183,15 @@ export function RolePickerScreen() {
             }}
           >
             <TopBar
-              lang={lang}
-              signInLabel={copy.signIn}
+              locale={locale}
+              signInLabel={t('role_picker.sign_in')}
               pushOn={pushStatus === 'granted'}
               onToggleLanguage={() => {
-                setLang((prev) => (prev === 'en' ? 'hi' : 'en'));
+                // Cycle through all 5 supported locales.
+                const supported = SUPPORTED_LOCALES as readonly SupportedLocale[];
+                const idx = supported.indexOf(locale);
+                const next = supported[(idx + 1) % supported.length]!;
+                void setLocale(next);
                 haptic('selection');
               }}
               onToggleTheme={() => {
@@ -301,7 +254,7 @@ export function RolePickerScreen() {
                     color: isLight ? '#A97215' : '#B08CFF',
                   }}
                 >
-                  {copy.eyebrow}
+                  {t('role_picker.eyebrow')}
                 </Text>
               </View>
 
@@ -315,7 +268,7 @@ export function RolePickerScreen() {
                   maxWidth: 700,
                 }}
               >
-                {copy.title}
+                {t('role_picker.title')}
               </Text>
 
               <Text
@@ -328,7 +281,7 @@ export function RolePickerScreen() {
                   paddingHorizontal: compact ? spacing.md : 0,
                 }}
               >
-                {copy.subtitle}
+                {t('role_picker.subtitle')}
               </Text>
             </View>
 
@@ -344,29 +297,27 @@ export function RolePickerScreen() {
               <JourneyCard
                 accent={isLight ? '#2F774B' : '#7C5CFF'}
                 image={FIND_WORK_IMAGE}
-                badge={copy.seekerBadge}
-                body={copy.seekerBody}
-                items={copy.seekerItems}
-                cta={copy.seekerCta}
+                badge={t('role_picker.seeker_badge')}
+                body={t('role_picker.seeker_body')}
+                cta={t('role_picker.seeker_cta')}
                 onPress={() => go('seeker')}
               />
 
               <JourneyCard
                 accent={isLight ? '#D29A17' : '#E3AE31'}
                 image={HIRE_WORKERS_IMAGE}
-                badge={copy.employerBadge}
-                body={copy.employerBody}
-                items={copy.employerItems}
-                cta={copy.employerCta}
+                badge={t('role_picker.employer_badge')}
+                body={t('role_picker.employer_body')}
+                cta={t('role_picker.employer_cta')}
                 onPress={() => go('employer')}
               />
             </View>
 
-            <HowItWorks lang={lang} compact={compact} />
+            <HowItWorks compact={compact} t={t} />
 
-            <ActivityTicker compact={compact} />
+            <ActivityTicker compact={compact} t={t} />
 
-            <BrandFooter compact={compact} />
+            <BrandFooter compact={compact} t={t} />
           </View>
         </View>
       </ScrollView>
@@ -375,6 +326,7 @@ export function RolePickerScreen() {
         <SeekerWorkTypeSheet
           onCancel={() => setSeekerChoiceOpen(false)}
           onPick={pickWorkType}
+          t={t}
         />
       )}
     </Screen>
@@ -388,7 +340,7 @@ interface SeekerWorkTypeSheetProps {
   onPick: (workType: 'solo' | 'team', teamSize?: number) => void;
 }
 
-function SeekerWorkTypeSheet({ onCancel, onPick }: SeekerWorkTypeSheetProps) {
+function SeekerWorkTypeSheet({ onCancel, onPick, t }: SeekerWorkTypeSheetProps & { t: TFn }) {
   const { theme } = useTheme();
   const [mode, setMode] = useState<'solo' | 'team'>('solo');
   const [teamSize, setTeamSize] = useState(2);
@@ -434,26 +386,26 @@ function SeekerWorkTypeSheet({ onCancel, onPick }: SeekerWorkTypeSheetProps) {
 
         <View style={{ gap: spacing.xs }}>
           <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-            FIND WORK
+            {t('role_picker.sheet_eyebrow')}
           </Text>
           <Text variant="display" weight="medium" display>
-            Solo or as a team?
+            {t('role_picker.sheet_title')}
           </Text>
           <Text variant="footnote" tone="secondary">
-            Pick how you'll be applying. You can change this later.
+            {t('role_picker.sheet_subtitle')}
           </Text>
         </View>
 
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           <ChoiceCard
-            title="Solo"
-            sub="Just me"
+            title={t('role_picker.sheet_solo')}
+            sub={t('role_picker.sheet_solo_sub')}
             active={mode === 'solo'}
             onPress={() => setMode('solo')}
           />
           <ChoiceCard
-            title="Team"
-            sub="A small group"
+            title={t('role_picker.sheet_team')}
+            sub={t('role_picker.sheet_team_sub')}
             active={mode === 'team'}
             onPress={() => setMode('team')}
           />
@@ -462,7 +414,7 @@ function SeekerWorkTypeSheet({ onCancel, onPick }: SeekerWorkTypeSheetProps) {
         {mode === 'team' && (
           <View style={{ gap: spacing.sm }}>
             <Text variant="footnote" weight="medium" tone="secondary" style={{ letterSpacing: 1.0 }}>
-              HOW MANY MEMBERS?
+              {t('role_picker.sheet_team_label')}
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
               {[2, 3, 4, 5, 6, 8, 10, 15, 20].map((n) => {
@@ -492,7 +444,7 @@ function SeekerWorkTypeSheet({ onCancel, onPick }: SeekerWorkTypeSheetProps) {
               })}
             </View>
             <Text variant="caption" tone="tertiary">
-              Need more than 20? Pick the closest — you can refine the exact number on the next screen.
+              {t('role_picker.sheet_team_more')}
             </Text>
           </View>
         )}
@@ -510,7 +462,7 @@ function SeekerWorkTypeSheet({ onCancel, onPick }: SeekerWorkTypeSheetProps) {
             }}
           >
             <Text variant="bodyLarge" weight="medium" tone="secondary">
-              Cancel
+              {t('role_picker.sheet_cancel')}
             </Text>
           </Pressable>
           <Pressable
@@ -526,7 +478,7 @@ function SeekerWorkTypeSheet({ onCancel, onPick }: SeekerWorkTypeSheetProps) {
             }}
           >
             <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFDF7' }}>
-              Continue
+              {t('role_picker.sheet_continue')}
             </Text>
           </Pressable>
         </View>
@@ -577,7 +529,7 @@ function ChoiceCard({
 }
 
 function TopBar({
-  lang,
+  locale,
   signInLabel,
   pushOn,
   onToggleLanguage,
@@ -585,7 +537,7 @@ function TopBar({
   onTapBell,
   onSignIn,
 }: {
-  lang: Lang;
+  locale: SupportedLocale;
   signInLabel: string;
   pushOn: boolean;
   onToggleLanguage: () => void;
@@ -658,7 +610,7 @@ function TopBar({
       >
         <UtilityButton
           icon="globe"
-          label={tight ? undefined : lang.toUpperCase()}
+          label={tight ? undefined : locale.toUpperCase()}
           size={utilSize}
           onPress={onToggleLanguage}
         />
@@ -796,29 +748,14 @@ function JourneyCard({
 
 // ─── How it works (3 mini steps) ────────────────────────────────────────────
 
-const HOW_IT_WORKS_COPY = {
-  en: {
-    eyebrow: 'HOW IT WORKS',
-    steps: [
-      ['Choose your side', 'Job seeker or employer.'],
-      ['Set your area', 'Find work or hires nearby.'],
-      ['Match in hours', 'Real people, real fast.'],
-    ] as ReadonlyArray<readonly [string, string]>,
-  },
-  hi: {
-    eyebrow: 'KAISE KAAM KARTA HAI',
-    steps: [
-      ['Apna side chuno', 'Job dhoondhne wale ya hire karne wale.'],
-      ['Apna area daalo', 'Paas ke kaam ya hires.'],
-      ['Hours mein match', 'Sach mein, fast.'],
-    ] as ReadonlyArray<readonly [string, string]>,
-  },
-} as const;
-
-function HowItWorks({ lang, compact }: { lang: Lang; compact: boolean }) {
+function HowItWorks({ compact, t }: { compact: boolean; t: TFn }) {
   const { theme, scheme } = useTheme();
   const isLight = scheme === 'light';
-  const copy = HOW_IT_WORKS_COPY[lang];
+  const steps: ReadonlyArray<readonly [string, string]> = [
+    [t('role_picker.how_step1_title'), t('role_picker.how_step1_body')],
+    [t('role_picker.how_step2_title'), t('role_picker.how_step2_body')],
+    [t('role_picker.how_step3_title'), t('role_picker.how_step3_body')],
+  ];
 
   return (
     <View
@@ -836,7 +773,7 @@ function HowItWorks({ lang, compact }: { lang: Lang; compact: boolean }) {
             color: isLight ? '#A97215' : '#B08CFF',
           }}
         >
-          {copy.eyebrow}
+          {t('role_picker.how_eyebrow')}
         </Text>
       </View>
 
@@ -846,7 +783,7 @@ function HowItWorks({ lang, compact }: { lang: Lang; compact: boolean }) {
           gap: compact ? spacing.xs : spacing.md,
         }}
       >
-        {copy.steps.map(([title, sub], idx) => (
+        {steps.map(([title, sub], idx) => (
           <View
             key={title}
             style={{
@@ -925,7 +862,7 @@ const TICKER_ITEMS: readonly string[] = [
   'Dev was hired as an electrician in Domlur',
 ];
 
-function ActivityTicker({ compact }: { compact: boolean }) {
+function ActivityTicker({ compact, t }: { compact: boolean; t: TFn }) {
   const { theme, scheme } = useTheme();
   const isLight = scheme === 'light';
   const translate = useRef(new Animated.Value(0)).current;
@@ -1040,7 +977,7 @@ function ActivityTicker({ compact }: { compact: boolean }) {
               color: accent,
             }}
           >
-            LIVE
+            {t('role_picker.ticker_live')}
           </Text>
         </View>
 
@@ -1074,7 +1011,7 @@ function ActivityTicker({ compact }: { compact: boolean }) {
  * will hook them up to actual Terms / Privacy / Help screens. For now
  * they exist mostly so app-store reviewers can see them at submission.
  */
-function BrandFooter({ compact }: { compact: boolean }) {
+function BrandFooter({ compact, t }: { compact: boolean; t: TFn }) {
   const { theme, scheme } = useTheme();
   const isLight = scheme === 'light';
   const version =
@@ -1127,7 +1064,7 @@ function BrandFooter({ compact }: { compact: boolean }) {
           textAlign: 'center',
         }}
       >
-        We all had an ‘ex’. Now hire better 😌🔧
+        {t('role_picker.footer_tagline')}
       </Text>
 
       {/* Meta line — place + flag, year, version */}
@@ -1139,7 +1076,7 @@ function BrandFooter({ compact }: { compact: boolean }) {
           textAlign: 'center',
         }}
       >
-        Bengaluru 🇮🇳  ·  est. 2025  ·  v{version}
+        {t('role_picker.footer_meta', { version })}
       </Text>
 
       {/* Legal links */}
@@ -1151,11 +1088,11 @@ function BrandFooter({ compact }: { compact: boolean }) {
           marginTop: spacing.xs,
         }}
       >
-        <FooterLink label="Terms" />
+        <FooterLink label={t('role_picker.footer_terms')} />
         <FooterDot />
-        <FooterLink label="Privacy" />
+        <FooterLink label={t('role_picker.footer_privacy')} />
         <FooterDot />
-        <FooterLink label="Support" />
+        <FooterLink label={t('role_picker.footer_support')} />
       </View>
     </View>
   );

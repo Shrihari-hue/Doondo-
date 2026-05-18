@@ -18,6 +18,16 @@ export type AuthStackParamList = {
   RolePicker: undefined;
   Welcome: undefined;
   Login: undefined;
+  /**
+   * "60-second first match" — wedge screen between RolePicker and
+   * Signup for seekers only. Shows 3 real jobs near the user before
+   * asking for any commitment. `workType` + `teamSize` carry through
+   * from the Solo/Team sheet so Signup still gets the right preset.
+   */
+  FirstMatchPreview: {
+    workType: WorkType;
+    teamSize?: number;
+  };
   /** Optional initial role/work style — passed in from the role picker. */
   Signup:
     | {

@@ -17,7 +17,7 @@
  * No fake data. Empty state when there are no applications yet.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -304,27 +304,60 @@ function MyApplicationsInner() {
                   />
                 ) : null}
 
-                {item.interview && item.status === 'hired' && (
+                {/* Interview card — shown whenever there's a scheduled
+                    interview (not just hired). Adds a "Starting in X"
+                    countdown when the start time is within 90 minutes
+                    so the seeker sees the same urgency the push gives.
+                    Stays subtle once they're inside the room. */}
+                {item.interview && item.interview.status === 'scheduled' && (
+                  <InterviewCard t={t} interview={item.interview} />
+                )}
+
+                {/* Anti-ghost callout — the sweep marks pending applications
+                    with no employer response after 72h. We surface this as
+                    a small banner so the seeker knows to move on instead
+                    of waiting indefinitely. Only shown while the row is
+                    still pending (a later employer response retires the
+                    pill via the status change). */}
+                {item.flaggedAsGhostedAt && item.status === 'pending' && (
                   <View
                     style={{
                       padding: spacing.sm,
                       borderRadius: radii.md,
-                      backgroundColor: theme.status.successSubtle,
+                      backgroundColor: theme.status.warningSubtle,
                       borderWidth: 0.5,
-                      borderColor: theme.status.successBorder,
+                      borderColor: theme.status.warningBorder,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: spacing.xs,
                     }}
                   >
+                    <Text style={{ fontSize: 14 }}>👻</Text>
                     <Text
                       style={{
+                        flex: 1,
                         fontSize: 12,
                         fontWeight: '600',
-                        color: theme.status.success,
+                        color: theme.status.warning,
                       }}
                     >
-                      {t('applications.interview_scheduled', { when: formatInterviewWhen(item.interview.scheduledFor) })}
+                      No reply yet — the employer hasn't responded.
                     </Text>
                   </View>
                 )}
+
+                {/* Skill-gap CTA — on rejected applications where the
+                    server computed missing skills at the moment of
+                    rejection, show "What can I learn?" with a tap that
+                    fetches the recommended course and opens it. */}
+                {item.status === 'rejected' &&
+                  Array.isArray(item.rejectionReasons) &&
+                  item.rejectionReasons.length > 0 && (
+                    <SkillGapInlineCard
+                      applicationId={item.id}
+                      missingSkill={item.rejectionReasons[0]!}
+                    />
+                  )}
 
                 {/* Rate-now prompt — only when the application is hired
                     AND the seeker hasn't yet rated. Tap pushes the
@@ -497,6 +530,192 @@ function formatInterviewWhen(iso: string): string {
     hour: 'numeric',
     minute: '2-digit',
   })}`;
+}
+
+/**
+ * Interview card on a single application row.
+ *
+ * Visual logic:
+ *   - When start time is within 90 minutes → "Starting in X min" pill on
+ *     the hero card. Uses the warning tone so it reads as urgent without
+ *     being alarming.
+ *   - Otherwise → the calm success-tinted "Interview scheduled at …" card.
+ *   - The mode + location/link line is always shown so the worker can
+ *     glance and know where to go.
+ *
+ * Updates itself every minute so the countdown stays fresh while the
+ * screen is open. Uses a single setInterval, cleared on unmount.
+ */
+function InterviewCard({
+  t,
+  interview,
+}: {
+  t: TFn;
+  interview: NonNullable<PublicApplication['interview']>;
+}) {
+  const { theme } = useTheme();
+  const [now, setNow] = useState(Date.now());
+
+  // Tick once a minute. Within 90 min we re-render so the countdown
+  // stays current; outside that window the rerender is a no-op visually.
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const scheduled = new Date(interview.scheduledFor).getTime();
+  const minutesUntil = Math.round((scheduled - now) / 60_000);
+  const soon = minutesUntil >= 0 && minutesUntil <= 90;
+
+  const modeLabel =
+    interview.mode === 'in_person'
+      ? 'In-person'
+      : interview.mode === 'video'
+        ? 'Video'
+        : 'Phone';
+  const where =
+    interview.mode === 'in_person' && interview.location
+      ? interview.location
+      : interview.mode === 'video' && interview.meetingLink
+        ? interview.meetingLink
+        : null;
+
+  return (
+    <View
+      style={{
+        padding: spacing.md,
+        borderRadius: radii.md,
+        backgroundColor: soon
+          ? theme.status.warningSubtle
+          : theme.status.successSubtle,
+        borderWidth: 0.5,
+        borderColor: soon
+          ? theme.status.warningBorder
+          : theme.status.successBorder,
+        gap: spacing.xs,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+        <Text style={{ fontSize: 14 }}>{soon ? '⏰' : '📅'}</Text>
+        <Text
+          style={{
+            fontSize: 13,
+            fontWeight: '600',
+            color: soon ? theme.status.warning : theme.status.success,
+            flex: 1,
+          }}
+        >
+          {soon
+            ? minutesUntil <= 1
+              ? 'Starting now'
+              : `Starting in ${minutesUntil} min`
+            : t('applications.interview_scheduled', {
+                when: formatInterviewWhen(interview.scheduledFor),
+              })}
+        </Text>
+      </View>
+      <Text
+        style={{
+          fontSize: 12,
+          color: theme.text.secondary,
+        }}
+        numberOfLines={2}
+      >
+        {modeLabel}
+        {where ? ` · ${where}` : ''}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * Inline "what can I learn?" CTA for rejected applications.
+ *
+ * Renders compact by default. On press, fetches the skill-gap result
+ * once and either navigates straight to the recommended course or
+ * falls back to the full Courses catalog if nothing in the catalogue
+ * matches the gap.
+ *
+ * Kept in this file rather than promoted to /components because it
+ * leans on the local nav type and the screen-specific theme; there's
+ * no other place it makes sense to render it yet.
+ */
+function SkillGapInlineCard({
+  applicationId,
+  missingSkill,
+}: {
+  applicationId: string;
+  missingSkill: string;
+}) {
+  const { theme } = useTheme();
+  const navigation = useNavigation<Nav>();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onPress() {
+    if (loading) return;
+    haptic('selection');
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await applicationsApi.skillGap(applicationId);
+      if (res.recommendedCourse) {
+        navigation.navigate('CourseDetail', {
+          courseId: res.recommendedCourse.id,
+        });
+      } else {
+        // No catalogue match — open the full courses screen so the
+        // seeker can browse rather than dead-end.
+        navigation.navigate('Courses');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        padding: spacing.sm,
+        borderRadius: radii.md,
+        backgroundColor: theme.status.infoSubtle,
+        borderWidth: 0.5,
+        borderColor: theme.status.infoBorder,
+        opacity: pressed || loading ? 0.7 : 1,
+      })}
+    >
+      <Text style={{ fontSize: 16 }}>📚</Text>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text
+          style={{
+            fontSize: 13,
+            fontWeight: '600',
+            color: theme.status.info,
+          }}
+          numberOfLines={2}
+        >
+          {error
+            ? error
+            : `Missing: ${missingSkill}. Find a short course to close the gap.`}
+        </Text>
+      </View>
+      <Text
+        style={{
+          fontSize: 12,
+          fontWeight: '600',
+          color: theme.status.info,
+        }}
+      >
+        {loading ? '…' : 'Open'}
+      </Text>
+    </Pressable>
+  );
 }
 
 export function MyApplicationsScreen() {

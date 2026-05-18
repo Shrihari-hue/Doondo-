@@ -27,10 +27,16 @@ export const NOTIFICATION_KINDS = [
   'interview_scheduled',
   'interview_rescheduled',
   'interview_cancelled',
+  'interview_reminder',
   'new_message',
   'rating_received',
   'verification_status',
   'job_alert_match',
+  // Phase 2 (post-MVP):
+  'morning_digest',       // daily 7am IST round-up — top jobs + nudge
+  'application_ghosted',  // employer hasn't responded after the SLA window
+  'skill_gap',            // rejection follow-up: "you were missing X, try this course"
+  'doondo_score_changed', // your Doondo Score went up (or down) materially
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

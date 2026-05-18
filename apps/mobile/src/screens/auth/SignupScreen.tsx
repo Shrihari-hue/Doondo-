@@ -9,11 +9,13 @@ import { ApiError } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AuthStackParamList } from '@/navigation/types';
 import type { UserRole, WorkType } from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
 type SignupRoute = RouteProp<AuthStackParamList, 'Signup'>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 interface FieldErrors {
   name?: string;
@@ -28,6 +30,7 @@ export function SignupScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<SignupRoute>();
   const { setSession } = useAuth();
+  const t = useTranslate();
 
   const initialRole: UserRole = route.params?.role ?? 'seeker';
   const initialWorkType: WorkType = route.params?.workType ?? 'solo';
@@ -60,26 +63,27 @@ export function SignupScreen() {
     setFieldErrors({});
 
     const errors: FieldErrors = {};
-    if (!name.trim()) errors.name = 'Your name helps employers recognize you';
-    if (!email.trim()) errors.email = 'Email is required';
-    if (!password) errors.password = 'Choose a password';
-    else if (password.length < 8) errors.password = 'At least 8 characters';
+    if (!name.trim())
+      errors.name = role === 'employer' ? t('auth.signup.err_name_employer') : t('auth.signup.err_name_seeker');
+    if (!email.trim()) errors.email = t('auth.signup.err_email_required');
+    if (!password) errors.password = t('auth.signup.err_password_required');
+    else if (password.length < 8) errors.password = t('auth.signup.err_password_short');
     else if (!/[A-Za-z]/.test(password) || !/\d/.test(password))
-      errors.password = 'Mix letters and numbers';
+      errors.password = t('auth.signup.err_password_mix');
     // Phone is mandatory now — it's our password-reset channel. We do a
     // loose format check here and let the backend's full regex catch
     // anything weirder.
     if (!phone.trim()) {
-      errors.phone = "We'll use this to reset your password if you forget it";
+      errors.phone = t('auth.signup.err_phone_required');
     } else if (!/^\+?[0-9\s-]{6,20}$/.test(phone.trim())) {
-      errors.phone = 'Enter a valid phone number';
+      errors.phone = t('auth.signup.err_phone_invalid');
     }
     if (role === 'seeker' && workType === 'team') {
       const teamSize = Number(teamSizeText);
       if (!Number.isFinite(teamSize) || teamSize < 2) {
-        errors.teamSize = 'Team size must be at least 2';
+        errors.teamSize = t('auth.signup.err_team_min');
       } else if (teamSize > 50) {
-        errors.teamSize = 'Keep team size to 50 or fewer';
+        errors.teamSize = t('auth.signup.err_team_max');
       }
     }
     if (Object.keys(errors).length > 0) {
@@ -110,16 +114,16 @@ export function SignupScreen() {
       haptic('error');
       if (err instanceof ApiError) {
         if (err.code === 'AUTH_EMAIL_TAKEN') {
-          setFieldErrors({ email: 'An account with this email already exists' });
+          setFieldErrors({ email: t('auth.signup.err_email_taken') });
         } else if (err.code === 'RATE_LIMITED') {
-          setFormError('Too many attempts. Try again in a minute.');
+          setFormError(t('auth.signup.err_rate_limited'));
         } else if (err.validationIssues) {
           setFieldErrors(mapValidation(err.validationIssues));
         } else {
           setFormError(err.message);
         }
       } else {
-        setFormError('Something went wrong. Please try again.');
+        setFormError(t('auth.signup.err_generic'));
       }
     } finally {
       setSubmitting(false);
@@ -143,16 +147,16 @@ export function SignupScreen() {
         >
           <View style={{ gap: spacing.xs }}>
             <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              CREATE ACCOUNT
+              {t('auth.signup.eyebrow')}
             </Text>
             <Text variant="titleLarge" weight="medium">
-              Join Doondo
+              {t('auth.signup.title')}
             </Text>
           </View>
 
           <FormError message={formError} />
 
-          <RoleToggle value={role} onChange={setRole} />
+          <RoleToggle value={role} onChange={setRole} t={t} />
 
           {role === 'seeker' ? (
             <AssistedSetupToggle
@@ -161,6 +165,7 @@ export function SignupScreen() {
                 haptic('selection');
                 setAssistedSetup(v);
               }}
+              t={t}
             />
           ) : null}
 
@@ -181,12 +186,13 @@ export function SignupScreen() {
                   setFieldErrors((state) => ({ ...state, teamSize: undefined }));
                 }
               }}
+              t={t}
             />
           ) : null}
 
           <View style={{ gap: spacing.lg }}>
             <TextField
-              label={assistedSetup ? "Worker's name" : 'Name'}
+              label={assistedSetup ? t('auth.signup.name_label_worker') : t('auth.signup.name_label')}
               value={name}
               onChangeText={(v) => {
                 setName(v);
@@ -194,26 +200,26 @@ export function SignupScreen() {
               }}
               placeholder={
                 assistedSetup
-                  ? "The worker's full name"
+                  ? t('auth.signup.name_placeholder_worker')
                   : role === 'seeker'
-                    ? 'Your full name'
-                    : 'Your business name'
+                    ? t('auth.signup.name_placeholder_seeker')
+                    : t('auth.signup.name_placeholder_employer')
               }
               autoCapitalize="words"
               autoComplete="name"
               error={fieldErrors.name ?? null}
               helper={
-                assistedSetup ? 'Not your name — the person who will use this account.' : undefined
+                assistedSetup ? t('auth.signup.name_helper_assisted') : undefined
               }
             />
             <TextField
-              label="Email"
+              label={t('auth.signup.email_label')}
               value={email}
               onChangeText={(v) => {
                 setEmail(v);
                 if (fieldErrors.email) setFieldErrors((s) => ({ ...s, email: undefined }));
               }}
-              placeholder={assistedSetup ? "Worker's email, if any" : 'you@example.com'}
+              placeholder={assistedSetup ? t('auth.signup.email_placeholder_worker') : t('auth.signup.email_placeholder')}
               autoCapitalize="none"
               autoComplete="email"
               autoCorrect={false}
@@ -222,18 +228,18 @@ export function SignupScreen() {
               error={fieldErrors.email ?? null}
               helper={
                 assistedSetup
-                  ? "If they don't have one, use yours — you can change it later."
+                  ? t('auth.signup.email_helper_assisted')
                   : undefined
               }
             />
             <TextField
-              label="Password"
+              label={t('auth.signup.password_label')}
               value={password}
               onChangeText={(v) => {
                 setPassword(v);
                 if (fieldErrors.password) setFieldErrors((s) => ({ ...s, password: undefined }));
               }}
-              placeholder="8+ chars, mix letters and numbers"
+              placeholder={t('auth.signup.password_placeholder')}
               autoCapitalize="none"
               autoComplete="password-new"
               textContentType="newPassword"
@@ -241,25 +247,25 @@ export function SignupScreen() {
               error={fieldErrors.password ?? null}
               helper={
                 assistedSetup
-                  ? 'Share this with the worker so they can sign in on any phone.'
+                  ? t('auth.signup.password_helper_assisted')
                   : undefined
               }
             />
             <TextField
-              label={assistedSetup ? "Worker's phone" : 'Phone'}
+              label={assistedSetup ? t('auth.signup.phone_label_worker') : t('auth.signup.phone_label')}
               value={phone}
               onChangeText={(v) => {
                 setPhone(v);
                 if (fieldErrors.phone) setFieldErrors((s) => ({ ...s, phone: undefined }));
               }}
-              placeholder="+91 9876543210"
+              placeholder={t('auth.signup.phone_placeholder')}
               autoComplete="tel"
               keyboardType="phone-pad"
               textContentType="telephoneNumber"
               helper={
                 assistedSetup
-                  ? "The worker's number — employers will call here."
-                  : 'Used to reset your password if you forget it.'
+                  ? t('auth.signup.phone_helper_worker')
+                  : t('auth.signup.phone_helper')
               }
               error={fieldErrors.phone ?? null}
             />
@@ -267,7 +273,7 @@ export function SignupScreen() {
 
           <View style={{ gap: spacing.md }}>
             <Button
-              label={submitting ? 'Creating account…' : 'Create account'}
+              label={submitting ? t('auth.signup.cta_creating') : t('auth.signup.cta_create')}
               onPress={onSubmit}
               disabled={submitting}
             />
@@ -275,7 +281,7 @@ export function SignupScreen() {
 
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.xs }}>
             <Text variant="footnote" tone="secondary">
-              Already have an account?
+              {t('auth.signup.have_account')}
             </Text>
             <Text
               variant="footnote"
@@ -283,7 +289,7 @@ export function SignupScreen() {
               tone="hero"
               onPress={() => navigation.navigate('Login')}
             >
-              Sign in
+              {t('auth.signup.sign_in')}
             </Text>
           </View>
         </ScrollView>
@@ -311,9 +317,11 @@ interface WorkTypeSectionProps {
 function AssistedSetupToggle({
   value,
   onChange,
+  t,
 }: {
   value: boolean;
   onChange: (next: boolean) => void;
+  t: TFn;
 }) {
   const { theme } = useTheme();
   return (
@@ -322,7 +330,7 @@ function AssistedSetupToggle({
         onPress={() => onChange(!value)}
         accessibilityRole="switch"
         accessibilityState={{ checked: value }}
-        accessibilityLabel="Setting this up for someone else"
+        accessibilityLabel={t('auth.signup.assisted_a11y')}
         style={({ pressed }) => ({
           flexDirection: 'row',
           alignItems: 'center',
@@ -355,11 +363,10 @@ function AssistedSetupToggle({
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Text variant="body" weight="medium">
-            Setting this up for someone else?
+            {t('auth.signup.assisted_title')}
           </Text>
           <Text variant="footnote" tone="secondary">
-            Common for family members helping a worker who can&apos;t use the
-            app alone.
+            {t('auth.signup.assisted_body')}
           </Text>
         </View>
       </Pressable>
@@ -374,10 +381,7 @@ function AssistedSetupToggle({
           }}
         >
           <Text style={{ fontSize: 13, lineHeight: 19, color: '#78350F' }}>
-            Enter the <Text style={{ fontWeight: '700' }}>worker&apos;s</Text> name,
-            phone and email below — not yours. Job alerts and employer
-            calls will go to the phone you enter. Share the password with
-            them so they can sign in.
+            {t('auth.signup.assisted_banner')}
           </Text>
         </View>
       ) : null}
@@ -391,17 +395,18 @@ function WorkTypeSection({
   teamSizeError,
   onWorkTypeChange,
   onTeamSizeChange,
-}: WorkTypeSectionProps) {
+  t,
+}: WorkTypeSectionProps & { t: TFn }) {
   const { theme } = useTheme();
   const options: Array<{ value: WorkType; label: string; helper: string }> = [
-    { value: 'solo', label: 'Solo', helper: 'One person applying' },
-    { value: 'team', label: 'Team', helper: 'Applying with a crew' },
+    { value: 'solo', label: t('auth.signup.worktype_solo'), helper: t('auth.signup.worktype_solo_helper') },
+    { value: 'team', label: t('auth.signup.worktype_team'), helper: t('auth.signup.worktype_team_helper') },
   ];
 
   return (
     <View style={{ gap: spacing.sm }}>
       <Text variant="footnote" weight="medium" tone="secondary">
-        I am applying as
+        {t('auth.signup.worktype_label')}
       </Text>
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
         {options.map((opt) => {
@@ -435,12 +440,12 @@ function WorkTypeSection({
       </View>
       {workType === 'team' ? (
         <TextField
-          label="Team size"
+          label={t('auth.signup.team_size_label')}
           value={teamSizeText}
           onChangeText={(v) => onTeamSizeChange(v.replace(/[^\d]/g, ''))}
           keyboardType="number-pad"
-          placeholder="2"
-          helper="How many people are applying together?"
+          placeholder={t('auth.signup.team_size_placeholder')}
+          helper={t('auth.signup.team_size_helper')}
           error={teamSizeError}
         />
       ) : null}
@@ -464,17 +469,17 @@ interface RoleToggleProps {
  * scene (task #5) — a much more memorable first-launch moment. Until then,
  * the toggle keeps the signup flow functional.
  */
-function RoleToggle({ value, onChange }: RoleToggleProps) {
+function RoleToggle({ value, onChange, t }: RoleToggleProps & { t: TFn }) {
   const { theme } = useTheme();
   const options: { value: UserRole; label: string; helper: string }[] = [
-    { value: 'seeker', label: 'Find work', helper: "I'm looking for a job" },
-    { value: 'employer', label: 'Hire workers', helper: "I'm posting jobs" },
+    { value: 'seeker', label: t('auth.signup.role_seeker'), helper: t('auth.signup.role_seeker_helper') },
+    { value: 'employer', label: t('auth.signup.role_employer'), helper: t('auth.signup.role_employer_helper') },
   ];
 
   return (
     <View style={{ gap: spacing.sm }}>
       <Text variant="footnote" weight="medium" tone="secondary">
-        I want to
+        {t('auth.signup.role_label')}
       </Text>
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
         {options.map((opt) => {

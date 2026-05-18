@@ -8,8 +8,10 @@
 import { ScrollView, View } from 'react-native';
 import { spacing } from '@doondo/tokens';
 import { Screen, Text, Card } from '@/components';
+import { useTranslate } from '@/i18n/useTranslate';
 
 export function WorkforceScreen() {
+  const t = useTranslate();
   return (
     <Screen edges={['top']}>
       <ScrollView
@@ -22,19 +24,18 @@ export function WorkforceScreen() {
       >
         <View style={{ gap: spacing.xs }}>
           <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-            WORKFORCE
+            {t('employer.workforce.eyebrow')}
           </Text>
           <Text variant="display" weight="medium" display>
-            Your team.
+            {t('employer.workforce.title')}
           </Text>
         </View>
         <Card>
           <Text variant="footnote" weight="medium" tone="secondary" style={{ letterSpacing: 1.0 }}>
-            COMING SOON
+            {t('employer.workforce.coming_soon_eyebrow')}
           </Text>
           <Text variant="body" style={{ marginTop: spacing.sm }}>
-            Phase 4 brings active hires, attendance, and recurring worker
-            management to this tab.
+            {t('employer.workforce.coming_soon_body')}
           </Text>
         </Card>
       </ScrollView>

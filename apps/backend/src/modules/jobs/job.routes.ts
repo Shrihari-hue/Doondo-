@@ -19,6 +19,7 @@ import {
   employerJobsQuerySchema,
   jobIdParamsSchema,
   nearbyQuerySchema,
+  previewQuerySchema,
   thisWeekQuerySchema,
   todayQuerySchema,
   updateJobSchema,
@@ -28,6 +29,11 @@ const router = Router();
 
 // ─── Public / seeker reads ──────────────────────────────────────────────────
 router.get('/nearby', validate(nearbyQuerySchema), controller.nearby);
+// "60-second first match" — public, unauthenticated. Shown to fresh
+// role-pickers BEFORE signup so they see real jobs before being asked
+// to commit. Must be registered before /:id to avoid the param route
+// capturing the literal "preview" segment.
+router.get('/preview', validate(previewQuerySchema), controller.preview);
 // "Today" + "This week" feeds — same geo pipeline, different time/urgency
 // filter. Listed above `/saved` so route ordering stays predictable.
 router.get('/today', validate(todayQuerySchema), controller.today);

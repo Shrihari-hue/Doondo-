@@ -49,9 +49,11 @@ export async function pickChatVideo(): Promise<VideoPickResult | null> {
   }
 
   // Read as base64. ImagePicker doesn't give us base64 for videos directly,
-  // so we read from the local file URI.
+  // so we read from the local file URI. `EncodingType` was moved to the
+  // legacy entry in expo-file-system SDK 54+; the bare 'base64' string
+  // literal is the supported form and works on every version we ship to.
   const base64 = await FileSystem.readAsStringAsync(picked.uri, {
-    encoding: FileSystem.EncodingType.Base64,
+    encoding: 'base64' as never,
   });
 
   if (base64.length > MAX_BASE64_BYTES) {
@@ -62,7 +64,9 @@ export async function pickChatVideo(): Promise<VideoPickResult | null> {
 
   let sizeBytes = Math.ceil(base64.length * 0.75);
   try {
-    const info = await FileSystem.getInfoAsync(picked.uri, { size: true });
+    // `{ size: true }` option was removed in expo-file-system SDK 54+;
+    // size is returned by default on the result.
+    const info = await FileSystem.getInfoAsync(picked.uri);
     if (info.exists && typeof (info as { size?: number }).size === 'number') {
       sizeBytes = (info as { size: number }).size;
     }

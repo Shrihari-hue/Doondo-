@@ -3,6 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { spacing } from '@doondo/tokens';
 import { Screen, Text, Button } from '@/components';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AuthStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Welcome'>;
@@ -16,6 +17,7 @@ type Nav = NativeStackNavigationProp<AuthStackParamList, 'Welcome'>;
  */
 export function WelcomeScreen() {
   const navigation = useNavigation<Nav>();
+  const t = useTranslate();
 
   return (
     <Screen>
@@ -31,26 +33,26 @@ export function WelcomeScreen() {
         {/* Hero */}
         <View style={{ gap: spacing.md }}>
           <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.4 }}>
-            DOONDO
+            {t('auth.welcome.eyebrow')}
           </Text>
           <Text variant="displayLarge" weight="medium" display>
-            Hire nearby.
+            {t('auth.welcome.hero')}
           </Text>
           <Text variant="bodyLarge" tone="secondary" style={{ marginTop: spacing.sm }}>
-            Doondo connects you with work in your city, area, and walking radius.
+            {t('auth.welcome.tagline')}
           </Text>
         </View>
 
         {/* CTAs */}
         <View style={{ gap: spacing.md }}>
-          <Button label="Create your account" onPress={() => navigation.navigate('Signup')} />
+          <Button label={t('auth.welcome.cta_create')} onPress={() => navigation.navigate('Signup')} />
           <Button
-            label="I already have an account"
+            label={t('auth.welcome.cta_have_account')}
             variant="ghost"
             onPress={() => navigation.navigate('Login')}
           />
           <Text variant="caption" tone="tertiary" style={{ textAlign: 'center', marginTop: spacing.sm }}>
-            By continuing you agree to Doondo's Terms and Privacy Policy.
+            {t('auth.welcome.terms')}
           </Text>
         </View>
       </View>

@@ -352,7 +352,7 @@ function JobAlertFormInner() {
             style={{
               padding: spacing.md,
               borderRadius: radii.md,
-              backgroundColor: theme.bg.subtle,
+              backgroundColor: theme.bg.muted,
             }}
           >
             <Text

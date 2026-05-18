@@ -31,6 +31,7 @@ import { Screen, Text, LoadingSpinner, EmptyState } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import {
   skillTestsApi,
   type PublicSkillTest,
@@ -40,11 +41,13 @@ import { ApiError } from '@/api/errors';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function SkillTestsInner() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const t = useTranslate();
 
   const tests = useQuery({
     queryKey: ['skillTests', 'catalogue'],
@@ -95,14 +98,13 @@ function SkillTestsInner() {
           <Text
             style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
           >
-            Skill tests
+            {t('skill_tests.header_title')}
           </Text>
         </View>
         <Text
           style={{ fontSize: 13, lineHeight: 19, color: 'rgba(255,255,255,0.85)' }}
         >
-          Short 5-question tests per trade. Pass 4 of 5 and earn a
-          &ldquo;✓ Tested&rdquo; pill that shows on your resume.
+          {t('skill_tests.header_blurb')}
         </Text>
       </LinearGradient>
 
@@ -112,9 +114,9 @@ function SkillTestsInner() {
         </View>
       ) : tests.isError ? (
         <EmptyState
-          title="Couldn't load tests"
-          message="Check your connection and try again."
-          cta={{ label: 'Retry', onPress: () => void tests.refetch() }}
+          title={t('skill_tests.error_title')}
+          message={t('skill_tests.error_message')}
+          cta={{ label: t('skill_tests.retry'), onPress: () => void tests.refetch() }}
         />
       ) : (
         <ScrollView
@@ -135,15 +137,16 @@ function SkillTestsInner() {
             />
           }
         >
-          {(tests.data?.tests ?? []).map((t) => (
+          {(tests.data?.tests ?? []).map((testItem) => (
             <TestCard
-              key={t.id}
-              test={t}
-              attempt={latestByTestId.get(t.id) ?? null}
+              key={testItem.id}
+              test={testItem}
+              attempt={latestByTestId.get(testItem.id) ?? null}
               onStart={() => {
                 haptic('selection');
-                setActiveTest(t);
+                setActiveTest(testItem);
               }}
+              t={t}
             />
           ))}
         </ScrollView>
@@ -152,6 +155,7 @@ function SkillTestsInner() {
       <TakeTestModal
         test={activeTest}
         onClose={() => setActiveTest(null)}
+        t={t}
       />
     </Screen>
   );
@@ -163,10 +167,12 @@ function TestCard({
   test,
   attempt,
   onStart,
+  t,
 }: {
   test: PublicSkillTest;
   attempt: SkillTestAttempt | null;
   onStart: () => void;
+  t: TFn;
 }) {
   const { theme } = useTheme();
   const passed = attempt?.passed ?? false;
@@ -216,8 +222,11 @@ function TestCard({
           {test.tagline}
         </Text>
         <Text style={{ fontSize: 11, color: theme.text.tertiary, marginTop: 2 }}>
-          {test.questions.length} questions · pass {test.passingScore}/{test.questions.length} ·{' '}
-          {test.durationMinutes} min
+          {t('skill_tests.card_meta', {
+            q: test.questions.length,
+            pass: test.passingScore,
+            min: test.durationMinutes,
+          })}
         </Text>
       </View>
       {passed ? (
@@ -232,7 +241,7 @@ function TestCard({
           }}
         >
           <Text style={{ fontSize: 12, fontWeight: '700', color: '#065F46' }}>
-            ✓ Passed
+            {t('skill_tests.status_passed')}
           </Text>
         </View>
       ) : blocked ? (
@@ -247,7 +256,7 @@ function TestCard({
           }}
         >
           <Text style={{ fontSize: 11, fontWeight: '700', color: '#78350F' }}>
-            Try in {cooldownHours}h
+            {t('skill_tests.status_cooldown', { h: cooldownHours })}
           </Text>
         </View>
       ) : (
@@ -262,7 +271,7 @@ function TestCard({
           })}
         >
           <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
-            Take test
+            {t('skill_tests.cta_take')}
           </Text>
         </Pressable>
       )}
@@ -275,9 +284,11 @@ function TestCard({
 function TakeTestModal({
   test,
   onClose,
+  t,
 }: {
   test: PublicSkillTest | null;
   onClose: () => void;
+  t: TFn;
 }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
@@ -298,8 +309,8 @@ function TakeTestModal({
     onError: (err) => {
       haptic('error');
       Alert.alert(
-        "Couldn't submit",
-        err instanceof ApiError ? err.message : 'Try again.',
+        t('skill_tests.couldnt_submit_title'),
+        err instanceof ApiError ? err.message : t('skill_tests.couldnt_submit_default'),
       );
     },
   });
@@ -360,14 +371,14 @@ function TakeTestModal({
           }}
         >
           {result ? (
-            <ResultPanel attempt={result} test={test} />
+            <ResultPanel attempt={result} test={test} t={t} />
           ) : (
             test.questions.map((q, qi) => (
               <View key={q.id} style={{ gap: spacing.sm }}>
                 <Text
                   style={{ fontSize: 11, fontWeight: '600', letterSpacing: 1.4, color: theme.text.tertiary }}
                 >
-                  QUESTION {qi + 1} / {test.questions.length}
+                  {t('skill_tests.question_label', { i: qi + 1, n: test.questions.length })}
                 </Text>
                 <Text
                   style={{ fontSize: 15, lineHeight: 22, color: theme.text.primary }}
@@ -465,7 +476,7 @@ function TakeTestModal({
               })}
             >
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
-                Done
+                {t('skill_tests.cta_done')}
               </Text>
             </Pressable>
           ) : (
@@ -483,10 +494,10 @@ function TakeTestModal({
             >
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
                 {submit.isPending
-                  ? 'Grading…'
+                  ? t('skill_tests.cta_grading')
                   : answeredAll
-                    ? 'Submit'
-                    : `Answer all ${test.questions.length} to submit`}
+                    ? t('skill_tests.cta_submit')
+                    : t('skill_tests.cta_answer_all', { n: test.questions.length })}
               </Text>
             </Pressable>
           )}
@@ -499,9 +510,11 @@ function TakeTestModal({
 function ResultPanel({
   attempt,
   test,
+  t,
 }: {
   attempt: SkillTestAttempt;
   test: PublicSkillTest;
+  t: TFn;
 }) {
   const { theme } = useTheme();
   if (attempt.passed) {
@@ -521,11 +534,14 @@ function ResultPanel({
         <Text
           style={{ fontSize: 22, fontWeight: '800', color: '#065F46', letterSpacing: -0.3 }}
         >
-          Passed
+          {t('skill_tests.result_passed_title')}
         </Text>
         <Text style={{ fontSize: 14, color: '#047857', textAlign: 'center' }}>
-          You scored {attempt.score} / {test.questions.length}. The
-          &ldquo;✓ Tested: {test.title}&rdquo; pill now shows on your resume.
+          {t('skill_tests.result_passed_body', {
+            score: attempt.score,
+            total: test.questions.length,
+            title: test.title,
+          })}
         </Text>
       </View>
     );
@@ -546,14 +562,17 @@ function ResultPanel({
       <Text
         style={{ fontSize: 22, fontWeight: '800', color: '#78350F', letterSpacing: -0.3 }}
       >
-        Not quite
+        {t('skill_tests.result_failed_title')}
       </Text>
       <Text style={{ fontSize: 14, color: '#92400E', textAlign: 'center' }}>
-        You scored {attempt.score} / {test.questions.length}. You need{' '}
-        {test.passingScore} to pass.
+        {t('skill_tests.result_failed_body', {
+          score: attempt.score,
+          total: test.questions.length,
+          pass: test.passingScore,
+        })}
       </Text>
       <Text style={{ fontSize: 12, color: '#92400E', textAlign: 'center', opacity: 0.85 }}>
-        Try again in 24 hours — pace lets you actually study between attempts.
+        {t('skill_tests.result_failed_retry')}
       </Text>
     </View>
   );

@@ -175,14 +175,17 @@ export class VoiceRecorder {
     );
 
     // Read the file as base64 and pack into a data URL the bubble can play.
+    // `EncodingType` lives under the legacy entry in expo-file-system SDK 54+;
+    // the bare 'base64' string literal works on every version we ship.
     const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: FileSystem.EncodingType.Base64,
+      encoding: 'base64' as never,
     });
 
     // Size from filesystem info — fall back to base64 length estimate.
     let sizeBytes = Math.ceil(base64.length * 0.75);
     try {
-      const info = await FileSystem.getInfoAsync(uri, { size: true });
+      // `{ size: true }` option was removed in SDK 54+; size returns by default.
+      const info = await FileSystem.getInfoAsync(uri);
       if (info.exists && typeof (info as { size?: number }).size === 'number') {
         sizeBytes = (info as { size: number }).size;
       }

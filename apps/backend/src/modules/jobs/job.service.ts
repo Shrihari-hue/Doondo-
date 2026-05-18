@@ -27,6 +27,7 @@ import { JobModel, type JobStatus, type PublicJob } from './job.model';
 import type {
   CreateJobBody,
   NearbyQuery,
+  PreviewQuery,
   ThisWeekQuery,
   TodayQuery,
   UpdateJobBody,
@@ -113,6 +114,110 @@ export async function findNearby(query: NearbyQuery): Promise<{
   }));
 
   return { jobs, hasMore };
+}
+
+/**
+ * "60-second first match" — public, lightweight, returns 3 jobs the
+ * pre-signup seeker would plausibly take.
+ *
+ * Optimised for "first impression" rather than completeness:
+ *   - Pulls active jobs within `radius` of the supplied coords.
+ *   - Biases ranking toward jobs whose title or skills match `trade`
+ *     (regex, case-insensitive) when provided.
+ *   - Filters by `jobType` when provided.
+ *   - Boosts urgent jobs and verified employers so the first impression
+ *     reads as "high-trust, hiring right now".
+ *   - Hard cap of 5; the screen shows 3.
+ *
+ * Returns `{ jobs }` only — no pagination, no "has more". This is a
+ * conversion surface, not a feed.
+ */
+export async function findFirstMatch(query: PreviewQuery): Promise<{
+  jobs: NearbyHit[];
+}> {
+  const baseMatch: Record<string, unknown> = { status: 'active' };
+  if (query.jobType) baseMatch.type = query.jobType;
+
+  // Trade filter is a soft bias rather than a hard filter — we want
+  // to show SOMETHING even if no job in the area matches the trade
+  // string. So we use it for ranking, not for the $match.
+  const tradeRegex = query.trade
+    ? new RegExp(escapeRegex(query.trade), 'i')
+    : null;
+
+  const pipeline: PipelineStage[] = [
+    {
+      $geoNear: {
+        near: { type: 'Point', coordinates: [query.lng, query.lat] },
+        distanceField: 'distanceMeters',
+        maxDistance: query.radius,
+        spherical: true,
+        query: baseMatch,
+      },
+    },
+    {
+      $addFields: {
+        urgentRank: { $cond: [{ $eq: ['$urgent', true] }, 0, 1] },
+      },
+    },
+    { $sort: { urgentRank: 1, distanceMeters: 1 } },
+    { $project: { urgentRank: 0 } },
+    // Pull a generous candidate pool so the in-memory trade boost has
+    // material to re-rank. 20 is plenty when the cap is 5.
+    { $limit: 20 },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'employerId',
+        foreignField: '_id',
+        as: 'employer',
+        pipeline: [{ $project: { name: 1, isVerified: 1, photoUrl: 1, companyName: 1 } }],
+      },
+    },
+    { $unwind: { path: '$employer', preserveNullAndEmptyArrays: true } },
+  ];
+
+  const rows = await JobModel.aggregate(pipeline);
+
+  // Trade boost: title / skills regex match adds a small score. Verified
+  // employer adds another small boost. Distance is the tiebreaker via
+  // the pipeline sort above.
+  const scored = rows.map((r) => {
+    let bias = 0;
+    if (tradeRegex) {
+      if (typeof r.title === 'string' && tradeRegex.test(r.title)) bias += 30;
+      const skills = (r.skills as string[] | undefined) ?? [];
+      if (skills.some((s) => tradeRegex.test(s))) bias += 20;
+    }
+    if (r.employer && (r.employer as { isVerified?: boolean }).isVerified) {
+      bias += 5;
+    }
+    return { row: r, bias };
+  });
+
+  scored.sort((a, b) => {
+    if (b.bias !== a.bias) return b.bias - a.bias;
+    return (a.row.distanceMeters as number) - (b.row.distanceMeters as number);
+  });
+
+  const trimmed = scored.slice(0, query.limit).map((s) => s.row);
+
+  const jobs: NearbyHit[] = trimmed.map((r) => ({
+    ...formatRawJob(r),
+    distanceMeters: Math.round(r.distanceMeters as number),
+    employer: r.employer
+      ? {
+          id: (r.employer._id as Types.ObjectId).toString(),
+          name: r.employer.name as string,
+          isVerified: Boolean(r.employer.isVerified),
+          photoUrl: (r.employer.photoUrl as string | null | undefined) ?? null,
+          companyName:
+            (r.employer.companyName as string | null | undefined) ?? null,
+        }
+      : undefined,
+  }));
+
+  return { jobs };
 }
 
 /**

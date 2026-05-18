@@ -28,12 +28,21 @@ import {
   type RatingRole,
   type RatingSummary,
 } from './rating.model';
+import {
+  allowedTagsFor,
+  validateTagsForRole,
+  type TagDescriptor,
+} from './tagCatalog';
 
 interface CreateInput {
   reviewerId: string;
   applicationId: string;
   score: number;
   comment?: string;
+  /** Tag slugs from the role's catalog (max 6). Optional. */
+  tags?: string[];
+  /** Hide reviewer identity in public listings. Defaults to false. */
+  anonymous?: boolean;
 }
 
 /**
@@ -92,6 +101,23 @@ export async function createRating(input: CreateInput): Promise<PublicRating> {
     });
   }
 
+  // 2a. Validate tags against the role's catalogue. Reject the whole
+  //     write on an unknown tag — a UI bug shouldn't silently drop tags.
+  const requestedTags = Array.isArray(input.tags)
+    ? [...new Set(input.tags.map((t) => t.trim()).filter(Boolean))]
+    : [];
+  if (requestedTags.length > 0) {
+    const check = validateTagsForRole(role, requestedTags);
+    if (!check.ok) {
+      throw new AppError({
+        code: 'VALIDATION_FAILED',
+        message: `Unknown review tag(s): ${check.invalid.join(', ')}`,
+        status: 400,
+        details: { invalidTags: check.invalid },
+      });
+    }
+  }
+
   // 2. Create. Unique index on (reviewerId, applicationId) means we either
   //    succeed or hit a duplicate-key — surface that cleanly.
   try {
@@ -103,6 +129,8 @@ export async function createRating(input: CreateInput): Promise<PublicRating> {
       role,
       score: input.score,
       comment: input.comment?.trim() || null,
+      tags: requestedTags,
+      anonymous: Boolean(input.anonymous),
     });
 
     // 3. Hydrate the public view.
@@ -169,6 +197,86 @@ export async function summarizeForUser(userId: string): Promise<RatingSummary> {
     avg: Math.round(r.avg * 10) / 10,
     count: r.count,
   };
+}
+
+// ─── Tag aggregation (employer trust signals) ───────────────────────────────
+
+export interface TagSummaryEntry {
+  slug: string;
+  label: string;
+  polarity: TagDescriptor['polarity'];
+  /** How many of the user's reviews carry this tag. */
+  count: number;
+  /** Fraction of their reviews carrying the tag (0..1). */
+  ratio: number;
+}
+
+export interface TagSummary {
+  /** Total reviews counted against this user. Drives the denominator. */
+  totalReviews: number;
+  /** Which side they're being reviewed AS (drives the tag catalog used). */
+  role: RatingRole;
+  /**
+   * One entry per tag in the catalogue. Includes zero-count tags so the
+   * UI can render the full grid grayed out for new accounts.
+   */
+  tags: TagSummaryEntry[];
+}
+
+/**
+ * Aggregate the structured-tag signal for a user.
+ *
+ * Used by EmployerDetail to render "Workers say…" badges: "Paid on
+ * time · 92% (24 reviews)". Computed on read; the rating volume per
+ * user is small enough that an indexed scan is cheap.
+ */
+export async function summarizeTagsForUser(
+  userId: string,
+  role: RatingRole,
+): Promise<TagSummary> {
+  // $facet always returns ONE document — an object whose keys are the
+  // facet names and whose values are arrays of the per-facet rows. The
+  // generic mirrors that shape so the field reads below are checked.
+  interface FacetResult {
+    total: Array<{ count: number }>;
+    perTag: Array<{ _id: string; count: number }>;
+  }
+  const result = await RatingModel.aggregate<FacetResult>([
+    { $match: { revieweeId: new Types.ObjectId(userId), role } },
+    {
+      $facet: {
+        total: [{ $count: 'count' }],
+        perTag: [
+          { $unwind: '$tags' },
+          {
+            $group: {
+              _id: '$tags',
+              count: { $sum: 1 },
+            },
+          },
+        ],
+      },
+    },
+  ]);
+
+  const facet = result[0];
+  const total = facet?.total?.[0]?.count ?? 0;
+  const perTag = facet?.perTag ?? [];
+  const countBySlug = new Map(perTag.map((r) => [r._id, r.count]));
+
+  const catalog = allowedTagsFor(role);
+  const tags: TagSummaryEntry[] = catalog.map((t) => {
+    const count = countBySlug.get(t.slug) ?? 0;
+    return {
+      slug: t.slug,
+      label: t.label,
+      polarity: t.polarity,
+      count,
+      ratio: total > 0 ? count / total : 0,
+    };
+  });
+
+  return { totalReviews: total, role, tags };
 }
 
 /** Bulk summarize for many users at once — used when listing search results. */

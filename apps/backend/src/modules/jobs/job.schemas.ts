@@ -39,6 +39,30 @@ export const nearbyQuerySchema = z.object({
 });
 
 /**
+ * "60-second first match" preview — small, unauthenticated, deliberately
+ * lightweight. Shown to a fresh role-picker right after they tap
+ * "I'm looking for work" but before they sign up. Goal: a "found
+ * something" moment in their first 60 seconds with the app.
+ *
+ * `trade` is a free-text bias hint (matched case-insensitively against
+ * Job.title + Job.skills via a regex). `jobType` is an optional
+ * job-type filter mirroring the rest of the jobs API.
+ */
+export const previewQuerySchema = z.object({
+  query: z.object({
+    lat,
+    lng,
+    /** Wider radius than Today because preview is the "first impression". */
+    radius: radius.default(10_000),
+    trade: z.string().trim().min(1).max(60).optional(),
+    jobType: z.enum(JOB_TYPES).optional(),
+    /** Capped at 5 — the preview screen renders a small stack, not a feed. */
+    limit: z.coerce.number().int().min(1).max(5).default(3),
+  }),
+});
+export type PreviewQuery = z.infer<typeof previewQuerySchema>['query'];
+
+/**
  * "Today" feed — urgent + freshly-posted gigs the seeker could start
  * within 24 hours. Same shape as the nearby query because the geoNear
  * stage is identical; the time-window filter is applied in the service.

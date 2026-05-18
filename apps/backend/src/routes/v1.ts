@@ -27,6 +27,7 @@ import * as coursesController from '@/modules/courses/courses.controller';
 import * as endorsementController from '@/modules/endorsements/endorsement.controller';
 import * as skillTestController from '@/modules/skillTests/skillTests.controller';
 import * as profileViewService from '@/modules/me/profileView.service';
+import * as doondoScoreService from '@/modules/users/doondoScore.service';
 import mentorsRouter from '@/modules/mentors/mentor.routes';
 import paymentsRouter from '@/modules/payments/payment.routes';
 import {
@@ -123,6 +124,42 @@ v1.get(
 // it's the same trust signal a seeker uses to decide whether to apply.
 v1.get('/employers/:id', employersController.getEmployerProfile);
 
+// Doondo Score — portable employability number. Public read so a
+// seeker can share their score outside the app (QR code, link, future
+// employer integrations). Returns the same shape for /me/doondo-score
+// (auth required, looks up the caller) and /users/:id/doondo-score
+// (any id, no auth required).
+v1.get(
+  '/me/doondo-score',
+  requireAuth,
+  async (req, res, next) => {
+    try {
+      const score = await doondoScoreService.computeForUser(req.user!.id);
+      res.json({ ok: true, data: score, requestId: req.id });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+v1.get(
+  '/users/:id/doondo-score',
+  validate(
+    z.object({
+      params: z.object({
+        id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id'),
+      }),
+    }),
+  ),
+  async (req, res, next) => {
+    try {
+      const score = await doondoScoreService.computeForUser(req.params.id!);
+      res.json({ ok: true, data: score, requestId: req.id });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // Per-user ratings read endpoint — lives under /users/:id/ratings because
 // that's the natural URL for "this user's reviews".
 v1.get(
@@ -140,6 +177,26 @@ v1.get(
     }),
   ),
   ratingsController.listForUser,
+);
+
+// Aggregated structured-tag summary for a user — "Workers say…"
+// signals on the EmployerDetail screen. Public so unauthenticated
+// browsers see the same trust info a seeker uses to decide.
+v1.get(
+  '/users/:id/tag-summary',
+  validate(
+    z.object({
+      params: z.object({
+        id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id'),
+      }),
+      query: z
+        .object({
+          role: z.enum(['employer', 'seeker']).default('employer'),
+        })
+        .default({}),
+    }),
+  ),
+  ratingsController.tagSummary,
 );
 
 // Apply lives URL-wise under /jobs/:id/apply (the natural place a client

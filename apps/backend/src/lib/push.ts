@@ -319,6 +319,195 @@ export async function sendJobAlertMatchPush(input: {
 }
 
 /**
+ * Push + in-app row reminding both sides that an interview is coming
+ * up soon (default: 60 minutes ahead). Fires from the scheduler sweep,
+ * once per interview, with idempotency enforced via the
+ * `Interview.reminderSentAt` field.
+ *
+ * Deep-links to the seeker's application detail so a tap shows the
+ * interview's location / meeting link in context.
+ */
+export async function sendInterviewReminderPush(input: {
+  recipientId: string;
+  jobTitle?: string;
+  /** Minutes until the interview starts (used in the body copy). */
+  minutesUntil: number;
+  /** Where to land — "in person at X" or "video — link". */
+  locationLine?: string | null;
+  applicationId: string;
+}): Promise<void> {
+  const title = 'Interview soon';
+  const headline = input.jobTitle
+    ? `${input.jobTitle} — starts in ${input.minutesUntil} min`
+    : `Your interview starts in ${input.minutesUntil} min`;
+  const body = input.locationLine
+    ? `${headline} · ${input.locationLine}`
+    : headline;
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'interview_reminder',
+    title,
+    body,
+    deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'applications',
+      data: {
+        type: 'interview:reminder',
+        applicationId: input.applicationId,
+      },
+    })),
+  );
+}
+
+/**
+ * Push + in-app row sent to a seeker whose application has been
+ * rejected AND for whom we've computed a skill gap. Replaces the
+ * generic rejection push so the seeker lands on a forward step
+ * instead of a dead end.
+ *
+ * Copy is intentionally direct ("You were missing X — try this
+ * 22-minute course"). Deeplinks straight into CourseDetail so the
+ * tap is one screen, not three.
+ */
+export async function sendSkillGapPush(input: {
+  recipientId: string;
+  jobTitle?: string;
+  missingSkill: string;
+  courseId: string;
+  courseTitle: string;
+  durationMinutes: number;
+  applicationId: string;
+}): Promise<void> {
+  const title = input.jobTitle
+    ? `Update on "${input.jobTitle}"`
+    : 'Application update';
+  const body = `Missing: ${input.missingSkill}. ${input.courseTitle} (${input.durationMinutes} min) can close the gap.`;
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'skill_gap',
+    title,
+    body,
+    deeplink: { screen: 'CourseDetail', params: { courseId: input.courseId } },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'applications',
+      data: {
+        type: 'application:skill_gap',
+        applicationId: input.applicationId,
+        courseId: input.courseId,
+      },
+    })),
+  );
+}
+
+/**
+ * Push + in-app row when the anti-ghost sweep flags an employer for
+ * not responding to a seeker's application within the SLA window
+ * (default 72h). Sent to the seeker so they know to move on; the
+ * employer-side ghost-count is bumped separately by the sweep
+ * service.
+ */
+export async function sendGhostedPush(input: {
+  recipientId: string;
+  jobTitle?: string;
+  employerName?: string;
+  hours: number;
+  applicationId: string;
+}): Promise<void> {
+  const title = 'No reply yet';
+  const body = input.jobTitle
+    ? `${input.employerName ?? 'The employer'} hasn't replied to your "${input.jobTitle}" application in ${input.hours} hours.`
+    : `${input.employerName ?? 'The employer'} hasn't replied in ${input.hours} hours.`;
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'application_ghosted',
+    title,
+    body,
+    deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'applications',
+      data: {
+        type: 'application:ghosted',
+        applicationId: input.applicationId,
+      },
+    })),
+  );
+}
+
+/**
+ * Morning digest — one daily push per seeker at ~7am local time,
+ * containing top jobs, a wage trend, and a single nudge. Body is
+ * built by the digest service; this helper just delivers it.
+ *
+ * Deeplinks to the seeker's Home screen because the digest is meant
+ * as a "open the app today" prompt, not a single-job action.
+ */
+export async function sendMorningDigestPush(input: {
+  recipientId: string;
+  body: string;
+  topJobIds: string[];
+}): Promise<void> {
+  const title = 'Your morning round-up';
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'morning_digest',
+    title,
+    body: input.body,
+    deeplink: { screen: 'Home' },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body: input.body,
+      sound: 'default',
+      channelId: 'jobs',
+      data: {
+        type: 'morning_digest',
+        topJobIds: input.topJobIds.slice(0, 5),
+      },
+    })),
+  );
+}
+
+/**
  * Push + in-app row when someone is rated. The push module fires this from
  * the ratings service after a successful create.
  */

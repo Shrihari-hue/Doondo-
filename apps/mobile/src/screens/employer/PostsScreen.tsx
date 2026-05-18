@@ -17,16 +17,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { spacing } from '@doondo/tokens';
 import { Screen, Text, Card, Pill, Button, SkeletonCard, EmptyState } from '@/components';
 import { useTheme } from '@/theme/useTheme';
+import { useTranslate } from '@/i18n/useTranslate';
 import { jobsApi } from '@/api/jobs.api';
 import { haptic } from '@/lib/haptics';
 import type { JobStatus, PublicJob } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 export function PostsScreen() {
   const navigation = useNavigation<Nav>();
   const { theme } = useTheme();
+  const t = useTranslate();
 
   const query = useQuery({
     queryKey: ['jobs', 'mine'],
@@ -60,7 +63,7 @@ export function PostsScreen() {
           />
         }
       >
-        <Header onPostJob={onPostJob} count={jobs.length} />
+        <Header onPostJob={onPostJob} count={jobs.length} t={t} />
 
         {query.isLoading ? (
           <View style={{ gap: spacing.md }}>
@@ -71,28 +74,28 @@ export function PostsScreen() {
           <EmptyState
             glyph="✕"
             tone="warning"
-            eyebrow="OFFLINE"
-            title="Couldn't load your posts"
-            message="Pull down to retry, or check your connection."
+            eyebrow={t('employer.posts.offline_eyebrow')}
+            title={t('employer.posts.offline_title')}
+            message={t('employer.posts.offline_message')}
             tall
           />
         ) : jobs.length === 0 ? (
           <EmptyState
             glyph="+"
             tone="hero"
-            eyebrow="NO POSTS YET"
-            title="Post your first job"
-            message="Tap the + New button above and be hiring in under a minute."
-            cta={{ label: 'Post a job', onPress: onPostJob }}
+            eyebrow={t('employer.posts.empty_eyebrow')}
+            title={t('employer.posts.empty_title')}
+            message={t('employer.posts.empty_message')}
+            cta={{ label: t('employer.posts.cta_post'), onPress: onPostJob }}
             tall
           />
         ) : (
           <>
             {active.length > 0 && (
-              <Section title="Open" jobs={active} />
+              <Section title={t('employer.posts.section_open')} jobs={active} t={t} />
             )}
             {closed.length > 0 && (
-              <Section title="Closed" jobs={closed} />
+              <Section title={t('employer.posts.section_closed')} jobs={closed} t={t} />
             )}
           </>
         )}
@@ -101,7 +104,7 @@ export function PostsScreen() {
   );
 }
 
-function Header({ onPostJob, count }: { onPostJob: () => void; count: number }) {
+function Header({ onPostJob, count, t }: { onPostJob: () => void; count: number; t: TFn }) {
   return (
     <View
       style={{
@@ -113,21 +116,23 @@ function Header({ onPostJob, count }: { onPostJob: () => void; count: number }) 
     >
       <View style={{ flex: 1, gap: spacing.xs }}>
         <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-          POSTS
+          {t('employer.posts.eyebrow')}
         </Text>
         <Text variant="display" weight="medium" display>
-          Your jobs.
+          {t('employer.posts.title')}
         </Text>
         <Text variant="footnote" tone="secondary">
-          {count > 0 ? `${count} total · pull down to refresh` : 'Post a job to start hiring'}
+          {count > 0
+            ? t('employer.posts.subtitle', { count, n: count })
+            : t('employer.posts.subtitle_empty')}
         </Text>
       </View>
-      <Button label="+ New" onPress={onPostJob} variant="secondary" />
+      <Button label={t('employer.posts.cta_new')} onPress={onPostJob} variant="secondary" />
     </View>
   );
 }
 
-function Section({ title, jobs }: { title: string; jobs: PublicJob[] }) {
+function Section({ title, jobs, t }: { title: string; jobs: PublicJob[]; t: TFn }) {
   return (
     <View style={{ gap: spacing.sm }}>
       <Text
@@ -139,13 +144,13 @@ function Section({ title, jobs }: { title: string; jobs: PublicJob[] }) {
         {title.toUpperCase()}
       </Text>
       {jobs.map((j) => (
-        <PostCard key={j.id} job={j} />
+        <PostCard key={j.id} job={j} t={t} />
       ))}
     </View>
   );
 }
 
-function PostCard({ job }: { job: PublicJob }) {
+function PostCard({ job, t }: { job: PublicJob; t: TFn }) {
   const navigation = useNavigation<Nav>();
   const { theme } = useTheme();
   const queryClient = useQueryClient();
@@ -191,10 +196,10 @@ function PostCard({ job }: { job: PublicJob }) {
               </Text>
               <Text variant="footnote" tone="secondary">
                 {job.location.area ? `${job.location.area} · ` : ''}
-                {formatType(job.type)}
+                {formatType(job.type, t)}
               </Text>
             </View>
-            <StatusPill status={job.status} />
+            <StatusPill status={job.status} t={t} />
           </View>
 
           {/* Applicant count + actions */}
@@ -208,25 +213,26 @@ function PostCard({ job }: { job: PublicJob }) {
             }}
           >
             <Pill
-              label={`${job.applicantsCount} applicant${
-                job.applicantsCount === 1 ? '' : 's'
-              }`}
+              label={t('employer.posts.applicants', {
+                count: job.applicantsCount,
+                n: job.applicantsCount,
+              })}
               tone="info"
             />
             {open && (
               <View style={{ flexDirection: 'row', gap: spacing.xs }}>
                 {job.status === 'active' ? (
                   <ActionPill
-                    label="Pause"
+                    label={t('employer.posts.action_pause')}
                     onPress={() => transition.mutate('paused')}
                   />
                 ) : (
                   <ActionPill
-                    label="Reopen"
+                    label={t('employer.posts.action_reopen')}
                     onPress={() => transition.mutate('active')}
                   />
                 )}
-                <ActionPill label="Close" onPress={() => transition.mutate('expired')} />
+                <ActionPill label={t('employer.posts.action_close')} onPress={() => transition.mutate('expired')} />
               </View>
             )}
           </View>
@@ -260,25 +266,24 @@ function ActionPill({ label, onPress }: { label: string; onPress: () => void }) 
   );
 }
 
-function StatusPill({ status }: { status: JobStatus }) {
+function StatusPill({ status, t }: { status: JobStatus; t: TFn }) {
   const map: Record<JobStatus, { label: string; tone: 'success' | 'warning' | 'neutral' | 'premium' }> = {
-    active: { label: 'Active', tone: 'success' },
-    paused: { label: 'Paused', tone: 'warning' },
-    filled: { label: 'Filled', tone: 'premium' },
-    expired: { label: 'Closed', tone: 'neutral' },
+    active: { label: t('employer.posts.status_active'), tone: 'success' },
+    paused: { label: t('employer.posts.status_paused'), tone: 'warning' },
+    filled: { label: t('employer.posts.status_filled'), tone: 'premium' },
+    expired: { label: t('employer.posts.status_expired'), tone: 'neutral' },
   };
   const { label, tone } = map[status];
   return <Pill label={label} tone={tone} />;
 }
 
-function formatType(t: PublicJob['type']): string {
-  return (
-    {
-      full_time: 'Full-time',
-      part_time: 'Part-time',
-      gig: 'Gig',
-      shift: 'Shift',
-      contract: 'Contract',
-    } as const
-  )[t];
+function formatType(type: PublicJob['type'], t: TFn): string {
+  const map: Record<PublicJob['type'], string> = {
+    full_time: t('employer.posts.type_full_time'),
+    part_time: t('employer.posts.type_part_time'),
+    gig: t('employer.posts.type_gig'),
+    shift: t('employer.posts.type_shift'),
+    contract: t('employer.posts.type_contract'),
+  };
+  return map[type];
 }

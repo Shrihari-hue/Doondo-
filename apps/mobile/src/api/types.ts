@@ -305,6 +305,8 @@ export interface PublicConversation {
     name: string;
     photoUrl: string | null;
     isVerified: boolean;
+    /** Role of the counterpart — used by the chat list to filter "Employers" vs system threads. */
+    role?: UserRole;
     companyName?: string | null;
   };
   job?: { id: string; title: string };
@@ -335,6 +337,13 @@ export interface PublicInterview {
   status: InterviewStatus;
   scheduledAt: string;
   cancelledAt: string | null;
+  /**
+   * ISO timestamp of the pre-interview reminder push, or null if the
+   * reminder hasn't fired yet. The mobile UI uses this to mute the
+   * "Starting in X" pill on already-reminded interviews — the worker
+   * has already seen the heads-up so the card can stay calm.
+   */
+  reminderSentAt: string | null;
 }
 
 export interface PublicApplication {
@@ -363,11 +372,63 @@ export interface PublicApplication {
     hiredAt: string | null;
     withdrawnAt: string | null;
   };
+  /**
+   * Skills the seeker was missing relative to the job at the moment of
+   * rejection. Null until rejected; even then null if the seeker had
+   * every skill the post required. Drives the "What can I learn?" CTA
+   * on MyApplications and the skill-gap push.
+   */
+  rejectionReasons: string[] | null;
+  /**
+   * ISO timestamp when the anti-ghost sweep flagged this row. Null when
+   * the employer responded in time. Drives the "Ghosted" pill in the
+   * seeker UI and lets the worker move on without doubting themselves.
+   */
+  flaggedAsGhostedAt: string | null;
   /** Latest interview if scheduled, null otherwise. */
   interview: PublicInterview | null;
   /** Hydrated by listMine / detail. */
   job?: PublicJob;
   createdAt: string;
+}
+
+/**
+ * Response shape of GET /applications/:id/skill-gap. Returned by the
+ * Doondo backend for the seeker after a rejection so the UI can surface
+ * "you were missing X — try this course".
+ */
+export interface SkillGapResponse {
+  missingSkills: string[];
+  recommendedCourse: {
+    id: string;
+    title: string;
+    tagline: string;
+    durationMinutes: number;
+    addressesSkills: string[];
+  } | null;
+  alternatives: Array<{
+    id: string;
+    title: string;
+    tagline: string;
+    durationMinutes: number;
+    addressesSkills: string[];
+  }>;
+}
+
+/**
+ * Doondo Score response shape (GET /me/doondo-score, /users/:id/doondo-score).
+ * Score is 0-100; the breakdown is what makes the score explainable.
+ */
+export interface DoondoScoreResponse {
+  score: number;
+  breakdown: {
+    ratings: { points: number; max: number; avg: number | null; count: number };
+    hires: { points: number; max: number; count: number };
+    endorsements: { points: number; max: number; uniqueTrades: number };
+    verification: { points: number; max: number; isVerified: boolean };
+    profile: { points: number; max: number; completion: number };
+  };
+  version: number;
 }
 
 export interface TokenPair {

@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { OnboardingScreen, hasSeenOnboarding } from '@/screens/auth/OnboardingScreen';
 import { RolePickerScreen } from '@/screens/auth/RolePickerScreen';
+import { FirstMatchPreviewScreen } from '@/screens/auth/FirstMatchPreviewScreen';
 import { LoginScreen } from '@/screens/auth/LoginScreen';
 import { SignupScreen } from '@/screens/auth/SignupScreen';
 import { ForgotPasswordScreen } from '@/screens/auth/ForgotPasswordScreen';
@@ -63,6 +64,10 @@ export function AuthNavigator() {
         options={{ animation: 'fade' }}
       />
       <Stack.Screen name="RolePicker" component={RolePickerScreen} />
+      <Stack.Screen
+        name="FirstMatchPreview"
+        component={FirstMatchPreviewScreen}
+      />
       <Stack.Screen name="Signup" component={SignupScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />

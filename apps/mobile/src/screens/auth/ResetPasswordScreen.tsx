@@ -7,6 +7,7 @@ import { Screen, Text, Button, TextField, FormError, Card } from '@/components';
 import { authApi } from '@/api/auth.api';
 import { ApiError } from '@/api/errors';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AuthStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'ResetPassword'>;
@@ -29,6 +30,7 @@ type ResetRoute = RouteProp<AuthStackParamList, 'ResetPassword'>;
 export function ResetPasswordScreen() {
   const navigation = useNavigation<Nav>();
   const { resetToken } = useRoute<ResetRoute>().params;
+  const t = useTranslate();
 
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -47,19 +49,19 @@ export function ResetPasswordScreen() {
     // Mirror the backend rules exactly — bouncing on the same checks the
     // server applies keeps validation feedback consistent.
     if (!password) {
-      setPwError('Choose a password');
+      setPwError(t('auth.reset.err_choose'));
       return;
     }
     if (password.length < 8) {
-      setPwError('At least 8 characters');
+      setPwError(t('auth.reset.err_too_short'));
       return;
     }
     if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
-      setPwError('Mix letters and numbers');
+      setPwError(t('auth.reset.err_mix'));
       return;
     }
     if (password !== confirm) {
-      setConfirmError("Passwords don't match");
+      setConfirmError(t('auth.reset.err_no_match'));
       return;
     }
 
@@ -77,8 +79,8 @@ export function ResetPasswordScreen() {
         ) {
           setFormError(
             err.code === 'AUTH_RESET_TOKEN_EXPIRED'
-              ? 'This reset code expired. Start over to get a new one.'
-              : 'This reset link is no longer valid. Start over.',
+              ? t('auth.reset.err_token_expired')
+              : t('auth.reset.err_token_invalid'),
           );
         } else if (err.code === 'VALIDATION_FAILED' && err.validationIssues) {
           // Surface whichever field the backend complained about.
@@ -92,7 +94,7 @@ export function ResetPasswordScreen() {
           setFormError(err.message);
         }
       } else {
-        setFormError('Something went wrong. Please try again.');
+        setFormError(t('auth.reset.err_generic'));
       }
     } finally {
       setSubmitting(false);
@@ -113,20 +115,19 @@ export function ResetPasswordScreen() {
         >
           <View style={{ gap: spacing.xs }}>
             <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              ALL SET
+              {t('auth.reset.done_eyebrow')}
             </Text>
             <Text variant="titleLarge" weight="medium">
-              Password updated
+              {t('auth.reset.done_title')}
             </Text>
           </View>
           <Card>
             <Text variant="body" tone="secondary">
-              Sign in with your new password to continue. We've signed you
-              out of every other device for safety.
+              {t('auth.reset.done_body')}
             </Text>
           </Card>
           <Button
-            label="Back to sign in"
+            label={t('auth.reset.done_cta')}
             onPress={() => navigation.popToTop()}
           />
         </View>
@@ -151,14 +152,13 @@ export function ResetPasswordScreen() {
         >
           <View style={{ gap: spacing.xs }}>
             <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              RESET PASSWORD
+              {t('auth.reset.eyebrow')}
             </Text>
             <Text variant="titleLarge" weight="medium">
-              Set a new password
+              {t('auth.reset.title')}
             </Text>
             <Text variant="body" tone="secondary">
-              Pick something you'll remember. We'll sign you out everywhere
-              else when you save.
+              {t('auth.reset.subtitle')}
             </Text>
           </View>
 
@@ -166,13 +166,13 @@ export function ResetPasswordScreen() {
 
           <View style={{ gap: spacing.lg }}>
             <TextField
-              label="New password"
+              label={t('auth.reset.password_label')}
               value={password}
               onChangeText={(v) => {
                 setPassword(v);
                 if (pwError) setPwError(null);
               }}
-              placeholder="8+ chars, mix letters and numbers"
+              placeholder={t('auth.reset.password_placeholder')}
               autoCapitalize="none"
               autoComplete="password-new"
               textContentType="newPassword"
@@ -180,13 +180,13 @@ export function ResetPasswordScreen() {
               error={pwError}
             />
             <TextField
-              label="Confirm new password"
+              label={t('auth.reset.confirm_label')}
               value={confirm}
               onChangeText={(v) => {
                 setConfirm(v);
                 if (confirmError) setConfirmError(null);
               }}
-              placeholder="Type it again"
+              placeholder={t('auth.reset.confirm_placeholder')}
               autoCapitalize="none"
               autoComplete="password-new"
               textContentType="newPassword"
@@ -199,12 +199,12 @@ export function ResetPasswordScreen() {
 
           <View style={{ gap: spacing.md }}>
             <Button
-              label={submitting ? 'Saving…' : 'Save new password'}
+              label={submitting ? t('auth.reset.cta_saving') : t('auth.reset.cta_save')}
               onPress={onSubmit}
               disabled={submitting}
             />
             <Button
-              label="Start over"
+              label={t('auth.reset.cta_start_over')}
               variant="ghost"
               onPress={() => navigation.popToTop()}
             />

@@ -38,6 +38,7 @@ import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { useAuth } from '@/hooks/useAuth';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
 import {
   clearSosContact,
   getSosContact,
@@ -48,6 +49,7 @@ import {
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 const HOLD_DURATION_MS = 2000;
 const DANGER = '#DC2626';
@@ -58,6 +60,7 @@ function SosInner() {
   const { user } = useAuth();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const t = useTranslate();
 
   const [loading, setLoading] = useState(true);
   const [contact, setContact] = useState<SosContact | null>(null);
@@ -81,11 +84,11 @@ function SosInner() {
     const name = formName.trim();
     const phone = formPhone.trim();
     if (name.length < 2) {
-      Alert.alert('Add a name', "Please enter the contact's name.");
+      Alert.alert(t('sos.add_name_title'), t('sos.add_name_body'));
       return;
     }
     if (phone.replace(/[^\d]/g, '').length < 7) {
-      Alert.alert('Add a valid phone', 'Please enter a real phone number.');
+      Alert.alert(t('sos.add_phone_title'), t('sos.add_phone_body'));
       return;
     }
     setSaving(true);
@@ -98,7 +101,7 @@ function SosInner() {
       setFormPhone('');
       haptic('success');
     } catch {
-      Alert.alert('Could not save', 'Try again.');
+      Alert.alert(t('sos.couldnt_save'), t('sos.try_again'));
     } finally {
       setSaving(false);
     }
@@ -106,12 +109,12 @@ function SosInner() {
 
   const onRemoveContact = () => {
     Alert.alert(
-      'Remove contact?',
-      "We'll clear the saved name and number from this device. SOS will be disabled until you add a new one.",
+      t('sos.remove_confirm_title'),
+      t('sos.remove_confirm_body'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('sos.remove_confirm_cancel'), style: 'cancel' },
         {
-          text: 'Remove',
+          text: t('sos.remove_confirm_ok'),
           style: 'destructive',
           onPress: async () => {
             await clearSosContact();
@@ -129,12 +132,12 @@ function SosInner() {
     haptic('warning');
     const result = await triggerSos({
       contact,
-      senderName: user?.name ?? 'A Doondo user',
+      senderName: user?.name ?? t('sos.sender_fallback_name'),
     });
     if (!result.opened) {
       Alert.alert(
-        "Couldn't open SMS",
-        result.reason ?? 'Please try calling your contact directly.',
+        t('sos.couldnt_open_sms_title'),
+        result.reason ?? t('sos.couldnt_open_sms_default'),
       );
     }
   };
@@ -180,7 +183,7 @@ function SosInner() {
               letterSpacing: -0.3,
             }}
           >
-            Safety SOS
+            {t('sos.header_title')}
           </Text>
         </View>
 
@@ -198,7 +201,7 @@ function SosInner() {
           }}
         >
           <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text.primary }}>
-            How it works
+            {t('sos.how_it_works_title')}
           </Text>
           <Text
             style={{
@@ -207,10 +210,7 @@ function SosInner() {
               color: theme.text.secondary,
             }}
           >
-            If you ever feel unsafe at work, hold the SOS button for 2 seconds.
-            Doondo will open your phone&apos;s SMS app pre-filled with your
-            location and a help message to your emergency contact. You decide
-            whether to send.
+            {t('sos.how_it_works_body')}
           </Text>
         </View>
 
@@ -226,7 +226,7 @@ function SosInner() {
                 marginBottom: spacing.sm,
               }}
             >
-              EMERGENCY CONTACT
+              {t('sos.emergency_contact')}
             </Text>
             <View
               style={{
@@ -286,7 +286,7 @@ function SosInner() {
                     color: theme.brand.hero,
                   }}
                 >
-                  Edit
+                  {t('sos.edit')}
                 </Text>
               </Pressable>
             </View>
@@ -296,7 +296,7 @@ function SosInner() {
               style={{ marginTop: spacing.sm, alignSelf: 'flex-start' }}
             >
               <Text style={{ fontSize: 12, color: theme.status.danger }}>
-                Remove contact
+                {t('sos.remove_contact')}
               </Text>
             </Pressable>
           </View>
@@ -314,7 +314,7 @@ function SosInner() {
                 marginBottom: spacing.sm,
               }}
             >
-              {contact ? 'EDIT CONTACT' : 'ADD EMERGENCY CONTACT'}
+              {contact ? t('sos.edit_contact') : t('sos.add_contact')}
             </Text>
             <View
               style={{
@@ -329,7 +329,7 @@ function SosInner() {
               <TextInput
                 value={formName}
                 onChangeText={setFormName}
-                placeholder="Contact name (e.g. Amma, Brother)"
+                placeholder={t('sos.name_placeholder')}
                 placeholderTextColor={theme.text.tertiary}
                 style={{
                   fontSize: 15,
@@ -344,7 +344,7 @@ function SosInner() {
               <TextInput
                 value={formPhone}
                 onChangeText={setFormPhone}
-                placeholder="Phone number (e.g. 9876543210)"
+                placeholder={t('sos.phone_placeholder')}
                 placeholderTextColor={theme.text.tertiary}
                 keyboardType="phone-pad"
                 style={{
@@ -384,7 +384,7 @@ function SosInner() {
                   <Text
                     style={{ fontSize: 15, fontWeight: '600', color: theme.text.primary }}
                   >
-                    Cancel
+                    {t('sos.cancel')}
                   </Text>
                 </Pressable>
               ) : null}
@@ -401,7 +401,7 @@ function SosInner() {
                 })}
               >
                 <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>
-                  {saving ? 'Saving…' : 'Save contact'}
+                  {saving ? t('sos.saving') : t('sos.save')}
                 </Text>
               </Pressable>
             </View>
@@ -410,7 +410,7 @@ function SosInner() {
 
         {/* SOS hold-to-send button */}
         {contact && !editing ? (
-          <SosHoldButton onComplete={onTriggerSos} />
+          <SosHoldButton onComplete={onTriggerSos} t={t} />
         ) : null}
 
         {/* Disclaimer */}
@@ -424,9 +424,7 @@ function SosInner() {
             lineHeight: 16,
           }}
         >
-          Doondo does not send the SMS for you. Your phone&apos;s SMS app opens
-          with the message ready — you choose whether to send. For
-          life-threatening emergencies, dial{'\n'}<Text style={{ fontWeight: '700' }}>112</Text> directly.
+          {t('sos.disclaimer_pre')}{'\n'}<Text style={{ fontWeight: '700' }}>{t('sos.disclaimer_emergency_number')}</Text>{t('sos.disclaimer_post')}
         </Text>
       </ScrollView>
     </Screen>
@@ -435,7 +433,7 @@ function SosInner() {
 
 // ─── SOS hold-to-send button ────────────────────────────────────────────────
 
-function SosHoldButton({ onComplete }: { onComplete: () => void }) {
+function SosHoldButton({ onComplete, t }: { onComplete: () => void; t: TFn }) {
   const progress = useRef(new Animated.Value(0)).current;
   const [pressing, setPressing] = useState(false);
   const fired = useRef(false);
@@ -500,7 +498,7 @@ function SosHoldButton({ onComplete }: { onComplete: () => void }) {
             letterSpacing: 3,
           }}
         >
-          SOS
+          {t('sos.sos_label')}
         </Text>
         <Text
           style={{
@@ -511,7 +509,7 @@ function SosHoldButton({ onComplete }: { onComplete: () => void }) {
             letterSpacing: 0.4,
           }}
         >
-          {pressing ? 'KEEP HOLDING…' : 'PRESS AND HOLD'}
+          {pressing ? t('sos.sos_pressing') : t('sos.sos_press_and_hold')}
         </Text>
       </Pressable>
 
@@ -542,7 +540,7 @@ function SosHoldButton({ onComplete }: { onComplete: () => void }) {
           fontWeight: '500',
         }}
       >
-        Hold for 2 seconds to open SMS
+        {t('sos.hold_two_seconds_hint')}
       </Text>
     </View>
   );
