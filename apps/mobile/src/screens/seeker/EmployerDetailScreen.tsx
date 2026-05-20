@@ -118,6 +118,7 @@ function EmployerDetailInner() {
               onBack={() => navigation.goBack()}
               t={t}
             />
+            <ResponsivenessBanner stats={profile.stats} />
             {tagSummaryQuery.data && (
               <TagSummaryPanel summary={tagSummaryQuery.data} />
             )}
@@ -163,6 +164,76 @@ function EmployerDetailInner() {
   );
 }
 
+// ─── Responsiveness (anti-ghost) banner ─────────────────────────────────────
+
+/**
+ * Surfaces the employer's anti-ghost track record.
+ *
+ * The backend stamps `flaggedAsGhostedAt` on applications this employer
+ * left unanswered past the SLA window. We render a banner only when the
+ * signal is meaningful:
+ *   - `ghostRate` is null below 5 applications → no banner (too little data).
+ *   - ghostRate >= 0.25 → amber "slow to respond" warning.
+ *   - ghostRate <= 0.05 with real volume → quiet green "responsive" affirmation.
+ *   - in between → no banner (unremarkable, don't add noise).
+ *
+ * This is the seeker-facing half of the anti-ghost feature: the sweep
+ * flags, and this is where a worker SEES the flag before they apply.
+ */
+function ResponsivenessBanner({
+  stats,
+}: {
+  stats: import('@/api/employers.api').EmployerStats;
+}) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  if (stats.ghostRate === null) return null;
+
+  const slow = stats.ghostRate >= 0.25;
+  const responsive = stats.ghostRate <= 0.05;
+  if (!slow && !responsive) return null;
+
+  const pct = Math.round(stats.ghostRate * 100);
+
+  return (
+    <View
+      style={{
+        marginHorizontal: spacing.xl,
+        marginTop: spacing.lg,
+        marginBottom: spacing.xs,
+        padding: spacing.md,
+        borderRadius: radii.lg,
+        borderWidth: 0.5,
+        borderColor: slow ? theme.status.warningBorder : theme.status.successBorder,
+        backgroundColor: slow
+          ? theme.status.warningSubtle
+          : theme.status.successSubtle,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+      }}
+    >
+      <Text style={{ fontSize: 16 }}>{slow ? '🐌' : '⚡'}</Text>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text
+          variant="footnote"
+          weight="medium"
+          style={{ color: slow ? theme.status.warning : theme.status.success }}
+        >
+          {slow
+            ? t('employer_signals.slow_title')
+            : t('employer_signals.responsive_title')}
+        </Text>
+        <Text variant="caption" tone="secondary">
+          {slow
+            ? t('employer_signals.slow_body', { pct })
+            : t('employer_signals.responsive_body')}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 // ─── Workers say… (tag summary) ────────────────────────────────────────────
 
 /**
@@ -182,6 +253,7 @@ function EmployerDetailInner() {
  */
 function TagSummaryPanel({ summary }: { summary: TagSummary }) {
   const { theme } = useTheme();
+  const t = useTranslate();
 
   // Volume gate — below 3 reviews ratios are too noisy to surface.
   if (summary.totalReviews < 3) return null;
@@ -219,11 +291,15 @@ function TagSummaryPanel({ summary }: { summary: TagSummary }) {
         }}
       >
         <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-          WORKERS SAY
+          {t('employer_signals.workers_say')}
         </Text>
         <Text variant="caption" tone="tertiary">
-          {summary.totalReviews}{' '}
-          {summary.totalReviews === 1 ? 'review' : 'reviews'}
+          {t(
+            summary.totalReviews === 1
+              ? 'employer_signals.reviews_one'
+              : 'employer_signals.reviews_other',
+            { count: summary.totalReviews },
+          )}
         </Text>
       </View>
 
@@ -259,6 +335,7 @@ function TagChip({
   variant: 'positive' | 'negative';
 }) {
   const { theme } = useTheme();
+  const t = useTranslate();
   const bg =
     variant === 'positive' ? theme.status.successSubtle : theme.status.warningSubtle;
   const border =
@@ -281,7 +358,7 @@ function TagChip({
       }}
     >
       <Text variant="footnote" weight="medium" style={{ color }}>
-        {tag.label}
+        {t(`review_tags.${tag.slug}`)}
       </Text>
       <Text variant="caption" weight="medium" style={{ color, opacity: 0.85 }}>
         · {pct}%

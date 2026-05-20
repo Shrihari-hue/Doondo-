@@ -45,6 +45,7 @@ import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { haptic } from '@/lib/haptics';
 import { pickProfileDocument } from '@/lib/profileDocument';
 import { friendlyErrorMessage } from '@/lib/friendlyError';
+import { useTranslate } from '@/i18n/useTranslate';
 import { profileExtractApi } from '@/api/profileExtract.api';
 import { meApi } from '@/api/me.api';
 import type { ExtractedProfile } from '@/api/types';
@@ -52,9 +53,11 @@ import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type Stage = 'pick' | 'extracting' | 'confirm';
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function ProfileFromPhotoInner() {
   const { theme } = useTheme();
+  const t = useTranslate();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -88,10 +91,7 @@ function ProfileFromPhotoInner() {
         haptic('error');
         setStage('pick');
         setError(
-          friendlyErrorMessage(
-            err,
-            "We couldn't read the photo. Try a clearer image in good light.",
-          ),
+          friendlyErrorMessage(err, t('profile_from_photo.error_read')),
         );
       }
     },
@@ -141,11 +141,11 @@ function ProfileFromPhotoInner() {
       void queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       void queryClient.invalidateQueries({ queryKey: ['users'] });
       Alert.alert(
-        'Profile filled',
-        'Your profile is ready. Employers can now find you.',
+        t('profile_from_photo.saved_title'),
+        t('profile_from_photo.saved_body'),
         [
           {
-            text: 'Done',
+            text: t('profile_from_photo.saved_cta'),
             onPress: () => navigation.goBack(),
           },
         ],
@@ -154,10 +154,7 @@ function ProfileFromPhotoInner() {
     onError: (err) => {
       haptic('error');
       setError(
-        friendlyErrorMessage(
-          err,
-          "We couldn't save your profile. Please try again.",
-        ),
+        friendlyErrorMessage(err, t('profile_from_photo.error_save')),
       );
     },
   });
@@ -190,7 +187,7 @@ function ProfileFromPhotoInner() {
           <Pressable
             onPress={() => navigation.goBack()}
             hitSlop={12}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('profile_from_photo.a11y_back')}
             accessibilityRole="button"
             style={{
               width: 40,
@@ -205,7 +202,7 @@ function ProfileFromPhotoInner() {
             <Feather name="chevron-left" size={20} color={theme.text.primary} />
           </Pressable>
           <Text variant="title" weight="medium" accessibilityRole="header">
-            Photo to profile
+            {t('profile_from_photo.header')}
           </Text>
         </View>
 
@@ -258,6 +255,7 @@ function PickStage({
   error: string | null;
 }) {
   const { theme } = useTheme();
+  const t = useTranslate();
   return (
     <View style={{ gap: spacing.xl }}>
       <View style={{ gap: spacing.xs }}>
@@ -266,15 +264,13 @@ function PickStage({
           weight="medium"
           style={{ letterSpacing: 1.2, color: theme.brand.hero }}
         >
-          FAST PROFILE
+          {t('profile_from_photo.eyebrow')}
         </Text>
         <Text variant="displayLarge" weight="medium" display>
-          Snap a photo. We'll fill your profile.
+          {t('profile_from_photo.title')}
         </Text>
         <Text variant="body" tone="secondary">
-          Take a photo of an old resume, an ID card, or even a handwritten
-          sheet. We'll read your name, skills, experience, and where you live —
-          then you confirm.
+          {t('profile_from_photo.subtitle')}
         </Text>
       </View>
 
@@ -297,15 +293,15 @@ function PickStage({
       <View style={{ gap: spacing.md }}>
         <PickAction
           icon="camera"
-          title="Take a photo"
-          subtitle="Best for handwritten sheets and ID cards"
+          title={t('profile_from_photo.pick_camera_title')}
+          subtitle={t('profile_from_photo.pick_camera_sub')}
           onPress={onCamera}
           primary
         />
         <PickAction
           icon="image"
-          title="Pick from gallery"
-          subtitle="Use a resume you've already saved"
+          title={t('profile_from_photo.pick_library_title')}
+          subtitle={t('profile_from_photo.pick_library_sub')}
           onPress={onLibrary}
         />
       </View>
@@ -321,13 +317,10 @@ function PickStage({
         }}
       >
         <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.0 }}>
-          TIPS
+          {t('profile_from_photo.tips_label')}
         </Text>
         <Text variant="footnote" tone="secondary" style={{ lineHeight: 18 }}>
-          • Hold the page flat in good light.{'\n'}
-          • Get all four corners in the frame.{'\n'}
-          • Wait a second so the camera focuses.{'\n'}
-          • English, Hindi, Tamil, Telugu, Kannada all work.
+          {t('profile_from_photo.tips_body')}
         </Text>
       </View>
     </View>
@@ -403,6 +396,7 @@ function PickAction({
 
 function ExtractingStage({ imageDataUrl }: { imageDataUrl: string }) {
   const { theme } = useTheme();
+  const t = useTranslate();
   return (
     <View style={{ alignItems: 'center', gap: spacing.lg, marginTop: spacing.xl }}>
       <View
@@ -425,10 +419,10 @@ function ExtractingStage({ imageDataUrl }: { imageDataUrl: string }) {
       <View style={{ alignItems: 'center', gap: spacing.sm }}>
         <ActivityIndicator size="small" color={theme.brand.hero} />
         <Text variant="bodyLarge" weight="medium">
-          Reading your photo…
+          {t('profile_from_photo.extracting_title')}
         </Text>
         <Text variant="footnote" tone="secondary" style={{ textAlign: 'center' }}>
-          This usually takes 5–15 seconds.
+          {t('profile_from_photo.extracting_sub')}
         </Text>
       </View>
     </View>
@@ -455,6 +449,7 @@ function ConfirmStage({
   originalConfidence: ExtractedProfile['confidence'];
 }) {
   const { theme } = useTheme();
+  const t = useTranslate();
 
   const updateField = useCallback(
     <K extends keyof ExtractedProfile>(key: K, value: ExtractedProfile[K]) => {
@@ -478,10 +473,10 @@ function ConfirmStage({
       <View style={{ gap: spacing.xs }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <Text variant="displayLarge" weight="medium" display style={{ flex: 1 }}>
-            Looks right?
+            {t('profile_from_photo.confirm_title')}
           </Text>
           <Pill
-            label={confidenceLabel(originalConfidence)}
+            label={confidenceLabel(originalConfidence, t)}
             tone={
               originalConfidence === 'high'
                 ? 'success'
@@ -492,39 +487,39 @@ function ConfirmStage({
           />
         </View>
         <Text variant="body" tone="secondary">
-          Tap any field to edit. Tap Save when it's right.
+          {t('profile_from_photo.confirm_sub')}
         </Text>
       </View>
 
       {/* Name */}
       <Field
-        label="NAME"
+        label={t('profile_from_photo.field_name')}
         value={draft.name ?? ''}
-        placeholder="Your name"
+        placeholder={t('profile_from_photo.field_name_ph')}
         onChangeText={(v) => updateField('name', v || null)}
       />
 
       {/* Bio */}
       <Field
-        label="ABOUT YOU"
+        label={t('profile_from_photo.field_bio')}
         value={draft.bio ?? ''}
-        placeholder="One line about your work and what you're looking for"
+        placeholder={t('profile_from_photo.field_bio_ph')}
         multiline
         onChangeText={(v) => updateField('bio', v || null)}
       />
 
       {/* Skills */}
       <Field
-        label="SKILLS"
+        label={t('profile_from_photo.field_skills')}
         value={draft.skills.join(', ')}
-        placeholder="cook, kitchen_helper, customer_service"
+        placeholder={t('profile_from_photo.field_skills_ph')}
         onChangeText={updateSkillsString}
-        hint={`${draft.skills.length}/20 · comma-separated`}
+        hint={t('profile_from_photo.field_skills_hint', { count: draft.skills.length })}
       />
 
       {/* Experience years */}
       <Field
-        label="YEARS OF EXPERIENCE"
+        label={t('profile_from_photo.field_experience')}
         value={draft.experienceYears != null ? String(draft.experienceYears) : ''}
         placeholder="3"
         keyboardType="number-pad"
@@ -538,7 +533,7 @@ function ConfirmStage({
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
         <View style={{ flex: 1 }}>
           <Field
-            label="CITY"
+            label={t('profile_from_photo.field_city')}
             value={draft.location.city ?? ''}
             placeholder="Bengaluru"
             onChangeText={(v) =>
@@ -548,7 +543,7 @@ function ConfirmStage({
         </View>
         <View style={{ flex: 1 }}>
           <Field
-            label="AREA"
+            label={t('profile_from_photo.field_area')}
             value={draft.location.area ?? ''}
             placeholder="Indiranagar"
             onChangeText={(v) =>
@@ -562,7 +557,9 @@ function ConfirmStage({
       {draft.workHistory.length > 0 && (
         <View style={{ gap: spacing.xs }}>
           <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.0 }}>
-            WORK HISTORY ({draft.workHistory.length})
+            {t('profile_from_photo.work_history_label', {
+              count: draft.workHistory.length,
+            })}
           </Text>
           <View
             style={{
@@ -580,12 +577,14 @@ function ConfirmStage({
                   {w.role}
                 </Text>
                 <Text variant="footnote" tone="secondary">
-                  {w.company} · {w.startDate}–{w.current ? 'Present' : w.endDate}
+                  {w.company} ·{' '}
+                  {w.startDate}–
+                  {w.current ? t('profile_from_photo.present') : w.endDate}
                 </Text>
               </View>
             ))}
             <Text variant="caption" tone="tertiary">
-              You can edit these later in your resume.
+              {t('profile_from_photo.work_history_note')}
             </Text>
           </View>
         </View>
@@ -595,7 +594,9 @@ function ConfirmStage({
       {draft.education.length > 0 && (
         <View style={{ gap: spacing.xs }}>
           <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.0 }}>
-            EDUCATION ({draft.education.length})
+            {t('profile_from_photo.education_label', {
+              count: draft.education.length,
+            })}
           </Text>
           <View
             style={{
@@ -613,7 +614,9 @@ function ConfirmStage({
                   {e.degree}
                 </Text>
                 <Text variant="footnote" tone="secondary">
-                  {e.institution} · {e.startYear}–{e.current ? 'Present' : e.endYear}
+                  {e.institution} ·{' '}
+                  {e.startYear}–
+                  {e.current ? t('profile_from_photo.present') : e.endYear}
                 </Text>
               </View>
             ))}
@@ -653,7 +656,7 @@ function ConfirmStage({
           })}
         >
           <Text variant="bodyLarge" weight="medium">
-            Retake
+            {t('profile_from_photo.retake')}
           </Text>
         </Pressable>
         <Pressable
@@ -669,7 +672,7 @@ function ConfirmStage({
           })}
         >
           <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFDF7' }}>
-            {saving ? 'Saving…' : 'Save to my profile'}
+            {saving ? t('profile_from_photo.saving') : t('profile_from_photo.save')}
           </Text>
         </Pressable>
       </View>
@@ -677,12 +680,12 @@ function ConfirmStage({
   );
 }
 
-function confidenceLabel(c: ExtractedProfile['confidence']): string {
+function confidenceLabel(c: ExtractedProfile['confidence'], t: TFn): string {
   return c === 'high'
-    ? 'Looks clear'
+    ? t('profile_from_photo.confidence_high')
     : c === 'medium'
-      ? 'Mostly clear'
-      : 'Please review';
+      ? t('profile_from_photo.confidence_medium')
+      : t('profile_from_photo.confidence_low');
 }
 
 // ─── Reusable field ────────────────────────────────────────────────────────

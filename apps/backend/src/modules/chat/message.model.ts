@@ -45,6 +45,15 @@ export interface Message {
   body: string;
   /** Set when kind !== 'text'. Null for plain text + system messages. */
   attachment?: MessageAttachment | null;
+  /**
+   * Quick-reply template key — set when the message was sent from the
+   * pre-translated quick-reply bar (e.g. `quick_replies.emp.when_can_start`).
+   * The server treats it as an opaque string; clients render it through
+   * i18n so each side reads the message in their own language. `body`
+   * still holds the English text as a fallback for clients that don't
+   * know the key. Null for free-text and media messages.
+   */
+  templateKey?: string | null;
   /** When the recipient marked the conversation as read past this msg. */
   readAt: Date | null;
   createdAt: Date;
@@ -64,6 +73,8 @@ export interface PublicMessage {
   kind: MessageKind;
   body: string;
   attachment: MessageAttachment | null;
+  /** Quick-reply template key, or null for free-text / media messages. */
+  templateKey: string | null;
   readAt: string | null;
   createdAt: string;
 }
@@ -99,6 +110,7 @@ const messageSchema = new Schema<Message, MessageModelType, MessageMethods>(
     kind: { type: String, enum: MESSAGE_KINDS, default: 'text' },
     body: { type: String, default: '', trim: true, maxlength: 4000 },
     attachment: { type: attachmentSchema, default: null },
+    templateKey: { type: String, default: null, trim: true, maxlength: 80 },
     readAt: { type: Date, default: null },
   },
   { timestamps: true },
@@ -115,6 +127,7 @@ messageSchema.method('toPublicJSON', function (this: MessageDocument): PublicMes
     kind: this.kind,
     body: this.body,
     attachment: this.attachment ?? null,
+    templateKey: this.templateKey ?? null,
     readAt: this.readAt ? this.readAt.toISOString() : null,
     createdAt: this.createdAt.toISOString(),
   };

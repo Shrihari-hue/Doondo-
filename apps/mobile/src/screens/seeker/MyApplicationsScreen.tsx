@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Alert, FlatList, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -32,6 +32,7 @@ import { shiftCheckInApi } from '@/api/shiftCheckIn.api';
 import { captureShiftSelfie } from '@/lib/selfie';
 import { getCurrentCoords } from '@/lib/location';
 import { friendlyErrorMessage } from '@/lib/friendlyError';
+import { addEventToCalendar } from '@/lib/calendar';
 import { useUnratedApplications } from '@/hooks/useRatings';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
@@ -321,7 +322,11 @@ function MyApplicationsInner() {
                     so the seeker sees the same urgency the push gives.
                     Stays subtle once they're inside the room. */}
                 {item.interview && item.interview.status === 'scheduled' && (
-                  <InterviewCard t={t} interview={item.interview} />
+                  <InterviewCard
+                    t={t}
+                    interview={item.interview}
+                    jobTitle={item.job?.title ?? t('applications.fallback.job_application')}
+                  />
                 )}
 
                 {/* Anti-ghost callout — the sweep marks pending applications
@@ -352,7 +357,7 @@ function MyApplicationsInner() {
                         color: theme.status.warning,
                       }}
                     >
-                      No reply yet — the employer hasn't responded.
+                      {t('skill_gap_card.ghosted')}
                     </Text>
                   </View>
                 )}
@@ -560,12 +565,18 @@ function formatInterviewWhen(iso: string): string {
 function InterviewCard({
   t,
   interview,
+  jobTitle,
 }: {
   t: TFn;
   interview: NonNullable<PublicApplication['interview']>;
+  jobTitle: string;
 }) {
   const { theme } = useTheme();
   const [now, setNow] = useState(Date.now());
+  // 'idle' | 'adding' | 'added' | 'failed' — drives the calendar button copy.
+  const [calState, setCalState] = useState<'idle' | 'adding' | 'added' | 'failed'>(
+    'idle',
+  );
 
   // Tick once a minute. Within 90 min we re-render so the countdown
   // stays current; outside that window the rerender is a no-op visually.
@@ -580,16 +591,46 @@ function InterviewCard({
 
   const modeLabel =
     interview.mode === 'in_person'
-      ? 'In-person'
+      ? t('interview_card.mode_in_person')
       : interview.mode === 'video'
-        ? 'Video'
-        : 'Phone';
+        ? t('interview_card.mode_video')
+        : t('interview_card.mode_phone');
   const where =
     interview.mode === 'in_person' && interview.location
       ? interview.location
       : interview.mode === 'video' && interview.meetingLink
         ? interview.meetingLink
         : null;
+
+  async function onAddToCalendar() {
+    if (calState === 'adding' || calState === 'added') return;
+    haptic('selection');
+    setCalState('adding');
+    const result = await addEventToCalendar({
+      title: `Interview — ${jobTitle}`,
+      startDate: new Date(interview.scheduledFor),
+      location: interview.location ?? undefined,
+      notes:
+        `${modeLabel} interview` +
+        (interview.meetingLink ? `\nMeeting link: ${interview.meetingLink}` : '') +
+        (interview.notes ? `\n\n${interview.notes}` : ''),
+    });
+    if (result.ok) {
+      haptic('success');
+      setCalState('added');
+    } else {
+      haptic('error');
+      setCalState('failed');
+      Alert.alert(
+        t('interview_card.cal_fail_title'),
+        result.reason === 'permission_denied'
+          ? t('interview_card.cal_fail_permission')
+          : result.reason === 'no_calendar'
+            ? t('interview_card.cal_fail_no_calendar')
+            : t('interview_card.cal_fail_generic'),
+      );
+    }
+  }
 
   return (
     <View
@@ -618,8 +659,8 @@ function InterviewCard({
         >
           {soon
             ? minutesUntil <= 1
-              ? 'Starting now'
-              : `Starting in ${minutesUntil} min`
+              ? t('interview_card.starting_now')
+              : t('interview_card.starting_in', { n: minutesUntil })
             : t('applications.interview_scheduled', {
                 when: formatInterviewWhen(interview.scheduledFor),
               })}
@@ -635,6 +676,56 @@ function InterviewCard({
         {modeLabel}
         {where ? ` · ${where}` : ''}
       </Text>
+
+      {/* Add-to-calendar — drops a device calendar event with a 60-min
+          alarm. Hidden once the interview has already started. */}
+      {minutesUntil > 0 && (
+        <Pressable
+          onPress={onAddToCalendar}
+          disabled={calState === 'adding' || calState === 'added'}
+          accessibilityRole="button"
+          accessibilityLabel={
+            calState === 'added'
+              ? t('interview_card.a11y_added')
+              : t('interview_card.a11y_add')
+          }
+          style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            alignSelf: 'flex-start',
+            marginTop: 4,
+            paddingVertical: 6,
+            paddingHorizontal: spacing.sm,
+            borderRadius: radii.pill,
+            borderWidth: 0.5,
+            borderColor:
+              calState === 'added'
+                ? theme.status.successBorder
+                : theme.border.default,
+            backgroundColor: theme.bg.surface,
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <Text style={{ fontSize: 12 }}>{calState === 'added' ? '✓' : '📆'}</Text>
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: '600',
+              color:
+                calState === 'added'
+                  ? theme.status.success
+                  : theme.text.secondary,
+            }}
+          >
+            {calState === 'adding'
+              ? t('interview_card.adding')
+              : calState === 'added'
+                ? t('interview_card.added')
+                : t('interview_card.add_to_calendar')}
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -660,6 +751,7 @@ function InterviewCard({
  */
 function ShiftCheckInCard({ applicationId }: { applicationId: string }) {
   const { theme } = useTheme();
+  const t = useTranslate();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -688,7 +780,7 @@ function ShiftCheckInCard({ applicationId }: { applicationId: string }) {
       }
       const coords = await getCurrentCoords();
       if (!coords) {
-        setError('We need your location to check in. Allow location access in Settings.');
+        setError(t('shift_card.error_location'));
         return;
       }
       if (nextKind === 'check_in') {
@@ -711,7 +803,7 @@ function ShiftCheckInCard({ applicationId }: { applicationId: string }) {
     } catch (err) {
       haptic('error');
       setError(
-        friendlyErrorMessage(err, "We couldn't save your check-in. Try again."),
+        friendlyErrorMessage(err, t('shift_card.error_save')),
       );
     } finally {
       setBusy(false);
@@ -756,13 +848,13 @@ function ShiftCheckInCard({ applicationId }: { applicationId: string }) {
         >
           {isActive
             ? lastTimeStr
-              ? `On shift · checked in at ${lastTimeStr}`
-              : 'On shift'
+              ? t('shift_card.on_shift_at', { time: lastTimeStr })
+              : t('shift_card.on_shift')
             : lastEvent
               ? lastTimeStr
-                ? `Off shift · last out at ${lastTimeStr}`
-                : 'Off shift'
-              : 'Ready to check in'}
+                ? t('shift_card.off_shift_at', { time: lastTimeStr })
+                : t('shift_card.off_shift')
+              : t('shift_card.ready')}
         </Text>
       </View>
 
@@ -791,10 +883,10 @@ function ShiftCheckInCard({ applicationId }: { applicationId: string }) {
       >
         <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFDF7' }}>
           {busy
-            ? 'Working…'
+            ? t('shift_card.working')
             : nextKind === 'check_in'
-              ? 'Check in with selfie'
-              : 'Check out'}
+              ? t('shift_card.check_in')
+              : t('shift_card.check_out')}
         </Text>
       </Pressable>
     </View>
@@ -821,6 +913,7 @@ function SkillGapInlineCard({
   missingSkill: string;
 }) {
   const { theme } = useTheme();
+  const t = useTranslate();
   const navigation = useNavigation<Nav>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -843,7 +936,7 @@ function SkillGapInlineCard({
       }
     } catch (err) {
       setError(
-        friendlyErrorMessage(err, "We couldn't open the course. Try again."),
+        friendlyErrorMessage(err, t('skill_gap_card.error')),
       );
     } finally {
       setLoading(false);
@@ -877,7 +970,7 @@ function SkillGapInlineCard({
         >
           {error
             ? error
-            : `Missing: ${missingSkill}. Find a short course to close the gap.`}
+            : t('skill_gap_card.missing', { skill: missingSkill })}
         </Text>
       </View>
       <Text
@@ -887,7 +980,7 @@ function SkillGapInlineCard({
           color: theme.status.info,
         }}
       >
-        {loading ? '…' : 'Open'}
+        {loading ? '…' : t('skill_gap_card.open')}
       </Text>
     </Pressable>
   );

@@ -25,10 +25,14 @@ import { useQuery } from '@tanstack/react-query';
 import { spacing, radii } from '@doondo/tokens';
 import { Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
+import { useTranslate } from '@/i18n/useTranslate';
 import { hiredNearbyApi } from '@/api/hiredNearby.api';
+
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 export function HiredNearbyRail() {
   const { theme } = useTheme();
+  const t = useTranslate();
 
   const query = useQuery({
     queryKey: ['hired-nearby', 'me'],
@@ -54,7 +58,7 @@ export function HiredNearbyRail() {
           tone="secondary"
           style={{ letterSpacing: 1.2 }}
         >
-          HIRED NEAR YOU TODAY
+          {t('hired_nearby.header')}
         </Text>
         <Text variant="caption" tone="tertiary">
           {entries.length}
@@ -89,15 +93,19 @@ export function HiredNearbyRail() {
                 }}
               />
               <Text variant="caption" tone="tertiary" style={{ letterSpacing: 0.6 }}>
-                {formatRelative(entry.hiredAt)}
+                {formatRelative(entry.hiredAt, t)}
               </Text>
             </View>
             <Text variant="bodyLarge" weight="medium" numberOfLines={1}>
               {entry.hiredFirstName}
             </Text>
             <Text variant="footnote" tone="secondary" numberOfLines={2}>
-              Hired as {entry.jobTitle}
-              {entry.area ? ` in ${entry.area}` : ''}
+              {entry.area
+                ? t('hired_nearby.hired_as_in', {
+                    title: entry.jobTitle,
+                    area: entry.area,
+                  })
+                : t('hired_nearby.hired_as', { title: entry.jobTitle })}
             </Text>
           </View>
         ))}
@@ -111,11 +119,11 @@ export function HiredNearbyRail() {
  * stay coarse because precision past the hour mark doesn't add value
  * and makes the rail feel mechanical.
  */
-function formatRelative(iso: string): string {
+function formatRelative(iso: string, t: TFn): string {
   const then = new Date(iso).getTime();
   const diffMin = Math.max(1, Math.round((Date.now() - then) / 60_000));
-  if (diffMin < 60) return `${diffMin} min ago`;
+  if (diffMin < 60) return t('hired_nearby.min_ago', { n: diffMin });
   const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} hr ago`;
-  return 'yesterday';
+  if (diffHr < 24) return t('hired_nearby.hr_ago', { n: diffHr });
+  return t('hired_nearby.yesterday');
 }

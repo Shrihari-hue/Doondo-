@@ -42,6 +42,7 @@ export const NOTIFICATION_KINDS = [
   'streak_milestone',     // crossed an apply/course/shift streak threshold (3/7/14/30)
   'referral_bonus',       // someone you referred got hired; your bonus is credited
   'hired_nearby',         // a worker near you got hired — social proof feed signal
+  'reengagement',         // dormant-user win-back nudge — "it's been a while"
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

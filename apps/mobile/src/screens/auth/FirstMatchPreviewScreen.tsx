@@ -33,12 +33,14 @@ import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { getCurrentCoords } from '@/lib/location';
 import { friendlyErrorMessage } from '@/lib/friendlyError';
+import { useTranslate } from '@/i18n/useTranslate';
 import { jobsApi } from '@/api/jobs.api';
 import type { PublicJob } from '@/api/types';
 import type { AuthStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'FirstMatchPreview'>;
 type R = RouteProp<AuthStackParamList, 'FirstMatchPreview'>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 // Same fallback the seeker home uses — central Bengaluru. Better to
 // show some real jobs than an empty state when location is denied.
@@ -48,6 +50,7 @@ export function FirstMatchPreviewScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<R>();
   const { theme } = useTheme();
+  const t = useTranslate();
   const { workType, teamSize } = route.params;
 
   const [jobs, setJobs] = useState<PublicJob[] | null>(null);
@@ -74,7 +77,7 @@ export function FirstMatchPreviewScreen() {
         // Network or 5xx — show the page anyway with a small inline error.
         // The CTA still works so the seeker isn't blocked.
         setError(
-          friendlyErrorMessage(err, "We couldn't load matches. Try again in a moment."),
+          friendlyErrorMessage(err, t('first_match.error_load')),
         );
         setJobs([]);
       } finally {
@@ -117,7 +120,7 @@ export function FirstMatchPreviewScreen() {
           <Pressable
             onPress={() => navigation.goBack()}
             hitSlop={8}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('first_match.a11y_back')}
             accessibilityRole="button"
             style={{
               width: 40,
@@ -134,11 +137,11 @@ export function FirstMatchPreviewScreen() {
           <Pressable
             onPress={goSignup}
             hitSlop={8}
-            accessibilityLabel="Skip preview and continue to sign up"
+            accessibilityLabel={t('first_match.a11y_skip')}
             accessibilityRole="button"
           >
             <Text variant="footnote" weight="medium" tone="secondary">
-              Skip for now
+              {t('first_match.skip')}
             </Text>
           </Pressable>
         </View>
@@ -153,13 +156,13 @@ export function FirstMatchPreviewScreen() {
               color: theme.brand.hero,
             }}
           >
-            FIRST LOOK
+            {t('first_match.eyebrow')}
           </Text>
           <Text variant="displayLarge" weight="medium" display>
-            Jobs hiring near you right now.
+            {t('first_match.title')}
           </Text>
           <Text variant="body" tone="secondary">
-            A quick preview before you sign up. Tap any card to see details.
+            {t('first_match.subtitle')}
           </Text>
         </View>
 
@@ -171,7 +174,7 @@ export function FirstMatchPreviewScreen() {
         ) : jobs && jobs.length > 0 ? (
           <View style={{ gap: spacing.md }}>
             {jobs.map((j) => (
-              <PreviewCard key={j.id} job={j} onPress={goSignup} />
+              <PreviewCard key={j.id} job={j} onPress={goSignup} t={t} />
             ))}
           </View>
         ) : (
@@ -187,10 +190,10 @@ export function FirstMatchPreviewScreen() {
             }}
           >
             <Text variant="body" weight="medium">
-              No matches near you in this radius.
+              {t('first_match.empty_title')}
             </Text>
             <Text variant="footnote" tone="secondary" style={{ textAlign: 'center' }}>
-              Sign up to set your area and we'll find work the moment it shows up.
+              {t('first_match.empty_body')}
             </Text>
           </View>
         )}
@@ -218,7 +221,7 @@ export function FirstMatchPreviewScreen() {
           }}
         >
           <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFDF7' }}>
-            Sign up to apply
+            {t('first_match.cta')}
           </Text>
         </Pressable>
         <Text
@@ -226,7 +229,7 @@ export function FirstMatchPreviewScreen() {
           tone="tertiary"
           style={{ textAlign: 'center', marginTop: spacing.sm }}
         >
-          Takes 30 seconds. Phone OTP only.
+          {t('first_match.cta_caption')}
         </Text>
       </ScrollView>
     </Screen>
@@ -238,18 +241,21 @@ export function FirstMatchPreviewScreen() {
 interface PreviewCardProps {
   job: PublicJob;
   onPress: () => void;
+  t: TFn;
 }
 
-function PreviewCard({ job, onPress }: PreviewCardProps) {
+function PreviewCard({ job, onPress, t }: PreviewCardProps) {
   const { theme } = useTheme();
   const employerLabel = job.employer?.companyName ?? job.employer?.name ?? null;
   const distanceKm =
     typeof job.distanceMeters === 'number'
       ? job.distanceMeters < 1000
-        ? `${job.distanceMeters} m away`
-        : `${(job.distanceMeters / 1000).toFixed(1)} km away`
+        ? t('first_match.distance_m', { n: job.distanceMeters })
+        : t('first_match.distance_km', {
+            n: (job.distanceMeters / 1000).toFixed(1),
+          })
       : null;
-  const payLabel = formatPay(job.pay);
+  const payLabel = formatPay(job.pay, t);
 
   return (
     <Pressable
@@ -264,9 +270,13 @@ function PreviewCard({ job, onPress }: PreviewCardProps) {
       }}
     >
       <View style={{ flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' }}>
-        {job.urgent && <Pill label="Urgent" tone="hero" />}
-        {job.employer?.isVerified && <Pill label="Verified" tone="success" />}
-        {job.safeForWomen && <Pill label="Safe for women" tone="success" />}
+        {job.urgent && <Pill label={t('first_match.pill_urgent')} tone="hero" />}
+        {job.employer?.isVerified && (
+          <Pill label={t('first_match.pill_verified')} tone="success" />
+        )}
+        {job.safeForWomen && (
+          <Pill label={t('first_match.pill_safe_women')} tone="success" />
+        )}
       </View>
 
       <Text variant="bodyLarge" weight="medium" numberOfLines={2}>
@@ -302,20 +312,20 @@ function PreviewCard({ job, onPress }: PreviewCardProps) {
   );
 }
 
-function formatPay(pay: PublicJob['pay']): string | null {
+function formatPay(pay: PublicJob['pay'], t: TFn): string | null {
   if (!pay || typeof pay.amount !== 'number') return null;
   // Backend stores paise (minor units). Convert to rupees for display.
   const rupees = Math.round(pay.amount / 100);
   const max = pay.amountMax ? Math.round(pay.amountMax / 100) : null;
   const periodLabel =
     pay.period === 'hour'
-      ? '/hr'
+      ? t('first_match.pay_hour')
       : pay.period === 'day'
-        ? '/day'
+        ? t('first_match.pay_day')
         : pay.period === 'week'
-          ? '/wk'
+          ? t('first_match.pay_week')
           : pay.period === 'month'
-            ? '/mo'
+            ? t('first_match.pay_month')
             : '';
   const amountStr = max && max > rupees ? `₹${rupees}–${max}` : `₹${rupees}`;
   return `${amountStr}${periodLabel}`;

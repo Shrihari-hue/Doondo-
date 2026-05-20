@@ -33,6 +33,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   TextInput,
   View,
 } from 'react-native';
@@ -52,6 +53,11 @@ import { pickChatVideo } from '@/lib/chatVideo';
 import { VoiceRecorder, VOICE_MAX_SECONDS } from '@/lib/chatVoice';
 import { Image } from 'react-native';
 import { useTranslate } from '@/i18n/useTranslate';
+import {
+  quickRepliesForRole,
+  renderMessageBody,
+  type QuickReply,
+} from '@/lib/quickReplyCatalog';
 import type { MessageAttachment, PublicMessage } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 
@@ -117,6 +123,7 @@ function ConversationScreenInner() {
         kind: input.kind ?? (input.attachment ? 'image' : 'text'),
         body: input.body ?? '',
         attachment: input.attachment ?? null,
+        templateKey: input.templateKey ?? null,
         readAt: null,
         createdAt: new Date().toISOString(),
       };
@@ -177,6 +184,18 @@ function ConversationScreenInner() {
     if (!trimmed || sendMutation.isPending) return;
     setDraft('');
     sendMutation.mutate({ body: trimmed, kind: 'text' });
+  }
+
+  /**
+   * Send a pre-translated quick reply. The English text rides along as
+   * `body` (the fallback); `templateKey` is what lets the recipient's
+   * app re-render the message in their own language.
+   */
+  function sendQuickReply(qr: QuickReply) {
+    if (sendMutation.isPending) return;
+    haptic('selection');
+    setDraft('');
+    sendMutation.mutate({ kind: 'text', body: qr.en, templateKey: qr.key });
   }
 
   /**
@@ -414,6 +433,17 @@ function ConversationScreenInner() {
           />
         )}
 
+        {/* Quick-reply bar — pre-translated chips. Hidden once the user
+            starts typing so it never competes with a real draft. */}
+        {draft.trim().length === 0 && (
+          <QuickReplyBar
+            role={user?.role}
+            disabled={sendMutation.isPending}
+            onPick={sendQuickReply}
+            t={t}
+          />
+        )}
+
         {/* Composer */}
         <View
           style={{
@@ -576,6 +606,71 @@ function IconCircleButton({
   );
 }
 
+// ─── Quick-reply bar ─────────────────────────────────────────────────────────
+
+/**
+ * Horizontal strip of pre-translated quick-reply chips above the
+ * composer. The chip shows the template in the *sender's* language;
+ * tapping it sends the message with its templateKey so the recipient
+ * reads it in theirs.
+ */
+function QuickReplyBar({
+  role,
+  disabled,
+  onPick,
+  t,
+}: {
+  role: string | null | undefined;
+  disabled: boolean;
+  onPick: (qr: QuickReply) => void;
+  t: TFn;
+}) {
+  const { theme } = useTheme();
+  const replies = quickRepliesForRole(role);
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      style={{
+        maxHeight: 56,
+        borderTopWidth: 0.5,
+        borderTopColor: theme.border.default,
+        backgroundColor: theme.bg.canvas,
+      }}
+      contentContainerStyle={{
+        alignItems: 'center',
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.sm,
+        gap: spacing.xs,
+      }}
+    >
+      {replies.map((qr) => (
+        <Pressable
+          key={qr.key}
+          onPress={() => onPick(qr)}
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={t(qr.key)}
+          style={({ pressed }) => ({
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.xs,
+            borderRadius: radii.pill,
+            borderWidth: 0.5,
+            borderColor: theme.border.default,
+            backgroundColor: theme.bg.surface,
+            opacity: pressed || disabled ? 0.5 : 1,
+          })}
+        >
+          <Text variant="footnote" weight="medium" tone="secondary" numberOfLines={1}>
+            {t(qr.key)}
+          </Text>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
+}
+
 // ─── Bubble ─────────────────────────────────────────────────────────────────
 
 function MessageBubble({
@@ -642,7 +737,7 @@ function MessageBubble({
           />
         ) : (
           <Text style={{ color: fg, fontSize: 15, lineHeight: 21 }}>
-            {message.body}
+            {renderMessageBody(message.body, message.templateKey, t)}
           </Text>
         )}
       </View>

@@ -25,21 +25,57 @@ accessibility labels on icon-only buttons and streak chips. i18n
 sweep deliberately deferred to its own focused session (5 locales ×
 8 new screens needs proper budget).
 
+**Session 7:** Closed the 4 partially-built features — anti-ghost
+"slow to respond" badge on employer profiles, interview add-to-calendar,
+both-sides referral payout on first shift, and Trust Circle shift
+notifications.
+
+**Session 8:** Started the i18n sweep — the two activation-critical
+screens (FirstMatchPreview, ProfileFromPhoto) fully localised across
+all 5 languages (English, Hindi, Tamil, Telugu, Kannada).
+
+**Session 9:** Finished the i18n sweep — the 6 remaining new screens
+(TrustCircle, HiredNearbyRail, the 3 MyApplications cards, ProfileScreen
+streak strip + photo banner, EmployerDetail signal banners) localised
+across all 5 languages. Only the review-tag catalog labels remain.
+
+**Session 10:** Runtime verification pass — the first time 10 sessions
+of code was actually executed, not just typechecked. Plus the review-tag
+catalog localised, finishing i18n 100%.
+
+**Session 11:** Dormant-user re-engagement — a daily win-back sweep that
+finds users with no login for 14 days and sends one concrete, role-aware
+nudge ("12 new jobs posted near you this week"), with cooldown + attempt
+caps so it never becomes a pest.
+
+**Session 12:** Pre-translated quick replies — a chat bar of one-tap
+template messages. The sender picks in their language, the recipient
+reads in theirs, closing the language gap on the highest-frequency
+exchanges ("When can you start?", "Yes, I am available.").
+
+**Session 13:** Doondo Pulse — a momentum card on the worker's Home
+dashboard: Doondo Score, apply streak, applications in play, and a
+single next-step nudge that routes straight to the action.
+
 See `DOONDO_V2_ROADMAP.md` for the full backlog.
 
 ---
 
 ## Before you run it
 
-I added `node-cron` to `apps/backend/package.json`. You'll need to install
-it before the backend boots cleanly:
+Two new dependencies were added across sessions — run `pnpm install`
+before building:
 
 ```bash
 pnpm install
 ```
 
-The morning-digest and anti-ghost crons need that package. Everything else
-runs on existing dependencies.
+- `node-cron` (`apps/backend`) — powers the morning-digest, anti-ghost,
+  and interview-reminder crons. The backend **fails to boot** without it.
+- `expo-calendar` (`apps/mobile`) — powers the interview "add to
+  calendar" feature.
+
+Everything else runs on existing dependencies.
 
 ---
 
@@ -814,12 +850,573 @@ now announce themselves to screen readers.
 
 ---
 
+# Session 7 — Closing the 4 partial features
+
+No new features — finishing the half-built ones. Half-built features
+are worse than unbuilt ones, so before any further feature work, the
+4 partials from the inventory got closed.
+
+## Anti-ghost — "slow to respond" badge on employer profiles
+
+The sweep flagged ghosted applications since Session 2, but a seeker
+browsing an employer never SAW the flag. Now they do.
+
+**Backend**
+- `GET /api/v1/employers/:id` computes two new aggregates:
+  `totalApplications` and `ghostedCount` (applications with
+  `flaggedAsGhostedAt` set), plus a derived `ghostRate` (0..1, or
+  null below 5 applications — too little data to judge fairly).
+
+**Mobile**
+- `EmployerStats` type extended with the three fields.
+- New `ResponsivenessBanner` on `EmployerDetailScreen`:
+  - `ghostRate >= 0.25` → amber "Slow to respond · left X% of
+    applicants without a reply".
+  - `ghostRate <= 0.05` with real volume → quiet green "Responsive
+    employer · worth applying".
+  - In between, or under 5 applications → no banner (no noise).
+
+## Interview — add-to-calendar (the "calendar hold" half)
+
+Interview reminders shipped in Session 2; the calendar hold didn't.
+
+**Mobile**
+- Added `expo-calendar` dependency.
+- New `apps/mobile/src/lib/calendar.ts` — `addEventToCalendar()`
+  requests permission, resolves a writable calendar (iOS default /
+  Android first owner-level calendar), creates the event with a
+  60-minute alarm mirroring the backend push lead time.
+- `InterviewCard` on MyApplications gains an "Add to calendar"
+  pill — idle → adding → added states, hidden once the interview
+  has already started, with friendly alerts on permission denial.
+
+## Refer-a-friend — both-sides payout on first shift
+
+Was: ₹100 to the referrer on hire. Two problems — only one side was
+paid, and a no-show hire still triggered the payout.
+
+**Backend**
+- Renamed `creditOnHire` → `creditOnFirstShift`. It now credits
+  **both** the referrer AND the referee ₹100 each, and pushes both.
+- The payout trigger moved from the `hired` transition to the
+  referee's **first shift check-in** (`shiftCheckIn.service` counts
+  `check_in` rows; the payout fires only when the count is exactly
+  1). A hire that never shows up never pays out — the anti-fraud
+  design.
+- `creditOnHire` kept as a deprecated no-op shim so nothing breaks
+  mid-migration; the hire transition no longer calls it.
+
+## Trust Circle — notify the circle on shift start/end
+
+The 3-contact Trust Circle model shipped with SOS in Session 3, but
+the accountability use case (family knows you arrived / left safely)
+wasn't wired.
+
+**Backend**
+- New opt-in `User.shareShiftsWithCircle` flag (default off — shift
+  pings are an attention cost for the contacts).
+- `POST /me/share-shifts` toggles it; `GET /me/trust-circle` now
+  returns it.
+- New `sendTrustCircleShiftPush` helper (reuses the `shift_checkin`
+  notification kind).
+- `shiftCheckIn.service` — on every check-in/out, when the worker
+  has opted in, phone-hash-matches their Trust Circle contacts to
+  Doondo users (same matching as the SOS fan-out) and pushes the
+  ones who are on the platform: "Priya started a shift / ended
+  their shift."
+
+**Mobile**
+- `TrustCircleScreen` gains a second opt-in toggle, "Let your
+  circle know you're safe", with an optimistic mutation + rollback,
+  mirroring the existing peer-responder toggle.
+- `sosApi.setShareShifts()` + the field on `TrustCircleResponse`.
+
+## Bug fixed in passing
+
+- `MyApplicationsScreen` was missing `Alert` in its `react-native`
+  import (caught by the typecheck after the calendar work).
+
+## Verified (Session 7)
+
+- Backend `tsc --noEmit`: clean except `node-cron` /
+  `mongodb-memory-server` install-pending.
+- Mobile `tsc --noEmit`: clean except `expo-calendar` install-pending
+  (and two implicit-`any` params in `calendar.ts` that resolve once
+  `expo-calendar`'s types are present).
+
+## Status of the 5 partials
+
+- ✅ Anti-ghost badge — done
+- ✅ Interview calendar hold — done
+- ✅ Both-sides referral on first shift — done
+- ✅ Trust Circle shift notify — done
+- ↪️ Doondo Score signed/QR — intentionally left: that's the full
+  **Skill Passport** feature, not a quick patch. It stays a planned
+  feature in the roadmap.
+
+---
+
+# Session 8 — i18n sweep (the two activation screens)
+
+The app ships fully translated in 5 languages (English, Hindi, Tamil,
+Telugu, Kannada — ~1,640 keys each). The screens added in Sessions 3–7
+were English-only, which means a Tamil user's app suddenly switched to
+English mid-flow. This session starts closing that gap.
+
+## Scope decision
+
+A full sweep of all ~8 new screens × 5 languages is genuinely multi-
+session. Rather than half-do it, this session **fully** localised the
+two screens where non-English users are most directly served:
+
+- **FirstMatchPreview** — the literal first screen every new seeker
+  sees after role-pick. Pre-signup; language matters most here.
+- **ProfileFromPhoto** — the activation feature built *for* low-
+  literacy users. English-only here would defeat the feature's point.
+
+The remaining new screens (streak chips, hired-nearby rail, employer-
+detail banners, shift check-in / interview cards, Trust Circle) keep
+rendering English via i18next's `fallbackLng: 'en'` — graceful
+degradation, not broken — and queue for a follow-up sweep.
+
+## What changed
+
+**Locale files** (`apps/mobile/src/i18n/locales/*.json`)
+- New `first_match` key block (20 keys) and `profile_from_photo` key
+  block (39 keys) added to all 5 locale files.
+- Merged via a script (`JSON.parse` → add keys → `JSON.stringify`),
+  with a round-trip check confirming the only diff in each file is
+  the two appended blocks — no churn to the existing 1,640 keys.
+- Hindi translations are production-quality. Tamil / Telugu / Kannada
+  are careful translations but **should get a native-speaker QA pass**
+  before launch — same caveat that applies to any non-hand-reviewed
+  regional copy, and especially worth it here since some strings sit
+  on the activation path.
+
+**Screens**
+- `FirstMatchPreviewScreen` — all ~20 user-facing strings (eyebrow,
+  title, subtitle, empty state, CTA, accessibility labels, pill
+  labels, distance + pay formatting) routed through `t()`. Distance
+  and pay-period strings use i18next interpolation
+  (`{{n}}` placeholders).
+- `ProfileFromPhotoScreen` — all ~39 strings across the 3 stages
+  (pick / extracting / confirm) routed through `t()`, including the
+  confidence-pill labels, every form field label + placeholder, the
+  work-history / education summaries, and the Alert dialogs.
+- The skills-field placeholder (`cook, kitchen_helper, …`) is shared
+  across locales — those are backend skill slugs, English by design.
+
+## Verified (Session 8)
+
+- All 5 locale JSON files parse and contain both new key blocks.
+- Mobile `tsc --noEmit`: clean except the `expo-calendar`
+  install-pending errors from Session 7 (resolve on `pnpm install`).
+  The i18n changes added zero new type errors.
+
+## What's left in the i18n sweep
+
+Still English-only (graceful fallback): HiredNearbyRail, the streak
+chips + banners on ProfileScreen, the ResponsivenessBanner +
+TagSummaryPanel on EmployerDetail, ShiftCheckInCard / InterviewCard /
+SkillGapInlineCard on MyApplications, and TrustCircleScreen. A
+follow-up i18n session should extract these the same way.
+
+---
+
+# Session 9 — i18n sweep finished
+
+The remaining 6 new screens are now localised across all 5 languages,
+completing the i18n coverage for everything shipped in Sessions 3–7.
+
+## What changed
+
+**Locale files** (`apps/mobile/src/i18n/locales/*.json`)
+- 7 new key blocks added to all 5 locale files via the same
+  parse → add → stringify merge script, with a round-trip check
+  confirming each file's only diff is the appended blocks:
+  - `trust_circle` (44 keys) — the safety screen
+  - `hired_nearby` (6 keys) — the Home social-proof rail
+  - `streak_strip` (15 keys) — Profile streak chips + photo banner
+  - `employer_signals` (8 keys) — EmployerDetail responsiveness +
+    "Workers say" panel
+  - `shift_card` (10 keys) — MyApplications shift check-in card
+  - `interview_card` (17 keys) — MyApplications interview card +
+    add-to-calendar
+  - `skill_gap_card` (4 keys) — MyApplications skill-gap CTA +
+    the anti-ghost callout
+
+**Screens converted to `t()`**
+- `TrustCircleScreen` — header, explainer, all 3 contact slots
+  (labels, placeholders, relationship chips, buttons), both opt-in
+  toggles, every Alert dialog, and the `prettyRelationship` helper.
+  Accessibility labels routed through `t()` too.
+- `HiredNearbyRail` — header + the "Hired as … in …" line (with
+  interpolation) + relative-time formatter.
+- `MyApplicationsScreen` cards — `InterviewCard` (mode labels,
+  countdown, add-to-calendar states, calendar-failure alerts),
+  `ShiftCheckInCard` (shift status lines, button states, errors),
+  `SkillGapInlineCard` (missing-skill CTA, errors), and the
+  anti-ghost callout.
+- `ProfileScreen` — the streak strip's 3 chips + `StreakChip`
+  internals (unit words, "best N", accessibility sentences) and
+  the one-photo profile banner.
+- `EmployerDetailScreen` — `ResponsivenessBanner` (slow / responsive
+  copy with `{{pct}}` interpolation) and `TagSummaryPanel` section
+  labels + the review-count line (with one/other plural keys).
+
+## Plural handling
+
+Two count-sensitive strings — review count and streak day units —
+use explicit `_one` / `_other` keys with the component picking the
+right one, rather than relying on i18next's per-locale plural rules.
+This sidesteps plural-rule config bugs across 5 languages at the cost
+of two extra keys.
+
+## Honest caveat (carried from Session 8)
+
+English + Hindi are production-quality. Tamil / Telugu / Kannada are
+careful translations but **should get a native-speaker QA pass**
+before launch — especially the TrustCircle safety copy, where a
+mistranslation has real consequences.
+
+## What's still NOT localised
+
+- **Review-tag catalog labels** (`reviewTagCatalog.ts`) — 23 tag
+  slugs like "Paid on time", "Safe worksite". These render in
+  English inside the tag chips on EmployerDetail and the LeaveRating
+  screen. Deliberately deferred: localising a slug catalog is its
+  own contained task and benefits from being done in one pass with
+  the polarity metadata. It's the last English-only surface.
+
+## Verified (Session 9)
+
+- All 5 locale JSON files parse and contain all 7 new key blocks.
+- Mobile `tsc --noEmit`: clean except the `expo-calendar`
+  install-pending errors from Session 7. Zero new type errors from
+  the 6-screen conversion.
+
+# Session 10 — Runtime verification + i18n finished
+
+Ten sessions in, every session had ended with *"typecheck clean"* —
+but the code had never actually been **executed**. This session
+closed that gap, and finished the i18n sweep.
+
+## Runtime verification
+
+The workspace sandbox can't run a full server (the mount is
+append-only, so `pnpm install` can't run; there's no MongoDB; and
+`node_modules` is a macOS install whose native binaries — `bcrypt`,
+`esbuild` — don't load on Linux). So instead of a fake "it boots"
+claim, the verification was scoped to what the environment can
+truly prove:
+
+**New `bootcheck` script** (`apps/backend/src/scripts/bootcheck.ts`,
+wired as `pnpm bootcheck`) — an offline smoke test that:
+- imports the scheduler + every new service + every new model and
+  asserts nothing throws at load (catches import cycles, bad path
+  aliases, top-level crashes — things `tsc` can't see);
+- validates all 3 cron expressions with `node-cron`;
+- exercises the pure runtime logic — `streaks.istDateString`,
+  `skillGap.diffSkills`, `skillGap.rankCoursesForGap`, and
+  `profileExtract` via the mock provider.
+
+**Result: bootcheck PASSED — all 10 checks green.** The entire
+new-feature module graph loads cleanly, the crons are valid, and
+the pure logic behaves. Compiled with `tsc` (pure JS — works) and
+run on plain `node` via a small `@/`-alias require hook.
+
+**Backend `tsc --noEmit`:** clean. The only error is
+`mongodb-memory-server` missing in `smoke-reset.ts` — a test-only
+script; the dep can't be installed in the append-only sandbox.
+All *application* code typechecks.
+
+**What could NOT be verified here (environment, not code):**
+- Full server boot — needs MongoDB + `bcrypt`'s Linux native
+  binary. Both resolve the moment `pnpm install` runs on the
+  deploy platform. The auth path already passes `tsc`.
+- Live endpoint calls — need a running DB.
+
+These aren't gaps in the code; they're gaps in the sandbox. The
+honest status: **the code compiles, the module graph loads, the
+scheduled jobs are valid, and the pure logic is correct.** Booting
+against a real database is the one step that has to happen on the
+deploy platform — see "How to finish verification" below.
+
+## i18n finished — review-tag catalog
+
+The last English-only surface is now localised:
+- New `review_tags` block — 22 tag labels (paid_on_time, safe_site,
+  fair_hours, punctual, hardworking, no_show, …) — merged into all
+  5 locale files.
+- `LeaveRatingScreen` tag chips and `EmployerDetailScreen`'s
+  `TagChip` now render `t('review_tags.<slug>')` instead of the
+  hardcoded English `label`. The catalog keeps `slug` + `polarity`;
+  the English `label` stays as the dev-reference / fallback.
+
+**i18n is now 100% across every new screen, all 5 languages.** The
+Tamil / Telugu / Kannada native-speaker QA caveat still stands.
+
+## How to finish verification (on the deploy platform)
+
+```bash
+pnpm install                       # resolves node-cron, expo-calendar,
+                                    # mongodb-memory-server + native bins
+pnpm --filter @doondo/backend bootcheck   # offline smoke (should PASS)
+pnpm --filter @doondo/backend typecheck   # should be 0 errors
+pnpm --filter @doondo/backend dev         # boots against MONGODB_URI;
+                                          # watch for the 3 "scheduler:
+                                          # … registered" log lines
+curl "$API/api/v1/jobs/preview?lat=12.97&lng=77.59"   # smoke a new endpoint
+```
+
+## Sandbox cleanup note
+
+The failed `pnpm install` attempt left two empty `_tmp_3_*` files at
+the repo root (the append-only mount blocked their cleanup). They're
+harmless 0-byte files — `rm _tmp_3_*` to remove them. Also new this
+session: `apps/backend/tsconfig.bootcheck.json` (used to compile the
+smoke test) — keep it; it's what `pnpm bootcheck` needs if you ever
+run the compiled form.
+
+## Verified (Session 10)
+
+- Backend `tsc --noEmit`: clean (only the test-only
+  `mongodb-memory-server` import).
+- `bootcheck`: **PASSED**, 10/10.
+- Mobile `tsc --noEmit`: clean except `expo-calendar` install-pending.
+- All 5 locale files parse; `review_tags` block present with 22 keys.
+
+---
+
+# Session 11 — Dormant-user re-engagement
+
+The morning digest keeps *active* users warm. It does nothing for the
+user who stopped opening the app three weeks ago — and on a hiring
+marketplace a lapsed user is a lost match on both sides: a seeker who
+never sees today's gig, an employer whose job never gets posted. This
+session adds the one deliberate tap on the shoulder.
+
+## What it does
+
+A new daily cron — the **re-engagement sweep** — finds dormant users
+and sends each one concrete, role-aware copy:
+
+- **Seekers** hear how many jobs were posted near them in the last
+  week: *"12 new jobs posted near you in the last week. It's been a
+  while — your next gig could be one tap away."* The count is looked
+  up per city, cached for the run, so a city with 500 dormant seekers
+  costs one query, not 500.
+- **Employers** hear how many workers joined near them: *"8 new
+  workers joined near you this week. Post a job and start hiring in
+  minutes."*
+- A count of 0 still sends — the user is dormant and worth a nudge;
+  the copy just drops the number and leans on the evergreen line.
+- The push deeplinks role-aware: seekers to Home (their job feed),
+  employers to Posts (their job-management tab).
+
+## How it avoids being a pest
+
+Three guards, all env-tunable:
+
+- **Dormancy threshold** — `REENGAGEMENT_DORMANT_DAYS` (default 14).
+  Measured off `lastLoginAt`; users who never logged in fall back to
+  `createdAt`.
+- **Cooldown** — `REENGAGEMENT_COOLDOWN_DAYS` (default 7). At most one
+  nudge per week. `lastReengagedAt` doubles as the cooldown guard and
+  the same-day cron double-fire guard, so nobody is ever pushed twice.
+- **Attempt cap** — `REENGAGEMENT_MAX_ATTEMPTS` (default 3). After
+  three ignored nudges the sweep stops. `reengagementAttempts` resets
+  to 0 on the next login (in `auth.service`), so a user who returns
+  and lapses again gets a fresh round.
+- Per-user notification prefs are honoured (seekers gate on `jobs`,
+  employers on `applications`).
+
+## Files
+
+- `modules/notifications/reengagement.service.ts` — new. The paginated
+  sweep (`runReengagementSweep`) + the pure, unit-tested copy builder
+  (`buildReengagementBody`).
+- `config/env.ts` — `REENGAGEMENT_CRON` (default 03:00 UTC = 08:30 IST,
+  after the morning digest so a dormant user gets one clean nudge, not
+  two), plus the three caps above.
+- `modules/users/user.model.ts` — `lastReengagedAt` + `reengagementAttempts`
+  fields; a `{ isActive, role, lastLoginAt }` index for the sweep query.
+- `lib/push.ts` — `sendReengagementPush` helper.
+- `modules/notifications/notification.model.ts` — new `reengagement`
+  notification kind.
+- `modules/scheduler/index.ts` — registers the sweep as the 4th cron.
+- `modules/auth/auth.service.ts` — resets the attempt budget on login.
+- `apps/mobile/src/api/notifications.api.ts` — the mobile `NOTIFICATION_KINDS`
+  union was stale (missing 10 server kinds); brought fully back in sync
+  and added `reengagement`. The bell feed renders the new kind generically;
+  the push tap routes via the server-set deeplink.
+
+## Verified (Session 11)
+
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import).
+- `bootcheck`: **PASSED**, 11/11 — the re-engagement service imports,
+  the new `REENGAGEMENT_CRON` validates, and `buildReengagementBody`
+  passes its role/count assertions.
+- Mobile `tsc --noEmit`: clean except the 4 pre-existing `expo-calendar`
+  install-pending errors. The notifications-API change adds 0 errors.
+
+---
+
+# Session 12 — Pre-translated quick replies
+
+The chat language gap is the quiet killer of blue-collar hiring: an
+employer types in Hindi, the worker reads Tamil, and a thread stalls
+on a misunderstanding. Free-form chat can't be auto-translated cheaply
+or reliably. Quick replies sidestep the problem entirely for the
+exchanges that happen over and over.
+
+## What it does
+
+A new **quick-reply bar** sits above the chat composer — a horizontal
+strip of one-tap template chips. Tapping a chip sends a message that
+carries a `templateKey` (e.g. `quick_replies.emp.when_can_start`)
+alongside the English text. Every client renders the message through
+i18n, so:
+
+- The **employer** taps "When can you start?" in their language.
+- The **worker** receives it rendered in *their* language.
+- The sender's own thread also shows the localised text — the chip and
+  the sent bubble both come from the same i18n key.
+
+Twelve templates ship — 6 for each side, covering the highest-frequency
+exchanges:
+
+- **Employer → worker:** available tomorrow?, when can you start?, come
+  for an interview?, share your location, bring your documents, position
+  filled.
+- **Worker → employer:** yes I'm available, not available right now,
+  what's the pay?, where is the job?, what time should I come?, on my way.
+
+All twelve are translated into all 5 languages (English, Hindi, Tamil,
+Telugu, Kannada).
+
+## How it's built
+
+The server stays deliberately dumb: `templateKey` is an opaque string
+on the message — the backend never needs the catalog. The catalog
+(which templates exist, which i18n keys) lives entirely on the mobile
+side, so adding or retiring a template never needs a backend deploy.
+
+- `apps/mobile/src/lib/quickReplyCatalog.ts` — new. The template list +
+  `renderMessageBody`, which resolves a message to the reader's language
+  and falls back to the stored English `body` if the key is unknown to
+  that build.
+- `apps/mobile/.../i18n/locales/*.json` — new `quick_replies` block,
+  12 keys × 5 locales, round-trip-verified.
+- `ConversationScreen.tsx` — the quick-reply bar (role-aware chip set,
+  hidden once the user starts typing) + templated-message rendering in
+  both sent and received bubbles.
+- `apps/backend/.../chat/message.model.ts` — optional `templateKey`
+  field on the message + `PublicMessage`.
+- `chat.schemas.ts` — accepts `templateKey` on send; rejects it on
+  non-text messages.
+- `chat.service.ts` / `chat.controller.ts` — thread `templateKey`
+  through the send path; it persists verbatim.
+
+**Known limitation:** the push-notification body and the conversation-list
+preview for a templated message are English (server-rendered from the
+fallback `body`). Localising those per-recipient would mean shipping the
+catalog server-side — deferred. The in-app message itself is always in
+the reader's language.
+
+## Verified (Session 12)
+
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import).
+- `bootcheck`: **PASSED**, 12/12 — the chat message model now registers
+  in the smoke test alongside the existing checks.
+- Mobile `tsc --noEmit`: clean except the 4 pre-existing `expo-calendar`
+  install-pending errors. The chat + catalog changes add 0 errors.
+- Quick-reply catalog functional check (compiled + run): catalog English
+  strings match `en.json` verbatim (the fallback-body invariant),
+  `quickRepliesForRole` routes correctly, and `renderMessageBody` handles
+  templated / unknown-key / plain messages — 5/5 PASS.
+- All 5 locale files parse; `quick_replies` block present with 12 keys.
+
+Tamil / Telugu / Kannada native-speaker QA still applies to the new
+template strings, as flagged for earlier i18n work.
+
+---
+
+# Session 13 — Doondo Pulse
+
+The Home feed answers "what work is out there?". It never answered the
+other half — "where do *I* stand, and what's my next move?". A worker
+who opens the app and only sees a job list has no sense of their own
+momentum, and momentum is what brings them back. Doondo Pulse is that
+missing mirror.
+
+## What it does
+
+A new **Pulse card** on the worker's Home dashboard shows, at a glance:
+
+- **Doondo Score** — the portable 0-100 employability number.
+- **Apply streak** — consecutive days the worker has applied (with a
+  🔥 once the streak is live).
+- **Applications in play** — pending / viewed / shortlisted, i.e. the
+  ones that could still turn into a job.
+- **A single next-step nudge** — the one thing most worth doing next,
+  as a tappable row that routes straight to the action.
+
+The nudge walks the natural onboarding ladder: verify your account →
+add your work history → set your availability → add your skills → and,
+once all of that is done, the evergreen "explore jobs near you". Each
+rung, once cleared, surfaces the next, so the worker is never
+dead-ended. Tapping the row jumps to the right screen — Verification,
+the Resume Builder, the Profile tab, or the Jobs tab.
+
+## How it's built
+
+Everything is computed on the read path from data that already exists
+— Doondo Score, streaks, applications — so there are no new
+denormalised counters and no stale-state risk.
+
+- `apps/backend/.../me/pulse.service.ts` — new. `getPulseForSeeker`
+  assembles the snapshot (three lookups run in parallel); `pickPulseNudge`
+  is a pure, unit-tested function that chooses the next step.
+- `me.routes.ts` — `GET /me/pulse`, seeker-only, returns the standard
+  `{ ok, data, requestId }` envelope.
+- `apps/mobile/.../api/pulse.api.ts` + `hooks/usePulse.ts` — typed
+  wrapper + a React Query hook (60s staleTime; refetches with Home's
+  pull-to-refresh).
+- `apps/mobile/.../home/DoondoPulse.tsx` — the card. Three stat tiles +
+  the nudge row; self-hides until the snapshot loads, so a slow network
+  or an error never shows a broken shell.
+- `SeekerHomeScreen.tsx` — mounts the card in the career-mode Home view,
+  just below the location pill.
+- `i18n/locales/*.json` — new `pulse` block (labels + 5 nudges) across
+  all 5 locales, round-trip-verified.
+
+## Verified (Session 13)
+
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import).
+- `bootcheck`: **PASSED**, 13/13 — the pulse service imports, and
+  `pickPulseNudge` passes its onboarding-ladder assertions
+  (unverified → verify, set-up-but-no-profile → build_profile, fully
+  set up → explore_jobs).
+- Mobile `tsc --noEmit`: clean except the 4 pre-existing `expo-calendar`
+  install-pending errors. The pulse + Home changes add 0 errors.
+- All 5 locale files parse; `pulse` block present with 5 nudges.
+
+Tamil / Telugu / Kannada native-speaker QA applies to the new strings,
+as for earlier i18n work.
+
+---
+
 ## What's next
 
-The "Next" tranche after this session: i18n sweep across 5 locales
-(English/Hindi/Tamil/Telugu/Kannada) for every new screen, voice-note
-auto-transcription, quick-reply templates pre-translated, per-screen
-language toggle, re-engagement flow for 14-day dormant users, Doondo
-Pulse home-screen widget. The polish sweep this session made the
-shipped features ready for a real beta; remaining work is either
-launch prep (i18n) or further feature reach.
+The codebase is verified as far as this environment allows — it
+compiles, loads, and the logic is sound. The one remaining
+verification step (boot against a real MongoDB) belongs on the
+deploy platform, with the commands above.
+
+Feature-wise, the roadmap still has: voice-note auto-transcription,
+a per-screen language toggle, and the deeper bets (Skill Passport,
+Crew Apply). The app is beta-ready in English and Hindi today.

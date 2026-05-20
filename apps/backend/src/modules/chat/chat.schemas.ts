@@ -66,9 +66,22 @@ export const sendMessageSchema = z.object({
       body: z.string().trim().max(4000).optional(),
       kind: z.enum(['text', 'image', 'voice', 'video']).optional(),
       attachment: attachmentSchema,
+      /**
+       * Quick-reply template key (e.g. `quick_replies.emp.when_can_start`).
+       * Optional; only meaningful on text messages. Stored opaquely so
+       * the recipient's app can render it in their own language.
+       */
+      templateKey: z.string().trim().min(1).max(80).optional(),
     })
     .superRefine((b, ctx) => {
       const kind = b.kind ?? 'text';
+      if (b.templateKey && kind !== 'text') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['templateKey'],
+          message: 'templateKey is only valid on text messages',
+        });
+      }
       if (kind === 'text') {
         if (!b.body || b.body.length === 0) {
           ctx.addIssue({

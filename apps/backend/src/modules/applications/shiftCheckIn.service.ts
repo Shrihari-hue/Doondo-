@@ -113,7 +113,9 @@ export async function createCheckIn(input: CreateInput): Promise<PublicShiftChec
   });
 
   // 5. Side effects — push the employer, socket the seeker. Best-effort.
-  const seeker = await UserModel.findById(app.seekerId).select('name').lean();
+  const seeker = await UserModel.findById(app.seekerId)
+    .select('name trustCircle shareShiftsWithCircle')
+    .lean();
   void sendShiftCheckinPush({
     recipientId: app.employerId.toString(),
     actorName: seeker?.name ?? 'Worker',
@@ -123,6 +125,55 @@ export async function createCheckIn(input: CreateInput): Promise<PublicShiftChec
   }).catch((err) =>
     logger.warn({ err, applicationId: app.id }, 'shift check-in push failed'),
   );
+
+  // Trust Circle shift ping — when the worker has opted in, notify the
+  // contacts in their circle who are themselves Doondo users (push
+  // only, matched by phone hash, same as the SOS fan-out). This is the
+  // accountability / safety-net half of the Trust Circle feature.
+  if (
+    (seeker as { shareShiftsWithCircle?: boolean } | null)?.shareShiftsWithCircle &&
+    Array.isArray((seeker as { trustCircle?: unknown[] } | null)?.trustCircle)
+  ) {
+    void (async () => {
+      try {
+        const circle = (seeker as {
+          trustCircle: Array<{ phone: string }>;
+        }).trustCircle;
+        if (circle.length === 0) return;
+        const { hashPhone } = await import('@/modules/me/findFriends.service');
+        const { sendTrustCircleShiftPush } = await import('@/lib/push');
+        const hashes = circle.map((c) => hashPhone(c.phone));
+        const matched = await UserModel.find({
+          phoneHash: { $in: hashes },
+          isActive: true,
+        })
+          .select('_id')
+          .lean();
+        const workerFirstName =
+          ((seeker as { name?: string } | null)?.name ?? 'Your contact').split(
+            ' ',
+          )[0] ?? 'Your contact';
+        for (const m of matched) {
+          // Don't notify the worker themself if they happen to have
+          // their own number in their circle.
+          if ((m._id as Types.ObjectId).toString() === app.seekerId.toString()) {
+            continue;
+          }
+          void sendTrustCircleShiftPush({
+            recipientId: (m._id as Types.ObjectId).toString(),
+            workerFirstName,
+            kind: input.kind,
+            jobTitle: (job as { title?: string }).title,
+          });
+        }
+      } catch (err) {
+        logger.warn(
+          { err, applicationId: app.id },
+          'trust circle shift ping failed',
+        );
+      }
+    })();
+  }
   emitToUser(app.seekerId.toString(), 'shift:check_in', {
     applicationId: app.id,
     kind: input.kind,
@@ -138,6 +189,34 @@ export async function createCheckIn(input: CreateInput): Promise<PublicShiftChec
         await bumpStreak(app.seekerId.toString(), 'shift');
       } catch (err) {
         logger.warn({ err, applicationId: app.id }, 'shift streak bump failed');
+      }
+    })();
+
+    // First shift check-in for this application? Credit the referral
+    // bonus to both sides. We detect "first" by counting check_in rows
+    // for the application — exactly 1 means the row we just wrote is
+    // the first. The referral service is itself idempotent (status
+    // guard), so a double-fire is harmless.
+    void (async () => {
+      try {
+        const priorCheckIns = await ShiftCheckInModel.countDocuments({
+          applicationId: app._id,
+          kind: 'check_in',
+        });
+        if (priorCheckIns !== 1) return; // not the first check-in
+        const { creditOnFirstShift } = await import(
+          '@/modules/referrals/referral.service'
+        );
+        await creditOnFirstShift({
+          refereeId: app.seekerId.toString(),
+          jobId: app.jobId.toString(),
+          applicationId: app.id,
+        });
+      } catch (err) {
+        logger.warn(
+          { err, applicationId: app.id },
+          'referral first-shift credit failed',
+        );
       }
     })();
   }

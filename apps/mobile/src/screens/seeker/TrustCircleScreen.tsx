@@ -41,9 +41,11 @@ import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { sosApi, type TrustContactPayload, type TrustCircleResponse } from '@/api/sos.api';
 import { haptic } from '@/lib/haptics';
 import { friendlyErrorMessage } from '@/lib/friendlyError';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 const RELATIONSHIP_PRESETS = ['family', 'friend', 'employer'] as const;
 type RelationshipPreset = (typeof RELATIONSHIP_PRESETS)[number] | 'other';
@@ -69,6 +71,7 @@ function fromPayload(c: TrustContactPayload | undefined): DraftContact {
 
 function TrustCircleInner() {
   const { theme } = useTheme();
+  const t = useTranslate();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -107,8 +110,8 @@ function TrustCircleInner() {
     onError: (err) => {
       haptic('error');
       Alert.alert(
-        "Couldn't save",
-        friendlyErrorMessage(err, 'Please check your connection and try again.'),
+        t('trust_circle.alert_save_fail'),
+        friendlyErrorMessage(err, t('trust_circle.alert_conn')),
       );
     },
   });
@@ -131,8 +134,33 @@ function TrustCircleInner() {
       if (ctx?.previous) queryClient.setQueryData(['trustCircle'], ctx.previous);
       haptic('error');
       Alert.alert(
-        "Couldn't update",
-        friendlyErrorMessage(err, 'Please check your connection and try again.'),
+        t('trust_circle.alert_update_fail'),
+        friendlyErrorMessage(err, t('trust_circle.alert_conn')),
+      );
+    },
+    onSuccess: () => {
+      haptic('selection');
+    },
+  });
+
+  const shareShiftsMutation = useMutation({
+    mutationFn: (enabled: boolean) => sosApi.setShareShifts(enabled),
+    onMutate: (enabled) => {
+      const previous = queryClient.getQueryData<TrustCircleResponse>(['trustCircle']);
+      if (previous) {
+        queryClient.setQueryData(['trustCircle'], {
+          ...previous,
+          shareShiftsWithCircle: enabled,
+        });
+      }
+      return { previous };
+    },
+    onError: (err, _enabled, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(['trustCircle'], ctx.previous);
+      haptic('error');
+      Alert.alert(
+        t('trust_circle.alert_update_fail'),
+        friendlyErrorMessage(err, t('trust_circle.alert_conn')),
       );
     },
     onSuccess: () => {
@@ -153,11 +181,17 @@ function TrustCircleInner() {
     (index: number) => {
       const draft = drafts[index]!;
       if (draft.name.trim().length < 2) {
-        Alert.alert('Add a name', 'Please add a name with at least 2 letters.');
+        Alert.alert(
+          t('trust_circle.alert_name_title'),
+          t('trust_circle.alert_name_body'),
+        );
         return;
       }
       if (draft.phone.replace(/[^\d]/g, '').length < 7) {
-        Alert.alert('Add a phone', 'Please enter a valid phone number.');
+        Alert.alert(
+          t('trust_circle.alert_phone_title'),
+          t('trust_circle.alert_phone_body'),
+        );
         return;
       }
       // Build the new array — replace `index`, keep the others.
@@ -182,10 +216,13 @@ function TrustCircleInner() {
 
   const removeRow = useCallback(
     (index: number) => {
-      Alert.alert('Remove contact?', "This person won't get an alert if you trigger SOS.", [
-        { text: 'Cancel', style: 'cancel' },
+      Alert.alert(
+        t('trust_circle.alert_remove_title'),
+        t('trust_circle.alert_remove_body'),
+        [
+        { text: t('trust_circle.alert_cancel'), style: 'cancel' },
         {
-          text: 'Remove',
+          text: t('trust_circle.remove'),
           style: 'destructive',
           onPress: () => {
             const next = persistedContacts.filter((_, i) => i !== index);
@@ -217,6 +254,7 @@ function TrustCircleInner() {
   }
 
   const peerOn = Boolean(query.data?.isPeerResponder);
+  const shareShiftsOn = Boolean(query.data?.shareShiftsWithCircle);
 
   return (
     <Screen edges={[]}>
@@ -240,7 +278,7 @@ function TrustCircleInner() {
           <Pressable
             onPress={() => navigation.goBack()}
             hitSlop={12}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('trust_circle.a11y_back')}
             accessibilityRole="button"
             style={{
               width: 40,
@@ -255,7 +293,7 @@ function TrustCircleInner() {
             <Feather name="chevron-left" size={20} color={theme.text.primary} />
           </Pressable>
           <Text variant="title" weight="medium" accessibilityRole="header">
-            Trust Circle
+            {t('trust_circle.header')}
           </Text>
         </View>
 
@@ -272,12 +310,10 @@ function TrustCircleInner() {
           }}
         >
           <Text variant="bodyLarge" weight="medium">
-            Up to 3 people who get an alert when you SOS.
+            {t('trust_circle.explainer_title')}
           </Text>
           <Text variant="footnote" tone="secondary">
-            If a contact is already on Doondo, they get an instant push. If
-            not, your phone opens an SMS draft for them when you trigger
-            SOS — so they're notified either way.
+            {t('trust_circle.explainer_body')}
           </Text>
         </View>
 
@@ -309,7 +345,7 @@ function TrustCircleInner() {
         {/* Peer responder opt-in */}
         <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
           <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-            BE A PEER RESPONDER
+            {t('trust_circle.peer_label')}
           </Text>
           <View
             style={{
@@ -325,17 +361,54 @@ function TrustCircleInner() {
           >
             <View style={{ flex: 1, gap: 2 }}>
               <Text variant="bodyLarge" weight="medium">
-                Help nearby workers in trouble
+                {t('trust_circle.peer_title')}
               </Text>
               <Text variant="footnote" tone="secondary">
-                When you're on, you may get a push if another worker
-                triggers SOS within 5 km of you. We only choose 2
-                verified peers per alert, so you won't be flooded.
+                {t('trust_circle.peer_body')}
               </Text>
             </View>
             <Switch
               value={peerOn}
               onValueChange={(v) => peerToggleMutation.mutate(v)}
+              accessibilityLabel={t('trust_circle.peer_a11y')}
+              trackColor={{
+                false: theme.border.default,
+                true: theme.brand.hero,
+              }}
+              thumbColor="#FFFDF7"
+            />
+          </View>
+        </View>
+
+        {/* Share shifts with circle opt-in */}
+        <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
+          <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
+            {t('trust_circle.shifts_label')}
+          </Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.md,
+              padding: spacing.lg,
+              borderRadius: radii.lg,
+              borderWidth: 0.5,
+              borderColor: theme.border.default,
+              backgroundColor: theme.bg.surface,
+            }}
+          >
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text variant="bodyLarge" weight="medium">
+                {t('trust_circle.shifts_title')}
+              </Text>
+              <Text variant="footnote" tone="secondary">
+                {t('trust_circle.shifts_body')}
+              </Text>
+            </View>
+            <Switch
+              value={shareShiftsOn}
+              onValueChange={(v) => shareShiftsMutation.mutate(v)}
+              accessibilityLabel={t('trust_circle.shifts_a11y')}
               trackColor={{
                 false: theme.border.default,
                 true: theme.brand.hero,
@@ -392,6 +465,7 @@ function ContactSlot({
   onRemove,
 }: ContactSlotProps) {
   const { theme } = useTheme();
+  const t = useTranslate();
   const hasContact = Boolean(persisted);
 
   const relationshipPreset: RelationshipPreset = useMemo(() => {
@@ -416,8 +490,11 @@ function ContactSlot({
         accessibilityRole="button"
         accessibilityLabel={
           hasContact
-            ? `${persisted!.name}, ${prettyRelationship(persisted!.relationship)}. Tap to edit.`
-            : `Add contact in slot ${index + 1}`
+            ? t('trust_circle.a11y_slot_filled', {
+                name: persisted!.name,
+                relationship: prettyRelationship(persisted!.relationship, t),
+              })
+            : t('trust_circle.a11y_slot_empty', { n: index + 1 })
         }
         accessibilityState={{ expanded: isOpen }}
         style={({ pressed }) => ({
@@ -449,12 +526,12 @@ function ContactSlot({
                 {persisted!.name}
               </Text>
               <Text variant="footnote" tone="secondary" numberOfLines={1}>
-                {prettyRelationship(persisted!.relationship)} · {persisted!.phone}
+                {prettyRelationship(persisted!.relationship, t)} · {persisted!.phone}
               </Text>
             </>
           ) : (
             <Text variant="bodyLarge" tone="secondary">
-              Add contact
+              {t('trust_circle.add_contact')}
             </Text>
           )}
         </View>
@@ -479,12 +556,12 @@ function ContactSlot({
         >
           <View>
             <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.0, marginBottom: 6 }}>
-              NAME
+              {t('trust_circle.field_name')}
             </Text>
             <TextInput
               value={draft.name}
               onChangeText={(v) => onChange({ name: v })}
-              placeholder="e.g. Priya (sister)"
+              placeholder={t('trust_circle.field_name_ph')}
               placeholderTextColor={theme.text.tertiary}
               autoCapitalize="words"
               style={{
@@ -502,12 +579,12 @@ function ContactSlot({
 
           <View>
             <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.0, marginBottom: 6 }}>
-              PHONE
+              {t('trust_circle.field_phone')}
             </Text>
             <TextInput
               value={draft.phone}
               onChangeText={(v) => onChange({ phone: v })}
-              placeholder="+91 …"
+              placeholder={t('trust_circle.field_phone_ph')}
               placeholderTextColor={theme.text.tertiary}
               keyboardType="phone-pad"
               style={{
@@ -525,7 +602,7 @@ function ContactSlot({
 
           <View>
             <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.0, marginBottom: 6 }}>
-              RELATIONSHIP
+              {t('trust_circle.field_relationship')}
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
               {(['family', 'friend', 'employer', 'other'] as RelationshipPreset[]).map((preset) => {
@@ -555,7 +632,7 @@ function ContactSlot({
                       weight={active ? 'medium' : 'regular'}
                       style={{ color: active ? theme.brand.hero : theme.text.secondary }}
                     >
-                      {prettyRelationship(preset)}
+                      {prettyRelationship(preset, t)}
                     </Text>
                   </Pressable>
                 );
@@ -565,7 +642,7 @@ function ContactSlot({
               <TextInput
                 value={draft.relationship}
                 onChangeText={(v) => onChange({ relationship: v })}
-                placeholder="e.g. neighbour, colleague"
+                placeholder={t('trust_circle.field_relationship_other_ph')}
                 placeholderTextColor={theme.text.tertiary}
                 style={{
                   marginTop: spacing.sm,
@@ -598,7 +675,7 @@ function ContactSlot({
                 })}
               >
                 <Text variant="bodyLarge" weight="medium" style={{ color: theme.status.danger }}>
-                  Remove
+                  {t('trust_circle.remove')}
                 </Text>
               </Pressable>
             )}
@@ -615,7 +692,11 @@ function ContactSlot({
               })}
             >
               <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFDF7' }}>
-                {saving ? 'Saving…' : hasContact ? 'Save changes' : 'Save contact'}
+                {saving
+                  ? t('trust_circle.saving')
+                  : hasContact
+                    ? t('trust_circle.save_changes')
+                    : t('trust_circle.save_contact')}
               </Text>
             </Pressable>
           </View>
@@ -625,12 +706,14 @@ function ContactSlot({
   );
 }
 
-function prettyRelationship(raw: string | null | undefined): string {
-  if (!raw) return 'Other';
+function prettyRelationship(raw: string | null | undefined, t: TFn): string {
+  if (!raw) return t('trust_circle.rel_other');
   const r = raw.trim().toLowerCase();
-  if (r === 'family') return 'Family';
-  if (r === 'friend') return 'Friend';
-  if (r === 'employer') return 'Employer';
+  if (r === 'family') return t('trust_circle.rel_family');
+  if (r === 'friend') return t('trust_circle.rel_friend');
+  if (r === 'employer') return t('trust_circle.rel_employer');
+  if (r === 'other') return t('trust_circle.rel_other');
+  // Custom free-text relationship — show it as the user typed it.
   return raw.trim().charAt(0).toUpperCase() + raw.trim().slice(1);
 }
 

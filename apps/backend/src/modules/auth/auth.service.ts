@@ -115,6 +115,9 @@ export async function login(input: LoginInput, ctx: ClientContext = {}): Promise
   if (!ok) throw errors.invalidCredentials();
 
   user.lastLoginAt = new Date();
+  // The user is back — clear the re-engagement attempt budget so that if
+  // they lapse again later the dormant-user sweep can nudge them afresh.
+  user.reengagementAttempts = 0;
   await user.save();
 
   const tokens = await issueTokens(user.id, user.role, randomUUID(), ctx);

@@ -517,6 +517,49 @@ export async function sendMorningDigestPush(input: {
 }
 
 /**
+ * Re-engagement push — the win-back nudge for a dormant user (no login
+ * for ~14 days). Title + body are built by the sweep
+ * (`buildReengagementBody`) and differ by role; this helper just routes
+ * and sends. Seekers deeplink to Home (their job feed), employers to
+ * Posts (their job-management tab).
+ */
+export async function sendReengagementPush(input: {
+  recipientId: string;
+  role: 'seeker' | 'employer';
+  title: string;
+  body: string;
+}): Promise<void> {
+  const deeplink = {
+    screen: input.role === 'employer' ? 'Posts' : 'Home',
+  };
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'reengagement',
+    title: input.title,
+    body: input.body,
+    deeplink,
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title: input.title,
+      body: input.body,
+      sound: 'default',
+      channelId: 'jobs',
+      data: {
+        type: 'reengagement',
+        deeplink,
+      },
+    })),
+  );
+}
+
+/**
  * Streak milestone push — celebratory ping when the seeker crosses
  * 3 / 7 / 14 / 30 consecutive days of an activity (apply, course,
  * shift). Brief, warm, no CTA — the goal is the dopamine, not a
@@ -743,6 +786,55 @@ export async function sendShiftCheckinPush(input: {
         type: input.kind === 'check_in' ? 'shift:check_in' : 'shift:check_out',
         deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
+      },
+    })),
+  );
+}
+
+/**
+ * Trust Circle shift ping — tells a worker's vouched contacts that
+ * they've started or ended a shift. The accountability / safety-net
+ * use case of the Trust Circle: a family member knows the worker
+ * arrived safely and left on time.
+ *
+ * Sent only to Trust Circle contacts who are themselves Doondo users
+ * (push only, no SMS) and only when the worker has opted in via
+ * `shareShiftsWithCircle`.
+ */
+export async function sendTrustCircleShiftPush(input: {
+  recipientId: string;
+  workerFirstName: string;
+  kind: 'check_in' | 'check_out';
+  jobTitle?: string;
+}): Promise<void> {
+  const started = input.kind === 'check_in';
+  const title = started ? 'Shift started' : 'Shift ended';
+  const verb = started ? 'started a shift' : 'ended their shift';
+  const body = input.jobTitle
+    ? `${input.workerFirstName} ${verb} — ${input.jobTitle}.`
+    : `${input.workerFirstName} ${verb}.`;
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'shift_checkin',
+    title,
+    body,
+    deeplink: { screen: 'Home' },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'default',
+      data: {
+        type: started ? 'trust_circle:shift_start' : 'trust_circle:shift_end',
+        deeplink: { screen: 'Home' },
       },
     })),
   );

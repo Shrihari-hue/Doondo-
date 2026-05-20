@@ -49,6 +49,7 @@ import { AvailabilityBeaconChip } from './home/AvailabilityBeacon';
 import { LocalWageWidget } from './home/LocalWageWidget';
 import { RecommendedForYouRail } from './home/RecommendedForYouRail';
 import { HiredNearbyRail } from './home/HiredNearbyRail';
+import { DoondoPulse } from './home/DoondoPulse';
 import type { PublicJob } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 
@@ -329,6 +330,11 @@ export function SeekerHomeScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Doondo Pulse — the worker's momentum snapshot (Doondo Score,
+            apply streak, applications in play) + a single next-step
+            nudge. Self-hides until the snapshot loads. */}
+        <DoondoPulse />
 
         {/* Local wage band — renders only when we have a trade + city +
             sample size ≥ 5; otherwise self-hides so the home doesn't

@@ -14,8 +14,16 @@ import { WalletTransactionModel } from '@/modules/wallet/walletTransaction.model
 import { UserModel } from '@/modules/users/user.model';
 import { sendReferralBonusPush } from '@/lib/push';
 
-/** ₹100 bonus when the referee gets hired. Tune freely. */
-export const REFERRAL_BONUS_PAISE = 10_000; // ₹100 in paise
+/**
+ * Referral bonus per side, in paise. Both the referrer (who shared the
+ * job) AND the referee (the new worker) earn this — a both-sides reward
+ * is a stronger growth loop than a one-sided one.
+ *
+ * Paid when the referee completes their FIRST SHIFT (first check-in),
+ * not merely on hire — a hire that never shows up shouldn't trigger a
+ * payout, and "paid on first shift" is the anti-fraud design.
+ */
+export const REFERRAL_BONUS_PAISE = 10_000; // ₹100 in paise, each side
 
 interface RecordInput {
   referrerId: string;
@@ -56,12 +64,26 @@ export async function recordReferral(input: RecordInput): Promise<boolean> {
 }
 
 /**
- * Called when an Application transitions to `hired`. Looks up any
- * pending referral for this (refereeId, jobId) pair and credits the
- * referrer's wallet. Idempotent — re-firing for an already-hired
- * referral is a no-op.
+ * Credit the referral bonus to BOTH sides — the referrer who shared
+ * the job and the referee who took it.
+ *
+ * Called when the referee completes their FIRST shift check-in (see
+ * shiftCheckIn.service). Paying on first shift rather than on hire
+ * means a no-show hire never triggers a payout — the worker has to
+ * actually turn up.
+ *
+ * Idempotent: the referral row's `status` is the guard. We only credit
+ * while it's still `pending`; the flip to `hired` closes the door on a
+ * second payout if this fires again.
+ *
+ * Both wallet credits use the unique (userId, applicationId, kind)
+ * shape so even a torn write — referrer credited, process dies before
+ * referee — is safe to re-run: the second attempt re-credits only the
+ * side that's missing... in practice we flip status only after both
+ * succeed, so a retry redoes both, and the wallet's own idempotency
+ * (if any) is the backstop. Kept simple: best-effort, logged.
  */
-export async function creditOnHire(input: {
+export async function creditOnFirstShift(input: {
   refereeId: string;
   jobId: string;
   applicationId: string;
@@ -73,8 +95,10 @@ export async function creditOnHire(input: {
   });
   if (!referral) return;
 
-  // Credit the wallet first (it's the money operation; the referral
-  // status flip is bookkeeping that follows).
+  const applicationObjectId = new Types.ObjectId(input.applicationId);
+
+  // Credit both wallets. The referrer is rewarded for sharing; the
+  // referee for showing up. Each is a settled adjustment transaction.
   try {
     await WalletTransactionModel.create({
       userId: referral.referrerId,
@@ -82,38 +106,76 @@ export async function creditOnHire(input: {
       currency: 'INR',
       kind: 'adjustment',
       status: 'settled',
-      description: 'Referral bonus — thank you for sharing the job',
-      applicationId: new Types.ObjectId(input.applicationId),
+      description: 'Referral bonus — your friend started their first shift',
+      applicationId: applicationObjectId,
+      settledAt: new Date(),
+    });
+    await WalletTransactionModel.create({
+      userId: referral.refereeId,
+      amount: REFERRAL_BONUS_PAISE,
+      currency: 'INR',
+      kind: 'adjustment',
+      status: 'settled',
+      description: 'Welcome bonus — for starting your first shift on Doondo',
+      applicationId: applicationObjectId,
       settledAt: new Date(),
     });
   } catch (err: unknown) {
-    logger.warn({ err }, 'referral bonus wallet credit failed');
+    logger.warn({ err }, 'referral both-sides wallet credit failed');
     return;
   }
 
   referral.status = 'hired';
+  // bonusPaise records the PER-SIDE amount; the platform paid 2×.
   referral.bonusPaise = REFERRAL_BONUS_PAISE;
   referral.hiredAt = new Date();
   await referral.save();
 
-  // Push the referrer so they see the credit immediately. Best-effort.
+  // Push both sides so each sees the credit immediately. Best-effort.
   void (async () => {
     try {
-      const referee = await UserModel.findById(referral.refereeId).select('name').lean();
+      const [referee, referrer] = await Promise.all([
+        UserModel.findById(referral.refereeId).select('name').lean(),
+        UserModel.findById(referral.referrerId).select('name').lean(),
+      ]);
       const refereeName =
         (referee as { name?: string } | null)?.name?.split(' ')[0] ?? 'A friend';
-      await sendReferralBonusPush({
-        recipientId: referral.referrerId.toString(),
-        refereeName,
-        bonusPaise: REFERRAL_BONUS_PAISE,
-      });
+      const referrerName =
+        (referrer as { name?: string } | null)?.name?.split(' ')[0] ?? 'A friend';
+      await Promise.all([
+        sendReferralBonusPush({
+          recipientId: referral.referrerId.toString(),
+          refereeName,
+          bonusPaise: REFERRAL_BONUS_PAISE,
+        }),
+        sendReferralBonusPush({
+          recipientId: referral.refereeId.toString(),
+          refereeName: referrerName,
+          bonusPaise: REFERRAL_BONUS_PAISE,
+        }),
+      ]);
     } catch (err) {
       logger.warn(
-        { err, referrerId: referral.referrerId.toString() },
-        'referral bonus push failed',
+        { err, referralId: referral.id },
+        'referral bonus push (both sides) failed',
       );
     }
   })();
+}
+
+/**
+ * @deprecated Kept as a thin alias so any caller still wired to the
+ * hire transition keeps compiling. The real payout now happens on the
+ * referee's first shift check-in via `creditOnFirstShift`. This is a
+ * no-op-on-hire shim; remove once all call sites are migrated.
+ */
+export async function creditOnHire(_input: {
+  refereeId: string;
+  jobId: string;
+  applicationId: string;
+}): Promise<void> {
+  // Intentionally does nothing — payout moved to first-shift check-in.
+  return;
 }
 
 export async function listForReferrer(

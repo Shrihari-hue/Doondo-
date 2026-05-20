@@ -114,6 +114,34 @@ const schema = z.object({
    * in mind.
    */
   INTERVIEW_REMINDER_LEAD_MINUTES: z.coerce.number().int().positive().default(60),
+
+  // ─── Dormant-user re-engagement sweep ─────────────────────────────────
+  /**
+   * Cron for the re-engagement sweep. Default 03:00 UTC = 08:30 IST —
+   * after the morning digest (07:00 IST) so a dormant user gets one
+   * clean nudge, not two pings in the same window. Runs once daily;
+   * the cooldown + attempt caps below keep it from pestering anyone.
+   */
+  REENGAGEMENT_CRON: z.string().default('0 3 * * *'),
+  /**
+   * Days since last login before a user counts as dormant. Default 14 —
+   * long enough to be a real lapse (not a quiet week), short enough that
+   * the win-back nudge still feels timely.
+   */
+  REENGAGEMENT_DORMANT_DAYS: z.coerce.number().int().positive().default(14),
+  /**
+   * Minimum days between two re-engagement pushes to the same user.
+   * Default 7 — a dormant user who ignores the first nudge gets at most
+   * one more per week, never a daily drip.
+   */
+  REENGAGEMENT_COOLDOWN_DAYS: z.coerce.number().int().positive().default(7),
+  /**
+   * Hard cap on re-engagement pushes within one dormancy spell. Default
+   * 3 — after three ignored nudges we stop until the user comes back.
+   * The counter resets to 0 on login (see auth.service) so a user who
+   * returns and lapses again gets a fresh budget.
+   */
+  REENGAGEMENT_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
 });
 
 const parsed = schema.safeParse(process.env);

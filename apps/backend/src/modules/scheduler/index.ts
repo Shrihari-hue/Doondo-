@@ -13,10 +13,10 @@
  * Tasks today:
  *   - Morning digest (DIGEST_CRON, default 01:30 UTC = 07:00 IST)
  *   - Ghost sweep (GHOST_SWEEP_CRON, default top of hour, every hour)
+ *   - Interview reminders (INTERVIEW_REMINDER_CRON, default every 15 min)
+ *   - Re-engagement sweep (REENGAGEMENT_CRON, default 03:00 UTC = 08:30 IST)
  *
  * Future tasks slot in here:
- *   - Interview reminders (1h before scheduled interview)
- *   - Dormant-user re-engagement (14-day no-activity sweep)
  *   - Job expiry / auto-close
  *   - Doondo Score change notifications
  */
@@ -27,6 +27,7 @@ import { logger } from '@/lib/logger';
 import { runMorningDigest } from '@/modules/notifications/digest.service';
 import { runGhostSweep } from '@/modules/applications/ghostSweep.service';
 import { runInterviewReminderSweep } from '@/modules/applications/interviewReminders.service';
+import { runReengagementSweep } from '@/modules/notifications/reengagement.service';
 
 let registered: ScheduledTask[] = [];
 
@@ -54,6 +55,7 @@ export function bootScheduler(): void {
   const digestValid = cron.validate(env.DIGEST_CRON);
   const ghostValid = cron.validate(env.GHOST_SWEEP_CRON);
   const reminderValid = cron.validate(env.INTERVIEW_REMINDER_CRON);
+  const reengagementValid = cron.validate(env.REENGAGEMENT_CRON);
   if (!digestValid) {
     logger.error(
       { cron: env.DIGEST_CRON },
@@ -70,6 +72,12 @@ export function bootScheduler(): void {
     logger.error(
       { cron: env.INTERVIEW_REMINDER_CRON },
       'INTERVIEW_REMINDER_CRON is not a valid cron expression — reminders disabled',
+    );
+  }
+  if (!reengagementValid) {
+    logger.error(
+      { cron: env.REENGAGEMENT_CRON },
+      'REENGAGEMENT_CRON is not a valid cron expression — re-engagement disabled',
     );
   }
 
@@ -130,6 +138,31 @@ export function bootScheduler(): void {
         leadMinutes: env.INTERVIEW_REMINDER_LEAD_MINUTES,
       },
       'scheduler: interview reminder sweep registered',
+    );
+  }
+
+  // ─── Dormant-user re-engagement sweep ──────────────────────────────────
+  if (reengagementValid) {
+    const reengagementTask = cron.schedule(
+      env.REENGAGEMENT_CRON,
+      () => {
+        runReengagementSweep().catch((err) => {
+          logger.error({ err }, 'reengagement sweep run failed');
+        });
+      },
+      {
+        timezone: 'UTC',
+      },
+    );
+    registered.push(reengagementTask);
+    logger.info(
+      {
+        cron: env.REENGAGEMENT_CRON,
+        dormantDays: env.REENGAGEMENT_DORMANT_DAYS,
+        cooldownDays: env.REENGAGEMENT_COOLDOWN_DAYS,
+        maxAttempts: env.REENGAGEMENT_MAX_ATTEMPTS,
+      },
+      'scheduler: re-engagement sweep registered',
     );
   }
 

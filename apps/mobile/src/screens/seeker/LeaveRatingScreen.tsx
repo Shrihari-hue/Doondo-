@@ -220,7 +220,7 @@ function LeaveRatingScreenInner() {
                     weight={active ? 'medium' : 'regular'}
                     style={{ color: active ? activeColor : theme.text.secondary }}
                   >
-                    {tag.label}
+                    {t(`review_tags.${tag.slug}`)}
                   </Text>
                 </Pressable>
               );

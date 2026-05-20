@@ -109,7 +109,7 @@ router.get('/trust-circle', requireAuth, async (req, res, next) => {
   try {
     const { UserModel } = await import('@/modules/users/user.model');
     const u = await UserModel.findById(req.user!.id)
-      .select('trustCircle isPeerResponder')
+      .select('trustCircle isPeerResponder shareShiftsWithCircle')
       .lean();
     res.json({
       ok: true,
@@ -126,6 +126,9 @@ router.get('/trust-circle', requireAuth, async (req, res, next) => {
         ),
         isPeerResponder: Boolean(
           (u as { isPeerResponder?: boolean } | null)?.isPeerResponder,
+        ),
+        shareShiftsWithCircle: Boolean(
+          (u as { shareShiftsWithCircle?: boolean } | null)?.shareShiftsWithCircle,
         ),
       },
       requestId: req.id,
@@ -195,6 +198,29 @@ router.post('/peer-responder', requireAuth, async (req, res, next) => {
   }
 });
 
+// Toggle whether the user's Trust Circle is pinged on shift start/end.
+router.post('/share-shifts', requireAuth, async (req, res, next) => {
+  try {
+    const body = (req.body ?? {}) as { enabled?: unknown };
+    if (typeof body.enabled !== 'boolean') {
+      res.status(400).json({ ok: false, error: { code: 'VALIDATION_FAILED', message: '`enabled` must be a boolean.' } });
+      return;
+    }
+    const { UserModel } = await import('@/modules/users/user.model');
+    await UserModel.updateOne(
+      { _id: req.user!.id },
+      { $set: { shareShiftsWithCircle: body.enabled } },
+    );
+    res.json({
+      ok: true,
+      data: { shareShiftsWithCircle: body.enabled },
+      requestId: req.id,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/notification-prefs', requireAuth, async (req, res, next) => {
   try {
     const body = (req.body ?? {}) as Record<string, unknown>;
@@ -254,6 +280,24 @@ router.get(
     try {
       const summary = await profileViewService.summarize(req.user!.id);
       res.json(summary);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// Doondo Pulse — the worker's momentum snapshot for the Home dashboard:
+// Doondo Score, apply streak, applications still in play, profile
+// completion, and a single next-step nudge. Seeker-only.
+router.get(
+  '/pulse',
+  requireAuth,
+  requireRole('seeker'),
+  async (req, res, next) => {
+    try {
+      const { getPulseForSeeker } = await import('./pulse.service');
+      const pulse = await getPulseForSeeker(req.user!.id);
+      res.json({ ok: true, data: pulse, requestId: req.id });
     } catch (err) {
       next(err);
     }

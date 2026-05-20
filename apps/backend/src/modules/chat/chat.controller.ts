@@ -88,6 +88,7 @@ export async function sendMessage(
         body: req.body.body as string | undefined,
         kind: req.body.kind as 'text' | 'image' | 'voice' | 'video' | undefined,
         attachment: req.body.attachment ?? null,
+        templateKey: req.body.templateKey as string | undefined,
       },
     );
     ok(req, res, 201, { message });

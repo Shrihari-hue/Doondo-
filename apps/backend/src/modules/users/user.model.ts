@@ -329,6 +329,25 @@ export interface User {
    * agree to be in the pool because being woken at 2am is a real cost.
    */
   isPeerResponder: boolean;
+  /**
+   * Whether this user wants their Trust Circle notified when they
+   * start and end a shift (the accountability / safety-net use case).
+   * Default off — shift pings are a real attention cost for the 3
+   * contacts, so the worker opts in deliberately. Only contacts who
+   * are themselves Doondo users get the push.
+   */
+  shareShiftsWithCircle: boolean;
+  /**
+   * Re-engagement sweep bookkeeping. `lastReengagedAt` is when the
+   * dormant-user sweep last pushed this user; `reengagementAttempts`
+   * counts pushes in the current dormancy spell. Together they gate the
+   * sweep — it skips anyone pushed inside the cooldown window or past
+   * the attempt cap. `reengagementAttempts` resets to 0 on login (see
+   * auth.service) so a user who returns and lapses again is eligible
+   * for a fresh round of nudges.
+   */
+  lastReengagedAt?: Date | null;
+  reengagementAttempts: number;
   // ─── Employer profile (Phase 3) ─────────────────────────────────────────
   /** Trading / brand name shown on job posts. */
   companyName?: string | null;
@@ -410,6 +429,8 @@ export interface PublicUser {
   trustCircle: TrustCircleContact[];
   /** Whether this user has opted in to receive SOS pings from nearby workers. */
   isPeerResponder: boolean;
+  /** Whether the user's Trust Circle is notified on shift start/end. */
+  shareShiftsWithCircle: boolean;
   /** Rolling activity streaks — drives the Profile streak strip. */
   streaks: {
     apply: StreakCounter;
@@ -665,6 +686,8 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
     },
     expoPushTokens: { type: [String], default: [] },
     lastDigestSentAt: { type: Date, default: null },
+    lastReengagedAt: { type: Date, default: null },
+    reengagementAttempts: { type: Number, default: 0, min: 0 },
     streaks: {
       type: new Schema(
         {
@@ -713,6 +736,7 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
       },
     },
     isPeerResponder: { type: Boolean, default: false, index: true },
+    shareShiftsWithCircle: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
@@ -720,6 +744,10 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
 // 2dsphere on the seeker's saved location lets Phase 4 do "jobs near YOUR
 // home" recommendations without re-asking permission every session.
 userSchema.index({ 'location.geo': '2dsphere' });
+
+// Supports the dormant-user re-engagement sweep: it filters on isActive +
+// role and ranges over lastLoginAt to find users who haven't returned.
+userSchema.index({ isActive: 1, role: 1, lastLoginAt: 1 });
 
 userSchema.method('toPublicJSON', function (
   this: UserDocument,
@@ -804,6 +832,7 @@ userSchema.method('toPublicJSON', function (
         }))
       : [],
     isPeerResponder: Boolean(this.isPeerResponder),
+    shareShiftsWithCircle: Boolean(this.shareShiftsWithCircle),
     streaks: {
       apply: serializeStreak(this.streaks?.apply),
       course: serializeStreak(this.streaks?.course),

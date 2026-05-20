@@ -578,22 +578,10 @@ export async function transitionByEmployer(
       }
     })();
 
-    // If this hire was referred by another seeker, credit the referral
-    // bonus. Idempotent — only fires once per referral row.
-    void (async () => {
-      try {
-        const { creditOnHire: creditReferralOnHire } = await import(
-          '@/modules/referrals/referral.service'
-        );
-        await creditReferralOnHire({
-          refereeId: app.seekerId.toString(),
-          jobId: app.jobId.toString(),
-          applicationId: app.id,
-        });
-      } catch (err) {
-        logger.warn({ err, applicationId: app.id }, 'referral credit failed');
-      }
-    })();
+    // NOTE: the referral bonus is NOT credited here anymore. A hire that
+    // never shows up shouldn't pay out — the payout now fires when the
+    // referee completes their first shift check-in (see
+    // shiftCheckIn.service → referrals.creditOnFirstShift).
 
     // Fan-out "hired near you" social-proof pings to up to 50 verified
     // seekers within 10 km of the job. Best-effort; the hire itself is

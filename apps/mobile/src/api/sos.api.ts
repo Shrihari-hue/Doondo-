@@ -24,6 +24,8 @@ export interface TrustCircleResponse {
     relationship: string | null;
   }>;
   isPeerResponder: boolean;
+  /** Whether the user's Trust Circle is pinged when they start/end a shift. */
+  shareShiftsWithCircle: boolean;
 }
 
 export const sosApi = {
@@ -38,6 +40,12 @@ export const sosApi = {
 
   setPeerResponder: (enabled: boolean) =>
     apiRequest<{ isPeerResponder: boolean }>('/me/peer-responder', {
+      method: 'POST',
+      body: { enabled },
+    }),
+
+  setShareShifts: (enabled: boolean) =>
+    apiRequest<{ shareShiftsWithCircle: boolean }>('/me/share-shifts', {
       method: 'POST',
       body: { enabled },
     }),

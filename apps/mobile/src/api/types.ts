@@ -434,8 +434,43 @@ export interface PublicMessage {
   body: string;
   /** Present for image / voice / video messages. Null for text + system. */
   attachment: MessageAttachment | null;
+  /**
+   * Quick-reply template key (e.g. `quick_replies.emp.when_can_start`).
+   * When set, clients render the message via i18n so each side reads it
+   * in their own language; `body` holds the English fallback. Null /
+   * absent for free-text and media messages.
+   */
+  templateKey?: string | null;
   readAt: string | null;
   createdAt: string;
+}
+
+/** Doondo Pulse — the worker's momentum snapshot for the Home dashboard. */
+export type PulseNudgeAction =
+  | 'verify'
+  | 'build_profile'
+  | 'set_availability'
+  | 'add_skills'
+  | 'explore_jobs';
+
+export interface PulseNudge {
+  /** i18n key — rendered into the worker's language. */
+  key: string;
+  /** Routing hint — the card's CTA maps this to a screen. */
+  action: PulseNudgeAction;
+}
+
+export interface PulseSnapshot {
+  /** Doondo Score, 0-100. */
+  score: number;
+  /** Profile completion, 0-100. */
+  profileCompletion: number;
+  /** Current consecutive apply-streak days. */
+  applyStreak: number;
+  /** Applications still in play (pending / viewed / shortlisted). */
+  activeApplications: number;
+  /** The single most useful next step. */
+  nudge: PulseNudge;
 }
 
 export type InterviewMode = 'in_person' | 'video' | 'phone';

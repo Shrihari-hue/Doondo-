@@ -60,20 +60,36 @@ export async function getEmployerProfile(
       });
     }
 
-    // Stats — three small aggregates kicked off in parallel.
-    const [jobsCount, activeJobsCount, hiresCount, ratingSummary, recentJobs] =
-      await Promise.all([
-        JobModel.countDocuments({ employerId: employerObjectId }),
-        JobModel.countDocuments({ employerId: employerObjectId, status: 'active' }),
-        ApplicationModel.countDocuments({
-          employerId: employerObjectId,
-          status: 'hired',
-        }),
-        summarizeForUser(employer._id.toString()),
-        JobModel.find({ employerId: employerObjectId, status: 'active' })
-          .sort({ createdAt: -1 })
-          .limit(5),
-      ]);
+    // Stats — small aggregates kicked off in parallel. `totalApplications`
+    // and `ghostedCount` feed the responsiveness signal: the anti-ghost
+    // sweep stamps `flaggedAsGhostedAt` on applications this employer
+    // left unanswered past the SLA window. A high ratio is the public
+    // "slow to respond" warning a seeker sees before applying.
+    const [
+      jobsCount,
+      activeJobsCount,
+      hiresCount,
+      totalApplications,
+      ghostedCount,
+      ratingSummary,
+      recentJobs,
+    ] = await Promise.all([
+      JobModel.countDocuments({ employerId: employerObjectId }),
+      JobModel.countDocuments({ employerId: employerObjectId, status: 'active' }),
+      ApplicationModel.countDocuments({
+        employerId: employerObjectId,
+        status: 'hired',
+      }),
+      ApplicationModel.countDocuments({ employerId: employerObjectId }),
+      ApplicationModel.countDocuments({
+        employerId: employerObjectId,
+        flaggedAsGhostedAt: { $ne: null },
+      }),
+      summarizeForUser(employer._id.toString()),
+      JobModel.find({ employerId: employerObjectId, status: 'active' })
+        .sort({ createdAt: -1 })
+        .limit(5),
+    ]);
 
     const rating =
       ratingSummary.count > 0
@@ -90,6 +106,15 @@ export async function getEmployerProfile(
           jobsCount,
           activeJobsCount,
           hiresCount,
+          // Responsiveness — the mobile decides whether to render a
+          // warning pill. We send the raw numbers so the threshold
+          // logic + copy live on the client (and stay tunable without
+          // a backend deploy). `ghostRate` is 0..1, or null when there
+          // aren't enough applications (< 5) to judge the employer fairly.
+          totalApplications,
+          ghostedCount,
+          ghostRate:
+            totalApplications >= 5 ? ghostedCount / totalApplications : null,
         },
         recentJobs: recentJobsPublic,
       },

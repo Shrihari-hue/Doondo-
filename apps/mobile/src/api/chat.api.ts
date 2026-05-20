@@ -12,6 +12,8 @@ export interface SendMessageInput {
   kind?: 'text' | 'image' | 'voice' | 'video';
   /** Required when kind !== 'text'. */
   attachment?: MessageAttachment | null;
+  /** Quick-reply template key — set when sent from the quick-reply bar. */
+  templateKey?: string;
 }
 
 export const chatApi = {
@@ -51,6 +53,7 @@ export const chatApi = {
             body: input.body,
             kind: input.kind ?? (input.attachment ? 'image' : 'text'),
             attachment: input.attachment ?? null,
+            templateKey: input.templateKey,
           };
     return apiRequest<{ message: PublicMessage }>(
       `/conversations/${conversationId}/messages`,

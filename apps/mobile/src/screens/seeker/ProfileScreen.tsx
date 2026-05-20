@@ -494,14 +494,14 @@ export function ProfileScreen() {
               </View>
               <View style={{ flex: 1, gap: 2 }}>
                 <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFDF7' }}>
-                  Snap a photo to fill your profile
+                  {t('streak_strip.banner_title')}
                 </Text>
                 <Text variant="footnote" style={{ color: 'rgba(255,253,247,0.85)' }}>
-                  30 seconds. Resume, ID, or a handwritten sheet — all work.
+                  {t('streak_strip.banner_body')}
                 </Text>
               </View>
               <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFDF7' }}>
-                Start ›
+                {t('streak_strip.banner_cta')}
               </Text>
             </Pressable>
           </View>
@@ -625,19 +625,19 @@ export function ProfileScreen() {
             }}
           >
             <StreakChip
-              label="Apply"
+              label={t('streak_strip.apply')}
               current={user.streaks?.apply?.current ?? 0}
               longest={user.streaks?.apply?.longest ?? 0}
               onPress={() => navigation.navigate('MyApplications')}
             />
             <StreakChip
-              label="Learn"
+              label={t('streak_strip.learn')}
               current={user.streaks?.course?.current ?? 0}
               longest={user.streaks?.course?.longest ?? 0}
               onPress={() => navigation.navigate('Courses')}
             />
             <StreakChip
-              label="Show up"
+              label={t('streak_strip.show_up')}
               current={user.streaks?.shift?.current ?? 0}
               longest={user.streaks?.shift?.longest ?? 0}
               onPress={() => navigation.navigate('MyApplications')}
@@ -1321,12 +1321,15 @@ function StreakChip({
   onPress: () => void;
 }) {
   const { theme } = useTheme();
+  const t = useTranslate();
   const active = current > 0;
+  const unit = (n: number) =>
+    n === 1 ? t('streak_strip.unit_day') : t('streak_strip.unit_days');
   const a11yLabel = active
-    ? `${label} streak: ${current} ${current === 1 ? 'day' : 'days'} in a row. Tap to continue.`
+    ? t('streak_strip.a11y_active', { label, n: current, unit: unit(current) })
     : longest > 0
-      ? `${label} streak. Personal best ${longest} ${longest === 1 ? 'day' : 'days'}. Tap to start again.`
-      : `${label} streak. Tap to start today.`;
+      ? t('streak_strip.a11y_best', { label, n: longest, unit: unit(longest) })
+      : t('streak_strip.a11y_start', { label });
   return (
     <Pressable
       onPress={onPress}
@@ -1374,7 +1377,11 @@ function StreakChip({
           fontWeight: '500',
         }}
       >
-        {active ? `day${current === 1 ? '' : 's'}` : longest > 0 ? `best ${longest}` : 'start today'}
+        {active
+          ? unit(current)
+          : longest > 0
+            ? t('streak_strip.best', { n: longest })
+            : t('streak_strip.start_today')}
       </Text>
     </Pressable>
   );

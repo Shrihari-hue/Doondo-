@@ -267,6 +267,8 @@ interface SendMessageInput {
     height?: number | null;
     durationSeconds?: number | null;
   } | null;
+  /** Quick-reply template key — opaque to the server, persisted as-is. */
+  templateKey?: string | null;
 }
 
 export async function sendMessage(
@@ -290,6 +292,7 @@ export async function sendMessage(
     body,
     kind,
     attachment: input.attachment ?? null,
+    templateKey: input.templateKey ?? null,
   });
 
   // Bump conversation denorm fields. Preview shows a friendly summary

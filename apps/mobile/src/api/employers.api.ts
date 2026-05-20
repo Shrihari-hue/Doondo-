@@ -13,6 +13,15 @@ export interface EmployerStats {
   activeJobsCount: number;
   /** Applications this employer has marked as 'hired'. */
   hiresCount: number;
+  /** Total applications this employer has received (all statuses). */
+  totalApplications: number;
+  /** Applications the anti-ghost sweep flagged as unanswered past the SLA. */
+  ghostedCount: number;
+  /**
+   * Fraction of applications left to ghost (0..1). Null when the
+   * employer has fewer than 5 applications — not enough data to judge.
+   */
+  ghostRate: number | null;
 }
 
 export interface EmployerProfile {
