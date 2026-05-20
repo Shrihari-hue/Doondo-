@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useApplicationSocket } from '@/hooks/useApplicationSocket';
 import { useChatSocket } from '@/hooks/useChatSocket';
 import {
+  attachTapHandler,
   registerForPushNotifications,
   setupNotificationHandlers,
 } from '@/lib/push';
@@ -73,13 +74,16 @@ export function AppNavigator() {
   useApplicationSocket();
   useChatSocket();
 
-  // Push notifications — request permission and register the Expo token
-  // with the backend. Tap-to-deep-link will land in a follow-up; for v1
-  // the notification banner shows and the user opens the app manually
-  // (which lands on the right screen via unread badges).
+  // Push notifications — request permission, register the Expo token,
+  // and subscribe to taps so a notification tap lands the user on the
+  // right screen (server-driven via the `deeplink` field on every push
+  // payload). The tap handler also catches the cold-boot case where
+  // the user opens the app FROM a notification on the home screen.
   useEffect(() => {
     void setupNotificationHandlers();
     void registerForPushNotifications();
+    const unsubscribe = attachTapHandler();
+    return unsubscribe;
   }, []);
 
   return (

@@ -40,6 +40,7 @@ import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { sosApi, type TrustContactPayload, type TrustCircleResponse } from '@/api/sos.api';
 import { haptic } from '@/lib/haptics';
+import { friendlyErrorMessage } from '@/lib/friendlyError';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
@@ -105,7 +106,10 @@ function TrustCircleInner() {
     },
     onError: (err) => {
       haptic('error');
-      Alert.alert("Couldn't save", err instanceof Error ? err.message : 'Try again.');
+      Alert.alert(
+        "Couldn't save",
+        friendlyErrorMessage(err, 'Please check your connection and try again.'),
+      );
     },
   });
 
@@ -126,7 +130,10 @@ function TrustCircleInner() {
       // Roll back on failure.
       if (ctx?.previous) queryClient.setQueryData(['trustCircle'], ctx.previous);
       haptic('error');
-      Alert.alert("Couldn't update", err instanceof Error ? err.message : 'Try again.');
+      Alert.alert(
+        "Couldn't update",
+        friendlyErrorMessage(err, 'Please check your connection and try again.'),
+      );
     },
     onSuccess: () => {
       haptic('selection');
@@ -233,6 +240,8 @@ function TrustCircleInner() {
           <Pressable
             onPress={() => navigation.goBack()}
             hitSlop={12}
+            accessibilityLabel="Back"
+            accessibilityRole="button"
             style={{
               width: 40,
               height: 40,
@@ -245,7 +254,7 @@ function TrustCircleInner() {
           >
             <Feather name="chevron-left" size={20} color={theme.text.primary} />
           </Pressable>
-          <Text variant="title" weight="medium">
+          <Text variant="title" weight="medium" accessibilityRole="header">
             Trust Circle
           </Text>
         </View>
@@ -404,6 +413,13 @@ function ContactSlot({
       {/* Header row */}
       <Pressable
         onPress={onOpen}
+        accessibilityRole="button"
+        accessibilityLabel={
+          hasContact
+            ? `${persisted!.name}, ${prettyRelationship(persisted!.relationship)}. Tap to edit.`
+            : `Add contact in slot ${index + 1}`
+        }
+        accessibilityState={{ expanded: isOpen }}
         style={({ pressed }) => ({
           padding: spacing.lg,
           flexDirection: 'row',

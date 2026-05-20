@@ -97,6 +97,7 @@ export async function sendApplicationStatusPush(input: {
       channelId: 'applications',
       data: {
         type: 'application:status_changed',
+        deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
         status: input.status,
       },
@@ -171,6 +172,7 @@ export async function sendInterviewPush(input: {
       channelId: 'applications',
       data: {
         type: `interview:${input.kind}`,
+        deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
       },
     })),
@@ -218,6 +220,7 @@ export async function sendNewJobPush(input: {
     channelId: 'jobs',
     data: {
       type: 'job:new',
+      deeplink: { screen: 'JobDetail', params: { jobId: input.jobId } },
       jobId: input.jobId,
     },
   }));
@@ -268,6 +271,7 @@ export async function sendChatMessagePush(input: {
       channelId: 'chat',
       data: {
         type: 'chat:message_received',
+        deeplink: { screen: 'Conversation', params: { conversationId: input.conversationId } },
         conversationId: input.conversationId,
       },
     })),
@@ -312,6 +316,7 @@ export async function sendJobAlertMatchPush(input: {
       channelId: 'jobs',
       data: {
         type: 'job_alert:match',
+        deeplink: { screen: 'JobDetail', params: { jobId: input.jobId } },
         jobId: input.jobId,
       },
     })),
@@ -364,6 +369,7 @@ export async function sendInterviewReminderPush(input: {
       channelId: 'applications',
       data: {
         type: 'interview:reminder',
+        deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
       },
     })),
@@ -414,6 +420,7 @@ export async function sendSkillGapPush(input: {
       channelId: 'applications',
       data: {
         type: 'application:skill_gap',
+        deeplink: { screen: 'CourseDetail', params: { courseId: input.courseId } },
         applicationId: input.applicationId,
         courseId: input.courseId,
       },
@@ -460,6 +467,7 @@ export async function sendGhostedPush(input: {
       channelId: 'applications',
       data: {
         type: 'application:ghosted',
+        deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
       },
     })),
@@ -501,6 +509,7 @@ export async function sendMorningDigestPush(input: {
       channelId: 'jobs',
       data: {
         type: 'morning_digest',
+        deeplink: { screen: 'Home' },
         topJobIds: input.topJobIds.slice(0, 5),
       },
     })),
@@ -547,6 +556,7 @@ export async function sendStreakMilestonePush(input: {
       channelId: 'jobs',
       data: {
         type: 'streak:milestone',
+        deeplink: { screen: 'Profile' },
         kind: input.kind,
         days: input.days,
       },
@@ -588,6 +598,7 @@ export async function sendReferralBonusPush(input: {
       channelId: 'jobs',
       data: {
         type: 'referral:bonus',
+        deeplink: { screen: 'MyEarnings' },
         bonusPaise: input.bonusPaise,
       },
     })),
@@ -630,6 +641,7 @@ export async function sendHiredNearbyPush(input: {
       channelId: 'jobs',
       data: {
         type: 'hired:nearby',
+        deeplink: { screen: 'Home' },
       },
     })),
   );
@@ -678,6 +690,7 @@ export async function sendSosAlertPush(input: {
       channelId: 'applications',
       data: {
         type: 'sos:alert',
+        deeplink: { screen: 'Sos', params: { alertId: input.alertId } },
         alertId: input.alertId,
         fromName: input.fromName,
         relationship: input.relationship,
@@ -728,6 +741,7 @@ export async function sendShiftCheckinPush(input: {
       channelId: 'applications',
       data: {
         type: input.kind === 'check_in' ? 'shift:check_in' : 'shift:check_out',
+        deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
       },
     })),
@@ -767,7 +781,7 @@ export async function sendRatingReceivedPush(input: {
       body,
       sound: 'default',
       channelId: 'ratings',
-      data: { type: 'rating:received' },
+      data: { type: 'rating:received', deeplink: { screen: 'Ratings' } },
     })),
   );
 }

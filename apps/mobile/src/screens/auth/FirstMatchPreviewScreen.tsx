@@ -32,6 +32,7 @@ import { Screen, Text, Pill } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { getCurrentCoords } from '@/lib/location';
+import { friendlyErrorMessage } from '@/lib/friendlyError';
 import { jobsApi } from '@/api/jobs.api';
 import type { PublicJob } from '@/api/types';
 import type { AuthStackParamList } from '@/navigation/types';
@@ -72,7 +73,9 @@ export function FirstMatchPreviewScreen() {
         if (cancelled) return;
         // Network or 5xx — show the page anyway with a small inline error.
         // The CTA still works so the seeker isn't blocked.
-        setError(err instanceof Error ? err.message : 'Could not load matches.');
+        setError(
+          friendlyErrorMessage(err, "We couldn't load matches. Try again in a moment."),
+        );
         setJobs([]);
       } finally {
         if (!cancelled) setLoading(false);
@@ -114,6 +117,8 @@ export function FirstMatchPreviewScreen() {
           <Pressable
             onPress={() => navigation.goBack()}
             hitSlop={8}
+            accessibilityLabel="Back"
+            accessibilityRole="button"
             style={{
               width: 40,
               height: 40,
@@ -126,7 +131,12 @@ export function FirstMatchPreviewScreen() {
           >
             <Feather name="chevron-left" size={20} color={theme.text.primary} />
           </Pressable>
-          <Pressable onPress={goSignup} hitSlop={8}>
+          <Pressable
+            onPress={goSignup}
+            hitSlop={8}
+            accessibilityLabel="Skip preview and continue to sign up"
+            accessibilityRole="button"
+          >
             <Text variant="footnote" weight="medium" tone="secondary">
               Skip for now
             </Text>

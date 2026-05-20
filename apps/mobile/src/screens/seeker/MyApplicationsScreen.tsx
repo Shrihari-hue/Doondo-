@@ -31,6 +31,7 @@ import { applicationsApi } from '@/api/applications.api';
 import { shiftCheckInApi } from '@/api/shiftCheckIn.api';
 import { captureShiftSelfie } from '@/lib/selfie';
 import { getCurrentCoords } from '@/lib/location';
+import { friendlyErrorMessage } from '@/lib/friendlyError';
 import { useUnratedApplications } from '@/hooks/useRatings';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
@@ -709,7 +710,9 @@ function ShiftCheckInCard({ applicationId }: { applicationId: string }) {
       });
     } catch (err) {
       haptic('error');
-      setError(err instanceof Error ? err.message : 'Could not save check-in.');
+      setError(
+        friendlyErrorMessage(err, "We couldn't save your check-in. Try again."),
+      );
     } finally {
       setBusy(false);
     }
@@ -839,7 +842,9 @@ function SkillGapInlineCard({
         navigation.navigate('Courses');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load.');
+      setError(
+        friendlyErrorMessage(err, "We couldn't open the course. Try again."),
+      );
     } finally {
       setLoading(false);
     }

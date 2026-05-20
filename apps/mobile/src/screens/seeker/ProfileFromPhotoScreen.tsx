@@ -44,6 +44,7 @@ import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { haptic } from '@/lib/haptics';
 import { pickProfileDocument } from '@/lib/profileDocument';
+import { friendlyErrorMessage } from '@/lib/friendlyError';
 import { profileExtractApi } from '@/api/profileExtract.api';
 import { meApi } from '@/api/me.api';
 import type { ExtractedProfile } from '@/api/types';
@@ -86,7 +87,12 @@ function ProfileFromPhotoInner() {
       } catch (err) {
         haptic('error');
         setStage('pick');
-        setError(err instanceof Error ? err.message : 'Could not read the photo.');
+        setError(
+          friendlyErrorMessage(
+            err,
+            "We couldn't read the photo. Try a clearer image in good light.",
+          ),
+        );
       }
     },
     [],
@@ -147,7 +153,12 @@ function ProfileFromPhotoInner() {
     },
     onError: (err) => {
       haptic('error');
-      setError(err instanceof Error ? err.message : 'Could not save your profile.');
+      setError(
+        friendlyErrorMessage(
+          err,
+          "We couldn't save your profile. Please try again.",
+        ),
+      );
     },
   });
 
@@ -179,6 +190,8 @@ function ProfileFromPhotoInner() {
           <Pressable
             onPress={() => navigation.goBack()}
             hitSlop={12}
+            accessibilityLabel="Back"
+            accessibilityRole="button"
             style={{
               width: 40,
               height: 40,
@@ -191,7 +204,7 @@ function ProfileFromPhotoInner() {
           >
             <Feather name="chevron-left" size={20} color={theme.text.primary} />
           </Pressable>
-          <Text variant="title" weight="medium">
+          <Text variant="title" weight="medium" accessibilityRole="header">
             Photo to profile
           </Text>
         </View>

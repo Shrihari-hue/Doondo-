@@ -1322,9 +1322,16 @@ function StreakChip({
 }) {
   const { theme } = useTheme();
   const active = current > 0;
+  const a11yLabel = active
+    ? `${label} streak: ${current} ${current === 1 ? 'day' : 'days'} in a row. Tap to continue.`
+    : longest > 0
+      ? `${label} streak. Personal best ${longest} ${longest === 1 ? 'day' : 'days'}. Tap to start again.`
+      : `${label} streak. Tap to start today.`;
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
       style={({ pressed }) => ({
         flex: 1,
         padding: spacing.md,

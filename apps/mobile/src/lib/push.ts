@@ -150,44 +150,170 @@ export async function clearPushToken(): Promise<void> {
 
 // ─── Tap-to-navigate ────────────────────────────────────────────────────────
 
-export interface PushDeepLink {
-  type: 'chat:message_received' | 'application:status_changed' | string;
-  conversationId?: string;
-  applicationId?: string;
-  status?: string;
+import { navigateFromExternal } from '@/navigation/ref';
+
+/**
+ * Resolve a push notification's `data` payload to a `(screen, params)`
+ * call. Two shapes are accepted:
+ *
+ *   PREFERRED — `data.deeplink: { screen: string, params?: object }`
+ *     Server-driven routing: the backend already knows where to send
+ *     the user (it sets the same value on the in-app notification
+ *     row), so the mobile just forwards.
+ *
+ *   LEGACY — `data.type: string` plus a few specific fields
+ *     (applicationId, conversationId, jobId, alertId, courseId).
+ *     Older push payloads still in flight use this. We map each
+ *     known type to the screen/param shape the new code would have
+ *     emitted, so a tap on a queued legacy push still lands on the
+ *     right screen.
+ *
+ * Returns null when the payload doesn't carry enough info to route.
+ */
+function resolveDeeplinkFromData(
+  data: Record<string, unknown> | null | undefined,
+): { screen: string; params?: Record<string, unknown> } | null {
+  if (!data || typeof data !== 'object') return null;
+
+  // 1. Preferred path — server-set deeplink object.
+  const deeplink = (data as { deeplink?: unknown }).deeplink;
+  if (
+    deeplink &&
+    typeof deeplink === 'object' &&
+    'screen' in deeplink &&
+    typeof (deeplink as { screen: unknown }).screen === 'string'
+  ) {
+    const d = deeplink as { screen: string; params?: Record<string, unknown> };
+    return {
+      screen: d.screen,
+      params:
+        d.params && typeof d.params === 'object' ? d.params : undefined,
+    };
+  }
+
+  // 2. Legacy path — map `type` → screen + params.
+  const type = typeof (data as { type?: unknown }).type === 'string'
+    ? (data as { type: string }).type
+    : null;
+  if (!type) return null;
+
+  const applicationId =
+    typeof (data as { applicationId?: unknown }).applicationId === 'string'
+      ? (data as { applicationId: string }).applicationId
+      : undefined;
+  const conversationId =
+    typeof (data as { conversationId?: unknown }).conversationId === 'string'
+      ? (data as { conversationId: string }).conversationId
+      : undefined;
+  const jobId =
+    typeof (data as { jobId?: unknown }).jobId === 'string'
+      ? (data as { jobId: string }).jobId
+      : undefined;
+  const alertId =
+    typeof (data as { alertId?: unknown }).alertId === 'string'
+      ? (data as { alertId: string }).alertId
+      : undefined;
+  const courseId =
+    typeof (data as { courseId?: unknown }).courseId === 'string'
+      ? (data as { courseId: string }).courseId
+      : undefined;
+
+  switch (type) {
+    case 'application:status_changed':
+    case 'application:ghosted':
+    case 'interview:scheduled':
+    case 'interview:rescheduled':
+    case 'interview:cancelled':
+    case 'interview:reminder':
+    case 'shift:check_in':
+    case 'shift:check_out':
+      return applicationId
+        ? { screen: 'Applications', params: { applicationId } }
+        : { screen: 'Applications' };
+    case 'application:skill_gap':
+      return courseId
+        ? { screen: 'CourseDetail', params: { courseId } }
+        : applicationId
+          ? { screen: 'Applications', params: { applicationId } }
+          : null;
+    case 'chat:message_received':
+      return conversationId
+        ? { screen: 'Conversation', params: { conversationId } }
+        : { screen: 'Chat' };
+    case 'job:new':
+    case 'job_alert:match':
+      return jobId
+        ? { screen: 'JobDetail', params: { jobId } }
+        : { screen: 'Home' };
+    case 'sos:alert':
+      return alertId
+        ? { screen: 'Sos', params: { alertId } }
+        : { screen: 'Sos' };
+    case 'rating:received':
+      return { screen: 'Ratings' };
+    case 'referral:bonus':
+      return { screen: 'MyEarnings' };
+    case 'streak:milestone':
+      return { screen: 'Profile' };
+    case 'morning_digest':
+    case 'hired:nearby':
+      return { screen: 'Home' };
+    default:
+      return null;
+  }
 }
 
 /**
- * Subscribe to notification taps. The navigator-aware callback is invoked
- * with a parsed payload for "open chat / application from a tap".
- * Returns the unsubscribe function.
+ * Subscribe to notification taps. The handler reads the `data` payload,
+ * resolves a `(screen, params)` target, and navigates via the
+ * imperative navigation ref so it works even when the tap arrives
+ * outside any active screen (cold boot, backgrounded app).
+ *
+ * Returns an unsubscribe function. No-ops in Expo Go since push isn't
+ * supported there.
  */
-export function attachTapHandler(
-  onTap: (link: PushDeepLink) => void,
-): () => void {
+export function attachTapHandler(): () => void {
   if (IS_EXPO_GO) return () => undefined;
 
-  // We need a synchronous return for the unsubscribe contract — wire up
-  // the listener in a fire-and-forget async block, and surface the real
-  // unsubscribe through a closure once it's ready.
   let dispose: (() => void) | null = null;
   let cancelled = false;
 
   void (async () => {
     const Notifications = await import('expo-notifications');
     if (cancelled) return;
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data;
-      if (
-        data &&
-        typeof data === 'object' &&
-        'type' in data &&
-        typeof data.type === 'string'
-      ) {
-        onTap(data as unknown as PushDeepLink);
+
+    // Handle taps on a notification that fires while the app is alive.
+    const responseSub = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const data = response.notification.request.content.data as
+          | Record<string, unknown>
+          | null;
+        const target = resolveDeeplinkFromData(data);
+        if (target) navigateFromExternal(target.screen, target.params);
+      },
+    );
+
+    // Handle the cold-boot case: the user tapped a notification that
+    // launched the app from killed state. `getLastNotificationResponse`
+    // returns the response that triggered launch, if any.
+    try {
+      const last = await Notifications.getLastNotificationResponseAsync();
+      if (last) {
+        const data = last.notification.request.content.data as
+          | Record<string, unknown>
+          | null;
+        const target = resolveDeeplinkFromData(data);
+        if (target) {
+          // Small delay so the navigator has a chance to mount on
+          // cold boot before we navigate.
+          setTimeout(() => navigateFromExternal(target.screen, target.params), 400);
+        }
       }
-    });
-    dispose = () => sub.remove();
+    } catch {
+      // Older Expo SDKs may not have this API — silently skip.
+    }
+
+    dispose = () => responseSub.remove();
   })();
 
   return () => {

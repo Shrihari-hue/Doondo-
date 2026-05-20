@@ -13,6 +13,7 @@ import { themes } from '@doondo/tokens';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 import { useTheme } from '@/theme/useTheme';
 import { RootNavigator } from '@/navigation/RootNavigator';
+import { navigationRef } from '@/navigation/ref';
 import { queryClient } from '@/lib/queryClient';
 import { setAuthAdapter } from '@/api/client';
 import { useAuthStore } from '@/stores/auth.store';
@@ -92,7 +93,7 @@ function ThemedAppShell() {
   return (
     <>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <NavigationContainer theme={navTheme}>
+      <NavigationContainer ref={navigationRef} theme={navTheme}>
         <RootNavigator />
       </NavigationContainer>
     </>

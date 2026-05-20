@@ -18,6 +18,13 @@ course / shift days with milestone pushes), refer-a-friend payout +
 share card, and "hired near you today" social-proof rail. Closes the
 activation → trust → retention → growth loop.
 
+**Session 6:** Polish + production-readiness — push notification tap
+deeplinks wired end-to-end across all 15 push helpers, friendly error
+messages replacing raw network/exception strings on every new screen,
+accessibility labels on icon-only buttons and streak chips. i18n
+sweep deliberately deferred to its own focused session (5 locales ×
+8 new screens needs proper budget).
+
 See `DOONDO_V2_ROADMAP.md` for the full backlog.
 
 ---
@@ -689,12 +696,130 @@ Anonymised social-proof rail on Home + push fan-out on hire.
 
 ---
 
+---
+
+# Session 6 — Polish + production-readiness
+
+No new features. Three high-leverage improvements that turn the 13
+shipped features into something a real beta cohort can use.
+
+## Push notification tap deeplinks
+
+Every push helper has carried a `deeplink: { screen, params }` since
+Session 1, but tapping a notification did nothing useful — the
+mobile tap handler was a TODO. This session wires it end-to-end.
+
+**Mobile**
+- New `apps/mobile/src/navigation/ref.ts` — `navigationRef` for the
+  `<NavigationContainer>` plus a safe `navigateFromExternal(screen,
+  params)` helper that no-ops if the navigator isn't ready (cold
+  boot case).
+- `App.tsx` attaches the ref to the `NavigationContainer`.
+- `apps/mobile/src/lib/push.ts` `attachTapHandler()` now:
+  - Reads `data.deeplink: { screen, params }` from the tapped
+    notification payload (preferred path).
+  - Falls back to a `data.type` → `{screen, params}` map for legacy
+    payloads still in flight (every notification kind we've
+    shipped is covered: application status, interview events,
+    shift check-ins, chat, job alerts, SOS, skill gap, ghosted,
+    morning digest, streak milestones, referral bonuses, hired
+    nearby, ratings).
+  - Handles the cold-boot case via
+    `getLastNotificationResponseAsync` so opening the app FROM a
+    notification on the home screen lands on the right deeplink
+    after a 400ms grace for navigator mount.
+- `AppNavigator` subscribes via `attachTapHandler()` on mount and
+  unsubscribes on unmount.
+
+**Backend**
+- Every push helper in `apps/backend/src/lib/push.ts` now mirrors
+  its `deeplink` into the push payload's `data` field — the same
+  shape the in-app `notifications.record(...)` call gets. 15
+  helpers updated:
+  - `sendApplicationStatusPush`, `sendInterviewPush`,
+    `sendNewJobPush`, `sendChatMessagePush`,
+    `sendJobAlertMatchPush`, `sendRatingReceivedPush`,
+    `sendStreakMilestonePush`, `sendReferralBonusPush`,
+    `sendHiredNearbyPush`, `sendSosAlertPush`,
+    `sendShiftCheckinPush`, `sendInterviewReminderPush`,
+    `sendSkillGapPush`, `sendGhostedPush`, `sendMorningDigestPush`.
+
+Result: a tap on any push notification now lands on the right
+screen with the right params, even from a cold launch.
+
+## Friendly error messages
+
+Every new screen used to surface raw `err.message` on failure —
+"Network request failed", "TypeError: Cannot read properties of
+undefined", and similar leaked through to the user. Replaced with
+a single shared helper.
+
+**Mobile**
+- New `apps/mobile/src/lib/friendlyError.ts` —
+  `friendlyErrorMessage(err, fallback)`:
+  - Recognizes `ApiError` with known codes
+    (`NETWORK_ERROR` → "Looks like the network is slow",
+    `RATE_LIMITED` → "Wait a moment", auth failures → "Please
+    sign in again", `INTERNAL_ERROR` → "Something went wrong on
+    our end").
+  - Falls back to the backend's `error.message` when it's
+    user-safe (our controllers write that copy on the way out).
+  - Detects technical fragments
+    ("fetch failed", "TypeError", "cannot read properties", etc.)
+    and prefers the supplied fallback over them.
+  - Returns the supplied fallback as the final safety net.
+- Threaded into every catch block on the screens shipped Sessions
+  3-5: `FirstMatchPreviewScreen`, `TrustCircleScreen` (both
+  mutations + the optimistic peer toggle), `ProfileFromPhotoScreen`
+  (extraction + save), `ShiftCheckInCard`, `SkillGapInlineCard`.
+
+## Accessibility labels
+
+Icon-only buttons and composite display chips on the new screens
+now announce themselves to screen readers.
+
+**Mobile**
+- Back chevron buttons on FirstMatchPreviewScreen,
+  TrustCircleScreen, ProfileFromPhotoScreen get
+  `accessibilityLabel="Back"` + `accessibilityRole="button"`.
+- The "Skip preview" link on FirstMatchPreviewScreen announces
+  "Skip preview and continue to sign up".
+- Trust Circle slot rows announce as e.g. "Priya, family. Tap to
+  edit." with `accessibilityState={{ expanded: isOpen }}` so the
+  reader speaks the open/closed state.
+- Streak chips compose a full sentence:
+  "Apply streak: 5 days in a row. Tap to continue." (active) or
+  "Apply streak. Personal best 7 days. Tap to start again."
+  (inactive with a best) or "Apply streak. Tap to start today."
+- Screen titles use `accessibilityRole="header"` so the reader
+  marks them as headings.
+
+## What was deliberately deferred
+
+- **i18n sweep across 5 locales × 8 new screens.** Too big for
+  a single session — half-doing it (English keys only, other
+  locales fall through) would be worse than punting cleanly. Next
+  session should be a dedicated i18n pass with proper budget.
+- **Loading skeletons.** Most new screens use `ActivityIndicator`;
+  swapping in `SkeletonCard` is straightforward but not a launch
+  blocker.
+- **Push deeplink unit tests.** Worth writing but not in scope for
+  a polish session.
+
+## Verified (Session 6)
+
+- Backend `tsc --noEmit`: clean except `node-cron` and
+  `mongodb-memory-server` install-pending.
+- Mobile `tsc --noEmit`: **0 errors** end-to-end.
+
+---
+
 ## What's next
 
-The "Next" tranche after this session: voice-note replies with
-auto-transcription, quick-reply templates pre-translated,
-per-screen language toggle, re-engagement flow for 14-day dormant
-users, Doondo Pulse home-screen widget. Plus the "polish + i18n
-sweep" path that turns "shipped" into "feels launched" before a
-real beta. With the activation → trust → retention → growth loop
-now complete, polish is genuinely the highest-leverage move.
+The "Next" tranche after this session: i18n sweep across 5 locales
+(English/Hindi/Tamil/Telugu/Kannada) for every new screen, voice-note
+auto-transcription, quick-reply templates pre-translated, per-screen
+language toggle, re-engagement flow for 14-day dormant users, Doondo
+Pulse home-screen widget. The polish sweep this session made the
+shipped features ready for a real beta; remaining work is either
+launch prep (i18n) or further feature reach.
