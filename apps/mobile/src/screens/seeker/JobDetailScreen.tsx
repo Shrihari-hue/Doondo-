@@ -33,7 +33,8 @@ import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState } fr
 import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { jobsApi } from '@/api/jobs.api';
-import { applicationsApi } from '@/api/applications.api';
+import { applicationsApi, type ApplyPayload } from '@/api/applications.api';
+import { enqueueApplication } from '@/lib/offlineQueue';
 import { contactApi } from '@/api/contact.api';
 import { useAuth } from '@/hooks/useAuth';
 import { ApiError } from '@/api/errors';
@@ -64,6 +65,9 @@ function JobDetailScreenInner() {
   const [appliedNow, setAppliedNow] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
+  // True when the apply was saved to the offline queue (no connection)
+  // rather than delivered. The applied card swaps to the offline copy.
+  const [queuedOffline, setQueuedOffline] = useState(false);
   const [saved, setSaved] = useState<boolean | null>(null);
   // Cover letter — optional, multiline, only surfaces in Career mode
   // (Today mode is one-tap express-interest with no note).
@@ -161,17 +165,20 @@ function JobDetailScreenInner() {
     },
   });
 
+  /** Build the apply request body from the current form state. */
+  function buildApplyPayload(): ApplyPayload {
+    const cleanedMembers = teamMembers
+      .map((m) => ({ name: m.name.trim(), phone: m.phone.trim() }))
+      .filter((m) => m.name && m.phone);
+    return {
+      coverNote: coverNote.trim() || undefined,
+      teamMembers: cleanedMembers.length > 0 ? cleanedMembers : undefined,
+      referrerId: route.params.ref,
+    };
+  }
+
   const applyMutation = useMutation({
-    mutationFn: () => {
-      const cleanedMembers = teamMembers
-        .map((m) => ({ name: m.name.trim(), phone: m.phone.trim() }))
-        .filter((m) => m.name && m.phone);
-      return applicationsApi.apply(route.params.jobId, {
-        coverNote: coverNote.trim() || undefined,
-        teamMembers: cleanedMembers.length > 0 ? cleanedMembers : undefined,
-        referrerId: route.params.ref,
-      });
-    },
+    mutationFn: () => applicationsApi.apply(route.params.jobId, buildApplyPayload()),
     onSuccess: () => {
       setAppliedNow(true);
       setApplyError(null);
@@ -180,13 +187,27 @@ function JobDetailScreenInner() {
       void queryClient.invalidateQueries({ queryKey: ['applications', 'me'] });
     },
     onError: (err) => {
-      haptic('error');
       if (err instanceof ApiError && err.code === 'APPLICATION_ALREADY_EXISTS') {
+        haptic('error');
         setApplyError(t('job_detail.errors.already_applied'));
         setAppliedNow(true);
       } else if (err instanceof ApiError && err.code === 'JOB_NOT_OPEN') {
+        haptic('error');
         setApplyError(t('job_detail.errors.job_not_open'));
+      } else if (err instanceof ApiError && err.isTransient) {
+        // No connection (or a server hiccup). Don't lose the application
+        // — queue it; useOfflineQueueSync sends it when the worker is
+        // back online.
+        void enqueueApplication({
+          jobId: route.params.jobId,
+          payload: buildApplyPayload(),
+        });
+        setQueuedOffline(true);
+        setAppliedNow(true);
+        setApplyError(null);
+        haptic('success');
       } else {
+        haptic('error');
         setApplyError(err instanceof Error ? err.message : t('job_detail.errors.generic'));
       }
     },
@@ -516,16 +537,24 @@ function JobDetailScreenInner() {
           <Card premium>
             <View style={{ gap: spacing.sm, alignItems: 'center' }}>
               <Text variant="bodyLarge" weight="medium" tone="hero">
-                {isTodayMode
-                  ? t('job_detail.applied_card.interest_sent_title')
-                  : t('job_detail.applied_card.applied_sent_title')}
+                {queuedOffline
+                  ? t('job_detail.applied_card.offline_queued_title')
+                  : isTodayMode
+                    ? t('job_detail.applied_card.interest_sent_title')
+                    : t('job_detail.applied_card.applied_sent_title')}
               </Text>
               <Text variant="footnote" tone="secondary" style={{ textAlign: 'center' }}>
-                {isTodayMode
-                  ? t('job_detail.applied_card.interest_sent_message')
-                  : t('job_detail.applied_card.applied_sent_message')}
+                {queuedOffline
+                  ? t('job_detail.applied_card.offline_queued_message')
+                  : isTodayMode
+                    ? t('job_detail.applied_card.interest_sent_message')
+                    : t('job_detail.applied_card.applied_sent_message')}
               </Text>
-              <CallEmployerButton t={t} jobId={route.params.jobId} />
+              {/* No "call employer" while offline — the application
+                 hasn't reached them yet. */}
+              {!queuedOffline && (
+                <CallEmployerButton t={t} jobId={route.params.jobId} />
+              )}
             </View>
           </Card>
         )}

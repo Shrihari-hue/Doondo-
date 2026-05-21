@@ -188,6 +188,10 @@ export type AppStackParamList = {
   SkillPassport: undefined;
   /** Modal: the worker's Doondo Constitution — personal work rules. */
   Constitution: undefined;
+  /** Modal: the career-path ladder for a trade. */
+  CareerPath: undefined;
+  /** Modal: PF / ESI / income-tax explainer for first formal jobs. */
+  PayslipExplainer: undefined;
   /** Modal: interview / trial-day prep — short tips per trade. */
   InterviewPrep: undefined;
   /** Modal: contacts-match + invite flow. */

@@ -88,6 +88,23 @@ rules (max travel distance, no nights, no Sundays, must have PPE / a
 contract); employers see them on the applicant view. The mirror image
 of Reverse Interview — both sides' terms, on the record.
 
+**Session 21:** Career-path map — a trade ladder (Driving, Construction,
+Kitchen) showing the rungs from entry-level to manager, each with pay
+and the skills that unlock it, the worker's current rung marked.
+
+**Session 22:** Payslip explainer — PF, ESI and income tax in plain
+language for first-formal-job workers, with a worked example. Rates
+web-verified for FY 2026-27.
+
+**Session 23:** "Claiming what's yours" — added to the payslip
+explainer: how to withdraw PF (UAN, EPFO) and how to use ESI cover
+(Pehchan card, hospitals, sickness benefit), with tappable links to
+the official government portals.
+
+**Session 24:** Offline mode — a job application tapped with no
+connection is queued on the device and sent automatically when the
+worker is back online. A dropped signal never costs them a job.
+
 See `DOONDO_V2_ROADMAP.md` for the full backlog.
 
 ---
@@ -1871,6 +1888,259 @@ as for earlier i18n work.
 
 ---
 
+# Session 21 — Career-path map
+
+A blue-collar worker rarely sees a future past the job in front of
+them. The career-path map draws the climb — for a trade, the rungs
+from entry-level to manager, and what each one takes.
+
+## The flow
+
+1. The worker opens **Career Path** from a row on the Profile menu.
+2. The screen opens on the trade ladder that best matches their listed
+   skills (Driving, Construction, or Kitchen) — switchable with the
+   chips at the top.
+3. The ladder shows four rungs, entry-level first. Each rung carries
+   the role, a one-line description, the typical monthly pay range, and
+   — for rungs the worker hasn't reached — the skills that unlock it.
+4. The worker's current rung is inferred from their own skills and
+   marked **"You're here"**; the rung above it is flagged **"Next
+   step"**. Rungs already cleared show a filled number badge.
+5. An **"Explore courses"** button drops the worker into the Courses
+   catalogue to start closing the gap.
+
+## How it's built
+
+It's pure static content — career ladders don't change per request —
+so there is no backend call. The only dynamic part (matching the
+worker's skills to a rung) runs client-side.
+
+- `apps/mobile/.../lib/careerPathCatalog.ts` — new. Three trade ladders
+  × four rungs (role keys, pay, unlocking skills), plus two pure,
+  unit-tested helpers: `bestPathForSkills` (which ladder to open on) and
+  `currentStepIndex` (which rung the worker is on).
+- `screens/seeker/CareerPathScreen.tsx` — the trade selector + the
+  ladder of rung cards + the Explore-courses CTA.
+- `AppNavigator.tsx` + `navigation/types.ts` — registers the modal
+  screen; `ProfileScreen.tsx` adds the menu row that opens it.
+- `i18n/locales/*.json` — new `career_path` block (12 steps + chrome)
+  across all 5 locales, round-trip-verified.
+
+## Verified (Session 21)
+
+- Mobile `tsc --noEmit`: clean — 0 errors.
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import); no backend changes this session.
+- Career-path catalog functional check (compiled + run): `bestPathForSkills`
+  and `currentStepIndex` pass 8/8 assertions (skill→ladder routing,
+  current-rung detection, no-overlap fallback to entry level).
+- `bootcheck`: **PASSED** — re-run to confirm the (untouched) backend
+  graph still boots.
+- All 5 locale files parse; `career_path` block present.
+
+Tamil / Telugu / Kannada native-speaker QA applies to the new strings,
+as for earlier i18n work.
+
+---
+
+# Session 22 — Payslip explainer (PF / ESI / tax)
+
+A worker's first formal payslip is alarming: the wage they agreed to,
+minus a column of deductions, equals a smaller "in hand" number than
+they expected. The explainer demystifies it — and reframes it. PF is
+the worker's own savings; ESI is health cover for the whole family;
+and for almost every blue-collar wage, income tax is simply zero.
+
+## The flow
+
+From a Profile menu row ("Your Payslip Explained"), the worker opens a
+screen with:
+
+1. a plain-language intro;
+2. three concept cards — **PF** (12% of basic pay into a savings fund
+   the worker gets back with interest; the employer matches it),
+   **ESI** (0.75% of wages buys health cover for the worker and their
+   family, if they earn up to ₹21,000/month), and **Income tax**
+   (income up to ₹12 lakh/year is tax-free under the new regime — so
+   "most workers on Doondo pay zero income tax", with the slab table
+   for those who earn more);
+3. a **worked example** — for a ₹18,000/month wage: − ₹2,160 PF,
+   − ₹135 ESI, ₹0 tax, = ₹15,705 cash in hand, with the reminder that
+   the ₹2,160 PF is still the worker's money, so the real value is
+   ₹17,865;
+4. a footer naming the financial year and noting rates change with the
+   annual Budget.
+
+## Current-data note
+
+The rates were **web-verified for FY 2026-27**, not taken from
+training data — income tax slabs move with every Union Budget, and
+Budget 2026 had to be checked. Findings: Budget 2026 left the FY
+2025-26 new-regime slabs unchanged (₹0 up to ₹4L, then 5/10/15/20/25/30%
+bands; the s.87A rebate zeroes tax up to ₹12L taxable). EPF (12% + 12%)
+and ESI (0.75% + 3.25%, ₹21,000 ceiling) are unchanged and stable.
+
+## How it's built
+
+Static, mobile-only content — no backend.
+
+- `apps/mobile/.../lib/formalPayCatalog.ts` — new. Every rate in one
+  dated place (`FORMAL_PAY_FACTS`, `effectiveFy: '2026-27'`), plus a
+  pure, unit-tested `computeSamplePayslip`. Next year's update is one
+  edit here.
+- `screens/seeker/PayslipExplainerScreen.tsx` — the three concept
+  cards, the slab table (built from the catalog), and the worked
+  example.
+- `AppNavigator.tsx` + `navigation/types.ts` — registers the modal;
+  `ProfileScreen.tsx` adds the menu row.
+- `i18n/locales/*.json` — new `payslip` block (27 keys) across all 5
+  locales; rates are interpolated at render so the strings stay
+  number-free and the catalog stays the single source.
+
+## Verified (Session 22)
+
+- Mobile `tsc --noEmit`: clean — 0 errors.
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import); no backend changes this session.
+- Formal-pay catalog functional check (compiled + run): `computeSamplePayslip`
+  passes 10/10 assertions — PF/ESI maths, the ESI ceiling cutoff, the
+  s.87A tax-free band leaving blue-collar wages at ₹0, and the slab
+  engine charging tax correctly above ₹12L.
+- `bootcheck`: **PASSED** — re-run; the (untouched) backend graph boots.
+- All 5 locale files parse; `payslip` block present with 27 keys.
+
+Tamil / Telugu / Kannada native-speaker QA applies to the new strings,
+as for earlier i18n work.
+
+---
+
+# Session 23 — "Claiming what's yours"
+
+The Session 22 explainer told a worker *what* PF and ESI are. It
+stopped short of the part that actually matters: how to get the money.
+This session adds that — a "Claiming what's yours" section, with the
+honest distinction kept clear. PF is a savings fund you *withdraw*;
+ESI is insurance you *use* — they are not claimed the same way.
+
+## What it adds
+
+A new section at the foot of the payslip explainer:
+
+- **Getting your PF money** — four plain steps: your UAN follows you
+  across jobs; activate it and check the balance on the UMANG app or
+  EPFO website; withdraw online (no employer signature for most
+  claims) — fully after retirement / two months jobless, or partly for
+  medical, housing, or education; online claims reach the bank in
+  about 3–5 working days. A tappable link opens the EPFO portal.
+- **Using your ESI cover** — three steps: your ESI Pehchan card is the
+  health ID for you and your family; show it at any ESI hospital for
+  free treatment; a doctor-certified sick leave can be claimed as
+  sickness benefit (~70% of wages) through the employer's ESI office.
+  A tappable link opens the ESIC portal.
+- A note that government portals and steps can change.
+
+## Current-data note
+
+The withdrawal/claim process and the portal URLs were **web-verified
+for 2026** — not taken from training data. Confirmed: PF withdrawal is
+online via UAN on the EPFO member portal with no employer approval for
+most claims (EPFO 3.0 / 2026); ESI benefits are accessed with the
+Pehchan card at ESI hospitals, sickness benefit ~70% of wages. The two
+links point at the long-standing official `.gov.in` domains
+(`epfindia.gov.in`, `esic.gov.in`).
+
+## How it's built
+
+- `formalPayCatalog.ts` — a `portals` object (the two verified URLs)
+  added to the dated facts catalog.
+- `i18n/locales/*.json` — the `payslip` block extended from 27 → 40
+  keys across all 5 locales (round-trip-verified; the existing keys
+  untouched).
+- `PayslipExplainerScreen.tsx` — a `StepList` (numbered steps) and a
+  `PortalLink` (a tappable pill that opens a URL via `Linking.openURL`)
+  power the new section.
+
+## Verified (Session 23)
+
+- Mobile `tsc --noEmit`: clean — 0 errors.
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import); no backend changes this session.
+- Formal-pay catalog check (compiled + run): the two portal URLs are
+  the expected official `.gov.in` domains, and `computeSamplePayslip`
+  still passes.
+- `bootcheck`: **PASSED** — re-run; the (untouched) backend graph boots.
+- All 5 locale files parse; `payslip` block now has 40 keys.
+
+Tamil / Telugu / Kannada native-speaker QA applies to the new strings,
+as for earlier i18n work.
+
+---
+
+# Session 24 — Offline mode (queued applications)
+
+Blue-collar work happens in basements, on sites, in dead zones. Until
+now, a worker who tapped Apply with no signal just saw a failure — and
+a lost opportunity. This session fixes the one offline action that
+actually matters.
+
+## What it does — and what it deliberately doesn't
+
+A hiring marketplace can't run fully offline: fresh listings, chat and
+login all need the network, and no app can fake that. So offline mode
+is scoped to one thing — **the Apply action never fails for lack of a
+connection.**
+
+When a worker taps Apply (or sends a team application) and the request
+fails on the network, the application is **saved to a queue on the
+device** instead of erroring. The job-detail screen shows a calm
+"Saved on your phone — it will be sent automatically when you're back
+online" card rather than a red failure. The moment the app next has a
+connection, the queue flushes and the application is delivered for
+real.
+
+The existing per-job offline *cache* (`downloads.ts`) already lets a
+worker re-open job details they saved while online; this session adds
+the write side.
+
+## How it's built
+
+- `apps/mobile/.../lib/offlineQueue.ts` — new. A SQLite-backed queue
+  (`pending_applications` table, in the same `doondo-cache.db` the
+  download cache uses). `enqueueApplication` (de-duped per job),
+  `flushPendingApplications`, and a pure, unit-tested `keepForRetry` —
+  the keep-vs-drop rule: transient failures (no network, 5xx) stay
+  queued; permanent ones (already applied, job closed) are dropped so
+  the queue can't get stuck.
+- `hooks/useOfflineQueue.ts` — `useOfflineQueueSync` flushes the queue
+  on mount and on every app-foreground transition (an `AppState`
+  'active' event — no NetInfo dependency needed). Mounted once in
+  `AppNavigator` alongside the socket hooks.
+- `JobDetailScreen.tsx` — the apply mutation's error handler now has a
+  transient-failure branch: it enqueues the application and shows the
+  offline card. The apply payload was extracted into one
+  `buildApplyPayload` builder shared by the live send and the queue.
+- `i18n/locales/*.json` — the offline-queued card copy added to the
+  `job_detail.applied_card` block in all 5 locales.
+
+## Verified (Session 24)
+
+- Mobile `tsc --noEmit`: clean — 0 errors.
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import); no backend changes this session.
+- `keepForRetry` functional check (compiled + run): 5/5 — transient
+  errors kept, permanent / already-applied / null / plain errors
+  dropped.
+- `bootcheck`: **PASSED** — re-run; the (untouched) backend graph boots.
+- All 5 locale files parse; the offline-queued keys are present.
+
+**Environment note:** SQLite (`expo-sqlite`) is a native module, so the
+queue's actual persistence can't be exercised in this sandbox — the
+logic and types are verified here; the on-device round-trip (apply in
+airplane mode → re-connect → delivered) belongs to the deploy platform,
+like the real-MongoDB boot.
+
+---
+
 ## What's next
 
 The codebase is verified as far as this environment allows — it
@@ -1879,9 +2149,8 @@ verification step (boot against a real MongoDB) belongs on the
 deploy platform, with the commands above.
 
 Most roadmap features are shipped and every screen is localised.
-Remaining picks, smallest-first: career-path map, PF/ESI/tax explainer,
-peer cohorts, bookable mentor sessions, offline mode — and the larger
-moonshots (AR Job Vision, the voice agent, Hire Reels, Doondo for
-Women). Release work also stands open: native-speaker QA on the
-translations and the on-device boot against a real MongoDB. The app is
-beta-ready in English and Hindi today.
+Remaining picks, smallest-first: peer cohorts, bookable mentor
+sessions — and the larger moonshots (AR Job Vision, the voice agent,
+Hire Reels, Doondo for Women). Release work also stands open:
+native-speaker QA on the translations and the on-device boot against a
+real MongoDB. The app is beta-ready in English and Hindi today.

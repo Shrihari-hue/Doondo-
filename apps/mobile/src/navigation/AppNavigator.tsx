@@ -15,6 +15,7 @@ import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useApplicationSocket } from '@/hooks/useApplicationSocket';
 import { useChatSocket } from '@/hooks/useChatSocket';
+import { useOfflineQueueSync } from '@/hooks/useOfflineQueue';
 import {
   attachTapHandler,
   registerForPushNotifications,
@@ -49,6 +50,8 @@ import { CourseDetailScreen } from '@/screens/seeker/CourseDetailScreen';
 import { SkillTestsScreen } from '@/screens/seeker/SkillTestsScreen';
 import { SkillPassportScreen } from '@/screens/seeker/SkillPassportScreen';
 import { ConstitutionScreen } from '@/screens/seeker/ConstitutionScreen';
+import { CareerPathScreen } from '@/screens/seeker/CareerPathScreen';
+import { PayslipExplainerScreen } from '@/screens/seeker/PayslipExplainerScreen';
 import { InterviewPrepScreen } from '@/screens/seeker/InterviewPrepScreen';
 import { FindFriendsScreen } from '@/screens/seeker/FindFriendsScreen';
 import { MentorsScreen } from '@/screens/seeker/MentorsScreen';
@@ -75,6 +78,10 @@ export function AppNavigator() {
   // Mounted here so the listeners follow the full authenticated session.
   useApplicationSocket();
   useChatSocket();
+
+  // Flush any applications queued while offline — on mount and every
+  // time the app returns to the foreground.
+  useOfflineQueueSync();
 
   // Push notifications — request permission, register the Expo token,
   // and subscribe to taps so a notification tap lands the user on the
@@ -274,6 +281,16 @@ export function AppNavigator() {
       <Stack.Screen
         name="Constitution"
         component={ConstitutionScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="CareerPath"
+        component={CareerPathScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="PayslipExplainer"
+        component={PayslipExplainerScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen

@@ -386,7 +386,9 @@
       "applied_sent_title": "Application sent",
       "interest_sent_title": "Interest sent",
       "applied_sent_message": "Track its status in the Applications tab.",
-      "interest_sent_message": "You can call the employer now — they're expecting to hear from you."
+      "interest_sent_message": "You can call the employer now — they're expecting to hear from you.",
+      "offline_queued_title": "Saved on your phone",
+      "offline_queued_message": "You're offline right now. We've saved your application — it will be sent automatically the moment you're back online."
     },
     "errors": {
       "already_applied": "You already applied to this job.",
@@ -2208,5 +2210,112 @@
     "detail_no_sundays": "No Sunday work",
     "detail_requires_ppe": "Needs safety equipment",
     "detail_requires_contract": "Needs a written contract"
+  },
+  "career_path": {
+    "title": "Career Path",
+    "tagline": "See how your trade grows — and what unlocks each step.",
+    "back": "Back",
+    "per_month": "/ month",
+    "you_are_here": "You're here",
+    "next_up": "Next step",
+    "unlocks": "Unlocks with",
+    "explore_courses": "Explore courses",
+    "path": {
+      "driving": "Driving & Delivery",
+      "construction": "Construction",
+      "kitchen": "Kitchen & Food"
+    },
+    "steps": {
+      "driving_1": {
+        "title": "Delivery Rider",
+        "desc": "Deliver parcels and food on a two-wheeler."
+      },
+      "driving_2": {
+        "title": "Commercial Driver",
+        "desc": "Drive cars, taxis, or vans for a company."
+      },
+      "driving_3": {
+        "title": "Fleet Coordinator",
+        "desc": "Plan routes and schedules for a group of drivers."
+      },
+      "driving_4": {
+        "title": "Fleet Manager",
+        "desc": "Run the whole fleet — drivers, vehicles, and budgets."
+      },
+      "construction_1": {
+        "title": "Site Helper",
+        "desc": "Carry materials and assist skilled workers on site."
+      },
+      "construction_2": {
+        "title": "Mason / Skilled Worker",
+        "desc": "Lay bricks, plaster, and finish structures."
+      },
+      "construction_3": {
+        "title": "Site Supervisor",
+        "desc": "Lead a crew and keep the site safe and on schedule."
+      },
+      "construction_4": {
+        "title": "Site Manager",
+        "desc": "Run the project — crews, timelines, and quality."
+      },
+      "kitchen_1": {
+        "title": "Kitchen Helper",
+        "desc": "Prep ingredients and keep the kitchen clean."
+      },
+      "kitchen_2": {
+        "title": "Cook",
+        "desc": "Cook dishes on your own station."
+      },
+      "kitchen_3": {
+        "title": "Head Cook",
+        "desc": "Plan the menu and lead the kitchen team."
+      },
+      "kitchen_4": {
+        "title": "Kitchen Manager",
+        "desc": "Run the kitchen — staff, stock, and standards."
+      }
+    }
+  },
+  "payslip": {
+    "title": "Your Payslip Explained",
+    "tagline": "PF, ESI and tax — what those deductions really mean.",
+    "back": "Back",
+    "intro": "Starting your first formal job? Your payslip will show some money taken out. Most of it actually helps you — here's how.",
+    "pf_title": "PF — your savings fund",
+    "pf_what": "{{pct}}% of your basic pay goes into a savings fund. Your employer adds the same amount on top — free money for you.",
+    "pf_get": "It is your money. You get all of it back with interest (around 8% a year) when you change jobs or retire.",
+    "pf_note": "PF is not a loss — it is savings you build without thinking about it.",
+    "esi_title": "ESI — health cover",
+    "esi_what": "Just {{pct}}% of your wages buys health cover for you and your family — if you earn up to ₹{{ceiling}} a month.",
+    "esi_get": "It pays for hospital treatment, and gives you money during sickness, injury, or maternity leave.",
+    "tax_title": "Income tax",
+    "tax_free": "Under the new tax system, yearly income up to ₹{{lakh}} lakh is completely tax-free.",
+    "tax_most": "Most workers on Doondo earn below this — so they pay zero income tax.",
+    "tax_slabs_intro": "Earn more than that? Tax applies in steps:",
+    "slab_upto": "Up to ₹{{x}}",
+    "slab_above": "Above ₹{{x}}",
+    "slab_no_tax": "No tax",
+    "payslip_title": "Example payslip",
+    "payslip_for": "A worker earning ₹{{wage}} a month:",
+    "payslip_gross": "Monthly wage",
+    "payslip_pf": "PF (your savings)",
+    "payslip_esi": "ESI (health cover)",
+    "payslip_tax": "Income tax",
+    "payslip_inhand": "Cash in hand",
+    "payslip_note": "The ₹{{pf}} PF is still yours, saved for later — so your real value this month is ₹{{total}}.",
+    "footer": "Rates shown for the {{fy}} financial year. Government rates can change with each year's Budget.",
+    "claim_section": "Claiming what's yours",
+    "pf_claim_title": "Getting your PF money",
+    "pf_claim_1": "You have a UAN — a 12-digit number that stays with you across every job. Ask your employer for it.",
+    "pf_claim_2": "Activate your UAN and check your balance on the UMANG app or the EPFO website. Link your Aadhaar, PAN and bank account.",
+    "pf_claim_3": "Withdraw online — no employer signature needed for most claims. Take it all after you retire or after 2 months without a job, or take a part for medical, housing, or education needs.",
+    "pf_claim_4": "Online claims usually reach your bank in about 3–5 working days.",
+    "pf_portal_label": "Open the EPFO website",
+    "esi_claim_title": "Using your ESI cover",
+    "esi_claim_1": "You get an ESI Pehchan card — your health ID. It covers you and your family.",
+    "esi_claim_2": "For treatment, go to any ESI hospital or dispensary and show your Pehchan card with an ID. Care is free.",
+    "esi_claim_3": "If a doctor signs you off sick, you can claim sickness benefit — about 70% of your wage — through your employer’s ESI office.",
+    "esi_portal_label": "Open the ESIC website",
+    "claim_note": "Government portals and steps can change — these are the official sites."
   }
 }

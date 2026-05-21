@@ -996,6 +996,28 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
+              icon="🪜"
+              tint="#C7D2FE"
+              label={t('career_path.title')}
+              subtitle={t('career_path.tagline')}
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('CareerPath');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="🧾"
+              tint="#BBF7D0"
+              label={t('payslip.title')}
+              subtitle={t('payslip.tagline')}
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('PayslipExplainer');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
               icon="💬"
               tint="#E0E7FF"
               label={t('profile_screen.menu_extra.interview_prep')}

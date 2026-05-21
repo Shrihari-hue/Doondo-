@@ -37,21 +37,30 @@ export const VOICE_MAX_SECONDS = 60;
 
 const RECORDING_OPTIONS = {
   isMeteringEnabled: false,
+  // In expo-audio v1.x, `extension`, `sampleRate`, `numberOfChannels` and
+  // `bitRate` are TOP-LEVEL keys on RecordingOptions. Nesting them under
+  // `android` / `ios` (as this file used to) means the native side never
+  // reads them — the clip wouldn't actually be mono / 64 kbps, which quietly
+  // breaks the ~1.4MB size budget the rest of this file assumes.
+  extension: '.m4a',
+  sampleRate: 32_000,
+  numberOfChannels: 1,
+  bitRate: 64_000,
   android: {
-    extension: '.m4a',
-    outputFormat: 'mpeg_4' as const,
+    // Must be a member of the AndroidOutputFormat enum:
+    //   'default' | '3gp' | 'mpeg4' | 'amrnb' | 'amrwb' | 'aac_adts' | 'mpeg2ts' | 'webm'
+    // It is 'mpeg4' — NOT 'mpeg_4'. The underscored form is rejected natively
+    // with: "Couldn't convert ... to AndroidOutputFormat where value is the
+    // enum parameter" (the crash seen on the hold-to-record button).
+    outputFormat: 'mpeg4' as const,
     audioEncoder: 'aac' as const,
-    sampleRate: 32_000,
-    numberOfChannels: 1,
-    bitRate: 64_000,
   },
   ios: {
-    extension: '.m4a',
-    outputFormat: 'mpeg4aac' as const,
-    audioQuality: 96 as const, // HIGH
-    sampleRate: 32_000,
-    numberOfChannels: 1,
-    bitRate: 64_000,
+    // IOSOutputFormat.MPEG4AAC. Its raw value is the 4-character code 'aac '
+    // (note the trailing space). 'mpeg4aac' is NOT a valid value and would
+    // crash iOS exactly the way 'mpeg_4' crashed Android.
+    outputFormat: 'aac ' as const,
+    audioQuality: 96 as const, // AudioQuality.HIGH
     linearPCMBitDepth: 16,
     linearPCMIsBigEndian: false,
     linearPCMIsFloat: false,
