@@ -31,7 +31,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { spacing, radii, blue } from '@doondo/tokens';
-import { Screen, Text, Button, Avatar, AccountSwitcherSheet } from '@/components';
+import {
+  Screen,
+  Text,
+  Button,
+  Avatar,
+  AccountSwitcherSheet,
+  LanguageToggle,
+} from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/auth.store';
@@ -252,6 +259,19 @@ export function ProfileScreen() {
               ▾
             </Text>
           </Pressable>
+
+          {/* Top-right language toggle — mirrors the account switcher
+              pill on the left. `onDark` so the globe button reads on the
+              blue gradient hero. */}
+          <View
+            style={{
+              position: 'absolute',
+              top: insets.top + spacing.sm,
+              right: spacing.lg,
+            }}
+          >
+            <LanguageToggle variant="onDark" />
+          </View>
 
           {/* Avatar with halo glow + camera affordance */}
           <Pressable
@@ -950,6 +970,28 @@ export function ProfileScreen() {
               onPress={() => {
                 haptic('selection');
                 navigation.navigate('SkillTests');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="🪪"
+              tint="#CCFBF1"
+              label={t('skill_passport.title')}
+              subtitle={t('skill_passport.tagline')}
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('SkillPassport');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="📜"
+              tint="#FDE68A"
+              label={t('constitution.title')}
+              subtitle={t('constitution.tagline')}
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('Constitution');
               }}
             />
             <Divider color={theme.border.subtle} />

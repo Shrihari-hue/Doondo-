@@ -727,7 +727,12 @@ function MessageBubble({
             t={t}
           />
         ) : message.kind === 'voice' && message.attachment ? (
-          <VoiceAttachment attachment={message.attachment} isMine={isMine} fg={fg} />
+          <VoiceAttachment
+            attachment={message.attachment}
+            isMine={isMine}
+            fg={fg}
+            transcript={message.transcript}
+          />
         ) : message.kind === 'video' && message.attachment ? (
           <VideoAttachment
             attachment={message.attachment}
@@ -833,10 +838,12 @@ function VoiceAttachment({
   attachment,
   isMine,
   fg,
+  transcript,
 }: {
   attachment: MessageAttachment;
   isMine: boolean;
   fg: string;
+  transcript?: string | null;
 }) {
   const [player, setPlayer] = useState<unknown>(null);
   const [playing, setPlaying] = useState(false);
@@ -895,6 +902,7 @@ function VoiceAttachment({
   const shown = playing ? elapsed : duration;
 
   return (
+    <View style={{ gap: 6 }}>
     <Pressable
       onPress={toggle}
       style={{
@@ -940,6 +948,23 @@ function VoiceAttachment({
         {fmt(shown)}
       </Text>
     </Pressable>
+      {/* Auto-transcript — appears a few seconds after the note is sent,
+          pushed in live via the chat:message_transcribed socket event. */}
+      {transcript ? (
+        <Text
+          style={{
+            fontSize: 13,
+            lineHeight: 18,
+            color: fg,
+            opacity: 0.8,
+            fontStyle: 'italic',
+            paddingHorizontal: 4,
+          }}
+        >
+          {transcript}
+        </Text>
+      ) : null}
+    </View>
   );
 }
 

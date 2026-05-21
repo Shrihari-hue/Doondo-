@@ -36,7 +36,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 
 import { spacing, radii, categoryTints, blue } from '@doondo/tokens';
-import { Screen, Text, NotificationsBell } from '@/components';
+import { Screen, Text, NotificationsBell, LanguageToggle } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { jobsApi } from '@/api/jobs.api';
@@ -269,7 +269,10 @@ export function SeekerHomeScreen() {
           >
             Doondo
           </Text>
-          <NotificationsBell onPress={openNotifications} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <LanguageToggle />
+            <NotificationsBell onPress={openNotifications} />
+          </View>
         </View>
 
         {/* Mode toggle — Today / This week / Career. Renders inline above
@@ -796,25 +799,28 @@ function PremiumHomeHeader({
         >
           Doondo
         </Text>
-        {/* Bell wrapped in a white pill so it pops off the canvas the
-           way the mockup shows. Red-dot badge already lives inside the
-           NotificationsBell component. */}
-        <View
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            backgroundColor: theme.bg.surface,
-            alignItems: 'center',
-            justifyContent: 'center',
-            shadowColor: '#0F172A',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.08,
-            shadowRadius: 10,
-            elevation: 2,
-          }}
-        >
-          <NotificationsBell onPress={onNotificationsPress} />
+        {/* Language toggle + bell. The bell is wrapped in a white pill so
+           it pops off the canvas the way the mockup shows; the red-dot
+           badge already lives inside the NotificationsBell component. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <LanguageToggle />
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: theme.bg.surface,
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.08,
+              shadowRadius: 10,
+              elevation: 2,
+            }}
+          >
+            <NotificationsBell onPress={onNotificationsPress} />
+          </View>
         </View>
       </View>
       <View

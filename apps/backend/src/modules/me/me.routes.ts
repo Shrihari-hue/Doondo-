@@ -221,6 +221,63 @@ router.post('/share-shifts', requireAuth, async (req, res, next) => {
   }
 });
 
+// ─── Doondo Constitution ─────────────────────────────────────────────────
+// The seeker's personal work rules — max travel distance + a few hard
+// boundaries (no nights, no Sundays, must have PPE, must have a contract).
+// Surfaced to employers on the applicant view so a mismatch is caught
+// before anyone wastes an interview.
+
+/** Normalise a raw request body into a clean constitution object. */
+function cleanConstitution(raw: unknown): {
+  maxDistanceKm: number | null;
+  noNightShifts: boolean;
+  noSundays: boolean;
+  requiresPpe: boolean;
+  requiresContract: boolean;
+} {
+  const b = (raw ?? {}) as Record<string, unknown>;
+  const km =
+    typeof b.maxDistanceKm === 'number' && Number.isFinite(b.maxDistanceKm)
+      ? Math.min(500, Math.max(0, Math.round(b.maxDistanceKm)))
+      : null;
+  return {
+    maxDistanceKm: km,
+    noNightShifts: b.noNightShifts === true,
+    noSundays: b.noSundays === true,
+    requiresPpe: b.requiresPpe === true,
+    requiresContract: b.requiresContract === true,
+  };
+}
+
+router.get('/constitution', requireAuth, async (req, res, next) => {
+  try {
+    const { UserModel } = await import('@/modules/users/user.model');
+    const u = await UserModel.findById(req.user!.id).select('constitution').lean();
+    const c = (u as { constitution?: unknown } | null)?.constitution ?? {};
+    res.json({
+      ok: true,
+      data: { constitution: cleanConstitution(c) },
+      requestId: req.id,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/constitution', requireAuth, async (req, res, next) => {
+  try {
+    const constitution = cleanConstitution(req.body);
+    const { UserModel } = await import('@/modules/users/user.model');
+    await UserModel.updateOne(
+      { _id: req.user!.id },
+      { $set: { constitution } },
+    );
+    res.json({ ok: true, data: { constitution }, requestId: req.id });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/notification-prefs', requireAuth, async (req, res, next) => {
   try {
     const body = (req.body ?? {}) as Record<string, unknown>;
@@ -298,6 +355,24 @@ router.get(
       const { getPulseForSeeker } = await import('./pulse.service');
       const pulse = await getPulseForSeeker(req.user!.id);
       res.json({ ok: true, data: pulse, requestId: req.id });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// Skill Passport — the worker's portable, verified work credential:
+// Doondo Score, per-skill verification status, endorsements, passed
+// trade tests, experience, and ratings. Seeker-only.
+router.get(
+  '/skill-passport',
+  requireAuth,
+  requireRole('seeker'),
+  async (req, res, next) => {
+    try {
+      const { getSkillPassportForSeeker } = await import('./skillPassport.service');
+      const passport = await getSkillPassportForSeeker(req.user!.id);
+      res.json({ ok: true, data: passport, requestId: req.id });
     } catch (err) {
       next(err);
     }

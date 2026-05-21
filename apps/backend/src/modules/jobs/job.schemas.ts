@@ -168,6 +168,22 @@ export const createJobSchema = z.object({
         .max(120)
         .nullable()
         .optional(),
+      /**
+       * Reverse Interview — the employer's public answers to standard
+       * worker questions. Each field is tri-state: true / false / null
+       * (skipped). Omit the whole object if the employer didn't answer.
+       */
+      workplaceAnswers: z
+        .object({
+          paysOnTime: z.boolean().nullable().optional(),
+          overtimePaid: z.boolean().nullable().optional(),
+          providesPpe: z.boolean().nullable().optional(),
+          writtenContract: z.boolean().nullable().optional(),
+          womensFacilities: z.boolean().nullable().optional(),
+        })
+        .strict()
+        .nullable()
+        .optional(),
     })
     .strict(),
 });

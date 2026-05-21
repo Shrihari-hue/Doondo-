@@ -57,6 +57,37 @@ exchanges ("When can you start?", "Yes, I am available.").
 dashboard: Doondo Score, apply streak, applications in play, and a
 single next-step nudge that routes straight to the action.
 
+**Session 14:** Always-on language toggle — a globe button in the Home
+and Profile headers opens a one-tap language picker, so a worker stuck
+in the wrong language never has to dig through Settings to escape it.
+
+**Session 15:** Voice-note auto-transcription — every chat voice note
+gets a transcript a few seconds after it's sent, rendered under the
+bubble and pushed in live, so a recipient can read what they can't (or
+won't) listen to.
+
+**Session 16:** Skill Passport — the worker's portable, verified work
+credential on one screen: Doondo Score, per-skill verification status,
+trade tests passed, experience and ratings — shareable as plain text.
+
+**Session 17:** Found Crew Apply already shipped end-to-end; closed the
+real gap instead — fully localised the employer's applicant-detail
+screen into all 5 languages.
+
+**Session 18:** Localised `PostJobScreen`, the last English-only screen.
+Every screen in the app now runs through i18n — the employer side is
+fully translated, matching the seeker side.
+
+**Session 19:** Reverse Interview — the employer answers five standard
+worker questions (pay on time? overtime? PPE? written contract? women's
+facilities?) when posting; the answers are public on the job, visible
+to the seeker before they apply.
+
+**Session 20:** Doondo Constitution — the worker sets their own work
+rules (max travel distance, no nights, no Sundays, must have PPE / a
+contract); employers see them on the applicant view. The mirror image
+of Reverse Interview — both sides' terms, on the record.
+
 See `DOONDO_V2_ROADMAP.md` for the full backlog.
 
 ---
@@ -1410,6 +1441,436 @@ as for earlier i18n work.
 
 ---
 
+# Session 14 — Always-on language toggle
+
+Doondo ships five languages, but until now switching between them was
+buried in Settings. That's exactly the wrong place for it: a worker
+who picked the wrong language at signup — or who borrowed a phone
+already set to someone else's language — has to navigate a Settings
+screen *in a language they can't read* just to escape it. The fix is
+to make the switch reachable from where they already are.
+
+## What it does
+
+A small **globe button** now sits in the headers of the screens a
+worker actually lands on:
+
+- the Home dashboard (both the same-day "Today" view and the full
+  "Career" view), next to the notification bell;
+- the Profile screen, top-right of the hero, mirroring the account
+  switcher pill on the left.
+
+Tapping it opens a **bottom-sheet language picker**. The five rows are
+each self-labelled in their own script — "English", "हिन्दी (Hindi)",
+"தமிழ் (Tamil)", "తెలుగు (Telugu)", "ಕನ್ನಡ (Kannada)" — which is the
+whole trick: even a worker stranded in a script they can't read can
+spot their own language and tap out. Picking one persists the choice
+and re-renders the entire app instantly in the new language.
+
+## How it's built
+
+It rides entirely on the i18n infrastructure already in place — the
+`LanguageProvider`, `setLocale` (which persists to secure-store and
+re-keys the app subtree), and `LOCALE_LABELS`. No new state machinery.
+
+- `apps/mobile/.../components/LanguagePickerSheet.tsx` — new. The
+  bottom sheet, modelled on `AccountSwitcherSheet` so the two feel like
+  siblings.
+- `apps/mobile/.../components/LanguageToggle.tsx` — new. The globe
+  button; owns its own sheet visibility, so mounting it anywhere is
+  just `<LanguageToggle />`. A `default` look for canvas headers and an
+  `onDark` look for the Profile screen's coloured gradient hero.
+- `SeekerHomeScreen.tsx` — mounts the toggle in both header variants.
+- `ProfileScreen.tsx` — mounts the `onDark` toggle in the hero.
+- `i18n/locales/*.json` — new `language` block (picker title, subtitle,
+  toggle a11y label) across all 5 locales, round-trip-verified.
+
+The existing full language list in Settings stays — this just adds a
+faster path to the same `setLocale` call.
+
+## Verified (Session 14)
+
+- Mobile `tsc --noEmit`: **clean — 0 errors**. The 4 long-standing
+  `expo-calendar` install-pending errors are gone too: that dependency
+  resolved in the environment, so the whole mobile app now typechecks
+  clean.
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import).
+- `bootcheck`: **PASSED**, 13/13 — re-run to confirm the (untouched)
+  backend graph still boots.
+- All 5 locale files parse; `language` block present, round-trip
+  identical.
+
+Tamil / Telugu / Kannada native-speaker QA applies to the new strings,
+as for earlier i18n work.
+
+---
+
+# Session 15 — Voice-note auto-transcription
+
+Voice notes are the most natural way for many blue-collar workers to
+communicate — faster than typing, no literacy barrier. But that cuts
+one way: the *recipient* might be on a noisy site, in a meeting, hard
+of hearing, or just skimming a long thread, and a voice note is opaque
+until you stop and play it. This session gives every voice note a
+transcript.
+
+## What it does
+
+A few seconds after a voice note is sent, a transcript appears under
+the bubble — in italics, for both the sender and the recipient. It
+arrives live: no refresh needed. The voice note plays exactly as
+before; the transcript is purely additive.
+
+It transcribes, it does not translate — a worker speaking Tamil gets a
+Tamil transcript, faithful to what was said.
+
+## How it's built
+
+The transcription runs **fully detached from the send request**. The
+voice message is created and delivered immediately; transcription is
+fire-and-forget after that, so a slow or failed transcription can never
+delay or break the message itself.
+
+- `apps/backend/.../transcription/transcription.service.ts` — new. A
+  swappable-provider service (same pattern as `profileExtract`): a
+  `mock` provider returns a deterministic transcript so a fresh
+  checkout works with no API key, and an `openai` provider sends the
+  audio to Whisper for real transcripts. One env var flips between them.
+- `config/env.ts` — `TRANSCRIPTION_PROVIDER` (default `mock`),
+  `OPENAI_API_KEY`, `TRANSCRIPTION_MODEL` (default `whisper-1`).
+- `chat/message.model.ts` — a `transcript` field on the message +
+  `PublicMessage`.
+- `chat.service.ts` — after a `kind: 'voice'` message is created, kicks
+  off `transcribeVoiceMessage`: transcribe → stamp `transcript` on the
+  message → emit `chat:message_transcribed` to both participants.
+- `useChatSocket.ts` — handles the new socket event, patching the
+  transcript onto the message already in the React Query cache so the
+  open thread updates live.
+- `ConversationScreen.tsx` — the voice bubble renders the transcript
+  beneath the player when present.
+
+**Provider note:** `mock` is the default so development works out of
+the box; a production deploy that wants real transcripts sets
+`TRANSCRIPTION_PROVIDER=openai` and supplies `OPENAI_API_KEY`. Same
+honest default as the one-photo-profile vision provider.
+
+## Verified (Session 15)
+
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import). The new service's use of the Node
+  globals `FormData` / `Blob` / `fetch` typechecks fine.
+- `bootcheck`: **PASSED**, 14/14 — the transcription service imports,
+  and the mock provider returns a non-empty transcript.
+- Mobile `tsc --noEmit`: clean — 0 errors.
+
+---
+
+# Session 16 — Skill Passport
+
+The Doondo Score answers "how employable is this worker?" in one
+number. It never showed the *evidence* behind the number. The Skill
+Passport is that evidence, on one screen the worker can hold up to an
+employer — and, per the long-game philosophy behind the score, the
+beginning of a credential the wider industry can start asking for.
+
+## What it does
+
+A new **Skill Passport** screen, reached from a row on the Profile
+menu, shows:
+
+- the **Doondo Score** and whether the worker's **identity is
+  verified**, with "member since";
+- every **skill**, each marked verified or not — verified meaning an
+  employer endorsed that exact trade *or* the worker passed its trade
+  test (the badge shows which, and the endorsement count);
+- the **trade tests** the worker has passed;
+- four headline stats — years of experience, jobs completed, rating,
+  total endorsements.
+
+A **Share** button exports a plain-text summary the worker can send
+over WhatsApp or SMS — the credential made portable, beyond the app.
+
+Nothing is invented: a brand-new, unverified worker sees an honest,
+mostly-empty passport with a clear path (endorsements, tests) to fill
+it in.
+
+## How it's built
+
+It's a pure read-path aggregation over data that already exists — the
+Doondo Score, endorsements, skill-test attempts, the user record. No
+new stored state.
+
+- `apps/backend/.../me/skillPassport.service.ts` — new.
+  `getSkillPassportForSeeker` runs four lookups in parallel and
+  assembles the passport; `annotateSkills` is a pure, unit-tested
+  helper that marks each skill verified by cross-referencing
+  endorsement trades and passed-test ids.
+- `me.routes.ts` — `GET /me/skill-passport`, seeker-only.
+- `apps/mobile/.../api/skillPassport.api.ts` + `hooks/useSkillPassport.ts`
+  — typed wrapper + React Query hook.
+- `apps/mobile/.../screens/seeker/SkillPassportScreen.tsx` — the
+  credential screen: hero card, per-skill verification list, passed
+  tests, stat row, and the Share action.
+- `AppNavigator.tsx` + `navigation/types.ts` — registers the new modal
+  screen; `ProfileScreen.tsx` — adds the menu row that opens it.
+- `i18n/locales/*.json` — new `skill_passport` block (20 keys) across
+  all 5 locales, round-trip-verified.
+
+## Verified (Session 16)
+
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import).
+- `bootcheck`: **PASSED**, 15/15 — the skill-passport service imports,
+  and `annotateSkills` passes its verification assertions (endorsed →
+  verified, tested → verified, neither → unverified).
+- Mobile `tsc --noEmit`: clean — 0 errors.
+- All 5 locale files parse; `skill_passport` block present with 20 keys.
+
+Tamil / Telugu / Kannada native-speaker QA applies to the new strings,
+as for earlier i18n work.
+
+---
+
+# Session 17 — Crew Apply (already shipped) + employer-screen i18n
+
+This session was scoped to build **Crew Apply** — letting a team of
+workers apply to a job together. The audit found it was **already
+implemented end-to-end**, so rather than rebuild it, this entry
+documents what exists and closes the real gap the audit surfaced.
+
+## Crew Apply — what's already there
+
+Crew Apply was built incrementally on the `workType: 'team'` / `teamSize`
+profile fields rather than as one labelled feature:
+
+- **Backend** — the `Application` model carries `teamSizeSnapshot` +
+  `teamMembers` (name + phone, up to 4); the apply Zod schema accepts
+  `teamMembers`; the apply service snapshots the team size from the
+  seeker's profile and stores the declared teammates; `PublicApplication`
+  exposes both.
+- **Seeker side** — `JobDetailScreen` shows a `TeamMembersField` in the
+  apply flow when the worker's profile is set to "team", capped at 4
+  teammates.
+- **Employer side** — `ApplicantCard` shows a "Team of N" pill;
+  `ApplicantDetailScreen` shows the pill plus the full teammates list.
+
+No rebuild was needed — the feature works.
+
+## The real gap — and the fix
+
+The audit did surface a genuine gap. The i18n sweep (Sessions 8-9)
+covered the *seeker* screens; on the employer side, two screens were
+still English-only — `ApplicantDetailScreen` and `PostJobScreen`. The
+first is the worse offender: it's a 1,300-line screen that every
+employer hits for every applicant, and it included the Crew Apply
+labels ("Team of N", "TEAMMATES") among ~80 hardcoded strings.
+
+This session **fully localised `ApplicantDetailScreen`**:
+
+- `i18n/locales/*.json` — new `employer.applicant_detail` block, 82
+  keys, merged into all 5 locales (round-trip-verified, the existing
+  `employer.applicant_card` block untouched).
+- `ApplicantDetailScreen.tsx` — every one of its ten components wired
+  to `useTranslate()`; all ~80 strings — the identity eyebrow, the
+  status labels, the Crew Apply labels, every section header, the call
+  / endorse / verify alert dialogs, the interview-scheduling form and
+  its validation messages, and the hire / shortlist / decline action
+  buttons — now resolve through `t()`. A small `statusEyebrow` helper
+  maps the application status to a localised label.
+- One small bonus fix: the skills row was rendering raw slugs
+  (`kitchen_helper`) — it now runs them through `prettifySkill`, like
+  every other screen.
+
+`PostJobScreen` is the one screen still English-only — flagged below.
+
+## Verified (Session 17)
+
+- Mobile `tsc --noEmit`: clean — 0 errors.
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import); no backend changes this session.
+- `bootcheck`: **PASSED**, 15/15 — re-run to confirm the (untouched)
+  backend graph still boots.
+- All 5 locale files parse; `employer.applicant_detail` block present
+  with 82 keys, `employer.applicant_card` preserved.
+
+Tamil / Telugu / Kannada native-speaker QA applies to the new strings,
+as for earlier i18n work.
+
+---
+
+# Session 18 — PostJobScreen i18n: the app is fully localised
+
+`PostJobScreen` was the last screen still hardcoded in English — the
+form an employer uses to create every job posting. This session
+finishes it, which means **every screen in the app now runs through
+i18n**. The employer side has caught up with the seeker side.
+
+## What changed
+
+- `i18n/locales/*.json` — new `employer.post_job` block, 58 keys,
+  merged into all 5 locales (round-trip-verified; the existing
+  `employer.applicant_detail` and `applicant_card` blocks untouched).
+- `PostJobScreen.tsx` — both its components (`PostJobScreen` and the
+  `VoiceDescriptionField` sub-component) wired to `useTranslate()`.
+  Every string now resolves through `t()`: the section headers (Type,
+  Pay, Location, Skills, Work mode), all the form-field labels and
+  placeholders, the job-type and pay-period chip labels, the
+  work-mode selector, the location-detect button states, the urgent
+  toggle copy, the inline validation messages, the voice-description
+  recorder (its prompts, the recorded-state row, the accessibility
+  labels, the error messages), and the Post button.
+- The job-type and pay-period option arrays were converted from inline
+  `label` strings to `labelKey` references resolved at render — the
+  same pattern used for the interview-mode options in Session 17.
+
+## The i18n picture, now complete
+
+- Seeker screens — localised across Sessions 8-9 and topped up since.
+- Employer screens — `ApplicantDetailScreen` (Session 17) and
+  `PostJobScreen` (this session) were the two stragglers; both are now
+  done. The other eight employer screens were already localised.
+- All five languages (English, Hindi, Tamil, Telugu, Kannada) cover
+  every screen.
+
+## Verified (Session 18)
+
+- Mobile `tsc --noEmit`: clean — 0 errors.
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import); no backend changes this session.
+- `bootcheck`: **PASSED** — re-run to confirm the (untouched) backend
+  graph still boots.
+- All 5 locale files parse; `employer.post_job` block present with 58
+  keys, the other `employer.*` blocks preserved.
+
+Tamil / Telugu / Kannada native-speaker QA applies to the new strings,
+as for earlier i18n work.
+
+---
+
+# Session 19 — Reverse Interview
+
+In blue-collar hiring the employer asks all the questions and the
+worker takes the job on faith — then finds out on day one whether the
+wages come on time, whether there's safety gear, whether there's a
+contract. The Reverse Interview flips that. The employer answers the
+worker's questions *up front, in public, on the job posting*.
+
+## What it does
+
+When an employer posts a job, a new **"What you offer workers"**
+section asks five standard questions, each a Yes / No (or left
+unanswered):
+
+- Wages paid on time
+- Overtime paid extra
+- Safety equipment (PPE) provided
+- Written contract given
+- Separate facilities for women
+
+On the seeker's job-detail screen — *before* they apply — a
+**"What this workplace says"** panel shows those answers as Yes / No
+badges. A question the employer skipped shows "Not answered", which is
+itself a signal. The power flip is the whole point: the terms are on
+the record before the worker commits.
+
+## How it's built
+
+- `apps/backend/.../jobs/job.model.ts` — a new `workplaceAnswers`
+  sub-document (5 tri-state booleans: true / false / null) on the Job,
+  exposed on `PublicJob`.
+- `job.schemas.ts` / `job.service.ts` — the create path accepts and
+  persists `workplaceAnswers`; the raw-aggregate formatter defaults it
+  to null for list payloads.
+- `apps/mobile/.../lib/reverseInterviewCatalog.ts` — new. The five
+  questions (each `field` matching the model + an i18n `key`) and a
+  pure `hasAnyAnswer` gate, so one catalog drives both screens.
+- `PostJobScreen.tsx` — a `WorkplaceAnswersField` with a Yes/No chip
+  per question; the block is sent only when at least one is answered.
+- `JobDetailScreen.tsx` — a read-only `WorkplaceAnswersPanel` that
+  self-hides when the employer answered nothing.
+- `i18n/locales/*.json` — new `reverse_interview` block across all 5
+  locales, round-trip-verified.
+
+## Verified (Session 19)
+
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import).
+- `bootcheck`: **PASSED**, 15/15 — the Job model now registers in the
+  smoke test's model-load check alongside the others.
+- Mobile `tsc --noEmit`: clean — 0 errors.
+- All 5 locale files parse; `reverse_interview` block present.
+
+Tamil / Telugu / Kannada native-speaker QA applies to the new strings,
+as for earlier i18n work.
+
+---
+
+# Session 20 — Doondo Constitution
+
+Reverse Interview (Session 19) put the *employer's* terms on the
+record. The Constitution is its mirror: the *worker's* terms. A worker
+sets their own rules — how far they'll travel, and a few hard
+boundaries — and an employer sees them on the applicant view. A bad
+fit is filtered out before anyone wastes an interview, and the worker,
+for once, sets the terms.
+
+## What it does
+
+A new **"Your Work Rules"** screen, reached from a Profile menu row,
+lets a seeker declare:
+
+- the maximum distance they'll travel (km, or blank for no limit);
+- no night shifts;
+- no Sunday work;
+- safety equipment must be provided;
+- a written contract is required.
+
+On the employer's applicant-detail screen, a **"This worker's rules"**
+panel lists whichever rules the worker set — "Travels up to 10 km",
+"No night shifts", and so on. It self-hides for a worker who set none.
+
+The pay floor isn't duplicated here — the seeker's existing
+`expectedSalary` already carries it; the Constitution captures only the
+non-wage boundaries.
+
+## How it's built
+
+- `apps/backend/.../users/user.model.ts` — a new `SeekerConstitution`
+  sub-document on the User (max distance + four booleans), always
+  present and defaulted.
+- `me.routes.ts` — `GET` / `PUT /me/constitution`, seeker-only, with a
+  `cleanConstitution` normaliser that clamps the distance and coerces
+  the flags.
+- `application.service.ts` — the constitution is added to both
+  applicant-list builders (`.select()` + the seeker object + the
+  `ApplicantListEntry` type) so the employer's applicant view receives
+  it.
+- `apps/mobile/.../api/constitution.api.ts` + `hooks/useConstitution.ts`
+  — typed get/save + React Query read/mutation.
+- `screens/seeker/ConstitutionScreen.tsx` — the editor: a distance
+  field + four toggles + Save. Registered as a modal in the navigator,
+  reached from a Profile menu row.
+- `screens/employer/ApplicantDetailScreen.tsx` — a `ConstitutionPanel`
+  that lists the worker's set rules.
+- `i18n/locales/*.json` — new `constitution` block (22 keys) across all
+  5 locales, round-trip-verified.
+
+## Verified (Session 20)
+
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import).
+- `bootcheck`: **PASSED**, 15/15 — re-run; the User model (which now
+  carries the constitution sub-document) loads in the model-register
+  check.
+- Mobile `tsc --noEmit`: clean — 0 errors.
+- All 5 locale files parse; `constitution` block present with 22 keys.
+
+Tamil / Telugu / Kannada native-speaker QA applies to the new strings,
+as for earlier i18n work.
+
+---
+
 ## What's next
 
 The codebase is verified as far as this environment allows — it
@@ -1417,6 +1878,10 @@ compiles, loads, and the logic is sound. The one remaining
 verification step (boot against a real MongoDB) belongs on the
 deploy platform, with the commands above.
 
-Feature-wise, the roadmap still has: voice-note auto-transcription,
-a per-screen language toggle, and the deeper bets (Skill Passport,
-Crew Apply). The app is beta-ready in English and Hindi today.
+Most roadmap features are shipped and every screen is localised.
+Remaining picks, smallest-first: career-path map, PF/ESI/tax explainer,
+peer cohorts, bookable mentor sessions, offline mode — and the larger
+moonshots (AR Job Vision, the voice agent, Hire Reels, Doondo for
+Women). Release work also stands open: native-speaker QA on the
+translations and the on-device boot against a real MongoDB. The app is
+beta-ready in English and Hindi today.

@@ -184,6 +184,10 @@ export type AppStackParamList = {
   CourseDetail: { courseId: string };
   /** Modal: skill assessments — catalogue + take-test flow. */
   SkillTests: undefined;
+  /** Modal: the worker's portable, verified Skill Passport. */
+  SkillPassport: undefined;
+  /** Modal: the worker's Doondo Constitution — personal work rules. */
+  Constitution: undefined;
   /** Modal: interview / trial-day prep — short tips per trade. */
   InterviewPrep: undefined;
   /** Modal: contacts-match + invite flow. */

@@ -47,6 +47,8 @@ import { AvailableWorkersScreen } from '@/screens/employer/AvailableWorkersScree
 import { CoursesScreen } from '@/screens/seeker/CoursesScreen';
 import { CourseDetailScreen } from '@/screens/seeker/CourseDetailScreen';
 import { SkillTestsScreen } from '@/screens/seeker/SkillTestsScreen';
+import { SkillPassportScreen } from '@/screens/seeker/SkillPassportScreen';
+import { ConstitutionScreen } from '@/screens/seeker/ConstitutionScreen';
 import { InterviewPrepScreen } from '@/screens/seeker/InterviewPrepScreen';
 import { FindFriendsScreen } from '@/screens/seeker/FindFriendsScreen';
 import { MentorsScreen } from '@/screens/seeker/MentorsScreen';
@@ -262,6 +264,16 @@ export function AppNavigator() {
       <Stack.Screen
         name="SkillTests"
         component={SkillTestsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="SkillPassport"
+        component={SkillPassportScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Constitution"
+        component={ConstitutionScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen

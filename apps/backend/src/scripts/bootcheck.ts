@@ -70,6 +70,8 @@ async function main(): Promise<void> {
       import('@/modules/notifications/digest.service'),
       import('@/modules/notifications/reengagement.service'),
       import('@/modules/me/pulse.service'),
+      import('@/modules/me/skillPassport.service'),
+      import('@/modules/transcription/transcription.service'),
       import('@/modules/sos/sos.service'),
       import('@/modules/profileExtract/profileExtract.service'),
       import('@/lib/push'),
@@ -83,6 +85,7 @@ async function main(): Promise<void> {
       import('@/modules/applications/application.model'),
       import('@/modules/notifications/notification.model'),
       import('@/modules/chat/message.model'),
+      import('@/modules/jobs/job.model'),
     ]);
   });
 
@@ -143,6 +146,38 @@ async function main(): Promise<void> {
   await check('doondoScore service exposes computeForUser', async () => {
     const mod = await import('@/modules/users/doondoScore.service');
     assert(typeof mod.computeForUser === 'function', 'computeForUser missing');
+  });
+  await check('skillPassport.annotateSkills marks verified skills', async () => {
+    const { annotateSkills } = await import('@/modules/me/skillPassport.service');
+    const annotated = annotateSkills(
+      ['electrician', 'cook', 'mason'],
+      ['electrician', 'electrician'],
+      ['cook'],
+    );
+    const bySlug = new Map(annotated.map((s) => [s.slug, s]));
+    const elec = bySlug.get('electrician')!;
+    const cook = bySlug.get('cook')!;
+    const mason = bySlug.get('mason')!;
+    assert(
+      elec.endorsementCount === 2 && elec.verified,
+      'electrician should be verified with 2 endorsements',
+    );
+    assert(cook.tested && cook.verified, 'cook should be verified via the test');
+    assert(!mason.verified, 'mason should be unverified');
+  });
+  await check('transcription mock provider returns text', async () => {
+    const { transcribeAudio } = await import(
+      '@/modules/transcription/transcription.service'
+    );
+    const result = await transcribeAudio({
+      dataUrl: 'data:audio/m4a;base64,AAAA',
+      mimeType: 'audio/m4a',
+    });
+    assert(result.provider === 'mock', `expected mock provider, got ${result.provider}`);
+    assert(
+      typeof result.text === 'string' && result.text.trim().length > 0,
+      'mock transcript should be a non-empty string',
+    );
   });
   await check('pulse.pickPulseNudge walks the onboarding ladder', async () => {
     const { pickPulseNudge } = await import('@/modules/me/pulse.service');

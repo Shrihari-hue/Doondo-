@@ -28,26 +28,33 @@ import { jobsApi, type CreateJobPayload } from '@/api/jobs.api';
 import { getCurrentCoords } from '@/lib/location';
 import { haptic } from '@/lib/haptics';
 import { useAuth } from '@/hooks/useAuth';
+import { useTranslate } from '@/i18n/useTranslate';
 import { VoiceRecorder, type VoiceRecordingResult } from '@/lib/chatVoice';
+import {
+  WORKPLACE_QUESTIONS,
+  hasAnyAnswer,
+  type WorkplaceQuestionField,
+} from '@/lib/reverseInterviewCatalog';
 import type { AppStackParamList } from '@/navigation/types';
-import type { JobType, PayPeriod, WorkMode } from '@/api/types';
+import type { JobType, PayPeriod, WorkMode, WorkplaceAnswers } from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'PostJob'>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
-const JOB_TYPE_OPTIONS: Array<{ key: JobType; label: string }> = [
-  { key: 'full_time', label: 'Full-time' },
-  { key: 'part_time', label: 'Part-time' },
-  { key: 'gig', label: 'Gig' },
-  { key: 'shift', label: 'Shift' },
-  { key: 'contract', label: 'Contract' },
+const JOB_TYPE_OPTIONS: Array<{ key: JobType; labelKey: string }> = [
+  { key: 'full_time', labelKey: 'employer.post_job.type_full_time' },
+  { key: 'part_time', labelKey: 'employer.post_job.type_part_time' },
+  { key: 'gig', labelKey: 'employer.post_job.type_gig' },
+  { key: 'shift', labelKey: 'employer.post_job.type_shift' },
+  { key: 'contract', labelKey: 'employer.post_job.type_contract' },
 ];
 
-const PAY_PERIOD_OPTIONS: Array<{ key: PayPeriod; label: string }> = [
-  { key: 'hour', label: 'per hour' },
-  { key: 'day', label: 'per day' },
-  { key: 'week', label: 'per week' },
-  { key: 'month', label: 'per month' },
-  { key: 'fixed', label: 'fixed' },
+const PAY_PERIOD_OPTIONS: Array<{ key: PayPeriod; labelKey: string }> = [
+  { key: 'hour', labelKey: 'employer.post_job.pay_hour' },
+  { key: 'day', labelKey: 'employer.post_job.pay_day' },
+  { key: 'week', labelKey: 'employer.post_job.pay_week' },
+  { key: 'month', labelKey: 'employer.post_job.pay_month' },
+  { key: 'fixed', labelKey: 'employer.post_job.pay_fixed' },
 ];
 
 export function PostJobScreen() {
@@ -55,6 +62,7 @@ export function PostJobScreen() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { theme } = useTheme();
+  const t = useTranslate();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -88,6 +96,15 @@ export function PostJobScreen() {
   const [skillDraft, setSkillDraft] = useState('');
   const [urgent, setUrgent] = useState(false);
   const [workMode, setWorkMode] = useState<WorkMode>('onsite');
+  // Reverse Interview — the employer's answers to standard worker
+  // questions. Each starts null ("not answered").
+  const [workplaceAnswers, setWorkplaceAnswers] = useState<WorkplaceAnswers>({
+    paysOnTime: null,
+    overtimePaid: null,
+    providesPpe: null,
+    writtenContract: null,
+    womensFacilities: null,
+  });
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
@@ -120,6 +137,11 @@ export function PostJobScreen() {
         workMode,
         audioDescriptionUrl: audio?.dataUrl ?? null,
         audioDescriptionDurationSeconds: audio?.durationSeconds ?? null,
+        // Only send the Reverse Interview block when the employer
+        // actually answered something — an all-null object is noise.
+        workplaceAnswers: hasAnyAnswer(workplaceAnswers)
+          ? workplaceAnswers
+          : undefined,
       };
       return jobsApi.create(body);
     },
@@ -130,7 +152,11 @@ export function PostJobScreen() {
     },
     onError: (err) => {
       haptic('error');
-      setError(err instanceof Error ? err.message : 'Could not post the job');
+      setError(
+        err instanceof Error
+          ? err.message
+          : t('employer.post_job.err_post_failed'),
+      );
     },
   });
 
@@ -162,13 +188,13 @@ export function PostJobScreen() {
   // first.
   const validationReason: string | null =
     title.trim().length < 2
-      ? 'Add a title (at least 2 characters)'
+      ? t('employer.post_job.val_title')
       : description.trim().length < 10
-        ? 'Add a description (at least 10 characters)'
+        ? t('employer.post_job.val_description')
         : !(Number(amount) > 0)
-          ? 'Enter the pay amount in rupees'
+          ? t('employer.post_job.val_amount')
           : city.trim().length === 0
-            ? 'Enter the city'
+            ? t('employer.post_job.val_city')
             : null;
 
   const canSave = validationReason === null && !mutation.isPending;
@@ -190,16 +216,16 @@ export function PostJobScreen() {
         >
           <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
             <Text variant="footnote" tone="secondary">
-              Cancel
+              {t('employer.post_job.cancel')}
             </Text>
           </Pressable>
 
           <View style={{ gap: spacing.xs }}>
             <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              POST A JOB
+              {t('employer.post_job.eyebrow')}
             </Text>
             <Text variant="display" weight="medium" display>
-              Tell us what you need.
+              {t('employer.post_job.heading')}
             </Text>
           </View>
 
@@ -207,12 +233,17 @@ export function PostJobScreen() {
 
           {/* Basics */}
           <View style={{ gap: spacing.lg }}>
-            <TextField label="Title" value={title} onChangeText={setTitle} placeholder="Delivery rider, salon assistant…" />
             <TextField
-              label="Description"
+              label={t('employer.post_job.field_title')}
+              value={title}
+              onChangeText={setTitle}
+              placeholder={t('employer.post_job.field_title_ph')}
+            />
+            <TextField
+              label={t('employer.post_job.field_description')}
               value={description}
               onChangeText={setDescription}
-              placeholder="What does the job involve? Any requirements?"
+              placeholder={t('employer.post_job.field_description_ph')}
               multiline
               numberOfLines={5}
             />
@@ -233,7 +264,7 @@ export function PostJobScreen() {
                   setAudioError(
                     err instanceof Error
                       ? err.message
-                      : "Couldn't start recording",
+                      : t('employer.post_job.voice_err_start'),
                   );
                 }
               }}
@@ -250,7 +281,7 @@ export function PostJobScreen() {
                   setAudioError(
                     err instanceof Error
                       ? err.message
-                      : "Couldn't save recording",
+                      : t('employer.post_job.voice_err_save'),
                   );
                 }
               }}
@@ -270,7 +301,7 @@ export function PostJobScreen() {
               tone="secondary"
               style={{ letterSpacing: 1.0 }}
             >
-              TYPE
+              {t('employer.post_job.section_type')}
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
               {JOB_TYPE_OPTIONS.map((o) => {
@@ -296,7 +327,7 @@ export function PostJobScreen() {
                       weight={active ? 'medium' : 'regular'}
                       style={{ color: active ? theme.brand.hero : theme.text.secondary }}
                     >
-                      {o.label}
+                      {t(o.labelKey)}
                     </Text>
                   </Pressable>
                 );
@@ -312,14 +343,14 @@ export function PostJobScreen() {
               tone="secondary"
               style={{ letterSpacing: 1.0 }}
             >
-              PAY
+              {t('employer.post_job.section_pay')}
             </Text>
             <TextField
-              label="Amount (₹)"
+              label={t('employer.post_job.field_amount')}
               value={amount}
               onChangeText={setAmount}
               keyboardType="number-pad"
-              placeholder="e.g. 600"
+              placeholder={t('employer.post_job.field_amount_ph')}
             />
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
               {PAY_PERIOD_OPTIONS.map((o) => {
@@ -345,7 +376,7 @@ export function PostJobScreen() {
                       weight={active ? 'medium' : 'regular'}
                       style={{ color: active ? theme.brand.hero : theme.text.secondary }}
                     >
-                      {o.label}
+                      {t(o.labelKey)}
                     </Text>
                   </Pressable>
                 );
@@ -361,11 +392,15 @@ export function PostJobScreen() {
               tone="secondary"
               style={{ letterSpacing: 1.0 }}
             >
-              LOCATION
+              {t('employer.post_job.section_location')}
             </Text>
             <Button
               label={
-                detecting ? 'Detecting…' : coords ? 'Re-detect location' : 'Detect location'
+                detecting
+                  ? t('employer.post_job.detect_detecting')
+                  : coords
+                    ? t('employer.post_job.detect_redetect')
+                    : t('employer.post_job.detect_detect')
               }
               variant="secondary"
               onPress={() => void detect()}
@@ -373,22 +408,30 @@ export function PostJobScreen() {
             />
             {coords && (
               <Text variant="footnote" tone="tertiary">
-                Using {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
+                {t('employer.post_job.using_coords', {
+                  lat: coords.lat.toFixed(4),
+                  lng: coords.lng.toFixed(4),
+                })}
               </Text>
             )}
-            <TextField label="City" value={city} onChangeText={setCity} placeholder="Bengaluru" />
             <TextField
-              label="Area / neighbourhood"
-              value={area}
-              onChangeText={setArea}
-              placeholder="Indiranagar"
+              label={t('employer.post_job.field_city')}
+              value={city}
+              onChangeText={setCity}
+              placeholder={t('employer.post_job.field_city_ph')}
             />
             <TextField
-              label="Pincode (optional)"
+              label={t('employer.post_job.field_area')}
+              value={area}
+              onChangeText={setArea}
+              placeholder={t('employer.post_job.field_area_ph')}
+            />
+            <TextField
+              label={t('employer.post_job.field_pincode')}
               value={pincode}
               onChangeText={setPincode}
               keyboardType="number-pad"
-              placeholder="560038"
+              placeholder={t('employer.post_job.field_pincode_ph')}
             />
           </View>
 
@@ -400,13 +443,13 @@ export function PostJobScreen() {
               tone="secondary"
               style={{ letterSpacing: 1.0 }}
             >
-              SKILLS NEEDED
+              {t('employer.post_job.section_skills')}
             </Text>
             <TextField
-              label="Add skill"
+              label={t('employer.post_job.field_skill')}
               value={skillDraft}
               onChangeText={setSkillDraft}
-              placeholder="driving, customer service"
+              placeholder={t('employer.post_job.field_skill_ph')}
               onSubmitEditing={commitSkill}
               returnKeyType="done"
             />
@@ -430,13 +473,17 @@ export function PostJobScreen() {
               tone="secondary"
               style={{ letterSpacing: 1.0 }}
             >
-              WORK MODE
+              {t('employer.post_job.section_work_mode')}
             </Text>
             <View style={{ flexDirection: 'row', gap: spacing.xs }}>
               {(['onsite', 'hybrid', 'remote'] as const).map((m) => {
                 const active = workMode === m;
                 const label =
-                  m === 'onsite' ? 'Onsite' : m === 'hybrid' ? 'Hybrid' : 'Remote';
+                  m === 'onsite'
+                    ? t('employer.post_job.mode_onsite')
+                    : m === 'hybrid'
+                      ? t('employer.post_job.mode_hybrid')
+                      : t('employer.post_job.mode_remote');
                 return (
                   <Pressable
                     key={m}
@@ -508,17 +555,28 @@ export function PostJobScreen() {
             </View>
             <View style={{ flex: 1, gap: 2 }}>
               <Text variant="bodyLarge" weight="medium" tone={urgent ? 'warning' : 'primary'}>
-                Mark as urgent
+                {t('employer.post_job.urgent_title')}
               </Text>
               <Text variant="footnote" tone="secondary">
-                Urgent jobs sort ahead of others and notify nearby seekers. Use sparingly so it stays meaningful.
+                {t('employer.post_job.urgent_hint')}
               </Text>
             </View>
           </Pressable>
 
+          {/* Reverse Interview — the employer answers the questions
+             workers care about; the answers are public on the listing. */}
+          <WorkplaceAnswersField
+            answers={workplaceAnswers}
+            onChange={setWorkplaceAnswers}
+          />
+
           <View style={{ gap: spacing.xs }}>
             <Button
-              label={mutation.isPending ? 'Posting…' : 'Post job'}
+              label={
+                mutation.isPending
+                  ? t('employer.post_job.posting')
+                  : t('employer.post_job.post_job')
+              }
               onPress={() => mutation.mutate()}
               disabled={!canSave}
             />
@@ -559,6 +617,7 @@ function VoiceDescriptionField({
   onClear: () => void;
 }) {
   const { theme } = useTheme();
+  const t = useTranslate();
 
   if (audio) {
     return (
@@ -588,15 +647,17 @@ function VoiceDescriptionField({
         </View>
         <View style={{ flex: 1 }}>
           <Text variant="body" weight="medium">
-            Voice description recorded
+            {t('employer.post_job.voice_recorded')}
           </Text>
           <Text variant="footnote" tone="secondary">
-            {audio.durationSeconds}s · sent with the job posting
+            {t('employer.post_job.voice_recorded_meta', {
+              n: audio.durationSeconds,
+            })}
           </Text>
         </View>
         <Pressable onPress={onClear} hitSlop={6}>
           <Text style={{ color: theme.status.danger, fontSize: 13, fontWeight: '600' }}>
-            Remove
+            {t('employer.post_job.voice_remove')}
           </Text>
         </Pressable>
       </View>
@@ -610,7 +671,9 @@ function VoiceDescriptionField({
         onPressOut={onStop}
         accessibilityRole="button"
         accessibilityLabel={
-          recording ? 'Release to stop recording' : 'Hold to record a voice description'
+          recording
+            ? t('employer.post_job.voice_a11y_stop')
+            : t('employer.post_job.voice_a11y_start')
         }
         style={({ pressed }) => ({
           padding: spacing.md,
@@ -632,15 +695,132 @@ function VoiceDescriptionField({
             color: recording ? '#991B1B' : theme.text.primary,
           }}
         >
-          {recording ? 'Recording… release to stop' : 'Hold to record voice description'}
+          {recording
+            ? t('employer.post_job.voice_recording')
+            : t('employer.post_job.voice_hold')}
         </Text>
         <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
-          Optional · up to 60 seconds
+          {t('employer.post_job.voice_hint')}
         </Text>
       </Pressable>
       {error ? (
         <Text style={{ fontSize: 12, color: theme.status.danger }}>{error}</Text>
       ) : null}
     </View>
+  );
+}
+
+// ─── Reverse Interview — workplace answers ──────────────────────────────────
+
+/**
+ * The employer answers five standard worker questions — pay, overtime,
+ * PPE, contract, women's facilities. Each is tri-state: Yes, No, or left
+ * unanswered. The answers ride along on the job and surface on the
+ * seeker's job-detail screen before they apply — the terms, on the
+ * record, up front.
+ */
+function WorkplaceAnswersField({
+  answers,
+  onChange,
+}: {
+  answers: WorkplaceAnswers;
+  onChange: (next: WorkplaceAnswers) => void;
+}) {
+  const t = useTranslate();
+
+  function set(field: WorkplaceQuestionField, value: boolean) {
+    // Tapping the active choice again clears it back to "not answered".
+    const current = answers[field];
+    onChange({ ...answers, [field]: current === value ? null : value });
+  }
+
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Text
+        variant="footnote"
+        weight="medium"
+        tone="secondary"
+        style={{ letterSpacing: 1.0 }}
+      >
+        {t('reverse_interview.post_section')}
+      </Text>
+      <Text variant="footnote" tone="tertiary">
+        {t('reverse_interview.post_hint')}
+      </Text>
+      {WORKPLACE_QUESTIONS.map((q) => {
+        const ans = answers[q.field] ?? null;
+        return (
+          <View
+            key={q.field}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
+          >
+            <Text variant="footnote" style={{ flex: 1 }}>
+              {t(q.key)}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: spacing.xs }}>
+              <AnswerChip
+                label={t('reverse_interview.yes')}
+                tone="yes"
+                active={ans === true}
+                onPress={() => set(q.field, true)}
+              />
+              <AnswerChip
+                label={t('reverse_interview.no')}
+                tone="no"
+                active={ans === false}
+                onPress={() => set(q.field, false)}
+              />
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+/** A single Yes / No pill in a Reverse Interview row. */
+function AnswerChip({
+  label,
+  tone,
+  active,
+  onPress,
+}: {
+  label: string;
+  tone: 'yes' | 'no';
+  active: boolean;
+  onPress: () => void;
+}) {
+  const { theme } = useTheme();
+  const activeBg = tone === 'yes' ? theme.status.successSubtle : '#FEE2E2';
+  const activeBorder = tone === 'yes' ? theme.status.success : '#FCA5A5';
+  const activeFg = tone === 'yes' ? theme.status.success : '#991B1B';
+  return (
+    <Pressable
+      onPress={() => {
+        haptic('selection');
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      style={({ pressed }) => ({
+        minWidth: 52,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.xs,
+        borderRadius: radii.pill,
+        borderWidth: 0.5,
+        borderColor: active ? activeBorder : theme.border.default,
+        backgroundColor: active ? activeBg : theme.bg.surface,
+        alignItems: 'center',
+        opacity: pressed ? 0.6 : 1,
+      })}
+    >
+      <Text
+        variant="footnote"
+        weight={active ? 'medium' : 'regular'}
+        style={{ color: active ? activeFg : theme.text.secondary }}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 }

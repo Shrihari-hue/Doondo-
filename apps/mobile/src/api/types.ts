@@ -328,6 +328,32 @@ export interface PublicShiftCheckIn {
 
 // ─── Jobs ────────────────────────────────────────────────────────────────────
 
+/**
+ * Reverse Interview answers — the employer's tri-state responses to the
+ * standard worker questions. true = yes, false = no, null = not answered.
+ */
+export interface WorkplaceAnswers {
+  paysOnTime: boolean | null;
+  overtimePaid: boolean | null;
+  providesPpe: boolean | null;
+  writtenContract: boolean | null;
+  womensFacilities: boolean | null;
+}
+
+/**
+ * Doondo Constitution — a seeker's personal, public work rules. The
+ * worker sets their own boundaries; an employer sees them on the
+ * applicant view.
+ */
+export interface SeekerConstitution {
+  /** Max distance the worker will travel, km. Null = no limit. */
+  maxDistanceKm: number | null;
+  noNightShifts: boolean;
+  noSundays: boolean;
+  requiresPpe: boolean;
+  requiresContract: boolean;
+}
+
 export interface PublicJob {
   id: string;
   title: string;
@@ -369,6 +395,12 @@ export interface PublicJob {
   audioDescriptionUrl: string | null;
   /** Duration of the voice description in seconds. */
   audioDescriptionDurationSeconds: number | null;
+  /**
+   * Reverse Interview — the employer's public answers to standard
+   * worker questions (pay, PPE, contract, women's facilities). Null when
+   * the employer skipped the section.
+   */
+  workplaceAnswers: WorkplaceAnswers | null;
   /** Filled by /jobs/nearby. */
   distanceMeters?: number;
   employer?: {
@@ -441,6 +473,13 @@ export interface PublicMessage {
    * absent for free-text and media messages.
    */
   templateKey?: string | null;
+  /**
+   * Auto-generated transcript for a voice message. Filled in a few
+   * seconds after send (arrives via the `chat:message_transcribed`
+   * socket event); null / absent for non-voice messages and until the
+   * transcript lands.
+   */
+  transcript?: string | null;
   readAt: string | null;
   createdAt: string;
 }
@@ -471,6 +510,41 @@ export interface PulseSnapshot {
   activeApplications: number;
   /** The single most useful next step. */
   nudge: PulseNudge;
+}
+
+/** Skill Passport — the worker's portable, verified work credential. */
+export interface PassportSkill {
+  /** Skill slug as stored on the profile. */
+  slug: string;
+  /** Endorsed by an employer OR backed by a passed trade test. */
+  verified: boolean;
+  /** How many employers endorsed this exact trade. */
+  endorsementCount: number;
+  /** Whether the worker passed the trade test for this skill. */
+  tested: boolean;
+}
+
+export interface PassportTest {
+  id: string;
+  title: string;
+  emoji: string;
+}
+
+export interface SkillPassport {
+  /** Doondo Score, 0-100. */
+  score: number;
+  /** Whether the worker has cleared identity verification. */
+  isIdentityVerified: boolean;
+  /** Account creation date, ISO. */
+  memberSince: string;
+  /** The worker's skills, each annotated with verification status. */
+  skills: PassportSkill[];
+  endorsements: { total: number; verifiedTrades: number };
+  /** Trade tests the worker has passed. */
+  skillTests: PassportTest[];
+  experienceYears: number | null;
+  jobsCompleted: number;
+  ratings: { avg: number | null; count: number };
 }
 
 export type InterviewMode = 'in_person' | 'video' | 'phone';

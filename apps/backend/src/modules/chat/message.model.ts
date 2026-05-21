@@ -54,6 +54,14 @@ export interface Message {
    * know the key. Null for free-text and media messages.
    */
   templateKey?: string | null;
+  /**
+   * Auto-generated transcript for a `kind: 'voice'` message. Filled in
+   * asynchronously a few seconds after the voice note is sent (see the
+   * transcription kickoff in chat.service); null until then, and null
+   * for every non-voice message. Transcribed, not translated — it's in
+   * whatever language the sender spoke.
+   */
+  transcript?: string | null;
   /** When the recipient marked the conversation as read past this msg. */
   readAt: Date | null;
   createdAt: Date;
@@ -75,6 +83,8 @@ export interface PublicMessage {
   attachment: MessageAttachment | null;
   /** Quick-reply template key, or null for free-text / media messages. */
   templateKey: string | null;
+  /** Auto-generated transcript for voice messages; null otherwise. */
+  transcript: string | null;
   readAt: string | null;
   createdAt: string;
 }
@@ -111,6 +121,7 @@ const messageSchema = new Schema<Message, MessageModelType, MessageMethods>(
     body: { type: String, default: '', trim: true, maxlength: 4000 },
     attachment: { type: attachmentSchema, default: null },
     templateKey: { type: String, default: null, trim: true, maxlength: 80 },
+    transcript: { type: String, default: null, trim: true, maxlength: 4000 },
     readAt: { type: Date, default: null },
   },
   { timestamps: true },
@@ -128,6 +139,7 @@ messageSchema.method('toPublicJSON', function (this: MessageDocument): PublicMes
     body: this.body,
     attachment: this.attachment ?? null,
     templateKey: this.templateKey ?? null,
+    transcript: this.transcript ?? null,
     readAt: this.readAt ? this.readAt.toISOString() : null,
     createdAt: this.createdAt.toISOString(),
   };

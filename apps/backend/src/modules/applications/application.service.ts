@@ -27,7 +27,7 @@ import * as walletService from '@/modules/wallet/wallet.service';
 import { emitToUser } from '@/sockets/bus';
 import { sendApplicationStatusPush, sendInterviewPush, sendSkillGapPush } from '@/lib/push';
 import { JobModel, type PublicJob } from '@/modules/jobs/job.model';
-import { UserModel } from '@/modules/users/user.model';
+import { UserModel, type SeekerConstitution } from '@/modules/users/user.model';
 import {
   getOrCreateForApplication,
   postSystemMessage,
@@ -693,6 +693,21 @@ interface ApplicantListEntry extends PublicApplication {
     }>;
     /** Photos of the seeker's work — up to 6 data URLs. */
     workPhotos: string[];
+    /** The seeker's Doondo Constitution — their stated work boundaries. */
+    constitution: SeekerConstitution;
+  };
+}
+
+/** Normalise a stored constitution sub-doc into a complete, defaulted object. */
+function publicConstitution(raw: unknown): SeekerConstitution {
+  const c = (raw ?? {}) as Partial<SeekerConstitution>;
+  return {
+    maxDistanceKm:
+      typeof c.maxDistanceKm === 'number' ? c.maxDistanceKm : null,
+    noNightShifts: c.noNightShifts === true,
+    noSundays: c.noSundays === true,
+    requiresPpe: c.requiresPpe === true,
+    requiresContract: c.requiresContract === true,
   };
 }
 
@@ -718,7 +733,7 @@ export async function listApplicantsForEmployer(
 
   const [seekers, jobs] = await Promise.all([
     UserModel.find({ _id: { $in: seekerIds } })
-      .select('name photoUrl skills isVerified location resumeFilename resumeMimeType resumeSizeBytes resumeUploadedAt workHistory workPhotos +resumeUrl')
+      .select('name photoUrl skills isVerified location resumeFilename resumeMimeType resumeSizeBytes resumeUploadedAt workHistory workPhotos constitution +resumeUrl')
       .lean(),
     JobModel.find({ _id: { $in: jobIds } }),
   ]);
@@ -751,6 +766,7 @@ export async function listApplicantsForEmployer(
           description: w.description ?? null,
         })),
         workPhotos: s.workPhotos ?? [],
+        constitution: publicConstitution(s.constitution),
       },
     ]),
   );
@@ -786,7 +802,7 @@ export async function listApplicantsForJob(
 
   const seekerIds = [...new Set(apps.map((a) => a.seekerId.toString()))];
   const seekers = await UserModel.find({ _id: { $in: seekerIds } })
-    .select('name photoUrl skills isVerified location resumeFilename resumeMimeType resumeSizeBytes resumeUploadedAt +resumeUrl')
+    .select('name photoUrl skills isVerified location resumeFilename resumeMimeType resumeSizeBytes resumeUploadedAt constitution +resumeUrl')
     .lean();
   const seekerMap = new Map(
     seekers.map((s) => [
@@ -816,6 +832,7 @@ export async function listApplicantsForJob(
           description: w.description ?? null,
         })),
         workPhotos: s.workPhotos ?? [],
+        constitution: publicConstitution(s.constitution),
       },
     ]),
   );

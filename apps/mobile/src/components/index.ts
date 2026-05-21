@@ -16,3 +16,5 @@ export { NotificationsBell } from './NotificationsBell';
 export { PaymentConfirmationPanel } from './PaymentConfirmationPanel';
 export { ErrorPanel } from './ErrorPanel';
 export { AccountSwitcherSheet } from './AccountSwitcherSheet';
+export { LanguagePickerSheet } from './LanguagePickerSheet';
+export { LanguageToggle } from './LanguageToggle';

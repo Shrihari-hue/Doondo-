@@ -142,6 +142,28 @@ export interface TrustCircleContact {
   relationship?: string | null;
 }
 
+/**
+ * Doondo Constitution — a seeker's personal, public work rules. The
+ * worker sets their own boundaries; an employer sees them on the
+ * applicant view, so a bad fit is filtered out *before* anyone wastes
+ * an interview. A dignifying inversion: the worker sets the terms.
+ *
+ * The pay floor lives in `expectedSalary` already, so the Constitution
+ * captures only the non-wage boundaries.
+ */
+export interface SeekerConstitution {
+  /** Max distance the worker will travel for a job, km. Null = no limit. */
+  maxDistanceKm?: number | null;
+  /** Won't take night shifts. */
+  noNightShifts: boolean;
+  /** Won't work on Sundays. */
+  noSundays: boolean;
+  /** Requires the employer to provide safety equipment (PPE). */
+  requiresPpe: boolean;
+  /** Requires a written contract. */
+  requiresContract: boolean;
+}
+
 export const BUSINESS_TYPES = [
   'individual',
   'shop',
@@ -337,6 +359,12 @@ export interface User {
    * are themselves Doondo users get the push.
    */
   shareShiftsWithCircle: boolean;
+  /**
+   * Doondo Constitution — the seeker's personal work rules. Always
+   * present (defaults to no-limit / all-false); an employer sees it on
+   * the applicant view so a mismatch is caught before the interview.
+   */
+  constitution: SeekerConstitution;
   /**
    * Re-engagement sweep bookkeeping. `lastReengagedAt` is when the
    * dormant-user sweep last pushed this user; `reengagementAttempts`
@@ -737,6 +765,25 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
     },
     isPeerResponder: { type: Boolean, default: false, index: true },
     shareShiftsWithCircle: { type: Boolean, default: false },
+    constitution: {
+      type: new Schema<SeekerConstitution>(
+        {
+          maxDistanceKm: { type: Number, default: null, min: 0, max: 500 },
+          noNightShifts: { type: Boolean, default: false },
+          noSundays: { type: Boolean, default: false },
+          requiresPpe: { type: Boolean, default: false },
+          requiresContract: { type: Boolean, default: false },
+        },
+        { _id: false },
+      ),
+      default: () => ({
+        maxDistanceKm: null,
+        noNightShifts: false,
+        noSundays: false,
+        requiresPpe: false,
+        requiresContract: false,
+      }),
+    },
   },
   { timestamps: true },
 );

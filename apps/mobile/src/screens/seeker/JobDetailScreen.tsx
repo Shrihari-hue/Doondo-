@@ -46,8 +46,9 @@ import {
   saveJobOffline,
 } from '@/lib/downloads';
 import { ApplyCelebration } from './apply-moment/ApplyCelebration';
+import { WORKPLACE_QUESTIONS, hasAnyAnswer } from '@/lib/reverseInterviewCatalog';
 import type { AppStackParamList } from '@/navigation/types';
-import type { PublicJob } from '@/api/types';
+import type { PublicJob, WorkplaceAnswers } from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'JobDetail'>;
 type Route = RouteProp<AppStackParamList, 'JobDetail'>;
@@ -471,6 +472,13 @@ function JobDetailScreenInner() {
             </View>
           </View>
         )}
+
+        {/* Reverse Interview — the employer's public answers to the
+           questions workers care about (pay, PPE, contract, women's
+           facilities). Self-hides when the employer answered none. */}
+        {job.workplaceAnswers && hasAnyAnswer(job.workplaceAnswers) ? (
+          <WorkplaceAnswersPanel answers={job.workplaceAnswers} t={t} />
+        ) : null}
 
         {/* Cover letter — optional, Career mode only. Multiline,
            preserves line breaks. Sent with the application; the employer
@@ -1343,6 +1351,95 @@ function RequirementItem({ label, color }: { label: string; color: string }) {
         </Text>
       </View>
       <Text variant="body">{label}</Text>
+    </View>
+  );
+}
+
+// ─── Reverse Interview panel ─────────────────────────────────────────────────
+
+/**
+ * Read-only panel showing the employer's answers to the five standard
+ * worker questions. The seeker reads this *before* applying — the terms
+ * are on the record. A question the employer skipped shows "Not
+ * answered", which is itself a signal.
+ */
+function WorkplaceAnswersPanel({
+  answers,
+  t,
+}: {
+  answers: WorkplaceAnswers;
+  t: TFn;
+}) {
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Text variant="bodyLarge" weight="medium">
+        {t('reverse_interview.detail_section')}
+      </Text>
+      <Card>
+        <View style={{ gap: spacing.md }}>
+          {WORKPLACE_QUESTIONS.map((q) => (
+            <View
+              key={q.field}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
+            >
+              <Text variant="footnote" style={{ flex: 1 }}>
+                {t(q.key)}
+              </Text>
+              <WorkplaceAnswerBadge value={answers[q.field] ?? null} t={t} />
+            </View>
+          ))}
+        </View>
+      </Card>
+    </View>
+  );
+}
+
+/** A Yes / No / Not-answered badge for one Reverse Interview question. */
+function WorkplaceAnswerBadge({
+  value,
+  t,
+}: {
+  value: boolean | null;
+  t: TFn;
+}) {
+  const { theme } = useTheme();
+
+  const config =
+    value === true
+      ? {
+          label: `✓ ${t('reverse_interview.yes')}`,
+          bg: theme.status.successSubtle,
+          border: theme.status.success,
+          fg: theme.status.success,
+        }
+      : value === false
+        ? {
+            label: `✗ ${t('reverse_interview.no')}`,
+            bg: '#FEE2E2',
+            border: '#FCA5A5',
+            fg: '#991B1B',
+          }
+        : {
+            label: t('reverse_interview.not_answered'),
+            bg: theme.bg.surface,
+            border: theme.border.default,
+            fg: theme.text.tertiary,
+          };
+
+  return (
+    <View
+      style={{
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 3,
+        borderRadius: radii.pill,
+        borderWidth: 0.5,
+        borderColor: config.border,
+        backgroundColor: config.bg,
+      }}
+    >
+      <Text variant="caption" weight="medium" style={{ color: config.fg }}>
+        {config.label}
+      </Text>
     </View>
   );
 }

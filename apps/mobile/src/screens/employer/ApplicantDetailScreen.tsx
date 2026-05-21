@@ -20,6 +20,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, TextField, FormError, PaymentConfirmationPanel } from '@/components';
 import { useTheme } from '@/theme/useTheme';
+import { useTranslate } from '@/i18n/useTranslate';
 import { applicationsApi, type ApplicantEntry, type SchedulePayload } from '@/api/applications.api';
 import { contactApi } from '@/api/contact.api';
 import { coursesApi } from '@/api/courses.api';
@@ -34,16 +35,30 @@ import { prettifySkill } from '@/lib/trades';
 import { formatRange, formatTenure, sortWorkHistory, tenureMonths } from '@/lib/workHistory';
 import { ApplyCelebration } from '../seeker/apply-moment/ApplyCelebration';
 import type { AppStackParamList } from '@/navigation/types';
-import type { ApplicationStatus, InterviewMode, PublicInterview, WorkExperience } from '@/api/types';
+import type {
+  ApplicationStatus,
+  InterviewMode,
+  PublicInterview,
+  SeekerConstitution,
+  WorkExperience,
+} from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'ApplicantDetail'>;
 type Route = RouteProp<AppStackParamList, 'ApplicantDetail'>;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
+
+/** Localised, uppercase-style status label for the identity eyebrow. */
+function statusEyebrow(status: ApplicationStatus, t: TFn): string {
+  const key = status === 'pending' ? 'status_new' : `status_${status}`;
+  return t(`employer.applicant_detail.${key}`);
+}
 
 export function ApplicantDetailScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const queryClient = useQueryClient();
   const { theme } = useTheme();
+  const t = useTranslate();
   const [showHired, setShowHired] = useState(false);
 
   // We keep the applicant detail in cache (seeded from list views) when
@@ -131,10 +146,13 @@ export function ApplicantDetailScreen() {
           <EmptyState
             glyph="✕"
             tone="warning"
-            eyebrow="UNAVAILABLE"
-            title="Couldn't load this applicant"
-            message="They may have withdrawn, or your connection dropped."
-            cta={{ label: 'Close', onPress: () => navigation.goBack() }}
+            eyebrow={t('employer.applicant_detail.error_eyebrow')}
+            title={t('employer.applicant_detail.error_title')}
+            message={t('employer.applicant_detail.error_message')}
+            cta={{
+              label: t('employer.applicant_detail.close'),
+              onPress: () => navigation.goBack(),
+            }}
           />
         </View>
       </Screen>
@@ -171,7 +189,7 @@ export function ApplicantDetailScreen() {
       >
         <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
           <Text variant="footnote" tone="secondary">
-            ← Back
+            {`← ${t('employer.applicant_detail.back')}`}
           </Text>
         </Pressable>
 
@@ -202,14 +220,14 @@ export function ApplicantDetailScreen() {
             <Text style={{ fontSize: 20 }}>⭐</Text>
             <View style={{ flex: 1 }}>
               <Text variant="bodyLarge" weight="medium" tone="hero">
-                Rate this worker
+                {t('employer.applicant_detail.rate_worker')}
               </Text>
               <Text variant="footnote" tone="secondary" numberOfLines={1}>
-                Your review helps other employers find great hires.
+                {t('employer.applicant_detail.rate_worker_hint')}
               </Text>
             </View>
             <Text style={{ fontSize: 13, fontWeight: '600', color: theme.brand.hero }}>
-              Rate ›
+              {`${t('employer.applicant_detail.rate_cta')} ›`}
             </Text>
           </Pressable>
         )}
@@ -217,23 +235,25 @@ export function ApplicantDetailScreen() {
         {/* Identity */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg }}>
           <Avatar
-            name={applicant.seeker?.name ?? 'Applicant'}
+            name={applicant.seeker?.name ?? t('employer.applicant_detail.applicant_fallback')}
             photoUrl={applicant.seeker?.photoUrl}
             size={92}
             premium={applicant.seeker?.isVerified}
           />
           <View style={{ flex: 1, gap: spacing.xs }}>
             <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              {(applicant.status === 'pending' ? 'NEW APPLICANT' : applicant.status.toUpperCase())}
+              {statusEyebrow(applicant.status, t)}
             </Text>
             <Text variant="display" weight="medium" display>
-              {applicant.seeker?.name ?? 'Applicant'}
+              {applicant.seeker?.name ?? t('employer.applicant_detail.applicant_fallback')}
             </Text>
             {applicant.teamSizeSnapshot && applicant.teamSizeSnapshot >= 2 ? (
               <>
                 <View style={{ alignSelf: 'flex-start' }}>
                   <Pill
-                    label={`Team of ${applicant.teamSizeSnapshot}`}
+                    label={t('employer.applicant_detail.team_of', {
+                      n: applicant.teamSizeSnapshot,
+                    })}
                     tone="info"
                     leading="👥"
                   />
@@ -241,7 +261,7 @@ export function ApplicantDetailScreen() {
                 {applicant.teamMembers && applicant.teamMembers.length > 0 ? (
                   <View style={{ marginTop: spacing.xs, gap: 2 }}>
                     <Text variant="footnote" tone="tertiary" style={{ letterSpacing: 1.0 }}>
-                      TEAMMATES
+                      {t('employer.applicant_detail.teammates')}
                     </Text>
                     {applicant.teamMembers.map((m, i) => (
                       <Text key={`${m.phone}-${i}`} variant="footnote" tone="secondary">
@@ -280,7 +300,7 @@ export function ApplicantDetailScreen() {
                 tone="secondary"
                 style={{ letterSpacing: 1.0 }}
               >
-                APPLIED TO
+                {t('employer.applicant_detail.applied_to')}
               </Text>
               <Text variant="bodyLarge" weight="medium">
                 {applicant.job.title}
@@ -298,11 +318,11 @@ export function ApplicantDetailScreen() {
               tone="secondary"
               style={{ letterSpacing: 1.0 }}
             >
-              SKILLS
+              {t('employer.applicant_detail.skills')}
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
               {applicant.seeker!.skills.map((s) => (
-                <Pill key={s} label={s} tone="neutral" />
+                <Pill key={s} label={prettifySkill(s)} tone="neutral" />
               ))}
             </View>
           </View>
@@ -317,7 +337,7 @@ export function ApplicantDetailScreen() {
               tone="secondary"
               style={{ letterSpacing: 1.0 }}
             >
-              COVER NOTE
+              {t('employer.applicant_detail.cover_note')}
             </Text>
             <Card>
               {/* Preserve line breaks the seeker wrote in their cover letter. */}
@@ -327,6 +347,12 @@ export function ApplicantDetailScreen() {
             </Card>
           </View>
         )}
+
+        {/* Doondo Constitution — the worker's stated work rules. Hidden
+            when they've set none. */}
+        {applicant.seeker?.constitution ? (
+          <ConstitutionPanel constitution={applicant.seeker.constitution} t={t} />
+        ) : null}
 
         {/* Earned course badges — hidden when none. */}
         {applicant.seeker?.id ? (
@@ -381,7 +407,9 @@ export function ApplicantDetailScreen() {
         {applicant.status === 'hired' && applicant.seeker?.id && (
           <UpiPaymentPanel
             seekerId={applicant.seeker.id}
-            seekerName={applicant.seeker.name ?? 'Worker'}
+            seekerName={
+              applicant.seeker.name ?? t('employer.applicant_detail.applicant_fallback')
+            }
             applicationId={applicant.id}
           />
         )}
@@ -402,6 +430,7 @@ export function ApplicantDetailScreen() {
  * beacon — either way the seeker has signalled they're reachable.
  */
 function CallSeekerButton({ seekerId }: { seekerId: string }) {
+  const t = useTranslate();
   const mutation = useMutation({
     mutationFn: () => contactApi.revealSeeker(seekerId),
     onSuccess: (data) => {
@@ -409,22 +438,27 @@ function CallSeekerButton({ seekerId }: { seekerId: string }) {
       if (!phone) {
         haptic('error');
         Alert.alert(
-          "Couldn't call",
-          'This worker hasn\'t added a phone number yet.',
+          t('employer.applicant_detail.call_fail_title'),
+          t('employer.applicant_detail.call_fail_no_phone'),
         );
         return;
       }
       haptic('selection');
       const clean = phone.replace(/[^\d+]/g, '');
       Linking.openURL(`tel:${clean}`).catch(() => {
-        Alert.alert("Couldn't open dialer", `Their number is ${phone}`);
+        Alert.alert(
+          t('employer.applicant_detail.call_dialer_fail_title'),
+          t('employer.applicant_detail.call_dialer_fail_msg', { phone }),
+        );
       });
     },
     onError: (err) => {
       haptic('error');
       const msg =
-        err instanceof ApiError ? err.message : "Couldn't reveal contact.";
-      Alert.alert('Not available', msg);
+        err instanceof ApiError
+          ? err.message
+          : t('employer.applicant_detail.call_reveal_fail');
+      Alert.alert(t('employer.applicant_detail.call_not_available'), msg);
     },
   });
   return (
@@ -432,7 +466,7 @@ function CallSeekerButton({ seekerId }: { seekerId: string }) {
       onPress={() => mutation.mutate()}
       disabled={mutation.isPending}
       accessibilityRole="button"
-      accessibilityLabel="Call this worker"
+      accessibilityLabel={t('employer.applicant_detail.call_worker_a11y')}
       style={({ pressed }) => ({
         paddingVertical: 14,
         borderRadius: radii.pill,
@@ -448,7 +482,9 @@ function CallSeekerButton({ seekerId }: { seekerId: string }) {
       })}
     >
       <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>
-        {mutation.isPending ? 'Opening dialer…' : '📞 Call this worker'}
+        {mutation.isPending
+          ? t('employer.applicant_detail.call_opening')
+          : t('employer.applicant_detail.call_worker')}
       </Text>
     </Pressable>
   );
@@ -472,6 +508,7 @@ function EndorsementsSection({
   applicationId: string;
 }) {
   const { theme } = useTheme();
+  const t = useTranslate();
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ['endorsements', seekerId],
@@ -488,8 +525,10 @@ function EndorsementsSection({
     onError: (err) => {
       haptic('error');
       Alert.alert(
-        "Couldn't endorse",
-        err instanceof ApiError ? err.message : 'Try again.',
+        t('employer.applicant_detail.endorse_fail_title'),
+        err instanceof ApiError
+          ? err.message
+          : t('employer.applicant_detail.try_again'),
       );
     },
   });
@@ -515,11 +554,10 @@ function EndorsementsSection({
         tone="secondary"
         style={{ letterSpacing: 1.0 }}
       >
-        ENDORSEMENTS
+        {t('employer.applicant_detail.endorsements')}
       </Text>
       <Text variant="footnote" tone="secondary">
-        You worked with this person — vouch for them on the trades they
-        actually delivered. 3 employer endorsements = verified status.
+        {t('employer.applicant_detail.endorsements_intro')}
       </Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
         {candidateTrades.map((trade) => {
@@ -560,8 +598,68 @@ function EndorsementsSection({
         })}
       </View>
       <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
-        Tap a trade to endorse the worker. You can endorse each trade once.
+        {t('employer.applicant_detail.endorsements_hint')}
       </Text>
+    </View>
+  );
+}
+
+// ─── Doondo Constitution ────────────────────────────────────────────────────
+
+/**
+ * Read-only panel of the applicant's work rules — how far they'll
+ * travel and their hard boundaries. Lists only the rules the worker
+ * actually set; renders nothing when they set none, so it never wastes
+ * space on a worker with no stated boundaries.
+ */
+function ConstitutionPanel({
+  constitution,
+  t,
+}: {
+  constitution: SeekerConstitution;
+  t: TFn;
+}) {
+  const { theme } = useTheme();
+
+  const items: string[] = [];
+  if (constitution.maxDistanceKm != null) {
+    items.push(
+      t('constitution.detail_max_distance', { km: constitution.maxDistanceKm }),
+    );
+  }
+  if (constitution.noNightShifts) items.push(t('constitution.detail_no_nights'));
+  if (constitution.noSundays) items.push(t('constitution.detail_no_sundays'));
+  if (constitution.requiresPpe) items.push(t('constitution.detail_requires_ppe'));
+  if (constitution.requiresContract) {
+    items.push(t('constitution.detail_requires_contract'));
+  }
+  if (items.length === 0) return null;
+
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Text
+        variant="footnote"
+        weight="medium"
+        tone="secondary"
+        style={{ letterSpacing: 1.0 }}
+      >
+        {t('constitution.detail_section')}
+      </Text>
+      <Card>
+        <View style={{ gap: spacing.sm }}>
+          {items.map((item, i) => (
+            <View
+              key={i}
+              style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' }}
+            >
+              <Text style={{ color: theme.brand.hero, lineHeight: 20 }}>•</Text>
+              <Text variant="footnote" style={{ flex: 1 }}>
+                {item}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </Card>
     </View>
   );
 }
@@ -574,6 +672,7 @@ function EndorsementsSection({
  */
 function ApplicantBadgesSection({ seekerId }: { seekerId: string }) {
   const { theme } = useTheme();
+  const t = useTranslate();
   const query = useQuery({
     queryKey: ['seekerBadges', seekerId],
     queryFn: () => coursesApi.seekerBadges(seekerId),
@@ -589,7 +688,7 @@ function ApplicantBadgesSection({ seekerId }: { seekerId: string }) {
         tone="secondary"
         style={{ letterSpacing: 1.0 }}
       >
-        COURSE BADGES · {badges.length}
+        {`${t('employer.applicant_detail.course_badges')} · ${badges.length}`}
       </Text>
       <ScrollView
         horizontal
@@ -642,6 +741,7 @@ function WorkPhotosCarousel({
   canVerify: boolean;
 }) {
   const { theme } = useTheme();
+  const t = useTranslate();
   const queryClient = useQueryClient();
   const verifyQuery = useQuery({
     queryKey: ['photoVerifications', seekerId],
@@ -667,8 +767,10 @@ function WorkPhotosCarousel({
     onError: (err) => {
       haptic('error');
       Alert.alert(
-        "Couldn't verify",
-        err instanceof ApiError ? err.message : 'Try again.',
+        t('employer.applicant_detail.verify_fail_title'),
+        err instanceof ApiError
+          ? err.message
+          : t('employer.applicant_detail.try_again'),
       );
     },
   });
@@ -684,7 +786,7 @@ function WorkPhotosCarousel({
         tone="secondary"
         style={{ letterSpacing: 1.0 }}
       >
-        WORK PHOTOS · {photos.length}
+        {`${t('employer.applicant_detail.work_photos')} · ${photos.length}`}
       </Text>
       <ScrollView
         horizontal
@@ -723,7 +825,7 @@ function WorkPhotosCarousel({
                   }}
                 >
                   <Text style={{ fontSize: 11, color: '#FFFFFF', fontWeight: '700' }}>
-                    ✓ Verified · {verifyCount}
+                    {`✓ ${t('employer.applicant_detail.photo_verified')} · ${verifyCount}`}
                   </Text>
                 </View>
               ) : null}
@@ -732,7 +834,7 @@ function WorkPhotosCarousel({
                   onPress={() => verifyMutation.mutate(i)}
                   disabled={verifyMutation.isPending}
                   accessibilityRole="button"
-                  accessibilityLabel="Verify this work photo"
+                  accessibilityLabel={t('employer.applicant_detail.verify_photo_a11y')}
                   style={({ pressed }) => ({
                     position: 'absolute',
                     bottom: 8,
@@ -745,7 +847,7 @@ function WorkPhotosCarousel({
                   })}
                 >
                   <Text style={{ fontSize: 11, color: '#FFFFFF', fontWeight: '700' }}>
-                    ✓ Verify this work
+                    {t('employer.applicant_detail.verify_photo')}
                   </Text>
                 </Pressable>
               ) : null}
@@ -766,6 +868,7 @@ function WorkPhotosCarousel({
  */
 function WorkHistorySection({ history }: { history: WorkExperience[] }) {
   const { theme } = useTheme();
+  const t = useTranslate();
   if (history.length === 0) return null;
   const sorted = sortWorkHistory(history);
   return (
@@ -776,7 +879,7 @@ function WorkHistorySection({ history }: { history: WorkExperience[] }) {
         tone="secondary"
         style={{ letterSpacing: 1.0 }}
       >
-        WORK HISTORY · {sorted.length}
+        {`${t('employer.applicant_detail.work_history')} · ${sorted.length}`}
       </Text>
       <View style={{ gap: spacing.sm }}>
         {sorted.map((e, i) => {
@@ -815,7 +918,7 @@ function WorkHistorySection({ history }: { history: WorkExperience[] }) {
                           color: theme.status.success,
                         }}
                       >
-                        CURRENT
+                        {t('employer.applicant_detail.current')}
                       </Text>
                     </View>
                   ) : null}
@@ -851,6 +954,7 @@ function ResumeRow({
 }: {
   seeker: NonNullable<ApplicantEntry['seeker']> | null;
 }) {
+  const t = useTranslate();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -873,7 +977,11 @@ function ResumeRow({
       });
     } catch (err) {
       haptic('error');
-      setError(err instanceof Error ? err.message : "Couldn't open resume");
+      setError(
+        err instanceof Error
+          ? err.message
+          : t('employer.applicant_detail.resume_open_fail'),
+      );
     } finally {
       setBusy(false);
     }
@@ -887,13 +995,13 @@ function ResumeRow({
         tone="secondary"
         style={{ letterSpacing: 1.0 }}
       >
-        RESUME
+        {t('employer.applicant_detail.resume')}
       </Text>
       <Card>
         <View style={{ gap: spacing.sm }}>
           <View style={{ gap: spacing.xs }}>
             <Text variant="bodyLarge" weight="medium" numberOfLines={1}>
-              {seeker.resumeFilename ?? 'Resume'}
+              {seeker.resumeFilename ?? t('employer.applicant_detail.resume_fallback')}
             </Text>
             {subtitleParts.length > 0 && (
               <Text variant="footnote" tone="secondary">
@@ -902,7 +1010,11 @@ function ResumeRow({
             )}
           </View>
           <Button
-            label={busy ? 'Opening…' : 'Open resume'}
+            label={
+              busy
+                ? t('employer.applicant_detail.resume_opening')
+                : t('employer.applicant_detail.resume_open')
+            }
             variant="secondary"
             onPress={handleOpen}
             disabled={busy}
@@ -921,10 +1033,10 @@ interface InterviewPanelProps {
   interview: PublicInterview | null;
 }
 
-const MODE_OPTIONS: Array<{ key: InterviewMode; label: string }> = [
-  { key: 'in_person', label: 'In-person' },
-  { key: 'video', label: 'Video' },
-  { key: 'phone', label: 'Phone' },
+const MODE_OPTIONS: Array<{ key: InterviewMode; labelKey: string }> = [
+  { key: 'in_person', labelKey: 'employer.applicant_detail.interview_mode_in_person' },
+  { key: 'video', labelKey: 'employer.applicant_detail.interview_mode_video' },
+  { key: 'phone', labelKey: 'employer.applicant_detail.interview_mode_phone' },
 ];
 
 /**
@@ -937,6 +1049,7 @@ const MODE_OPTIONS: Array<{ key: InterviewMode; label: string }> = [
  */
 function InterviewPanel({ applicationId, interview }: InterviewPanelProps) {
   const { theme } = useTheme();
+  const t = useTranslate();
   const queryClient = useQueryClient();
   const active = interview && interview.status === 'scheduled' ? interview : null;
   const [editing, setEditing] = useState(false);
@@ -970,7 +1083,7 @@ function InterviewPanel({ applicationId, interview }: InterviewPanelProps) {
           tone="secondary"
           style={{ letterSpacing: 1.0 }}
         >
-          INTERVIEW
+          {t('employer.applicant_detail.interview')}
         </Text>
         <Card premium>
           <View style={{ gap: spacing.xs }}>
@@ -978,7 +1091,7 @@ function InterviewPanel({ applicationId, interview }: InterviewPanelProps) {
               {formatWhen(active.scheduledFor)}
             </Text>
             <Text variant="footnote" tone="secondary">
-              {modeLabel(active.mode)}
+              {modeLabel(active.mode, t)}
               {active.mode === 'in_person' && active.location ? ` · ${active.location}` : ''}
               {active.mode === 'video' && active.meetingLink ? ` · ${active.meetingLink}` : ''}
             </Text>
@@ -991,11 +1104,19 @@ function InterviewPanel({ applicationId, interview }: InterviewPanelProps) {
         </Card>
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           <View style={{ flex: 1 }}>
-            <Button label="Reschedule" variant="secondary" onPress={() => setEditing(true)} />
+            <Button
+              label={t('employer.applicant_detail.interview_reschedule')}
+              variant="secondary"
+              onPress={() => setEditing(true)}
+            />
           </View>
           <View style={{ flex: 1 }}>
             <Button
-              label={cancelMutation.isPending ? 'Cancelling…' : 'Cancel'}
+              label={
+                cancelMutation.isPending
+                  ? t('employer.applicant_detail.interview_cancelling')
+                  : t('employer.applicant_detail.interview_cancel')
+              }
               variant="danger"
               onPress={() => cancelMutation.mutate()}
               disabled={cancelMutation.isPending}
@@ -1014,17 +1135,16 @@ function InterviewPanel({ applicationId, interview }: InterviewPanelProps) {
         tone="secondary"
         style={{ letterSpacing: 1.0 }}
       >
-        INTERVIEW
+        {t('employer.applicant_detail.interview')}
       </Text>
       {!editing ? (
         <Card>
           <View style={{ gap: spacing.sm }}>
             <Text variant="body" tone="secondary">
-              Set a time and the applicant gets a push, a chat note, and a card on
-              their application.
+              {t('employer.applicant_detail.interview_intro')}
             </Text>
             <Button
-              label="Schedule interview"
+              label={t('employer.applicant_detail.interview_schedule')}
               variant="primary"
               onPress={() => setEditing(true)}
             />
@@ -1051,6 +1171,7 @@ interface ScheduleFormProps {
 
 function ScheduleForm({ initial, submitting, onCancel, onSubmit }: ScheduleFormProps) {
   const { theme } = useTheme();
+  const t = useTranslate();
   const [mode, setMode] = useState<InterviewMode>(initial?.mode ?? 'in_person');
   // ISO entry — permissive: accept "YYYY-MM-DD HH:mm" or full ISO and we'll
   // normalise. Date pickers come later; this keeps the form one screen tall.
@@ -1065,19 +1186,19 @@ function ScheduleForm({ initial, submitting, onCancel, onSubmit }: ScheduleFormP
   function submit() {
     const iso = parseLocalEntry(whenText);
     if (!iso) {
-      setError('Use a format like 2026-05-12 15:00.');
+      setError(t('employer.applicant_detail.interview_err_format'));
       return;
     }
     if (new Date(iso).getTime() <= Date.now()) {
-      setError('Pick a future date and time.');
+      setError(t('employer.applicant_detail.interview_err_future'));
       return;
     }
     if (mode === 'in_person' && !location.trim()) {
-      setError('Add a location for in-person interviews.');
+      setError(t('employer.applicant_detail.interview_err_location'));
       return;
     }
     if (mode === 'video' && !meetingLink.trim()) {
-      setError('Add a meeting link for video interviews.');
+      setError(t('employer.applicant_detail.interview_err_link'));
       return;
     }
     setError(null);
@@ -1096,7 +1217,7 @@ function ScheduleForm({ initial, submitting, onCancel, onSubmit }: ScheduleFormP
         {/* Mode selector */}
         <View style={{ gap: spacing.xs }}>
           <Text variant="footnote" weight="medium" tone="secondary">
-            How
+            {t('employer.applicant_detail.interview_how')}
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
             {MODE_OPTIONS.map((o) => {
@@ -1122,7 +1243,7 @@ function ScheduleForm({ initial, submitting, onCancel, onSubmit }: ScheduleFormP
                     weight={active ? 'medium' : 'regular'}
                     style={{ color: active ? theme.brand.hero : theme.text.secondary }}
                   >
-                    {o.label}
+                    {t(o.labelKey)}
                   </Text>
                 </Pressable>
               );
@@ -1131,28 +1252,28 @@ function ScheduleForm({ initial, submitting, onCancel, onSubmit }: ScheduleFormP
         </View>
 
         <TextField
-          label="When"
+          label={t('employer.applicant_detail.interview_when')}
           value={whenText}
           onChangeText={setWhenText}
-          placeholder="2026-05-12 15:00"
+          placeholder={t('employer.applicant_detail.interview_when_placeholder')}
           autoCapitalize="none"
           autoCorrect={false}
         />
 
         {mode === 'in_person' && (
           <TextField
-            label="Location"
+            label={t('employer.applicant_detail.interview_location')}
             value={location}
             onChangeText={setLocation}
-            placeholder="Third Wave Coffee, Indiranagar 12th Main"
+            placeholder={t('employer.applicant_detail.interview_location_placeholder')}
           />
         )}
         {mode === 'video' && (
           <TextField
-            label="Meeting link"
+            label={t('employer.applicant_detail.interview_link')}
             value={meetingLink}
             onChangeText={setMeetingLink}
-            placeholder="https://meet.google.com/..."
+            placeholder={t('employer.applicant_detail.interview_link_placeholder')}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
@@ -1160,21 +1281,32 @@ function ScheduleForm({ initial, submitting, onCancel, onSubmit }: ScheduleFormP
         )}
 
         <TextField
-          label="Note (optional)"
+          label={t('employer.applicant_detail.interview_note')}
           value={notes}
           onChangeText={setNotes}
-          placeholder="Bring an ID, ask for Sneha at reception."
+          placeholder={t('employer.applicant_detail.interview_note_placeholder')}
           multiline
           numberOfLines={3}
         />
 
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           <View style={{ flex: 1 }}>
-            <Button label="Cancel" variant="ghost" onPress={onCancel} disabled={submitting} />
+            <Button
+              label={t('employer.applicant_detail.cancel')}
+              variant="ghost"
+              onPress={onCancel}
+              disabled={submitting}
+            />
           </View>
           <View style={{ flex: 1 }}>
             <Button
-              label={submitting ? 'Scheduling…' : initial ? 'Reschedule' : 'Schedule'}
+              label={
+                submitting
+                  ? t('employer.applicant_detail.interview_scheduling')
+                  : initial
+                    ? t('employer.applicant_detail.interview_reschedule')
+                    : t('employer.applicant_detail.interview_schedule_short')
+              }
               onPress={submit}
               disabled={submitting}
             />
@@ -1185,8 +1317,10 @@ function ScheduleForm({ initial, submitting, onCancel, onSubmit }: ScheduleFormP
   );
 }
 
-function modeLabel(m: InterviewMode): string {
-  return m === 'in_person' ? 'In-person' : m === 'video' ? 'Video call' : 'Phone call';
+function modeLabel(m: InterviewMode, t: TFn): string {
+  if (m === 'in_person') return t('employer.applicant_detail.interview_mode_in_person');
+  if (m === 'video') return t('employer.applicant_detail.interview_mode_video_call');
+  return t('employer.applicant_detail.interview_mode_phone_call');
 }
 
 function formatWhen(iso: string): string {
@@ -1248,6 +1382,7 @@ function ActionPanel({
   pending: boolean;
 }) {
   const { theme } = useTheme();
+  const t = useTranslate();
   const status = applicant.status;
   const terminal = status === 'rejected' || status === 'hired' || status === 'withdrawn';
 
@@ -1257,10 +1392,10 @@ function ActionPanel({
         <View style={{ gap: spacing.xs, alignItems: 'center' }}>
           <Text variant="bodyLarge" weight="medium">
             {status === 'hired'
-              ? 'You hired them.'
+              ? t('employer.applicant_detail.outcome_hired')
               : status === 'rejected'
-                ? 'You declined this applicant.'
-                : 'They withdrew their application.'}
+                ? t('employer.applicant_detail.outcome_rejected')
+                : t('employer.applicant_detail.outcome_withdrawn')}
           </Text>
         </View>
       </Card>
@@ -1274,19 +1409,31 @@ function ActionPanel({
     <View style={{ gap: spacing.sm }}>
       {canHire ? (
         <Button
-          label={pending ? 'Hiring…' : 'Hire'}
+          label={
+            pending
+              ? t('employer.applicant_detail.hiring')
+              : t('employer.applicant_detail.hire')
+          }
           onPress={() => onAction('hired')}
           disabled={pending}
         />
       ) : canShortlist ? (
         <Button
-          label={pending ? 'Saving…' : 'Shortlist'}
+          label={
+            pending
+              ? t('employer.applicant_detail.saving')
+              : t('employer.applicant_detail.shortlist')
+          }
           onPress={() => onAction('shortlisted')}
           disabled={pending}
         />
       ) : null}
       <Button
-        label={pending ? 'Saving…' : 'Decline'}
+        label={
+          pending
+            ? t('employer.applicant_detail.saving')
+            : t('employer.applicant_detail.decline')
+        }
         variant="secondary"
         onPress={() => onAction('rejected')}
         disabled={pending}

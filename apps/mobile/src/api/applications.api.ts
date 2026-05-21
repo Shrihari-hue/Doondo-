@@ -7,6 +7,7 @@ import type {
   ApplicationStatus,
   InterviewMode,
   PublicApplication,
+  SeekerConstitution,
   SkillGapResponse,
   WorkExperience,
 } from './types';
@@ -40,6 +41,8 @@ export interface ApplicantEntry extends PublicApplication {
     workHistory: WorkExperience[];
     /** Photos of the seeker's work (may be empty). */
     workPhotos: string[];
+    /** The seeker's Doondo Constitution — their stated work boundaries. */
+    constitution: SeekerConstitution;
   };
 }
 

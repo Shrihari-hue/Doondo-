@@ -9,6 +9,7 @@ import type {
   PayPeriod,
   PublicJob,
   WorkMode,
+  WorkplaceAnswers,
 } from './types';
 
 export interface NearbyParams {
@@ -233,4 +234,9 @@ export interface CreateJobPayload {
   } | null;
   /** Mark the post as time-sensitive. Defaults to false. */
   urgent?: boolean;
+  /**
+   * Reverse Interview — the employer's answers to standard worker
+   * questions. Omit when the employer skipped the section.
+   */
+  workplaceAnswers?: WorkplaceAnswers;
 }

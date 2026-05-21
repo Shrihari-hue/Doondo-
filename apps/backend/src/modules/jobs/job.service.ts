@@ -469,6 +469,7 @@ export async function createJob(
     urgent: input.urgent ?? false,
     audioDescriptionUrl: input.audioDescriptionUrl ?? null,
     audioDescriptionDurationSeconds: input.audioDescriptionDurationSeconds ?? null,
+    workplaceAnswers: input.workplaceAnswers ?? null,
   });
 
   const publicJob = job.toPublicJSON();
@@ -703,6 +704,11 @@ export function formatRawJob(r: Record<string, unknown>): PublicJob {
     audioDescriptionUrl: (r.audioDescriptionUrl as string | null | undefined) ?? null,
     audioDescriptionDurationSeconds:
       (r.audioDescriptionDurationSeconds as number | null | undefined) ?? null,
+    // Reverse Interview answers. List/nearby pipelines may not project
+    // this field; default to null so list cards (which don't show the
+    // panel anyway) stay valid. The JobDetail read uses toPublicJSON.
+    workplaceAnswers:
+      (r.workplaceAnswers as PublicJob['workplaceAnswers'] | undefined) ?? null,
     createdAt: (r.createdAt as Date).toISOString(),
   };
 }

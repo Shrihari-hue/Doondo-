@@ -80,6 +80,26 @@ interface Schedule {
   hoursPerDay?: number | null;
 }
 
+/**
+ * Reverse Interview — the employer's public, on-the-record answers to
+ * the questions workers actually care about but rarely get to ask. Set
+ * at post time, shown to seekers on the job detail *before* they apply.
+ * Each field is a tri-state: true (yes), false (no), or null/absent
+ * (the employer didn't answer — which is itself visible to the seeker).
+ */
+export interface WorkplaceAnswers {
+  /** Wages paid on time. */
+  paysOnTime?: boolean | null;
+  /** Overtime is paid extra. */
+  overtimePaid?: boolean | null;
+  /** Safety equipment (PPE) provided. */
+  providesPpe?: boolean | null;
+  /** A written contract is given. */
+  writtenContract?: boolean | null;
+  /** Separate facilities for women on site. */
+  womensFacilities?: boolean | null;
+}
+
 // ─── Document interface ─────────────────────────────────────────────────────
 
 export interface Job {
@@ -128,6 +148,12 @@ export interface Job {
   audioDescriptionDurationSeconds?: number | null;
   /** When the posting auto-expires. Null = no auto-expiry. */
   expiresAt?: Date | null;
+  /**
+   * Reverse Interview — the employer's answers to the standard worker
+   * questions (pay, PPE, contract, women's facilities). Null when the
+   * employer skipped the section entirely.
+   */
+  workplaceAnswers?: WorkplaceAnswers | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -172,6 +198,8 @@ export interface PublicJob {
   audioDescriptionUrl: string | null;
   /** Duration of the voice description in seconds. */
   audioDescriptionDurationSeconds: number | null;
+  /** Reverse Interview answers, or null when the employer skipped them. */
+  workplaceAnswers: WorkplaceAnswers | null;
   /** Distance from query point in meters. Set by the nearby query, undefined elsewhere. */
   distanceMeters?: number;
   /** Hydrated employer summary — set by routes that join. */
@@ -241,6 +269,17 @@ const scheduleSchema = new Schema<Schedule>(
   { _id: false },
 );
 
+const workplaceAnswersSchema = new Schema<WorkplaceAnswers>(
+  {
+    paysOnTime: { type: Boolean, default: null },
+    overtimePaid: { type: Boolean, default: null },
+    providesPpe: { type: Boolean, default: null },
+    writtenContract: { type: Boolean, default: null },
+    womensFacilities: { type: Boolean, default: null },
+  },
+  { _id: false },
+);
+
 const jobSchema = new Schema<Job, JobModelType, JobMethods>(
   {
     employerId: {
@@ -290,6 +329,7 @@ const jobSchema = new Schema<Job, JobModelType, JobMethods>(
       max: 120,
     },
     expiresAt: { type: Date, default: null, index: true },
+    workplaceAnswers: { type: workplaceAnswersSchema, default: null },
   },
   { timestamps: true },
 );
@@ -329,6 +369,15 @@ jobSchema.method('toPublicJSON', function (this: JobDocument): PublicJob {
     audioDescriptionUrl: this.audioDescriptionUrl ?? null,
     audioDescriptionDurationSeconds:
       this.audioDescriptionDurationSeconds ?? null,
+    workplaceAnswers: this.workplaceAnswers
+      ? {
+          paysOnTime: this.workplaceAnswers.paysOnTime ?? null,
+          overtimePaid: this.workplaceAnswers.overtimePaid ?? null,
+          providesPpe: this.workplaceAnswers.providesPpe ?? null,
+          writtenContract: this.workplaceAnswers.writtenContract ?? null,
+          womensFacilities: this.workplaceAnswers.womensFacilities ?? null,
+        }
+      : null,
     createdAt: this.createdAt.toISOString(),
   };
 });

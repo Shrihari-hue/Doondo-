@@ -1,10 +1,11 @@
 /**
  * useChatSocket — keeps chat React Query caches live.
  *
- * Listens for three events on the singleton socket:
+ * Listens for four events on the singleton socket:
  *   - chat:message_received       (new message FOR me)
  *   - chat:conversation_bumped    (some thread got a new message; both sides)
  *   - chat:read                   (other side read my messages)
+ *   - chat:message_transcribed    (a voice note's transcript is ready)
  *
  * On each event we mutate the relevant React Query cache (conversation
  * list + active-conversation message list) so the UI updates without a
@@ -30,6 +31,12 @@ interface ReadPayload {
   conversationId: string;
   readAt: string;
   readerId: string;
+}
+
+interface TranscribedPayload {
+  conversationId: string;
+  messageId: string;
+  transcript: string;
 }
 
 export function useChatSocket() {
@@ -102,14 +109,33 @@ export function useChatSocket() {
       );
     };
 
+    const onTranscribed = (p: TranscribedPayload) => {
+      // A voice note's transcript landed — patch it onto the message
+      // already in the active conversation's cache.
+      queryClient.setQueryData<{ messages: PublicMessage[]; hasMore: boolean }>(
+        ['chat', 'messages', p.conversationId],
+        (prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            messages: prev.messages.map((m) =>
+              m.id === p.messageId ? { ...m, transcript: p.transcript } : m,
+            ),
+          };
+        },
+      );
+    };
+
     socket.on('chat:message_received', onMessage);
     socket.on('chat:conversation_bumped', onBumped);
     socket.on('chat:read', onRead);
+    socket.on('chat:message_transcribed', onTranscribed);
 
     return () => {
       socket.off('chat:message_received', onMessage);
       socket.off('chat:conversation_bumped', onBumped);
       socket.off('chat:read', onRead);
+      socket.off('chat:message_transcribed', onTranscribed);
     };
   }, [accessToken, status, queryClient]);
 }

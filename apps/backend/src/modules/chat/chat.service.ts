@@ -348,7 +348,62 @@ export async function sendMessage(
     conversationId: conversation.id,
   });
 
+  // Voice notes get an auto-transcript a few seconds later. Detached
+  // from the send request — a slow or failed transcription must never
+  // delay or break the message itself.
+  if (kind === 'voice' && input.attachment) {
+    void transcribeVoiceMessage({
+      messageId: messageJson.id,
+      conversationId: conversation.id,
+      participantIds: [userId, recipientId],
+      dataUrl: input.attachment.dataUrl,
+      mimeType: input.attachment.mimeType,
+    });
+  }
+
   return messageJson;
+}
+
+/**
+ * Best-effort voice-note transcription. Runs fully detached from the
+ * send request. On success it stamps `transcript` on the message and
+ * emits `chat:message_transcribed` to both participants so an open
+ * thread updates the bubble live; on any failure it logs and gives up
+ * — the voice message itself is already delivered.
+ */
+async function transcribeVoiceMessage(input: {
+  messageId: string;
+  conversationId: string;
+  participantIds: string[];
+  dataUrl: string;
+  mimeType: string;
+}): Promise<void> {
+  try {
+    const { transcribeAudio } = await import(
+      '@/modules/transcription/transcription.service'
+    );
+    const { text } = await transcribeAudio({
+      dataUrl: input.dataUrl,
+      mimeType: input.mimeType,
+    });
+    const transcript = text.trim().slice(0, 4000);
+    if (!transcript) return;
+
+    await MessageModel.updateOne(
+      { _id: input.messageId },
+      { $set: { transcript } },
+    );
+
+    for (const uid of input.participantIds) {
+      emitToUser(uid, 'chat:message_transcribed', {
+        messageId: input.messageId,
+        conversationId: input.conversationId,
+        transcript,
+      });
+    }
+  } catch (err) {
+    logger.warn({ err, messageId: input.messageId }, 'voice transcription failed');
+  }
 }
 
 /**

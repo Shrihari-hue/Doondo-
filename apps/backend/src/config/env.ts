@@ -142,6 +142,20 @@ const schema = z.object({
    * returns and lapses again gets a fresh budget.
    */
   REENGAGEMENT_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
+
+  // ─── Voice-note transcription ─────────────────────────────────────────
+  /**
+   * 'openai' sends chat voice notes to OpenAI's audio-transcription
+   * (Whisper) endpoint; 'mock' returns a deterministic stub so the chat
+   * UX works on a fresh checkout with no API key. Default 'mock' in
+   * development — production deploys that want real transcripts must set
+   * this to 'openai' explicitly and supply OPENAI_API_KEY.
+   */
+  TRANSCRIPTION_PROVIDER: z.enum(['openai', 'mock']).default('mock'),
+  /** OpenAI API key (required when TRANSCRIPTION_PROVIDER=openai). */
+  OPENAI_API_KEY: z.string().optional(),
+  /** Transcription model. Default Whisper v1 — solid multilingual STT. */
+  TRANSCRIPTION_MODEL: z.string().default('whisper-1'),
 });
 
 const parsed = schema.safeParse(process.env);
