@@ -79,7 +79,15 @@
         }
       ],
       "expo-audio",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Doondo uses your microphone for voice job search.",
+          "speechRecognitionPermission": "Doondo uses speech recognition so you can search for jobs by voice.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false
