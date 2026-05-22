@@ -18,3 +18,7 @@ export { ErrorPanel } from './ErrorPanel';
 export { AccountSwitcherSheet } from './AccountSwitcherSheet';
 export { LanguagePickerSheet } from './LanguagePickerSheet';
 export { LanguageToggle } from './LanguageToggle';
+export { CraftShowcase } from './CraftShowcase';
+export { HireCelebration } from './HireCelebration';
+export { HireShareCardPoster } from './HireShareCardPoster';
+export { WomenSafetyBadge } from './WomenSafetyBadge';

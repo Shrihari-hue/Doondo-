@@ -145,6 +145,21 @@ const audioDescriptionDataUrl = z
   .max(1_500_000)
   .regex(/^data:audio\/(m4a|mp4|aac|x-m4a);base64,/i, 'Audio must be an m4a/AAC data URL');
 
+/**
+ * "Doondo for Women" — the employer's declared women-safety signals.
+ * Each is a plain boolean (defaulting to false so an omitted key is read
+ * as "not asserted"). Omit the whole object to leave the section blank.
+ */
+const womenSafetySchema = z
+  .object({
+    separateFacilities: z.boolean().default(false),
+    womenOnTeam: z.boolean().default(false),
+    dayShiftOnly: z.boolean().default(false),
+    safeTransport: z.boolean().default(false),
+    harassmentPolicy: z.boolean().default(false),
+  })
+  .strict();
+
 export const createJobSchema = z.object({
   body: z
     .object({
@@ -184,6 +199,8 @@ export const createJobSchema = z.object({
         .strict()
         .nullable()
         .optional(),
+      /** "Doondo for Women" — employer-declared women-safety signals. */
+      womenSafety: womenSafetySchema.nullable().optional(),
     })
     .strict(),
 });
@@ -209,6 +226,8 @@ export const updateJobSchema = z.object({
         .max(120)
         .nullable()
         .optional(),
+      /** "Doondo for Women" — employer-declared women-safety signals. */
+      womenSafety: womenSafetySchema.nullable().optional(),
     })
     .strict(),
 });

@@ -110,13 +110,29 @@ once is never bounced back to the login screen, even offline; and an
 opt-in fingerprint / face / screen-lock gate protects the app each
 time it's opened.
 
+**Session 26:** Voice job-search agent — a worker speaks ("cook jobs
+near me"), the agent searches real jobs, reads the results back aloud,
+and the worker applies by voice ("apply to the first one"). The whole
+search-to-apply loop, hands-free, for workers who can't read a feed.
+
+**Session 27:** Doondo for Women — employers declare women-safety
+signals on a job (separate facilities, day shift, safe transport, …);
+workers get a Women's Mode that filters every feed to women-safe work,
+a women-safety badge on jobs, and a dedicated hub with a curated feed,
+safe-work guidance, and one-tap safety tools.
+
+**Session 28:** Hire Reels — a worker records a short video intro that
+lives on their profile, and employers swipe a full-screen discovery
+feed of those reels. A blue-collar worker who can't write a polished
+profile can simply talk to camera and be seen.
+
 See `DOONDO_V2_ROADMAP.md` for the full backlog.
 
 ---
 
 ## Before you run it
 
-Three new dependencies were added across sessions — run `pnpm install`
+Four new dependencies were added across sessions — run `pnpm install`
 before building:
 
 ```bash
@@ -130,6 +146,10 @@ pnpm install
 - `expo-local-authentication` (`apps/mobile`) — powers the Session 25
   fingerprint / face / screen-lock app-lock gate. The app still runs
   without it (the gate degrades to off); install it for the feature.
+- `expo-speech` (`apps/mobile`) — the Session 26 voice agent's
+  text-to-speech. The app still runs without it (the agent just doesn't
+  speak — replies stay on screen). Run `expo install --fix` in
+  `apps/mobile` if the pinned version needs nudging for the SDK.
 
 Everything else runs on existing dependencies.
 
@@ -2246,16 +2266,317 @@ real-MongoDB boot.
 
 ---
 
+# Session 26 — Voice job-search agent
+
+The first of the roadmap's moonshots. Doondo's users are blue-collar
+workers, many of whom can't comfortably read a scrolling job feed. A
+voice-search box already existed — speak, get text, run a search — but
+the worker still had to *read* the results and *tap* to apply. This
+session closes that loop: the agent reads the jobs back aloud and the
+worker applies by voice.
+
+## What it does
+
+The worker taps the centre mic and speaks. One turn:
+
+  "cook jobs near me"  → the agent searches real jobs nearby, then
+  says "I found 3 jobs nearby. The first is Cook at Hotel Sunrise.
+  Say 'apply to the first one', or ask for other work."
+
+  "apply to the first one"  → the agent submits a real application to
+  that job and says "Done — you've applied to Cook at Hotel Sunrise."
+
+It also handles "say that again" (re-reads the last reply), "what can
+I say?" (explains itself), and an unrecognised line by falling back to
+a plain "jobs near you" search rather than going silent. Every reply
+is both spoken and shown on screen, with tappable job cards — so the
+agent works for a sighted worker in a noisy place too.
+
+Nothing is faked: a search hits the same `findNearby` geo-query the
+Jobs feed uses, and a voice apply goes through the same `apply` service
+the Apply button uses — same employer notification, same streak bump,
+same "already applied" de-duplication.
+
+## What it deliberately doesn't do
+
+This is a real agent, not a black box. The intent parser is a
+**deterministic, rule-based classifier** — keyword + ordinal matching
+across the five languages — not an LLM. That is a deliberate choice for
+v1: it is predictable, debuggable, free, works offline-fast, and is
+fully unit-testable. The speech layer (speech-to-text, text-to-speech)
+uses the device's own engines. A future pass can swap the classifier
+for an LLM and the speech for a cloud provider behind the same
+interfaces — the seam is already there (the backend endpoint also
+accepts a raw audio clip and routes it through the existing
+transcription service's swappable mock/Whisper provider).
+
+## How it's built
+
+**Backend** (`apps/backend/src/modules/voiceAgent/`)
+
+- `intent.ts` — new. `parseVoiceIntent(transcript)`, a pure,
+  synchronous classifier: search / apply / repeat / help / unknown. It
+  carries a multilingual trade lexicon (cook, driver, electrician,
+  plumber, …) and ordinal words ("second", "दूसरा", …) so a worker
+  speaking any of the five languages is understood. Pure by design — it
+  is unit-tested in the offline bootcheck.
+- `voiceAgent.service.ts` — new. `runVoiceTurn` orchestrates one turn:
+  parse the intent, then run a real `findNearby` search or a real
+  `apply`, and return a structured outcome. "Apply to the second one"
+  resolves against `contextJobIds` — the previous turn's result ids,
+  round-tripped through the client, so the agent itself stays stateless.
+- `voiceAgent.routes.ts` — new. `POST /voice-agent/turn`, seeker-auth.
+  Accepts a `transcript` (the device did speech-to-text) or an audio
+  clip (transcribed server-side via the shared transcription service).
+  Mounted in `routes/v1.ts`.
+
+**Mobile** (`apps/mobile/`)
+
+- `lib/speech.ts` — new. A lazy-`require`d `expo-speech` wrapper
+  (text-to-speech) that degrades to silent — replies still render —
+  when the native module is absent.
+- `api/voiceAgent.api.ts` — new. Typed wrapper for `/voice-agent/turn`.
+- `hooks/useVoiceAgent.ts` — new. Owns the conversation: the turn log
+  and the `contextJobIds` anchor for "apply the second one".
+- `screens/seeker/VoiceAgentScreen.tsx` — new. The conversational
+  screen: mic with pulsing rings, the conversation transcript, spoken
+  job cards (apply by voice *or* by tapping the card), example-prompt
+  chips, and a typed fallback for devices without speech recognition.
+- `navigation/` — `VoiceAgent` registered as a modal; the centre mic
+  FAB now opens it. The older `VoiceSearch` screen stays registered but
+  is superseded by the agent.
+- `i18n/locales/*.json` — a new `voice_agent` block (31 keys: screen UI
+  + the spoken reply templates) in all 5 locales. The reply text lives
+  in the locale files so the agent speaks in the worker's language.
+
+## Verified (Session 26)
+
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import).
+- Mobile `tsc --noEmit`: clean — 0 errors.
+- `bootcheck`: **PASSED** — 15/15, including a new
+  `parseVoiceIntent` functional check covering search (trade +
+  generic), apply (ordinal + bare), repeat, help, unknown, and the
+  "helper ≠ help" disambiguation.
+- i18n key coverage: all 31 `voice_agent.*` keys referenced in the
+  mobile code resolve in every one of the 5 locales — no missing keys.
+- All 5 locale files parse; `voice_agent` merged with round-trip
+  identity.
+
+**Environment note:** `expo-speech` (text-to-speech) and
+`expo-speech-recognition` (speech-to-text) are native modules, so the
+actual listen-and-speak loop can't be exercised in this sandbox — the
+agent logic, the structured turn flow, the graceful-degradation
+fallbacks and the types are verified here. The on-device behaviour
+(speak a search → hear results → say "apply to the first one") belongs
+to the deploy platform, like the real-MongoDB boot.
+
+**Honest scope:** the intent parser's trade lexicon is strongest in
+English and Hindi (the beta-ready languages) with solid Tamil, Telugu
+and Kannada coverage; the spoken-reply translations, like the rest of
+the app's South-Indian strings, are pending native-speaker QA. The
+agent understands a curated set of common trades — widening that
+vocabulary is a data-only change to `intent.ts`.
+
+---
+
+# Session 27 — Doondo for Women
+
+The second moonshot. Doondo's users include a large number of women
+workers for whom "is this workplace safe for me?" is the question that
+decides whether they apply at all. The app already had a dormant
+`safeForWomen` flag, but nothing set it and nothing acted on it. This
+session turns that into a real, three-part feature.
+
+## What it does
+
+**1. Employers declare women-safety signals.** When posting a job, an
+employer can tick a "Women at work" checklist — separate facilities,
+women already on the team, day-shift only, safe transport, a
+harassment-redressal process. Each is optional; a blank is not a claim.
+
+**2. Workers get Women's Mode + a safety badge.** A worker can turn on
+Women's Mode — a single toggle that filters the job feed to women-safe
+postings across the app. It is a *view filter*: it never changes the
+account, men's feeds are untouched, and it can be turned off any time.
+Every job carries a women-safety tier (high / medium / basic), shown as
+a "Women-safe" badge and, on the job detail, a full panel listing which
+signals the employer declared.
+
+**3. A dedicated hub.** "Doondo for Women" (reached from the Profile
+menu) brings it together: the Women's Mode toggle, a curated feed of
+women-safe jobs nearby, plain-language safe-work guidance, and one-tap
+access to the existing SOS and Trust Circle safety tools.
+
+## What it deliberately doesn't do
+
+The women-safety signals are **declared by employers, not verified by
+Doondo** — and every surface that shows them says exactly that. The
+tier is an honest count of declared signals, not an opaque score and
+not a Doondo guarantee. The feature is strictly additive: it helps a
+woman worker *find* workplaces that have thought about her safety; it
+never excludes anyone from any job.
+
+## How it's built
+
+**Backend**
+
+- `modules/jobs/womenSafety.ts` — new. The `WomenSafety` shape (five
+  boolean signals) and `computeWomenSafety` — a pure, bootcheck-tested
+  function that scores the signals into a tier (4–5 → high, 2–3 →
+  medium, 1 → basic, 0 → none).
+- `Job` model — a `womenSafety` sub-document. The legacy `safeForWomen`
+  flag is now *derived*: true the moment an employer declares at least
+  one signal — which finally makes the long-dormant "Women-safe only"
+  search filter actually do something.
+- `createJob` / `updateJob` schemas + service persist `womenSafety`;
+  `toPublicJSON` and `formatRawJob` emit the raw signals plus the
+  computed `womenSafetyTier`.
+
+**Mobile**
+
+- `lib/womenSafetyCatalog.ts` — new. The signal list, icons and
+  guidance-tip catalog (pure data; translations live in i18n).
+- `stores/womenMode.store.ts` — new. The Women's Mode preference,
+  persisted on-device (secure-store), hydrated at app start.
+- `components/WomenSafetyBadge.tsx` — new. The tiered "Women-safe" pill.
+- `screens/seeker/WomenHubScreen.tsx` — new. The hub. Registered as a
+  modal; reached from a Profile-menu row.
+- `JobDetailScreen` — a women-safety panel listing the declared
+  signals. `PostJobScreen` — a "Women at work" tick-list section.
+  `JobsScreen` — Women's Mode defaults the safe-for-women filter on.
+- `i18n/locales/*.json` — a new `women` block (35 keys) in all 5
+  locales.
+
+## Verified (Session 27)
+
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import).
+- Mobile `tsc --noEmit`: clean — 0 errors.
+- `bootcheck`: **PASSED** — 16/16, including a new
+  `computeWomenSafety` functional check (none / basic / medium / high
+  tiers and the signal count).
+- i18n key coverage: all 35 `women.*` keys referenced in the mobile
+  code resolve in every one of the 5 locales — no missing keys.
+- All 5 locale files parse; `women` merged with round-trip identity.
+
+**Environment note:** no new native modules this session — the feature
+is plain product logic, so it is verified end-to-end here (types,
+the pure scorer, the module graph). The on-device pass (an employer
+posting a job with signals, a worker toggling Women's Mode) belongs to
+the deploy platform with a real MongoDB, as always.
+
+**Honest scope:** the women-safety signals are employer-declared, by
+design — Doondo verification of workplaces would be a separate trust
+feature. The `women` block's South-Indian translations, like the rest
+of the app's, are pending native-speaker QA.
+
+---
+
+# Session 28 — Hire Reels
+
+The third and last moonshot. The whole app rests on a worker being able
+to present themselves — but a profile is text, and many blue-collar
+workers don't write fluently in any of the five languages. Hire Reels
+fixes that: a worker records a short video and simply *talks*.
+
+## What it does
+
+**A worker records an intro reel.** From their profile, a worker opens
+"My intro reel", records a ~30-second clip with the camera (or picks
+one from the gallery), adds an optional caption, and uploads it. It is
+one reel per worker — re-recording replaces it, like a profile photo.
+
+**Employers swipe a discovery feed.** Hire Reels gives employers a
+full-screen, vertically-paged feed of worker intro reels — reached from
+the Applicants tab. Instead of scanning rows of text, an employer
+watches real people say who they are and what they do. Each reel
+carries the worker's name, photo and skills.
+
+## What it deliberately doesn't do
+
+This is honest about its limits. v1 is **browse-only** — the feed is for
+discovery; reaching out still goes through the normal application flow.
+Surfacing a worker's reel on their applicant card is the obvious next
+step, deliberately left for a follow-up rather than half-built here.
+
+Video also can't live inline in the database the way the tiny base64
+audio notes do. So storage is a **swappable provider** (the same
+pattern as the transcription service): the default `mock` provider
+returns a deterministic placeholder URL so the whole record → store →
+feed flow is wired and testable on a fresh checkout; a production
+deploy sets `REEL_STORAGE_PROVIDER=http` and a `REEL_UPLOAD_URL` to
+push clips to whatever CDN it runs. No cloud SDK is baked in.
+
+## How it's built
+
+**Backend** (`apps/backend/src/modules/reels/`)
+
+- `reelStorage.service.ts` — new. The swappable storage provider
+  (`mock` / `http`) and `validateReel` — a pure, bootcheck-tested
+  duration/size/format check.
+- `reel.model.ts` — new. The `Reel` model: one per worker (a unique
+  index enforces it), storing only the video URL, not the bytes.
+- `reel.service.ts` + `reel.routes.ts` — new. `upsertReel`, `getMyReel`,
+  `deleteReel`, `getSeekerReel`, and the employer `listReelFeed`
+  (recent reels hydrated with a worker summary). Mounted at
+  `/api/v1/reels`.
+- `config/env.ts` — three new optional vars for the storage provider,
+  all with safe defaults (mock); no `.env` change is needed to run.
+
+**Mobile** (`apps/mobile/`)
+
+- `lib/reelVideo.ts` — new. Camera + gallery capture of a short clip
+  (mirrors the proven `chatVideo` base64 path).
+- `api/reels.api.ts` — new. Typed wrappers for the reel endpoints.
+- `screens/seeker/RecordReelScreen.tsx` — new. Record / preview /
+  caption / upload, with a three-state flow (empty → preview → saved).
+  Reached from a Profile-menu row.
+- `screens/employer/ReelFeedScreen.tsx` — new. The full-screen,
+  swipeable discovery feed; each card is its own video player, playing
+  only while it is the active card. Reached from the Applicants tab.
+- `i18n/locales/*.json` — a new `reels` block (28 keys) in all 5
+  locales.
+
+## Verified (Session 28)
+
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import).
+- Mobile `tsc --noEmit`: clean — 0 errors.
+- `bootcheck`: **PASSED** — 17/17, including a new `reels` check
+  covering `validateReel` (ok / too-short / too-long / too-large /
+  bad-format) and the mock storage provider.
+- i18n key coverage: all 28 `reels.*` keys referenced in the mobile
+  code resolve in every one of the 5 locales.
+- All 5 locale files parse; `reels` merged with round-trip identity.
+
+**Environment note:** video capture (`expo-image-picker` camera) and
+playback (`expo-video`) are native modules — both already app
+dependencies, so no new install — and can't be exercised in this
+sandbox. The reel logic, the swappable storage seam, the pure
+validator and all types are verified here; the real record → upload →
+play loop, against a real storage provider, belongs to the deploy
+platform.
+
+**Honest scope:** browse-only by design (see above); reels on the
+applicant card and a contact-from-reel flow are the natural follow-ups.
+The `reels` block's South-Indian translations are pending native-speaker
+QA, like the rest of the app's.
+
+---
+
 ## What's next
 
 The codebase is verified as far as this environment allows — it
 compiles, loads, and the logic is sound. The remaining verification
 steps (boot against a real MongoDB; the native-module behaviour from
-Sessions 24–25) belong on the deploy platform, with the commands above.
+Sessions 24–28) belong on the deploy platform, with the commands above.
 
-Most roadmap features are shipped and every screen is localised.
-Remaining picks, smallest-first: peer cohorts, bookable mentor
-sessions — and the larger moonshots (AR Job Vision, the voice agent,
-Hire Reels, Doondo for Women). Release work also stands open:
-native-speaker QA on the translations and the on-device boot against a
-real MongoDB. The app is beta-ready in English and Hindi today.
+All three roadmap moonshots have now shipped — the voice agent, Doondo
+for Women, and Hire Reels — and every screen is localised. Remaining
+picks are the smaller features: peer cohorts and bookable mentor
+sessions, plus the natural Hire Reels follow-ups (a reel on the
+applicant card, a contact-from-reel flow). Release work still stands
+open: native-speaker QA on the translations and the on-device boot
+against a real MongoDB. The app is beta-ready in English and Hindi
+today.

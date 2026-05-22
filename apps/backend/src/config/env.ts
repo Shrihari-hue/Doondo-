@@ -156,6 +156,20 @@ const schema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   /** Transcription model. Default Whisper v1 — solid multilingual STT. */
   TRANSCRIPTION_MODEL: z.string().default('whisper-1'),
+
+  // ─── Hire Reels — worker intro-video storage ──────────────────────────
+  /**
+   * Where a worker's intro-reel video is stored. 'mock' returns a
+   * deterministic placeholder URL so the feature works on a fresh
+   * checkout with no media host; 'http' POSTs the clip to REEL_UPLOAD_URL
+   * (whatever CDN / uploader the deploy runs) and uses the URL it returns.
+   * Default 'mock' — a production deploy sets this to 'http'.
+   */
+  REEL_STORAGE_PROVIDER: z.enum(['mock', 'http']).default('mock'),
+  /** Upload endpoint (required when REEL_STORAGE_PROVIDER=http). */
+  REEL_UPLOAD_URL: z.string().url().optional(),
+  /** Optional bearer token sent with the upload request. */
+  REEL_UPLOAD_TOKEN: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

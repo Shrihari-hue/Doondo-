@@ -5,7 +5,7 @@
  *   Home | Jobs | [Mic FAB] | Chat | Profile
  *
  * The mic in the center isn't a tab — it's a floating action button that
- * pushes the VoiceSearch modal. Implemented inside the tab bar so it
+ * pushes the VoiceAgent modal. Implemented inside the tab bar so it
  * visually anchors the row; the BottomTab nav only knows about 4 real
  * tabs.
  *
@@ -147,7 +147,7 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     >
       {tabsBeforeMic.map(renderTab)}
 
-      {/* Center mic FAB — pushes VoiceSearch modal */}
+      {/* Center mic FAB — pushes the VoiceAgent modal */}
       <View
         style={{
           width: 64,
@@ -159,7 +159,7 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         <Pressable
           onPress={() => {
             haptic('selection');
-            appNav.navigate('VoiceSearch');
+            appNav.navigate('VoiceAgent');
           }}
           accessibilityRole="button"
           accessibilityLabel="Voice search"

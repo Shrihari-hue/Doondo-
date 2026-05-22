@@ -35,8 +35,18 @@ import {
   hasAnyAnswer,
   type WorkplaceQuestionField,
 } from '@/lib/reverseInterviewCatalog';
+import {
+  WOMEN_SAFETY_SIGNAL_DEFS,
+  countWomenSafetySignals,
+} from '@/lib/womenSafetyCatalog';
 import type { AppStackParamList } from '@/navigation/types';
-import type { JobType, PayPeriod, WorkMode, WorkplaceAnswers } from '@/api/types';
+import type {
+  JobType,
+  PayPeriod,
+  WomenSafety,
+  WorkMode,
+  WorkplaceAnswers,
+} from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'PostJob'>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
@@ -105,6 +115,15 @@ export function PostJobScreen() {
     writtenContract: null,
     womensFacilities: null,
   });
+  // "Doondo for Women" — employer-declared women-safety signals. Each
+  // starts off; only ticked signals become a claim on the listing.
+  const [womenSafety, setWomenSafety] = useState<WomenSafety>({
+    separateFacilities: false,
+    womenOnTeam: false,
+    dayShiftOnly: false,
+    safeTransport: false,
+    harassmentPolicy: false,
+  });
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
@@ -142,6 +161,10 @@ export function PostJobScreen() {
         workplaceAnswers: hasAnyAnswer(workplaceAnswers)
           ? workplaceAnswers
           : undefined,
+        // Only send the women-safety block when the employer ticked at
+        // least one signal — an all-false object is noise.
+        womenSafety:
+          countWomenSafetySignals(womenSafety) > 0 ? womenSafety : undefined,
       };
       return jobsApi.create(body);
     },
@@ -570,6 +593,9 @@ export function PostJobScreen() {
             onChange={setWorkplaceAnswers}
           />
 
+          {/* Doondo for Women — the employer's women-safety signals. */}
+          <WomenSafetyField value={womenSafety} onChange={setWomenSafety} />
+
           <View style={{ gap: spacing.xs }}>
             <Button
               label={
@@ -822,5 +848,86 @@ function AnswerChip({
         {label}
       </Text>
     </Pressable>
+  );
+}
+
+/**
+ * Doondo for Women — a tick-list where the employer declares which
+ * women-safety signals their workplace offers. Each is optional; only a
+ * ticked signal is a claim, and the section header says these are the
+ * employer's own statements.
+ */
+function WomenSafetyField({
+  value,
+  onChange,
+}: {
+  value: WomenSafety;
+  onChange: (next: WomenSafety) => void;
+}) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Text
+        variant="footnote"
+        weight="medium"
+        tone="secondary"
+        style={{ letterSpacing: 1.0 }}
+      >
+        {t('women.post_section')}
+      </Text>
+      <Text variant="footnote" tone="tertiary">
+        {t('women.post_hint')}
+      </Text>
+      {WOMEN_SAFETY_SIGNAL_DEFS.map((sig) => {
+        const on = value[sig.key] === true;
+        return (
+          <Pressable
+            key={sig.key}
+            onPress={() => {
+              haptic('selection');
+              onChange({ ...value, [sig.key]: !on });
+            }}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: on }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.sm,
+              paddingVertical: 5,
+            }}
+          >
+            <View
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 6,
+                borderWidth: 1.5,
+                borderColor: on ? theme.brand.hero : theme.border.default,
+                backgroundColor: on ? theme.brand.hero : 'transparent',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {on ? (
+                <Text
+                  variant="footnote"
+                  weight="medium"
+                  style={{ color: '#FFFFFF', lineHeight: 16 }}
+                >
+                  ✓
+                </Text>
+              ) : null}
+            </View>
+            <Text style={{ fontSize: 18 }}>{sig.icon}</Text>
+            <View style={{ flex: 1 }}>
+              <Text variant="footnote" weight={on ? 'medium' : 'regular'}>
+                {t(`women.signal.${sig.key}`)}
+              </Text>
+            </View>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }

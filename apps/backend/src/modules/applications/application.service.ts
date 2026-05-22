@@ -25,7 +25,13 @@ import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import * as walletService from '@/modules/wallet/wallet.service';
 import { emitToUser } from '@/sockets/bus';
-import { sendApplicationStatusPush, sendInterviewPush, sendSkillGapPush } from '@/lib/push';
+import {
+  sendApplicationStatusPush,
+  sendHireCelebrationPush,
+  sendInterviewPush,
+  sendSkillGapPush,
+  sendTrustCircleHirePush,
+} from '@/lib/push';
 import { JobModel, type PublicJob } from '@/modules/jobs/job.model';
 import { UserModel, type SeekerConstitution } from '@/modules/users/user.model';
 import {
@@ -594,6 +600,56 @@ export async function transitionByEmployer(
         logger.warn({ err, applicationId: app.id }, 'hired-nearby fan-out failed');
       }
     })();
+
+    // Quiet proud ping to the seeker's Trust Circle contacts who are
+    // themselves on Doondo. Mirrors the existing shift-start/end safety
+    // loop, but for the celebratory job-landed moment.
+    void (async () => {
+      try {
+        const seeker = await UserModel.findById(app.seekerId)
+          .select('name trustCircle')
+          .lean();
+        const trust = Array.isArray((seeker as { trustCircle?: unknown[] } | null)?.trustCircle)
+          ? ((seeker as { trustCircle: Array<{ phone: string }> }).trustCircle)
+          : [];
+        if (trust.length === 0) return;
+
+        const { hashPhone } = await import('@/modules/me/findFriends.service');
+        const hashes = trust.map((c) => hashPhone(c.phone));
+        const matched = await UserModel.find({
+          phoneHash: { $in: hashes },
+          isActive: true,
+        })
+          .select('_id')
+          .lean();
+
+        const job = await JobModel.findById(app.jobId)
+          .select('title employerId')
+          .lean();
+        const employer = job?.employerId
+          ? await UserModel.findById(job.employerId).select('companyName name').lean()
+          : null;
+        const workerFirstName =
+          ((seeker as { name?: string } | null)?.name ?? 'Your contact').split(' ')[0] ??
+          'Your contact';
+        const employerName =
+          (employer as { companyName?: string | null; name?: string | null } | null)?.companyName ??
+          (employer as { companyName?: string | null; name?: string | null } | null)?.name ??
+          null;
+
+        for (const m of matched) {
+          if ((m._id as Types.ObjectId).toString() === app.seekerId.toString()) continue;
+          void sendTrustCircleHirePush({
+            recipientId: (m._id as Types.ObjectId).toString(),
+            workerFirstName,
+            jobTitle: (job as { title?: string } | null)?.title,
+            employerName,
+          });
+        }
+      } catch (err) {
+        logger.warn({ err, applicationId: app.id }, 'trust circle hire ping failed');
+      }
+    })();
   }
 
   // Auto-unlock chat on shortlist or hire. Idempotent — re-running on
@@ -632,6 +688,29 @@ export async function transitionByEmployer(
   // generic push is still sent when there's no actionable gap.
   void (async () => {
     const job = await JobModel.findById(app.jobId).select('title').lean();
+    if (next === 'hired') {
+      try {
+        const employer = await UserModel.findById(app.employerId)
+          .select('companyName name')
+          .lean();
+        const employerName =
+          (employer as { companyName?: string | null; name?: string | null } | null)?.companyName ??
+          (employer as { companyName?: string | null; name?: string | null } | null)?.name ??
+          null;
+        void sendHireCelebrationPush({
+          recipientId: app.seekerId.toString(),
+          applicationId: app.id,
+          jobTitle: job?.title,
+          employerName,
+        });
+        return;
+      } catch (err) {
+        logger.warn(
+          { err, applicationId: app.id },
+          'hire celebration push failed, falling back to generic',
+        );
+      }
+    }
     if (next === 'rejected' && Array.isArray(app.rejectionReasons) && app.rejectionReasons.length > 0) {
       try {
         const { rankCoursesForGap } = await import('./skillGap.service');

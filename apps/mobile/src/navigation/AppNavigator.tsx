@@ -26,6 +26,10 @@ import { EmployerTabNavigator } from './EmployerTabNavigator';
 import { JobDetailScreen } from '@/screens/seeker/JobDetailScreen';
 import { EditProfileScreen } from '@/screens/seeker/EditProfileScreen';
 import { VoiceSearchScreen } from '@/screens/seeker/VoiceSearchScreen';
+import { VoiceAgentScreen } from '@/screens/seeker/VoiceAgentScreen';
+import { WomenHubScreen } from '@/screens/seeker/WomenHubScreen';
+import { RecordReelScreen } from '@/screens/seeker/RecordReelScreen';
+import { ReelFeedScreen } from '@/screens/employer/ReelFeedScreen';
 import { RatingsScreen } from '@/screens/seeker/RatingsScreen';
 import { LeaveRatingScreen } from '@/screens/seeker/LeaveRatingScreen';
 import { NotificationsScreen } from '@/screens/seeker/NotificationsScreen';
@@ -161,6 +165,26 @@ export function AppNavigator() {
       <Stack.Screen
         name="VoiceSearch"
         component={VoiceSearchScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="VoiceAgent"
+        component={VoiceAgentScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="WomenHub"
+        component={WomenHubScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="RecordReel"
+        component={RecordReelScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="ReelFeed"
+        component={ReelFeedScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen

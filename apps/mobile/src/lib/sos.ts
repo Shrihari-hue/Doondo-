@@ -63,6 +63,32 @@ export function buildSosMessage(opts: {
   return parts.join('\n');
 }
 
+export async function openSmsComposer(opts: {
+  phones: string[];
+  body: string;
+}): Promise<{ opened: boolean; reason?: string }> {
+  const phones = opts.phones
+    .map((phone) => phone.replace(/[^\d+]/g, ''))
+    .filter(Boolean);
+  if (phones.length === 0) {
+    return { opened: false, reason: 'No phone numbers were available.' };
+  }
+
+  const encoded = encodeURIComponent(opts.body);
+  const recipientList = phones.join(',');
+  const url =
+    Platform.OS === 'ios'
+      ? `sms:${recipientList}&body=${encoded}`
+      : `sms:${recipientList}?body=${encoded}`;
+
+  const can = await Linking.canOpenURL(url);
+  if (!can) {
+    return { opened: false, reason: "This device can't open SMS." };
+  }
+  await Linking.openURL(url);
+  return { opened: true };
+}
+
 /**
  * Trigger SOS — fetch coords, then open the SMS composer with the message
  * pre-filled. Resolves with `{opened: true}` on success.
@@ -80,19 +106,8 @@ export async function triggerSos(opts: {
   } catch {
     coords = null;
   }
-  const body = buildSosMessage({ senderName: opts.senderName, coords });
-  const encoded = encodeURIComponent(body);
-  // Strip everything but digits and a leading +.
-  const phone = opts.contact.phone.replace(/[^\d+]/g, '');
-  const url =
-    Platform.OS === 'ios'
-      ? `sms:${phone}&body=${encoded}`
-      : `sms:${phone}?body=${encoded}`;
-
-  const can = await Linking.canOpenURL(url);
-  if (!can) {
-    return { opened: false, reason: "This device can't open SMS." };
-  }
-  await Linking.openURL(url);
-  return { opened: true };
+  return openSmsComposer({
+    phones: [opts.contact.phone],
+    body: buildSosMessage({ senderName: opts.senderName, coords }),
+  });
 }

@@ -74,6 +74,10 @@ async function main(): Promise<void> {
       import('@/modules/transcription/transcription.service'),
       import('@/modules/sos/sos.service'),
       import('@/modules/profileExtract/profileExtract.service'),
+      import('@/modules/voiceAgent/intent'),
+      import('@/modules/voiceAgent/voiceAgent.service'),
+      import('@/modules/reels/reelStorage.service'),
+      import('@/modules/reels/reel.service'),
       import('@/lib/push'),
     ]);
   });
@@ -86,6 +90,7 @@ async function main(): Promise<void> {
       import('@/modules/notifications/notification.model'),
       import('@/modules/chat/message.model'),
       import('@/modules/jobs/job.model'),
+      import('@/modules/reels/reel.model'),
     ]);
   });
 
@@ -234,6 +239,145 @@ async function main(): Promise<void> {
     assert(
       seekerWith.title.length > 0 && employerWith.title.length > 0,
       'titles must be non-empty',
+    );
+  });
+
+  await check('voiceAgent.parseVoiceIntent classifies speech', async () => {
+    const { parseVoiceIntent } = await import('@/modules/voiceAgent/intent');
+
+    const search = parseVoiceIntent('I need cook jobs near me');
+    assert(
+      search.kind === 'search' && search.query === 'cook',
+      `expected search/cook, got ${JSON.stringify(search)}`,
+    );
+    const generic = parseVoiceIntent('show me some jobs');
+    assert(
+      generic.kind === 'search' && generic.query === '',
+      `expected a generic search, got ${JSON.stringify(generic)}`,
+    );
+    // "helper" must read as the trade, not be mistaken for "help".
+    const helper = parseVoiceIntent('helper work');
+    assert(
+      helper.kind === 'search' && helper.query === 'helper',
+      `"helper" should search, got ${JSON.stringify(helper)}`,
+    );
+    const apply = parseVoiceIntent('apply to the second one');
+    assert(
+      apply.kind === 'apply' && apply.index === 2,
+      `expected apply/2, got ${JSON.stringify(apply)}`,
+    );
+    const applyBare = parseVoiceIntent('apply');
+    assert(
+      applyBare.kind === 'apply' && applyBare.index === 1,
+      `bare "apply" should default to index 1, got ${JSON.stringify(applyBare)}`,
+    );
+    const repeat = parseVoiceIntent('say that again');
+    assert(repeat.kind === 'repeat', `expected repeat, got ${repeat.kind}`);
+    const help = parseVoiceIntent('what can you do');
+    assert(help.kind === 'help', `expected help, got ${help.kind}`);
+    const unknown = parseVoiceIntent('   ');
+    assert(unknown.kind === 'unknown', `expected unknown, got ${unknown.kind}`);
+  });
+
+  await check('womenSafety.computeWomenSafety scores the signals', async () => {
+    const { computeWomenSafety } = await import('@/modules/jobs/womenSafety');
+
+    const none = computeWomenSafety(null);
+    assert(
+      none.tier === 'none' && none.score === 0,
+      `expected none/0, got ${JSON.stringify(none)}`,
+    );
+    const basic = computeWomenSafety({
+      separateFacilities: true,
+      womenOnTeam: false,
+      dayShiftOnly: false,
+      safeTransport: false,
+      harassmentPolicy: false,
+    });
+    assert(
+      basic.tier === 'basic' && basic.score === 1,
+      `expected basic/1, got ${JSON.stringify(basic)}`,
+    );
+    const medium = computeWomenSafety({
+      separateFacilities: true,
+      womenOnTeam: true,
+      dayShiftOnly: true,
+      safeTransport: false,
+      harassmentPolicy: false,
+    });
+    assert(
+      medium.tier === 'medium' && medium.score === 3,
+      `expected medium/3, got ${JSON.stringify(medium)}`,
+    );
+    const high = computeWomenSafety({
+      separateFacilities: true,
+      womenOnTeam: true,
+      dayShiftOnly: true,
+      safeTransport: true,
+      harassmentPolicy: true,
+    });
+    assert(
+      high.tier === 'high' && high.score === 5 && high.signals.length === 5,
+      `expected high/5, got ${JSON.stringify(high)}`,
+    );
+  });
+
+  await check('reels.validateReel + mock storage provider', async () => {
+    const { validateReel, storeReelVideo } = await import(
+      '@/modules/reels/reelStorage.service'
+    );
+
+    const ok = validateReel({
+      durationSeconds: 12,
+      base64Length: 500_000,
+      isDataUrl: true,
+    });
+    assert(ok.ok && ok.reason === 'ok', `expected ok, got ${JSON.stringify(ok)}`);
+    const short = validateReel({
+      durationSeconds: 1,
+      base64Length: 1000,
+      isDataUrl: true,
+    });
+    assert(
+      !short.ok && short.reason === 'too_short',
+      `expected too_short, got ${JSON.stringify(short)}`,
+    );
+    const long = validateReel({
+      durationSeconds: 90,
+      base64Length: 1000,
+      isDataUrl: true,
+    });
+    assert(
+      !long.ok && long.reason === 'too_long',
+      `expected too_long, got ${JSON.stringify(long)}`,
+    );
+    const big = validateReel({
+      durationSeconds: 10,
+      base64Length: 9_000_000,
+      isDataUrl: true,
+    });
+    assert(
+      !big.ok && big.reason === 'too_large',
+      `expected too_large, got ${JSON.stringify(big)}`,
+    );
+    const badFmt = validateReel({
+      durationSeconds: 10,
+      base64Length: 1000,
+      isDataUrl: false,
+    });
+    assert(
+      !badFmt.ok && badFmt.reason === 'bad_format',
+      `expected bad_format, got ${JSON.stringify(badFmt)}`,
+    );
+
+    const stored = await storeReelVideo({
+      seekerId: 'seeker123',
+      dataUrl: 'data:video/mp4;base64,AAAA',
+      mimeType: 'video/mp4',
+    });
+    assert(
+      stored.provider === 'mock' && stored.videoUrl.includes('seeker123'),
+      `expected a mock provider URL, got ${JSON.stringify(stored)}`,
     );
   });
 

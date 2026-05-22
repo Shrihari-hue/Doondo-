@@ -18,7 +18,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, TextField, FormError, PaymentConfirmationPanel } from '@/components';
+import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, TextField, FormError, PaymentConfirmationPanel, CraftShowcase, HireCelebration } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { applicationsApi, type ApplicantEntry, type SchedulePayload } from '@/api/applications.api';
@@ -33,7 +33,6 @@ import { useUnratedApplications } from '@/hooks/useRatings';
 import { openResume, formatResumeSize } from '@/lib/resume';
 import { prettifySkill } from '@/lib/trades';
 import { formatRange, formatTenure, sortWorkHistory, tenureMonths } from '@/lib/workHistory';
-import { ApplyCelebration } from '../seeker/apply-moment/ApplyCelebration';
 import type { AppStackParamList } from '@/navigation/types';
 import type {
   ApplicationStatus,
@@ -172,7 +171,18 @@ export function ApplicantDetailScreen() {
   return (
     <Screen>
       {showHired && (
-        <ApplyCelebration
+        <HireCelebration
+          title={`You hired ${applicant.seeker?.name ?? 'this worker'}.`}
+          subtitle="Doondo will carry the next-step momentum from here: trust, shift readiness, and the feeling that this was a real win."
+          details={[
+            applicant.job?.title ?? 'Role confirmed',
+            applicant.job?.location?.area ?? applicant.job?.location?.city ?? 'Ready for the next step',
+          ]}
+          primaryLabel="Back to applicants"
+          onPrimary={() => {
+            setShowHired(false);
+            navigation.goBack();
+          }}
           onClose={() => {
             setShowHired(false);
             navigation.goBack();
@@ -382,6 +392,7 @@ export function ApplicantDetailScreen() {
           photos={applicant.seeker?.workPhotos ?? []}
           seekerId={applicant.seeker?.id ?? null}
           applicationId={applicant.id}
+          skills={applicant.seeker?.skills ?? []}
           canVerify={applicant.status === 'hired'}
         />
 
@@ -733,14 +744,15 @@ function WorkPhotosCarousel({
   photos,
   seekerId,
   applicationId,
+  skills,
   canVerify,
 }: {
   photos: string[];
   seekerId: string | null;
   applicationId: string;
+  skills: string[];
   canVerify: boolean;
 }) {
-  const { theme } = useTheme();
   const t = useTranslate();
   const queryClient = useQueryClient();
   const verifyQuery = useQuery({
@@ -779,83 +791,16 @@ function WorkPhotosCarousel({
     (verifyQuery.data?.verifications ?? []).map((v) => [v.photoIndex, v.count]),
   );
   return (
-    <View style={{ gap: spacing.sm }}>
-      <Text
-        variant="footnote"
-        weight="medium"
-        tone="secondary"
-        style={{ letterSpacing: 1.0 }}
-      >
-        {`${t('employer.applicant_detail.work_photos')} · ${photos.length}`}
-      </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.lg }}
-      >
-        {photos.map((uri, i) => {
-          const verifyCount = verifyCountByIndex.get(i) ?? 0;
-          return (
-            <View
-              key={`${uri.slice(-20)}-${i}`}
-              style={{
-                width: 220,
-                height: 160,
-                borderRadius: radii.lg,
-                overflow: 'hidden',
-                borderWidth: 0.5,
-                borderColor: theme.border.subtle,
-                backgroundColor: theme.bg.surface,
-              }}
-            >
-              <Image source={{ uri }} style={{ width: '100%', height: '100%' }} />
-              {verifyCount > 0 ? (
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: 8,
-                    left: 8,
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: radii.pill,
-                    backgroundColor: 'rgba(16, 185, 129, 0.92)',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 4,
-                  }}
-                >
-                  <Text style={{ fontSize: 11, color: '#FFFFFF', fontWeight: '700' }}>
-                    {`✓ ${t('employer.applicant_detail.photo_verified')} · ${verifyCount}`}
-                  </Text>
-                </View>
-              ) : null}
-              {canVerify ? (
-                <Pressable
-                  onPress={() => verifyMutation.mutate(i)}
-                  disabled={verifyMutation.isPending}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('employer.applicant_detail.verify_photo_a11y')}
-                  style={({ pressed }) => ({
-                    position: 'absolute',
-                    bottom: 8,
-                    right: 8,
-                    paddingHorizontal: 10,
-                    paddingVertical: 6,
-                    borderRadius: radii.pill,
-                    backgroundColor: 'rgba(37, 99, 235, 0.92)',
-                    opacity: verifyMutation.isPending ? 0.5 : pressed ? 0.7 : 1,
-                  })}
-                >
-                  <Text style={{ fontSize: 11, color: '#FFFFFF', fontWeight: '700' }}>
-                    {t('employer.applicant_detail.verify_photo')}
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          );
-        })}
-      </ScrollView>
-    </View>
+    <CraftShowcase
+      title={`${t('employer.applicant_detail.work_photos')} · ${photos.length}`}
+      subtitle="A premium read of the candidate's real work, so you can judge quality before you judge polish."
+      photos={photos}
+      skillLabels={skills.map(prettifySkill)}
+      verificationCounts={verifyCountByIndex}
+      onVerifyPhoto={canVerify ? (index) => verifyMutation.mutate(index) : undefined}
+      verifyPending={verifyMutation.isPending}
+      verifyLabel={t('employer.applicant_detail.verify_photo')}
+    />
   );
 }
 

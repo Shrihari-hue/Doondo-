@@ -8,6 +8,7 @@ import type {
   JobType,
   PayPeriod,
   PublicJob,
+  WomenSafety,
   WorkMode,
   WorkplaceAnswers,
 } from './types';
@@ -239,4 +240,9 @@ export interface CreateJobPayload {
    * questions. Omit when the employer skipped the section.
    */
   workplaceAnswers?: WorkplaceAnswers;
+  /**
+   * "Doondo for Women" — employer-declared women-safety signals. Omit
+   * when the employer left the section blank.
+   */
+  womenSafety?: WomenSafety;
 }

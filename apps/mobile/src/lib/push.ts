@@ -220,6 +220,7 @@ function resolveDeeplinkFromData(
 
   switch (type) {
     case 'application:status_changed':
+    case 'hire:celebration':
     case 'application:ghosted':
     case 'interview:scheduled':
     case 'interview:rescheduled':

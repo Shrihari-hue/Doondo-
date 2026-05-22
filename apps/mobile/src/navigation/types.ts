@@ -109,8 +109,23 @@ export type AppStackParamList = {
    * a working number on file for password reset.
    */
   AddRecoveryPhone: undefined;
-  /** Modal: voice-driven job search. Pushed by the center FAB mic. */
+  /** Modal: voice-driven job search (legacy speech-to-textbox screen). */
   VoiceSearch: undefined;
+  /**
+   * Modal: the conversational voice job-search agent — speak a search,
+   * hear the results read back, apply by voice. Pushed by the center
+   * FAB mic; supersedes the older VoiceSearch screen.
+   */
+  VoiceAgent: undefined;
+  /**
+   * Modal: "Doondo for Women" hub — Women's Mode toggle, a curated feed
+   * of women-safe jobs, safe-work guidance, and the safety tools.
+   */
+  WomenHub: undefined;
+  /** Modal: record / manage the worker's Hire Reels intro video. */
+  RecordReel: undefined;
+  /** Modal: the employer's Hire Reels discovery feed of worker intros. */
+  ReelFeed: undefined;
   /** Modal: list of ratings received by a user (defaults to self). */
   Ratings: { userId?: string } | undefined;
   /** Modal: leave a rating after a hire. */

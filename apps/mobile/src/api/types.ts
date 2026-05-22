@@ -341,6 +341,22 @@ export interface WorkplaceAnswers {
 }
 
 /**
+ * "Doondo for Women" — the employer's declared women-safety signals for
+ * a job. Each is a plain boolean: true = the employer asserts it. These
+ * are employer-declared, not Doondo-verified.
+ */
+export interface WomenSafety {
+  separateFacilities: boolean;
+  womenOnTeam: boolean;
+  dayShiftOnly: boolean;
+  safeTransport: boolean;
+  harassmentPolicy: boolean;
+}
+
+/** Women-safety tier derived from how many signals an employer declared. */
+export type WomenSafetyTier = 'high' | 'medium' | 'basic' | 'none';
+
+/**
  * Doondo Constitution — a seeker's personal, public work rules. The
  * worker sets their own boundaries; an employer sees them on the
  * applicant view.
@@ -401,6 +417,13 @@ export interface PublicJob {
    * the employer skipped the section.
    */
   workplaceAnswers: WorkplaceAnswers | null;
+  /**
+   * "Doondo for Women" — employer-declared women-safety signals, or null
+   * when the section was left blank.
+   */
+  womenSafety: WomenSafety | null;
+  /** Women-safety tier derived from the signals — drives the badge. */
+  womenSafetyTier: WomenSafetyTier;
   /** Filled by /jobs/nearby. */
   distanceMeters?: number;
   employer?: {

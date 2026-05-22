@@ -29,7 +29,17 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState } from '@/components';
+import {
+  Screen,
+  Text,
+  Pill,
+  Card,
+  Button,
+  Avatar,
+  SkeletonCard,
+  EmptyState,
+  WomenSafetyBadge,
+} from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { jobsApi } from '@/api/jobs.api';
@@ -48,8 +58,14 @@ import {
 } from '@/lib/downloads';
 import { ApplyCelebration } from './apply-moment/ApplyCelebration';
 import { WORKPLACE_QUESTIONS, hasAnyAnswer } from '@/lib/reverseInterviewCatalog';
+import { WOMEN_SAFETY_SIGNAL_DEFS } from '@/lib/womenSafetyCatalog';
 import type { AppStackParamList } from '@/navigation/types';
-import type { PublicJob, WorkplaceAnswers } from '@/api/types';
+import type {
+  PublicJob,
+  WomenSafety,
+  WomenSafetyTier,
+  WorkplaceAnswers,
+} from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'JobDetail'>;
 type Route = RouteProp<AppStackParamList, 'JobDetail'>;
@@ -499,6 +515,16 @@ function JobDetailScreenInner() {
            facilities). Self-hides when the employer answered none. */}
         {job.workplaceAnswers && hasAnyAnswer(job.workplaceAnswers) ? (
           <WorkplaceAnswersPanel answers={job.workplaceAnswers} t={t} />
+        ) : null}
+
+        {/* Doondo for Women — the employer's declared women-safety
+           signals. Self-hides when the employer declared none. */}
+        {job.womenSafety && job.womenSafetyTier !== 'none' ? (
+          <WomenSafetyPanel
+            womenSafety={job.womenSafety}
+            tier={job.womenSafetyTier}
+            t={t}
+          />
         ) : null}
 
         {/* Cover letter — optional, Career mode only. Multiline,
@@ -1419,6 +1445,57 @@ function WorkplaceAnswersPanel({
           ))}
         </View>
       </Card>
+    </View>
+  );
+}
+
+/**
+ * Read-only "Doondo for Women" panel. Lists the five women-safety
+ * signals — a green tick for each the employer declared, a dim mark for
+ * the rest — and states plainly that these are employer claims.
+ */
+function WomenSafetyPanel({
+  womenSafety,
+  tier,
+  t,
+}: {
+  womenSafety: WomenSafety;
+  tier: WomenSafetyTier;
+  t: TFn;
+}) {
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <Text variant="bodyLarge" weight="medium">
+          {t('women.panel_title')}
+        </Text>
+        <WomenSafetyBadge tier={tier} compact />
+      </View>
+      <Card>
+        <View style={{ gap: spacing.sm }}>
+          {WOMEN_SAFETY_SIGNAL_DEFS.map((sig) => {
+            const on = womenSafety[sig.key] === true;
+            return (
+              <View
+                key={sig.key}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
+              >
+                <Text style={{ fontSize: 15, width: 22 }}>{on ? '✅' : '▫️'}</Text>
+                <Text
+                  variant="footnote"
+                  tone={on ? 'primary' : 'tertiary'}
+                  style={{ flex: 1 }}
+                >
+                  {t(`women.signal.${sig.key}`)}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      </Card>
+      <Text variant="caption" tone="tertiary">
+        {t('women.disclaimer')}
+      </Text>
     </View>
   );
 }

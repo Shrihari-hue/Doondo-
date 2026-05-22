@@ -38,6 +38,7 @@ import {
   Avatar,
   AccountSwitcherSheet,
   LanguageToggle,
+  CraftShowcase,
 } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
@@ -878,6 +879,25 @@ export function ProfileScreen() {
           {/* Completion meter — self-hides at 100% */}
           <ProfileCompletionMeter user={user ?? null} />
 
+          <SectionLabel>CRAFT SHOWCASE</SectionLabel>
+          <CraftShowcase
+            title="Craft showcase"
+            subtitle={
+              user.workPhotos.length > 0
+                ? 'Lead with proof, not promises. Employers can scan your best work in seconds.'
+                : 'Add real work photos so your profile feels like a premium portfolio, not a plain listing.'
+            }
+            photos={user.workPhotos}
+            skillLabels={user.skills.map(capitalize)}
+            emptyTitle="No craft showcase yet"
+            emptyBody="Your best photos can do what a resume cannot: prove quality at a glance."
+            emptyCtaLabel="Build it now"
+            onEmptyPress={() => {
+              haptic('selection');
+              navigation.navigate('ResumeBuilder');
+            }}
+          />
+
           {/* Profile-views motivator — small banner above ACTIVITY */}
           <ProfileViewsBanner />
 
@@ -1014,6 +1034,28 @@ export function ProfileScreen() {
               onPress={() => {
                 haptic('selection');
                 navigation.navigate('PayslipExplainer');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="🌸"
+              tint="#FBCFE8"
+              label={t('women.menu_label')}
+              subtitle={t('women.menu_subtitle')}
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('WomenHub');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="🎬"
+              tint="#FEF3C7"
+              label={t('reels.menu_label')}
+              subtitle={t('reels.menu_subtitle')}
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('RecordReel');
               }}
             />
             <Divider color={theme.border.subtle} />

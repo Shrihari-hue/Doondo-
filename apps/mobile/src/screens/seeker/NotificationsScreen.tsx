@@ -47,6 +47,7 @@ function NotificationsScreenInner() {
     const params = (n.deeplink?.params ?? {}) as Record<string, unknown>;
     switch (n.kind) {
       case 'application_status':
+      case 'hire_celebration':
         // Open the My Applications timeline. Jumping straight to a specific
         // application's detail screen lands when we build that view.
         navigation.navigate('MyApplications');

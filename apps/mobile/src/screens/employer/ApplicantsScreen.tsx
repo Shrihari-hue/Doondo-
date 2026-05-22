@@ -171,6 +171,52 @@ export function ApplicantsScreen() {
           </Text>
         </Pressable>
 
+        {/* Hire Reels — swipe through worker intro videos to discover talent. */}
+        <Pressable
+          onPress={() => {
+            haptic('selection');
+            navigation.navigate('ReelFeed');
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={t('reels.feed_title')}
+          style={({ pressed }) => ({
+            padding: spacing.md,
+            borderRadius: radii.lg,
+            backgroundColor: '#F5F3FF',
+            borderWidth: 0.5,
+            borderColor: '#DDD6FE',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.md,
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
+          <View
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: '#7C3AED',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 16 }}>🎬</Text>
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#5B21B6' }}>
+              {t('reels.feed_card_title')}
+            </Text>
+            <Text
+              style={{ fontSize: 12, color: '#6D28D9', opacity: 0.85 }}
+              numberOfLines={1}
+            >
+              {t('reels.feed_card_subtitle')}
+            </Text>
+          </View>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: '#5B21B6' }}>›</Text>
+        </Pressable>
+
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
           {STATUS_FILTERS.map((f) => {
             const active = filter === f.key;

@@ -877,3 +877,89 @@ export async function sendRatingReceivedPush(input: {
     })),
   );
 }
+
+/**
+ * Hire celebration push for the worker themself. This is the emotional
+ * "you got the job" moment, but still routes into a useful screen so
+ * the user can move immediately into next steps.
+ */
+export async function sendHireCelebrationPush(input: {
+  recipientId: string;
+  applicationId: string;
+  jobTitle?: string;
+  employerName?: string | null;
+}): Promise<void> {
+  const title = input.jobTitle ? `You got hired as ${input.jobTitle}` : 'You got hired';
+  const body = input.employerName
+    ? `${input.employerName} picked you. Open Doondo for the next steps.`
+    : 'Open Doondo for the next steps.';
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'hire_celebration',
+    title,
+    body,
+    deeplink: { screen: 'MyApplications' },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'applications',
+      data: {
+        type: 'hire:celebration',
+        deeplink: { screen: 'MyApplications' },
+        applicationId: input.applicationId,
+      },
+    })),
+  );
+}
+
+/**
+ * Trust Circle hire ping — a quiet proud update to matched Doondo
+ * contacts when someone in their circle gets hired.
+ */
+export async function sendTrustCircleHirePush(input: {
+  recipientId: string;
+  workerFirstName: string;
+  jobTitle?: string;
+  employerName?: string | null;
+}): Promise<void> {
+  const title = `${input.workerFirstName} got hired`;
+  const body = input.jobTitle
+    ? input.employerName
+      ? `${input.workerFirstName} was hired as ${input.jobTitle} with ${input.employerName}.`
+      : `${input.workerFirstName} was hired as ${input.jobTitle}.`
+    : `${input.workerFirstName} landed a new job.`;
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'hire_celebration',
+    title,
+    body,
+    deeplink: { screen: 'Home' },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'default',
+      data: {
+        type: 'trust_circle:hire',
+        deeplink: { screen: 'Home' },
+      },
+    })),
+  );
+}

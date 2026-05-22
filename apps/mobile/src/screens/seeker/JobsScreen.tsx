@@ -15,7 +15,7 @@
  * reloads. Saving is optimistic on the cache.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -29,6 +29,7 @@ import {
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useWomenModeStore } from '@/stores/womenMode.store';
 
 import { spacing, radii, coral, champagne } from '@doondo/tokens';
 import { Screen, Text, Pill, Card, LoadingSpinner, SkeletonCard, Avatar, EmptyState, Button, ErrorPanel } from '@/components';
@@ -90,6 +91,18 @@ export function JobsScreen() {
    * only posts the employer flagged safeForWomen come back from the API.
    */
   const [safeForWomenOnly, setSafeForWomenOnly] = useState(false);
+
+  // Women's Mode (the "Doondo for Women" preference) defaults this
+  // filter on. Applied once, after the stored preference hydrates — the
+  // worker can still toggle the chip freely afterwards.
+  const womenModeEnabled = useWomenModeStore((s) => s.enabled);
+  const womenModeApplied = useRef(false);
+  useEffect(() => {
+    if (womenModeEnabled && !womenModeApplied.current) {
+      womenModeApplied.current = true;
+      setSafeForWomenOnly(true);
+    }
+  }, [womenModeEnabled]);
 
   // If the tab is opened with a new query param, sync it once.
   useEffect(() => {

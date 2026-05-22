@@ -3,6 +3,7 @@ import { AppState, View } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppLockStore } from '@/stores/appLock.store';
+import { useWomenModeStore } from '@/stores/womenMode.store';
 import { AuthNavigator } from './AuthNavigator';
 import { AppNavigator } from './AppNavigator';
 import { LockScreen } from '@/screens/LockScreen';
@@ -35,6 +36,8 @@ export function RootNavigator() {
     // Load the lock preference once, and re-engage the lock whenever the
     // app leaves the foreground.
     void useAppLockStore.getState().hydrate();
+    // Load the Women's Mode preference so the job feeds can filter on it.
+    void useWomenModeStore.getState().hydrate();
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background') useAppLockStore.getState().lock();
     });

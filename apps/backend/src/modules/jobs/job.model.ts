@@ -28,6 +28,13 @@
  */
 
 import { Schema, model, type Model, type HydratedDocument } from 'mongoose';
+import {
+  computeWomenSafety,
+  type WomenSafety,
+  type WomenSafetyTier,
+} from './womenSafety';
+
+export type { WomenSafety, WomenSafetyTier } from './womenSafety';
 
 // ─── Enums ──────────────────────────────────────────────────────────────────
 
@@ -154,6 +161,13 @@ export interface Job {
    * employer skipped the section entirely.
    */
   workplaceAnswers?: WorkplaceAnswers | null;
+  /**
+   * "Doondo for Women" — the employer's declared women-safety signals
+   * (separate facilities, day-shift only, safe transport, …). Null when
+   * the employer didn't fill the section. The top-level `safeForWomen`
+   * flag is derived from this: true when at least one signal is set.
+   */
+  womenSafety?: WomenSafety | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -200,6 +214,10 @@ export interface PublicJob {
   audioDescriptionDurationSeconds: number | null;
   /** Reverse Interview answers, or null when the employer skipped them. */
   workplaceAnswers: WorkplaceAnswers | null;
+  /** Employer-declared women-safety signals, or null when not filled. */
+  womenSafety: WomenSafety | null;
+  /** Women-safety tier derived from the signals — drives the badge. */
+  womenSafetyTier: WomenSafetyTier;
   /** Distance from query point in meters. Set by the nearby query, undefined elsewhere. */
   distanceMeters?: number;
   /** Hydrated employer summary — set by routes that join. */
@@ -280,6 +298,17 @@ const workplaceAnswersSchema = new Schema<WorkplaceAnswers>(
   { _id: false },
 );
 
+const womenSafetySchema = new Schema<WomenSafety>(
+  {
+    separateFacilities: { type: Boolean, default: false },
+    womenOnTeam: { type: Boolean, default: false },
+    dayShiftOnly: { type: Boolean, default: false },
+    safeTransport: { type: Boolean, default: false },
+    harassmentPolicy: { type: Boolean, default: false },
+  },
+  { _id: false },
+);
+
 const jobSchema = new Schema<Job, JobModelType, JobMethods>(
   {
     employerId: {
@@ -330,6 +359,7 @@ const jobSchema = new Schema<Job, JobModelType, JobMethods>(
     },
     expiresAt: { type: Date, default: null, index: true },
     workplaceAnswers: { type: workplaceAnswersSchema, default: null },
+    womenSafety: { type: womenSafetySchema, default: null },
   },
   { timestamps: true },
 );
@@ -378,6 +408,16 @@ jobSchema.method('toPublicJSON', function (this: JobDocument): PublicJob {
           womensFacilities: this.workplaceAnswers.womensFacilities ?? null,
         }
       : null,
+    womenSafety: this.womenSafety
+      ? {
+          separateFacilities: Boolean(this.womenSafety.separateFacilities),
+          womenOnTeam: Boolean(this.womenSafety.womenOnTeam),
+          dayShiftOnly: Boolean(this.womenSafety.dayShiftOnly),
+          safeTransport: Boolean(this.womenSafety.safeTransport),
+          harassmentPolicy: Boolean(this.womenSafety.harassmentPolicy),
+        }
+      : null,
+    womenSafetyTier: computeWomenSafety(this.womenSafety ?? null).tier,
     createdAt: this.createdAt.toISOString(),
   };
 });

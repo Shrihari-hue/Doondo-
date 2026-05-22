@@ -24,6 +24,7 @@ import { emitToUser } from '@/sockets/bus';
 import { matchJobToAlerts } from '@/modules/alerts/alert.service';
 import { UserModel } from '@/modules/users/user.model';
 import { JobModel, type JobStatus, type PublicJob } from './job.model';
+import { computeWomenSafety, type WomenSafety } from './womenSafety';
 import type {
   CreateJobBody,
   NearbyQuery,
@@ -470,6 +471,11 @@ export async function createJob(
     audioDescriptionUrl: input.audioDescriptionUrl ?? null,
     audioDescriptionDurationSeconds: input.audioDescriptionDurationSeconds ?? null,
     workplaceAnswers: input.workplaceAnswers ?? null,
+    womenSafety: input.womenSafety ?? null,
+    // `safeForWomen` is derived from the women-safety signals — true the
+    // moment the employer declares at least one. This is what powers the
+    // "Women-safe only" filter and the seeker's Women's Mode.
+    safeForWomen: computeWomenSafety(input.womenSafety ?? null).score > 0,
   });
 
   const publicJob = job.toPublicJSON();
@@ -601,6 +607,11 @@ export async function updateJob(
   if (input.audioDescriptionDurationSeconds !== undefined) {
     job.audioDescriptionDurationSeconds = input.audioDescriptionDurationSeconds;
   }
+  if (input.womenSafety !== undefined) {
+    job.womenSafety = input.womenSafety;
+    // Keep the derived flag in sync with the signals.
+    job.safeForWomen = computeWomenSafety(input.womenSafety).score > 0;
+  }
 
   await job.save();
   return job.toPublicJSON();
@@ -709,6 +720,12 @@ export function formatRawJob(r: Record<string, unknown>): PublicJob {
     // panel anyway) stay valid. The JobDetail read uses toPublicJSON.
     workplaceAnswers:
       (r.workplaceAnswers as PublicJob['workplaceAnswers'] | undefined) ?? null,
+    // Women-safety signals + the derived tier. Nearby/list pipelines may
+    // not project womenSafety; default to null so list cards stay valid.
+    womenSafety: (r.womenSafety as WomenSafety | null | undefined) ?? null,
+    womenSafetyTier: computeWomenSafety(
+      (r.womenSafety as WomenSafety | null | undefined) ?? null,
+    ).tier,
     createdAt: (r.createdAt as Date).toISOString(),
   };
 }

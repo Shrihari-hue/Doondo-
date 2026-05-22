@@ -17,25 +17,32 @@
  * No fake data. Empty state when there are no applications yet.
  */
 
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { RefObject } from 'react';
+import { Alert, FlatList, Linking, Pressable, RefreshControl, ScrollView, Share, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, LoadingSpinner, EmptyState, PaymentConfirmationPanel, ErrorPanel } from '@/components';
+import { Screen, Text, LoadingSpinner, EmptyState, PaymentConfirmationPanel, ErrorPanel, HireCelebration, HireShareCardPoster } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
+import { sosApi } from '@/api/sos.api';
 import { shiftCheckInApi } from '@/api/shiftCheckIn.api';
 import { captureShiftSelfie } from '@/lib/selfie';
 import { getCurrentCoords } from '@/lib/location';
 import { friendlyErrorMessage } from '@/lib/friendlyError';
 import { addEventToCalendar } from '@/lib/calendar';
+import { saveHireShareCardToPhotos, shareHireShareCard } from '@/lib/hireShareCard';
+import { getHireStartInfo } from '@/lib/hireStart';
+import { openSmsComposer } from '@/lib/sos';
 import { useUnratedApplications } from '@/hooks/useRatings';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
+import { useLocale } from '@/i18n/LanguageProvider';
+import { useAuthStore } from '@/stores/auth.store';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import type { ApplicationStatus, PublicApplication } from '@/api/types';
 import type { UnratedApp } from '@/api/ratings.api';
@@ -43,12 +50,16 @@ import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
+type ShareTone = 'proud' | 'professional' | 'family';
 
 function MyApplicationsInner() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const t = useTranslate();
+  const { locale } = useLocale();
+  const currentUser = useAuthStore((s) => s.user);
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: ['applications', 'me'],
@@ -65,6 +76,15 @@ function MyApplicationsInner() {
   }
 
   const applications = query.data?.applications ?? [];
+  const [celebrationApp, setCelebrationApp] = useState<PublicApplication | null>(null);
+  const [celebratedIds, setCelebratedIds] = useState<string[]>([]);
+  const hireShareCardRef = useRef<View>(null);
+  const [shareVariant, setShareVariant] = useState<'story' | 'square'>('story');
+  const [shareTone, setShareTone] = useState<ShareTone>('proud');
+  const celebrationStartInfo = useMemo(
+    () => (celebrationApp ? getHireStartInfo(celebrationApp, locale, t) : null),
+    [celebrationApp, locale, t],
+  );
 
   // Pipeline filter — defaults to "Open" (anything not terminal) since
   // that's what seekers want to see day-to-day. Counts drive the chip
@@ -106,6 +126,27 @@ function MyApplicationsInner() {
     (a) => a.interview && a.interview.status === 'scheduled',
   ).length;
 
+  useEffect(() => {
+    if (celebrationApp) return;
+    const newestUncelebratedHire = applications
+      .filter((a) => {
+        if (a.status !== 'hired' || !a.timeline.hiredAt) return false;
+        if (celebratedIds.includes(a.id)) return false;
+        const hiredAt = new Date(a.timeline.hiredAt).getTime();
+        return Number.isFinite(hiredAt) && Date.now() - hiredAt < 7 * 24 * 60 * 60 * 1000;
+      })
+      .sort((a, b) => {
+        const at = new Date(a.timeline.hiredAt ?? 0).getTime();
+        const bt = new Date(b.timeline.hiredAt ?? 0).getTime();
+        return bt - at;
+      })[0];
+
+    if (newestUncelebratedHire) {
+      setCelebratedIds((cur) => [...cur, newestUncelebratedHire.id]);
+      setCelebrationApp(newestUncelebratedHire);
+    }
+  }, [applications, celebratedIds, celebrationApp]);
+
   function openJob(jobId: string) {
     haptic('selection');
     navigation.navigate('JobDetail', { jobId });
@@ -113,6 +154,65 @@ function MyApplicationsInner() {
 
   return (
     <Screen edges={[]}>
+      {celebrationApp ? (
+        <>
+          {currentUser ? (
+            <HireShareCardPoster
+              ref={hireShareCardRef}
+              user={currentUser}
+              application={celebrationApp}
+              variant={shareVariant}
+              tone={shareTone}
+            />
+          ) : null}
+          <HireCelebration
+            title={
+              celebrationApp.job?.title
+                ? t('hire_share.celebration_title_with_role', {
+                    role: celebrationApp.job.title,
+                  })
+                : t('hire_share.celebration_title')
+            }
+            subtitle={t('hire_share.celebration_subtitle')}
+            details={[
+              celebrationApp.job?.employer?.companyName ??
+                celebrationApp.job?.employer?.name ??
+                t('hire_share.employer_confirmed'),
+              celebrationApp.job?.location?.area ??
+                celebrationApp.job?.location?.city ??
+                t('hire_share.work_details_ready'),
+              ...(celebrationStartInfo ? [celebrationStartInfo.relative] : []),
+            ]}
+            primaryLabel={primaryCelebrationAction(celebrationApp).label}
+            onPrimary={() => {
+              void primaryCelebrationAction(celebrationApp).run({
+                openJob,
+                clear: () => setCelebrationApp(null),
+                t,
+              });
+            }}
+            secondaryLabel={secondaryCelebrationAction(celebrationApp)?.label}
+            onSecondary={
+              secondaryCelebrationAction(celebrationApp)
+                ? () => {
+                    void secondaryCelebrationAction(celebrationApp)!.run({
+                      openJob,
+                      clear: () => setCelebrationApp(null),
+                      t,
+                      shareCardRef: hireShareCardRef,
+                      setShareVariant,
+                      setShareTone,
+                      queryClient,
+                      userName: currentUser?.name ?? null,
+                    });
+                  }
+                : undefined
+            }
+            onClose={() => setCelebrationApp(null)}
+          />
+        </>
+      ) : null}
+
       <View
         style={{
           paddingTop: insets.top + spacing.md,
@@ -430,6 +530,384 @@ function MyApplicationsInner() {
       )}
     </Screen>
   );
+}
+
+function buildHireShareText(
+  application: PublicApplication,
+  t: TFn,
+  tone: ShareTone = 'proud',
+  userName?: string | null,
+): string {
+  const jobTitle = application.job?.title ?? t('hire_share.fallback_role_caption');
+  const employer =
+    application.job?.employer?.companyName ??
+    application.job?.employer?.name ??
+    t('hire_share.fallback_employer_caption');
+  const area =
+    application.job?.location?.area ?? application.job?.location?.city ?? null;
+  if (tone === 'professional') {
+    return area
+      ? t('hire_share.share_caption_professional_with_area', {
+          name: userName ?? t('hire_share.notify_family_name_fallback'),
+          role: jobTitle,
+          employer,
+          area,
+        })
+      : t('hire_share.share_caption_professional', {
+          name: userName ?? t('hire_share.notify_family_name_fallback'),
+          role: jobTitle,
+          employer,
+        });
+  }
+  if (tone === 'family') {
+    return area
+      ? t('hire_share.share_caption_family_with_area', {
+          name: userName ?? t('hire_share.notify_family_name_fallback'),
+          role: jobTitle,
+          employer,
+          area,
+        })
+      : t('hire_share.share_caption_family', {
+          name: userName ?? t('hire_share.notify_family_name_fallback'),
+          role: jobTitle,
+          employer,
+        });
+  }
+  return area
+    ? t('hire_share.share_caption_with_area', { role: jobTitle, employer, area })
+    : t('hire_share.share_caption', { role: jobTitle, employer });
+}
+
+type CelebrationActionContext = {
+  openJob: (jobId: string) => void;
+  clear: () => void;
+  t: TFn;
+  shareCardRef?: RefObject<View | null>;
+  setShareVariant?: (variant: 'story' | 'square') => void;
+  setShareTone?: (tone: ShareTone) => void;
+  queryClient?: ReturnType<typeof useQueryClient>;
+  userName?: string | null;
+};
+
+type CelebrationAction = {
+  label: string;
+  run: (ctx: CelebrationActionContext) => Promise<void>;
+};
+
+function primaryCelebrationAction(application: PublicApplication): CelebrationAction {
+  const coords = application.job?.location?.coordinates ?? null;
+  if (coords) {
+    return {
+      label: 'Open route',
+      run: async ({ clear }) => {
+        const [lng, lat] = coords;
+        clear();
+        await Linking.openURL(`https://maps.google.com/?q=${lat},${lng}`);
+      },
+    };
+  }
+  return {
+    label: 'View job',
+    run: async ({ clear, openJob }) => {
+      const jobId = application.jobId;
+      clear();
+      openJob(jobId);
+    },
+  };
+}
+
+function secondaryCelebrationAction(
+  application: PublicApplication,
+): CelebrationAction | null {
+  if (application.interview && application.interview.status === 'scheduled') {
+    return {
+      label: 'Add to calendar',
+      run: async ({ t }) => {
+        const interview = application.interview!;
+        const extraNote = interview.meetingLink
+          ? `\n\nMeeting link: ${interview.meetingLink}`
+          : '';
+        await addEventToCalendar({
+          title: application.job?.title ?? t('applications.fallback.job_application'),
+          startDate: new Date(interview.scheduledFor),
+          location:
+            interview.location ??
+            application.job?.location?.address ??
+            null,
+          notes: `${interview.notes ?? ''}${extraNote}`.trim() || null,
+        });
+      },
+    };
+  }
+
+  return {
+    label: 'Share this win',
+    run: async (ctx) => {
+      if (!ctx.shareCardRef?.current) {
+        await Share.share({
+          title: ctx.t('hire_share.share_title'),
+          message: buildHireShareText(application, ctx.t, 'proud', ctx.userName),
+        });
+        return;
+      }
+      const choice = await chooseShareVariant(ctx.t);
+      if (!choice) return;
+      const variant =
+        choice.kind === 'square'
+          ? 'square'
+          : choice.kind === 'save'
+            ? choice.variant
+            : 'story';
+      const tone = await chooseShareTone(ctx.t);
+      if (!tone) return;
+      ctx.setShareVariant?.(variant);
+      ctx.setShareTone?.(tone);
+      await new Promise((resolve) => setTimeout(resolve, 80));
+
+      if (choice.kind === 'save') {
+        const saved = await saveHireShareCardToPhotos({
+          targetRef: ctx.shareCardRef,
+        });
+        if (saved.ok) {
+          showTrustCirclePrompt(
+            application,
+            ctx,
+            ctx.t('hire_share.save_success_title'),
+            ctx.t('hire_share.save_success_body'),
+          );
+          return;
+        }
+        Alert.alert(
+          ctx.t(
+            saved.reason === 'denied'
+              ? 'hire_share.save_permission_title'
+              : 'hire_share.save_error_title',
+          ),
+          ctx.t(
+            saved.reason === 'denied'
+              ? 'hire_share.save_permission_body'
+              : 'hire_share.save_error_body',
+          ),
+        );
+        return;
+      }
+
+      const result = await shareHireShareCard({
+        targetRef: ctx.shareCardRef,
+        caption: buildHireShareText(application, ctx.t, tone, ctx.userName),
+        dialogTitle:
+          variant === 'story'
+            ? ctx.t('hire_share.share_variant_story')
+            : ctx.t('hire_share.share_variant_square'),
+      });
+      if (result.ok) {
+        showTrustCirclePrompt(
+          application,
+          ctx,
+          ctx.t('hire_share.caption_copied_title'),
+          ctx.t('hire_share.caption_copied_body'),
+        );
+        return;
+      }
+      if (!result.ok) {
+        await Share.share({
+          title: ctx.t('hire_share.share_title'),
+          message: buildHireShareText(application, ctx.t, tone, ctx.userName),
+        });
+      }
+    },
+  };
+}
+
+function showTrustCirclePrompt(
+  application: PublicApplication,
+  ctx: CelebrationActionContext,
+  title: string,
+  message: string,
+) {
+  Alert.alert(title, message, [
+    {
+      text: ctx.t('common.cancel'),
+      style: 'cancel',
+    },
+    {
+      text: ctx.t('hire_share.notify_family'),
+      onPress: () => {
+        void notifyTrustCircle(application, ctx);
+      },
+    },
+  ]);
+}
+
+async function notifyTrustCircle(
+  application: PublicApplication,
+  ctx: CelebrationActionContext,
+) {
+  if (!ctx.queryClient) {
+    Alert.alert(
+      ctx.t('hire_share.notify_family_error_title'),
+      ctx.t('hire_share.notify_family_error_body'),
+    );
+    return;
+  }
+
+  try {
+    const trustCircle = await ctx.queryClient.fetchQuery({
+      queryKey: ['trustCircle'],
+      queryFn: () => sosApi.getTrustCircle(),
+      staleTime: 30_000,
+    });
+
+    const contacts = [...(trustCircle.trustCircle ?? [])]
+      .sort((a, b) => {
+        const aRank = a.relationship?.toLowerCase() === 'family' ? 0 : 1;
+        const bRank = b.relationship?.toLowerCase() === 'family' ? 0 : 1;
+        return aRank - bRank;
+      })
+      .map((contact) => contact.phone)
+      .filter(Boolean);
+
+    if (contacts.length === 0) {
+      Alert.alert(
+        ctx.t('hire_share.notify_family_empty_title'),
+        ctx.t('hire_share.notify_family_empty_body'),
+      );
+      return;
+    }
+
+    const result = await openSmsComposer({
+      phones: contacts,
+      body: buildTrustCircleMessage(application, ctx.t, ctx.userName),
+    });
+
+    if (!result.opened) {
+      Alert.alert(
+        ctx.t('hire_share.notify_family_error_title'),
+        ctx.t('hire_share.notify_family_error_body'),
+      );
+    }
+  } catch {
+    Alert.alert(
+      ctx.t('hire_share.notify_family_error_title'),
+      ctx.t('hire_share.notify_family_error_body'),
+    );
+  }
+}
+
+function buildTrustCircleMessage(
+  application: PublicApplication,
+  t: TFn,
+  userName?: string | null,
+): string {
+  const role = application.job?.title ?? t('hire_share.fallback_role_caption');
+  const employer =
+    application.job?.employer?.companyName ??
+    application.job?.employer?.name ??
+    t('hire_share.fallback_employer_caption');
+  const area = application.job?.location?.area ?? application.job?.location?.city ?? null;
+  return area
+    ? t('hire_share.notify_family_message_with_area', {
+        name: userName ?? t('hire_share.notify_family_name_fallback'),
+        role,
+        employer,
+        area,
+      })
+    : t('hire_share.notify_family_message', {
+        name: userName ?? t('hire_share.notify_family_name_fallback'),
+        role,
+        employer,
+      });
+}
+
+function chooseShareVariant(
+  t: TFn,
+): Promise<{ kind: 'story' | 'square' } | { kind: 'save'; variant: 'story' | 'square' } | null> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      t('hire_share.share_variant_title'),
+      t('hire_share.share_variant_body'),
+      [
+        {
+          text: t('hire_share.share_variant_story'),
+          onPress: () => resolve({ kind: 'story' }),
+        },
+        {
+          text: t('hire_share.share_variant_square'),
+          onPress: () => resolve({ kind: 'square' }),
+        },
+        {
+          text: t('hire_share.save_to_photos'),
+          onPress: () => {
+            void chooseSaveFormat(t).then((choice) => resolve(choice));
+          },
+        },
+        {
+          text: t('common.cancel'),
+          style: 'cancel',
+          onPress: () => resolve(null),
+        },
+      ],
+      { cancelable: true, onDismiss: () => resolve(null) },
+    );
+  });
+}
+
+function chooseSaveFormat(
+  t: TFn,
+): Promise<{ kind: 'save'; variant: 'story' | 'square' } | null> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      t('hire_share.save_variant_title'),
+      t('hire_share.save_variant_body'),
+      [
+        {
+          text: t('hire_share.share_variant_story'),
+          onPress: () => resolve({ kind: 'save', variant: 'story' }),
+        },
+        {
+          text: t('hire_share.share_variant_square'),
+          onPress: () => resolve({ kind: 'save', variant: 'square' }),
+        },
+        {
+          text: t('common.cancel'),
+          style: 'cancel',
+          onPress: () => resolve(null),
+        },
+      ],
+      { cancelable: true, onDismiss: () => resolve(null) },
+    );
+  });
+}
+
+function chooseShareTone(
+  t: TFn,
+): Promise<ShareTone | null> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      t('hire_share.share_tone_title'),
+      t('hire_share.share_tone_body'),
+      [
+        {
+          text: t('hire_share.share_tone_proud'),
+          onPress: () => resolve('proud'),
+        },
+        {
+          text: t('hire_share.share_tone_professional'),
+          onPress: () => resolve('professional'),
+        },
+        {
+          text: t('hire_share.share_tone_family'),
+          onPress: () => resolve('family'),
+        },
+        {
+          text: t('common.cancel'),
+          style: 'cancel',
+          onPress: () => resolve(null),
+        },
+      ],
+      { cancelable: true, onDismiss: () => resolve(null) },
+    );
+  });
 }
 
 // ─── Status pill ─────────────────────────────────────────────────────────────

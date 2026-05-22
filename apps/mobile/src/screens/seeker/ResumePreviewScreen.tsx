@@ -24,7 +24,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { spacing, radii, blue } from '@doondo/tokens';
-import { Screen, Text, EmptyState, Avatar, Stars } from '@/components';
+import { Screen, Text, EmptyState, Avatar, Stars, CraftShowcase } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { useAuth } from '@/hooks/useAuth';
@@ -420,13 +420,13 @@ function ResumePreviewInner() {
            the seeker hasn't finished any course yet. */}
         <BadgesSection t={t} />
 
-        {/* Work photos — horizontal carousel shown only when there are
-           photos. Tap a photo for a fuller view (system image viewer). */}
+        {/* Work photos — upgraded into a portfolio-style showcase so the
+           proof of work reads as intentionally premium, not just attached. */}
         {user.workPhotos && user.workPhotos.length > 0 ? (
           <WorkPhotosWithVerifyBadges
-            t={t}
             photos={user.workPhotos}
             seekerId={user.id}
+            skills={user.skills}
           />
         ) : null}
 
@@ -646,15 +646,14 @@ function SuggestionCard({
  * with the photo itself.
  */
 function WorkPhotosWithVerifyBadges({
-  t,
   photos,
   seekerId,
+  skills,
 }: {
-  t: TFn;
   photos: string[];
   seekerId: string;
+  skills: string[];
 }) {
-  const { theme } = useTheme();
   const verifyQuery = useQuery({
     queryKey: ['photoVerifications', seekerId],
     queryFn: () => endorsementsApi.listPhotoVerifications(seekerId),
@@ -664,54 +663,14 @@ function WorkPhotosWithVerifyBadges({
     (verifyQuery.data?.verifications ?? []).map((v) => [v.photoIndex, v.count]),
   );
   return (
-    <Section title={t('resume_preview.section_photos', { n: photos.length })}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{
-          gap: spacing.sm,
-          paddingRight: spacing.lg,
-        }}
-      >
-        {photos.map((uri, i) => {
-          const count = counts.get(i) ?? 0;
-          return (
-            <View
-              key={`${uri.slice(-20)}-${i}`}
-              style={{
-                width: 220,
-                height: 160,
-                borderRadius: radii.lg,
-                overflow: 'hidden',
-                borderWidth: 0.5,
-                borderColor: theme.border.subtle,
-                backgroundColor: theme.bg.surface,
-              }}
-            >
-              <Image source={{ uri }} style={{ width: '100%', height: '100%' }} />
-              {count > 0 ? (
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: 8,
-                    left: 8,
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: radii.pill,
-                    backgroundColor: 'rgba(16, 185, 129, 0.92)',
-                  }}
-                >
-                  <Text
-                    style={{ fontSize: 11, color: '#FFFFFF', fontWeight: '700' }}
-                  >
-                    {t('resume_preview.verified_photo_label')}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          );
-        })}
-      </ScrollView>
+    <Section title={`CRAFT SHOWCASE · ${photos.length}`}>
+      <CraftShowcase
+        title="Craft showcase"
+        subtitle="Your resume now opens with visual proof: the kind of work you can actually deliver."
+        photos={photos}
+        skillLabels={skills.map(prettifySkill)}
+        verificationCounts={counts}
+      />
     </Section>
   );
 }

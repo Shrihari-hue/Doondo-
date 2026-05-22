@@ -31,6 +31,8 @@ import * as doondoScoreService from '@/modules/users/doondoScore.service';
 import * as sosService from '@/modules/sos/sos.service';
 import mentorsRouter from '@/modules/mentors/mentor.routes';
 import paymentsRouter from '@/modules/payments/payment.routes';
+import voiceAgentRouter from '@/modules/voiceAgent/voiceAgent.routes';
+import reelsRouter from '@/modules/reels/reel.routes';
 import {
   applicantsForJobSchema,
   applyParamsSchema,
@@ -52,6 +54,10 @@ v1.use('/availabilities', availabilitiesRouter);
 v1.use('/courses', coursesRouter);
 v1.use('/mentors', mentorsRouter);
 v1.use('/payments', paymentsRouter);
+// Voice job-search agent — speak a search, hear results, apply by voice.
+v1.use('/voice-agent', voiceAgentRouter);
+// Hire Reels — worker intro videos + the employer discovery feed.
+v1.use('/reels', reelsRouter);
 
 // Earned-badges helper — employer-side card on ApplicantDetail uses this.
 v1.get('/seekers/:id/badges', requireAuth, coursesController.listSeekerBadges);

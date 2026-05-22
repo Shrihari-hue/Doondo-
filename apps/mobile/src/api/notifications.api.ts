@@ -28,6 +28,7 @@ export const NOTIFICATION_KINDS = [
   'referral_bonus',
   'hired_nearby',
   'reengagement',
+  'hire_celebration',
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

@@ -43,6 +43,7 @@ export const NOTIFICATION_KINDS = [
   'referral_bonus',       // someone you referred got hired; your bonus is credited
   'hired_nearby',         // a worker near you got hired — social proof feed signal
   'reengagement',         // dormant-user win-back nudge — "it's been a while"
+  'hire_celebration',     // a worker got hired — celebrate and move to next steps
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

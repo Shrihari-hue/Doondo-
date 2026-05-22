@@ -48,7 +48,13 @@ export type SecureKey =
    * the app requires a fingerprint / face / screen-lock unlock on every
    * open. Opt-in; off by default.
    */
-  | 'biometricLockEnabled';
+  | 'biometricLockEnabled'
+  /**
+   * "Doondo for Women" — Women's Mode preference, "true" / "false". When
+   * on, the seeker's job feeds are filtered to women-safe postings.
+   * Opt-in; off by default. Lives on-device only.
+   */
+  | 'womenModeEnabled';
 
 const PREFIX = 'doondo:';
 const memoryFallback = new Map<string, string>();
