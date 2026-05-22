@@ -42,7 +42,13 @@ export type SecureKey =
   /** Accessibility text-scale multiplier, stored as a string ("1.0".."1.5"). */
   | 'textScale'
   /** Accessibility text-to-speech toggle, stored as "true" / "false". */
-  | 'ttsEnabled';
+  | 'ttsEnabled'
+  /**
+   * Biometric / device app-lock preference, "true" / "false". When on,
+   * the app requires a fingerprint / face / screen-lock unlock on every
+   * open. Opt-in; off by default.
+   */
+  | 'biometricLockEnabled';
 
 const PREFIX = 'doondo:';
 const memoryFallback = new Map<string, string>();

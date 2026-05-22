@@ -34,6 +34,7 @@ import { authApi } from '@/api/auth.api';
 import type { AuthSuccess, PublicUser, UserRole } from '@/api/types';
 import { ApiError } from '@/api/errors';
 import { setSecure, getSecure, deleteSecure } from '@/lib/secureStore';
+import { cacheUser, getCachedUser, clearCachedUser } from '@/lib/userCache';
 
 export type AuthStatus = 'bootstrapping' | 'authenticated' | 'unauthenticated';
 
@@ -58,6 +59,14 @@ interface AuthState {
   user: PublicUser | null;
   accessToken: string | null;
   refreshToken: string | null;
+
+  /**
+   * True when the session was restored from the on-device cache because
+   * the phone was offline at launch (no access token yet). The app
+   * works from cached data + the offline apply queue until the network
+   * returns, at which point the session is silently upgraded.
+   */
+  offline: boolean;
 
   /** All signed-in accounts on this device. Includes the active one. */
   savedAccounts: SavedAccount[];
@@ -159,6 +168,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   accessToken: null,
   refreshToken: null,
+  offline: false,
   savedAccounts: [],
   activeAccountId: null,
 
@@ -203,25 +213,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       await writeSavedAccounts(seeded);
       await setSecure('activeAccountId', user.id);
+      // Cache the profile so a later offline launch can restore it.
+      void cacheUser(user);
 
       set({
         status: 'authenticated',
         user,
+        offline: false,
         savedAccounts: seeded,
         activeAccountId: user.id,
       });
     } catch (err) {
-      // Refresh failed (revoked, expired family, network down). Drop
-      // this account's stored refresh token; the user will sign in again.
-      // We keep OTHER saved accounts intact so the switcher still works
-      // after the rejected one is cleaned up.
-      if (err instanceof ApiError && !err.isTransient) {
+      if (err instanceof ApiError && err.isTransient) {
+        // No network at launch — not a rejected session. Restore the
+        // last session from the on-device cache so the worker lands
+        // inside the app (cached jobs + the offline apply queue work)
+        // instead of a dead login screen. The token is kept; the
+        // session upgrades silently once the network returns.
+        const cached = activeId ? await getCachedUser(activeId) : null;
+        if (cached) {
+          set({
+            status: 'authenticated',
+            user: cached,
+            accessToken: null,
+            refreshToken: stored,
+            offline: true,
+            savedAccounts: accounts,
+            activeAccountId: cached.id,
+          });
+          return;
+        }
+        // No cached profile to restore — fall through to login.
+      } else {
+        // Permanent failure (revoked / expired family). Drop this
+        // account's token + cached profile; the user signs in again.
+        // Other saved accounts stay intact for the switcher.
         await deleteSecure('refreshToken');
         await deleteSecure('activeAccountId');
         const remaining = activeId
           ? accounts.filter((a) => a.userId !== activeId)
           : accounts;
         await writeSavedAccounts(remaining);
+        if (activeId) void clearCachedUser(activeId);
         set({ savedAccounts: remaining });
       }
       set({
@@ -229,6 +262,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: null,
         accessToken: null,
         refreshToken: null,
+        offline: false,
         activeAccountId: null,
       });
     }
@@ -239,11 +273,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await setSecure('activeAccountId', auth.user.id);
     const next = upsertAccount(get().savedAccounts, snapshotAccount(auth));
     await writeSavedAccounts(next);
+    void cacheUser(auth.user);
     set({
       status: 'authenticated',
       user: auth.user,
       accessToken: auth.tokens.accessToken,
       refreshToken: auth.tokens.refreshToken,
+      offline: false,
       savedAccounts: next,
       activeAccountId: auth.user.id,
     });
@@ -287,9 +323,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       set({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
       const { user } = await authApi.me();
+      void cacheUser(user);
       set({
         status: 'authenticated',
         user,
+        offline: false,
         savedAccounts: upsertAccount(rotated, {
           ...account,
           name: user.name,
@@ -332,6 +370,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await deleteSecure('refreshToken');
     await deleteSecure('activeAccountId');
     const active = get().activeAccountId;
+    if (active) void clearCachedUser(active);
     const remaining = active
       ? get().savedAccounts.filter((a) => a.userId !== active)
       : get().savedAccounts;
@@ -341,6 +380,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       user: null,
       accessToken: null,
       refreshToken: null,
+      offline: false,
       savedAccounts: remaining,
       activeAccountId: null,
     });
@@ -356,6 +396,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     }
     const active = get().activeAccountId;
+    if (active) void clearCachedUser(active);
     const remaining = active
       ? get().savedAccounts.filter((a) => a.userId !== active)
       : get().savedAccounts;
@@ -377,6 +418,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       user: null,
       accessToken: null,
       refreshToken: null,
+      offline: false,
       savedAccounts: remaining,
       activeAccountId: null,
     });

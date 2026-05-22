@@ -2317,5 +2317,17 @@
     "esi_claim_3": "If a doctor signs you off sick, you can claim sickness benefit — about 70% of your wage — through your employer’s ESI office.",
     "esi_portal_label": "Open the ESIC website",
     "claim_note": "Government portals and steps can change — these are the official sites."
+  },
+  "app_lock": {
+    "lock_screen_message": "Unlock with your fingerprint, face, or screen lock to continue.",
+    "unlock_button": "Unlock",
+    "unlocking": "Unlocking…",
+    "unlock_prompt": "Unlock Doondo",
+    "unlock_failed": "Couldn't verify. Try again.",
+    "sign_out": "Sign in with a different account",
+    "settings_section": "App lock",
+    "settings_toggle": "Require unlock to open Doondo",
+    "settings_toggle_desc": "Ask for your fingerprint, face, or screen lock each time you open the app.",
+    "settings_unavailable": "Set up a fingerprint or screen lock on your phone to use this."
   }
 }

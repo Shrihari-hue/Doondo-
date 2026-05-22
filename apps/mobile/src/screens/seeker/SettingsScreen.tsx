@@ -28,6 +28,7 @@ import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
+import { useAppLockStore } from '@/stores/appLock.store';
 import { getSecure, setSecure } from '@/lib/secureStore';
 import { haptic } from '@/lib/haptics';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
@@ -64,6 +65,9 @@ function SettingsInner() {
   const t = useTranslate();
   const access = useAccessibility();
   const queryClient = useQueryClient();
+  const lockEnabled = useAppLockStore((s) => s.enabled);
+  const lockAvailable = useAppLockStore((s) => s.available);
+  const setLockEnabled = useAppLockStore((s) => s.setEnabled);
 
   // Per-type push notification prefs from /me/notification-prefs.
   const prefsQuery = useQuery({
@@ -294,6 +298,29 @@ function SettingsInner() {
           <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 6 }}>
             {t('settings.sos_hint')}
           </Text>
+        </Section>
+
+        {/* App lock */}
+        <Section title={t('app_lock.settings_section').toUpperCase()}>
+          <View style={cardStyle(theme)}>
+            {lockAvailable ? (
+              <PrefRow
+                label={t('app_lock.settings_toggle')}
+                hint={t('app_lock.settings_toggle_desc')}
+                value={lockEnabled}
+                onChange={() => {
+                  haptic('selection');
+                  void setLockEnabled(!lockEnabled);
+                }}
+              />
+            ) : (
+              <View style={{ padding: spacing.md }}>
+                <Text variant="footnote" tone="tertiary">
+                  {t('app_lock.settings_unavailable')}
+                </Text>
+              </View>
+            )}
+          </View>
         </Section>
 
         {/* Accessibility */}

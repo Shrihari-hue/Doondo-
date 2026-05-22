@@ -105,13 +105,18 @@ the official government portals.
 connection is queued on the device and sent automatically when the
 worker is back online. A dropped signal never costs them a job.
 
+**Session 25:** Stay-signed-in + app lock — a worker who has logged in
+once is never bounced back to the login screen, even offline; and an
+opt-in fingerprint / face / screen-lock gate protects the app each
+time it's opened.
+
 See `DOONDO_V2_ROADMAP.md` for the full backlog.
 
 ---
 
 ## Before you run it
 
-Two new dependencies were added across sessions — run `pnpm install`
+Three new dependencies were added across sessions — run `pnpm install`
 before building:
 
 ```bash
@@ -122,6 +127,9 @@ pnpm install
   and interview-reminder crons. The backend **fails to boot** without it.
 - `expo-calendar` (`apps/mobile`) — powers the interview "add to
   calendar" feature.
+- `expo-local-authentication` (`apps/mobile`) — powers the Session 25
+  fingerprint / face / screen-lock app-lock gate. The app still runs
+  without it (the gate degrades to off); install it for the feature.
 
 Everything else runs on existing dependencies.
 
@@ -2141,12 +2149,109 @@ like the real-MongoDB boot.
 
 ---
 
+# Session 25 — Stay signed in + app lock
+
+Session 24 made the Apply action survive a dead zone. This session
+fixes the two gaps that surfaced right after: a returning worker who
+opened the app offline got bounced to the login screen, and there was
+no way to keep a shared or borrowed phone from exposing the app.
+
+## What it does — and what it deliberately doesn't
+
+**Truly fresh login still needs the network — that hasn't changed, and
+no app can fake it.** A first-time sign-in checks a password against
+the server; offline, there's nothing to check against. What this
+session fixes is everything *after* that first login.
+
+Two things shipped:
+
+1. **Offline session restore.** Once a worker has logged in, the app
+   keeps a local copy of their profile. If they close the app and
+   reopen it later with no connection, the app restores that session
+   from the device instead of bouncing them to the login screen. They
+   land straight on Home, in read-only/queued mode, and the session
+   silently upgrades to a full online one the moment a connection
+   returns. Log in once with a password — then just open the app.
+
+2. **App lock (opt-in).** A worker can turn on a lock in Settings that
+   uses the phone's own fingerprint, face, or screen PIN/pattern. With
+   it on, every app-open — and every return from the background — is
+   gated by a quick device unlock. Important honest framing: **the
+   fingerprint is not a login credential.** It can't authenticate to
+   the Doondo server — only the device can read it. It's a *local
+   gate* in front of an already-authenticated session, the same way
+   banking apps use it. Off by default; it's a security feature, not
+   a surprise.
+
+## How it's built
+
+**Offline session restore**
+
+- `lib/userCache.ts` — new. Caches the full signed-in user in SQLite
+  (`cached_users` table, in the same `doondo-cache.db`). `cacheUser`,
+  `getCachedUser`, `clearCachedUser` — all best-effort, never throw.
+- `stores/auth.store.ts` — `bootstrap()` now caches the user on every
+  successful refresh. Its catch block distinguishes a *transient*
+  failure (no network) from a *permanent* one (token rejected): on a
+  network failure with a stored token, it restores the cached user and
+  marks the session `offline: true` instead of logging out; on a real
+  rejection it clears the token and the cache. `logout` / `forceLogout`
+  clear the cache too.
+- `hooks/useOfflineQueue.ts` — when the queue flushes and finds the
+  session is still in offline-restored mode, it triggers a `bootstrap()`
+  to upgrade it to a fully online session (fresh tokens).
+
+**App lock**
+
+- `lib/biometric.ts` — new. A thin wrapper over
+  `expo-local-authentication` (lazy-`require`d, so a missing native
+  module degrades gracefully). `isBiometricAvailable()` (hardware +
+  enrolled) and `authenticate(prompt)`.
+- `stores/appLock.store.ts` — new. A zustand store: `hydrate` (reads
+  the saved preference + device capability), `setEnabled`, `lock`,
+  `unlock`. The preference persists in secure-store; the lock honours
+  it only when the device can actually unlock.
+- `screens/LockScreen.tsx` — new. The branded full-screen unlock gate.
+  Auto-prompts on mount; a "Sign in with a different account" escape
+  hatch means a failing sensor can never trap a worker.
+- `navigation/RootNavigator.tsx` — adds the lock gate: hydrates the
+  store at startup, re-engages the lock whenever the app is
+  backgrounded, and renders `LockScreen` instead of the app while
+  locked.
+- `screens/seeker/SettingsScreen.tsx` — a new "App lock" section with
+  the toggle (or an "unavailable" note if the phone has no biometric /
+  screen lock set up).
+- `lib/secureStore.ts` — `biometricLockEnabled` added to the key set.
+- `package.json` — `expo-local-authentication` added.
+- `i18n/locales/*.json` — a new `app_lock` block (10 keys) added to all
+  5 locales.
+
+## Verified (Session 25)
+
+- Mobile `tsc --noEmit`: clean — 0 errors.
+- Backend `tsc --noEmit`: clean (only the pre-existing test-only
+  `mongodb-memory-server` import); no backend changes this session.
+- `bootcheck`: **PASSED** — 14/14; the (untouched) backend graph boots.
+- i18n key coverage: all 10 `app_lock.*` keys referenced in the mobile
+  code resolve in every one of the 5 locales — no missing, no unused.
+- All 5 locale files parse; `app_lock` merged with round-trip identity.
+
+**Environment note:** both `expo-local-authentication` and
+`expo-sqlite` are native modules, so the fingerprint prompt and the
+SQLite user cache can't be exercised in this sandbox — the logic, the
+graceful-degradation fallbacks, and the types are verified here. The
+on-device behaviour (reopen offline → lands on Home; toggle the lock →
+unlock prompt on next open) belongs to the deploy platform, like the
+real-MongoDB boot.
+
+---
+
 ## What's next
 
 The codebase is verified as far as this environment allows — it
-compiles, loads, and the logic is sound. The one remaining
-verification step (boot against a real MongoDB) belongs on the
-deploy platform, with the commands above.
+compiles, loads, and the logic is sound. The remaining verification
+steps (boot against a real MongoDB; the native-module behaviour from
+Sessions 24–25) belong on the deploy platform, with the commands above.
 
 Most roadmap features are shipped and every screen is localised.
 Remaining picks, smallest-first: peer cohorts, bookable mentor

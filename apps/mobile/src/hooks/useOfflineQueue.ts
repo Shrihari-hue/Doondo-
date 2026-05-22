@@ -19,6 +19,7 @@ import {
   countPendingApplications,
   flushPendingApplications,
 } from '@/lib/offlineQueue';
+import { useAuthStore } from '@/stores/auth.store';
 
 export function useOfflineQueueSync(): void {
   const queryClient = useQueryClient();
@@ -27,6 +28,13 @@ export function useOfflineQueueSync(): void {
     let cancelled = false;
 
     async function flush() {
+      // If the session was restored offline (no access token yet),
+      // re-run bootstrap first — when the network is back it upgrades to
+      // a full online session, which the queue flush then needs.
+      const auth = useAuthStore.getState();
+      if (auth.status === 'authenticated' && auth.accessToken === null) {
+        await auth.bootstrap().catch(() => undefined);
+      }
       const summary = await flushPendingApplications().catch(() => null);
       if (cancelled || !summary) return;
       // A delivered application changes the seeker's application list
