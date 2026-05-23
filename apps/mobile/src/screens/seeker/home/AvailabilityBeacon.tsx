@@ -123,9 +123,9 @@ export function AvailabilityBeaconChip({
       <View
         style={{
           borderRadius: radii.lg,
-          backgroundColor: isLive ? '#D1FAE5' : '#EFF6FF',
+          backgroundColor: isLive ? '#2537af' : '#0b4086',
           borderWidth: 1,
-          borderColor: isLive ? '#86EFAC' : '#BFDBFE',
+          borderColor: isLive ? '#86EFAC' : '#0855b3',
           shadowColor: isLive ? '#10B981' : '#2563EB',
           shadowOffset: { width: 0, height: 3 },
           shadowOpacity: 0.12,
@@ -500,7 +500,7 @@ function AvailabilityBeaconSheet({
                       paddingHorizontal: spacing.sm,
                       paddingVertical: 2,
                       borderRadius: radii.pill,
-                      backgroundColor: '#DBEAFE',
+                      backgroundColor: '#94bdf4',
                     }}
                   >
                     <Text
@@ -611,7 +611,7 @@ function AvailabilityBeaconSheet({
                   borderRadius: radii.lg,
                   borderWidth: 0.5,
                   borderColor: recurring ? '#2563EB' : theme.border.default,
-                  backgroundColor: recurring ? '#EFF6FF' : theme.bg.surface,
+                  backgroundColor: recurring ? '#7cb2f7' : theme.bg.surface,
                   opacity: pressed ? 0.85 : 1,
                 })}
               >
@@ -628,7 +628,7 @@ function AvailabilityBeaconSheet({
                   }}
                 >
                   {recurring ? (
-                    <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>
+                    <Text style={{ color: '#5e97e7', fontSize: 13, fontWeight: '700' }}>
                       ✓
                     </Text>
                   ) : null}
@@ -686,7 +686,7 @@ function AvailabilityBeaconSheet({
                             style={{
                               fontSize: 13,
                               fontWeight: '700',
-                              color: active ? '#FFFFFF' : theme.text.primary,
+                              color: active ? '#8865f3' : theme.text.primary,
                             }}
                           >
                             {label}
@@ -819,7 +819,7 @@ function AvailabilityBeaconSheet({
                 style={{
                   fontSize: 16,
                   fontWeight: '700',
-                  color: '#FFFFFF',
+                  color: '#977ded',
                   letterSpacing: 0.2,
                 }}
               >
