@@ -41,7 +41,7 @@ export interface PublicReshared {
   author: PublicAuthor;
   type: PostType;
   text: string;
-  mediaUrl: string | null;
+  mediaUrls: string[];
   certificateTitle: string | null;
   createdAt: string;
 }
@@ -51,7 +51,7 @@ export interface PublicPost {
   author: PublicAuthor;
   type: PostType;
   text: string;
-  mediaUrl: string | null;
+  mediaUrls: string[];
   certificateTitle: string | null;
   createdAt: string;
   likeCount: number;
@@ -80,6 +80,10 @@ function headlineFor(skills: unknown): string | null {
 
 function fallbackAuthor(id: unknown): PublicAuthor {
   return { id: String(id), name: 'Doondo worker', photoUrl: null, headline: null };
+}
+
+function toStringArray(v: unknown): string[] {
+  return Array.isArray(v) ? v.map((x) => String(x)) : [];
 }
 
 type AuthorMap = Map<string, PublicAuthor>;
@@ -142,7 +146,7 @@ function toPublic(
     author: authorOf(authors, post.authorId),
     type: post.type as PostType,
     text: (post.text as string) ?? '',
-    mediaUrl: (post.mediaUrl as string | null) ?? null,
+    mediaUrls: toStringArray(post.mediaUrls),
     certificateTitle: (post.certificateTitle as string | null) ?? null,
     createdAt: toIso(post.createdAt),
     likeCount: likes.length,
@@ -165,7 +169,7 @@ function toPublic(
           author: authorOf(authors, reshared.authorId),
           type: reshared.type as PostType,
           text: (reshared.text as string) ?? '',
-          mediaUrl: (reshared.mediaUrl as string | null) ?? null,
+          mediaUrls: toStringArray(reshared.mediaUrls),
           certificateTitle: (reshared.certificateTitle as string | null) ?? null,
           createdAt: toIso(reshared.createdAt),
         }
@@ -204,14 +208,14 @@ export async function createPost(input: {
   authorId: string;
   type: PostType;
   text: string;
-  mediaDataUrl: string | null;
+  mediaDataUrls: string[];
   certificateTitle: string | null;
 }): Promise<PublicPost> {
   const doc = await PostModel.create({
     authorId: new Types.ObjectId(input.authorId),
     type: input.type,
     text: input.text,
-    mediaUrl: input.mediaDataUrl,
+    mediaUrls: input.mediaDataUrls,
     certificateTitle:
       input.type === 'certificate' ? input.certificateTitle : null,
   });
@@ -294,7 +298,7 @@ export async function repost(postId: string, viewerId: string): Promise<PublicPo
         authorId: new Types.ObjectId(String(existing.authorId)),
         type: existing.type as PostType,
         text: (existing.text as string) ?? '',
-        mediaUrl: (existing.mediaUrl as string | null) ?? null,
+        mediaUrls: toStringArray(existing.mediaUrls),
         certificateTitle: (existing.certificateTitle as string | null) ?? null,
         createdAt: existing.createdAt as Date,
       }
@@ -302,7 +306,7 @@ export async function repost(postId: string, viewerId: string): Promise<PublicPo
         authorId: new Types.ObjectId(String(o.authorId)),
         type: o.type as PostType,
         text: (o.text as string) ?? '',
-        mediaUrl: (o.mediaUrl as string | null) ?? null,
+        mediaUrls: toStringArray(o.mediaUrls),
         certificateTitle: (o.certificateTitle as string | null) ?? null,
         createdAt: o.createdAt as Date,
       };

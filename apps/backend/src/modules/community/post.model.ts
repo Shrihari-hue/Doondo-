@@ -10,18 +10,36 @@
  * snapshot of the original (so editing/deleting the original never
  * mutates someone else's repost).
  *
- * Media (photo / video poster / certificate image) is stored as a
- * base64 data URL on `mediaUrl`, the same expedient the profile photo
- * and reel paths use until a real object store is wired up.
+ * Media is stored as base64 data URLs on `mediaUrls` — the same
+ * expedient the profile photo and reel paths use until a real object
+ * store is wired up. A post can carry several images (a photo post is
+ * a small gallery); other types use at most one entry.
+ *
+ * Post types:
+ *   text        — a "Thought": plain text, no media.
+ *   photo       — one or more images.
+ *   video       — a video post (a still poster image for now).
+ *   certificate — an achievement, with a title + optional image.
+ *   resume      — the worker shares their resume.
+ *   voice       — a spoken voice note.
  */
 
 import { Schema, model, type Model } from 'mongoose';
 
-export const POST_TYPES = ['text', 'photo', 'video', 'certificate'] as const;
+export const POST_TYPES = [
+  'text',
+  'photo',
+  'video',
+  'certificate',
+  'resume',
+  'voice',
+] as const;
 export type PostType = (typeof POST_TYPES)[number];
 
-/** Hard cap on a base64 media data URL (~520 KB encoded). */
+/** Hard cap on a single base64 media data URL (~520 KB encoded). */
 export const MAX_MEDIA_CHARS = 700_000;
+/** Most media items a single post may carry. */
+export const MAX_MEDIA_ITEMS = 6;
 
 export interface PostReply {
   _id: Schema.Types.ObjectId;
@@ -42,7 +60,7 @@ export interface ResharedSnapshot {
   authorId: Schema.Types.ObjectId;
   type: PostType;
   text: string;
-  mediaUrl: string | null;
+  mediaUrls: string[];
   certificateTitle: string | null;
   createdAt: Date;
 }
@@ -51,7 +69,7 @@ export interface Post {
   authorId: Schema.Types.ObjectId;
   type: PostType;
   text: string;
-  mediaUrl: string | null;
+  mediaUrls: string[];
   certificateTitle: string | null;
   likes: Schema.Types.ObjectId[];
   comments: PostComment[];
@@ -85,7 +103,7 @@ const resharedSchema = new Schema(
     authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     type: { type: String, enum: POST_TYPES, required: true },
     text: { type: String, default: '', maxlength: 3000 },
-    mediaUrl: { type: String, default: null, maxlength: MAX_MEDIA_CHARS },
+    mediaUrls: { type: [String], default: [] },
     certificateTitle: { type: String, default: null, maxlength: 200 },
     createdAt: { type: Date, required: true },
   },
@@ -102,7 +120,7 @@ const postSchema = new Schema(
     },
     type: { type: String, enum: POST_TYPES, required: true },
     text: { type: String, default: '', trim: true, maxlength: 3000 },
-    mediaUrl: { type: String, default: null, maxlength: MAX_MEDIA_CHARS },
+    mediaUrls: { type: [String], default: [] },
     certificateTitle: { type: String, default: null, trim: true, maxlength: 200 },
     likes: { type: [Schema.Types.ObjectId], ref: 'User', default: [] },
     comments: { type: [commentSchema], default: [] },

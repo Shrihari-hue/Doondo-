@@ -17,7 +17,7 @@ import { z } from 'zod';
 import { requireAuth } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
 import * as postService from './post.service';
-import { MAX_MEDIA_CHARS, type PostType } from './post.model';
+import { MAX_MEDIA_CHARS, MAX_MEDIA_ITEMS, type PostType } from './post.model';
 
 const router = Router();
 
@@ -39,10 +39,14 @@ router.get('/feed', requireAuth, async (req, res, next) => {
 
 const createSchema = z.object({
   body: z.object({
-    type: z.enum(['text', 'photo', 'video', 'certificate']),
+    type: z.enum(['text', 'photo', 'video', 'certificate', 'resume', 'voice']),
     text: z.string().trim().max(3000).default(''),
-    /** Base64 data URL for photo / video poster / certificate image. */
-    mediaDataUrl: z.string().min(1).max(MAX_MEDIA_CHARS).nullable().optional(),
+    /** Base64 data URLs — photos, a video poster, a certificate or resume image. */
+    mediaDataUrls: z
+      .array(z.string().min(1).max(MAX_MEDIA_CHARS))
+      .max(MAX_MEDIA_ITEMS)
+      .optional()
+      .default([]),
     certificateTitle: z.string().trim().max(200).nullable().optional(),
   }),
 });
@@ -52,14 +56,14 @@ router.post('/posts', requireAuth, validate(createSchema), async (req, res, next
     const body = req.body as {
       type: PostType;
       text: string;
-      mediaDataUrl?: string | null;
+      mediaDataUrls?: string[];
       certificateTitle?: string | null;
     };
     const post = await postService.createPost({
       authorId: req.user!.id,
       type: body.type,
       text: body.text,
-      mediaDataUrl: body.mediaDataUrl ?? null,
+      mediaDataUrls: body.mediaDataUrls ?? [],
       certificateTitle: body.certificateTitle ?? null,
     });
     res.status(201).json({ ok: true, data: { post }, requestId: req.id });

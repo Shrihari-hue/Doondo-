@@ -15,7 +15,13 @@
 import { create } from 'zustand';
 import { communityApi, type ApiPost } from '@/api/community.api';
 
-export type PostType = 'text' | 'photo' | 'video' | 'certificate';
+export type PostType =
+  | 'text'
+  | 'photo'
+  | 'video'
+  | 'certificate'
+  | 'resume'
+  | 'voice';
 
 export interface FeedAuthor {
   name: string;
@@ -44,7 +50,7 @@ export interface ResharedPost {
   headline?: string;
   type: PostType;
   text: string;
-  mediaUri?: string;
+  mediaUris: string[];
   certificateTitle?: string;
   createdAt: number;
 }
@@ -58,8 +64,8 @@ export interface FeedPost {
   authorIsMe: boolean;
   type: PostType;
   text: string;
-  /** Image URI / data URL for photo, certificate, or video poster. */
-  mediaUri?: string;
+  /** Image URIs / data URLs — photos, video poster, certificate, resume. */
+  mediaUris: string[];
   /** Title shown on a certificate post. */
   certificateTitle?: string;
   createdAt: number;
@@ -76,7 +82,7 @@ export interface NewPostInput {
   headline?: string;
   type: PostType;
   text: string;
-  mediaUri?: string;
+  mediaUris: string[];
   certificateTitle?: string;
 }
 
@@ -138,7 +144,7 @@ function fromApi(p: ApiPost): FeedPost {
     authorIsMe: false,
     type: p.type,
     text: p.text,
-    mediaUri: p.mediaUrl ?? undefined,
+    mediaUris: p.mediaUrls,
     certificateTitle: p.certificateTitle ?? undefined,
     createdAt: toMs(p.createdAt),
     likeCount: p.likeCount,
@@ -165,7 +171,7 @@ function fromApi(p: ApiPost): FeedPost {
           headline: p.reshared.author.headline ?? undefined,
           type: p.reshared.type,
           text: p.reshared.text,
-          mediaUri: p.reshared.mediaUrl ?? undefined,
+          mediaUris: p.reshared.mediaUrls,
           certificateTitle: p.reshared.certificateTitle ?? undefined,
           createdAt: toMs(p.reshared.createdAt),
         }
@@ -192,6 +198,7 @@ function seedPosts(): FeedPost[] {
       type: 'certificate',
       text: 'Proud to share that I passed my electrical safety certification today! Thank you to everyone on Doondo who guided me along the way.',
       certificateTitle: 'Electrical Safety — Level 2 Certified',
+      mediaUris: [],
       createdAt: now - 3 * HOUR,
       likeCount: 24,
       likedByMe: false,
@@ -220,6 +227,7 @@ function seedPosts(): FeedPost[] {
       authorIsMe: false,
       type: 'text',
       text: 'Completed my 500th delivery this month. Slow and steady — every order counts. Grateful for the regular customers who now know me by name.',
+      mediaUris: [],
       createdAt: now - 8 * HOUR,
       likeCount: 41,
       likedByMe: true,
@@ -241,6 +249,7 @@ function seedPosts(): FeedPost[] {
       authorIsMe: false,
       type: 'photo',
       text: 'Finished this bridal blouse today — three days of work, every thread by hand. So happy with how it turned out.',
+      mediaUris: [],
       createdAt: now - 1 * DAY,
       likeCount: 67,
       likedByMe: false,
@@ -262,6 +271,7 @@ function seedPosts(): FeedPost[] {
       authorIsMe: false,
       type: 'video',
       text: 'Quick tip: how to stop a leaking tap in under two minutes. Save this for later!',
+      mediaUris: [],
       createdAt: now - 2 * DAY,
       likeCount: 88,
       likedByMe: false,
@@ -307,7 +317,7 @@ export const useCommunityStore = create<CommunityState>((set) => ({
       authorIsMe: true,
       type: input.type,
       text: input.text,
-      mediaUri: input.mediaUri,
+      mediaUris: input.mediaUris,
       certificateTitle: input.certificateTitle,
       createdAt: Date.now(),
       likeCount: 0,
@@ -320,7 +330,7 @@ export const useCommunityStore = create<CommunityState>((set) => ({
       .createPost({
         type: input.type,
         text: input.text,
-        mediaDataUrl: input.mediaUri ?? null,
+        mediaDataUrls: input.mediaUris,
         certificateTitle: input.certificateTitle ?? null,
       })
       .then(({ post }) =>
@@ -424,7 +434,7 @@ export const useCommunityStore = create<CommunityState>((set) => ({
         headline: original.headline,
         type: original.type,
         text: original.text,
-        mediaUri: original.mediaUri,
+        mediaUris: original.mediaUris,
         certificateTitle: original.certificateTitle,
         createdAt: original.createdAt,
       };
@@ -435,6 +445,7 @@ export const useCommunityStore = create<CommunityState>((set) => ({
         authorIsMe: true,
         type: 'text',
         text: '',
+        mediaUris: [],
         createdAt: Date.now(),
         likeCount: 0,
         likedByMe: false,

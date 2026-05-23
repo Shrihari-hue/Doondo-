@@ -56,13 +56,22 @@
   },
   "earnings_hub": {
     "title": "कमाई",
-    "subtitle": "आपका पैसा, अग्रिम और सुरक्षा",
+    "subtitle": "आपका पैसा, गतिविधियाँ और सुरक्षा",
     "ledger": "मेरी कमाई",
     "ledger_hint": "अपने भुगतान और इतिहास पर नज़र रखें",
+    "ledger_caption": "इस माह",
     "advance": "नकद अग्रिम",
     "advance_hint": "वेतन से पहले छोटा अग्रिम लें",
+    "advance_cta": "अभी लें",
     "insurance": "कामगार बीमा",
-    "insurance_hint": "काम के दौरान दुर्घटना कवर"
+    "insurance_hint": "काम के दौरान दुर्घटना कवर",
+    "insurance_active": "सक्रिय",
+    "insurance_inactive": "निष्क्रिय",
+    "insurance_since": "{{date}} से",
+    "insurance_cta": "सुरक्षा लें",
+    "promo_title": "अधिक सुरक्षा।\nअधिक लाभ।",
+    "promo_body": "आपके लिए बनाए गए बीमा और वित्तीय साधन देखें।",
+    "promo_cta": "अभी देखें"
   },
   "profile_groups": {
     "grow": "अपना करियर बढ़ाएं",
@@ -881,6 +890,7 @@
   },
   "resume_builder": {
     "header_title": "रिज्यूमे बिल्डर",
+    "header_preview": "प्रीव्यू",
     "progress_intro": "परिचय",
     "progress_review": "समीक्षा",
     "couldnt_save_title": "रिज्यूमे सेव नहीं हो सका",

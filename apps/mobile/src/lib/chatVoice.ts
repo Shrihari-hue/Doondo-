@@ -23,7 +23,7 @@
  */
 
 import * as ExpoAudio from 'expo-audio';
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 
 export interface VoiceRecordingResult {
   dataUrl: string;
@@ -144,6 +144,22 @@ async function createRecorder(): Promise<RecorderInstance> {
 }
 
 /**
+ * Best-effort delete of a recorder temp file.
+ *
+ * The expo-file-system v19.x `File` API is class-based and synchronous, and
+ * `File.delete()` throws if the file is already gone — so we guard with an
+ * `exists` check and swallow anything that still slips through.
+ */
+function safeDeleteFile(uri: string): void {
+  try {
+    const file = new File(uri);
+    if (file.exists) file.delete();
+  } catch {
+    /* best-effort */
+  }
+}
+
+/**
  * VoiceRecorder — start, stop, cancel. Holds the live recorder reference
  * internally so the caller just toggles state.
  */
@@ -184,30 +200,25 @@ export class VoiceRecorder {
     );
 
     // Read the file as base64 and pack into a data URL the bubble can play.
-    // `EncodingType` lives under the legacy entry in expo-file-system SDK 54+;
-    // the bare 'base64' string literal works on every version we ship.
-    const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: 'base64' as never,
-    });
+    //
+    // expo-file-system SDK 54 (v19.x) replaced the function-style API with
+    // `File` / `Directory` classes. The old `readAsStringAsync`,
+    // `getInfoAsync` and `deleteAsync` exports are now deprecation stubs that
+    // THROW at runtime (the "Couldn't send voice" alert), so this uses the
+    // `File` class instead.
+    const file = new File(uri);
+    const base64 = await file.base64();
 
-    // Size from filesystem info — fall back to base64 length estimate.
-    let sizeBytes = Math.ceil(base64.length * 0.75);
-    try {
-      // `{ size: true }` option was removed in SDK 54+; size returns by default.
-      const info = await FileSystem.getInfoAsync(uri);
-      if (info.exists && typeof (info as { size?: number }).size === 'number') {
-        sizeBytes = (info as { size: number }).size;
-      }
-    } catch {
-      /* best-effort */
-    }
+    // `File.size` is a synchronous property in bytes; it is 0 when the file
+    // cannot be read, in which case we fall back to a base64-length estimate.
+    const sizeBytes = file.size || Math.ceil(base64.length * 0.75);
 
     if (base64.length > 1_400_000) {
       throw new Error('Voice note too long. Try a shorter clip.');
     }
 
     // Best-effort cleanup so we don't leave a temp file around.
-    void FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
+    safeDeleteFile(uri);
 
     return {
       dataUrl: `data:audio/m4a;base64,${base64}`,
@@ -225,7 +236,7 @@ export class VoiceRecorder {
     try {
       await recorder.stop();
       if (recorder.uri) {
-        await FileSystem.deleteAsync(recorder.uri, { idempotent: true });
+        safeDeleteFile(recorder.uri);
       }
     } catch {
       /* best-effort */

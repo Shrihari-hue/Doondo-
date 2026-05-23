@@ -25,9 +25,12 @@ import {
 
 interface MediaShape {
   type: PostType;
-  mediaUri?: string;
+  mediaUris: string[];
   certificateTitle?: string;
 }
+
+/** Bar heights for the voice-note waveform. */
+const VOICE_BARS = [8, 16, 24, 12, 20, 28, 14, 22, 10, 18, 26, 12, 20, 16, 9, 22, 14];
 
 export function PostCard({
   post,
@@ -176,8 +179,117 @@ function PostText({ children, small }: { children: string; small?: boolean }) {
 
 export function PostMedia({ media }: { media: MediaShape }) {
   const { theme } = useTheme();
+  const uris = media.mediaUris ?? [];
+
   if (media.type === 'text') return null;
 
+  // ── Voice note — a play button + waveform bar ──────────────────────────────
+  if (media.type === 'voice') {
+    return (
+      <View
+        style={{
+          marginTop: spacing.md,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.md,
+          padding: spacing.md,
+          borderRadius: radii.lg,
+          borderWidth: 0.5,
+          borderColor: theme.brand.heroBorder,
+          backgroundColor: theme.brand.heroSubtle,
+        }}
+      >
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: theme.brand.hero,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: 17, marginLeft: 2 }}>▶</Text>
+        </View>
+        <View
+          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 3 }}
+        >
+          {VOICE_BARS.map((h, i) => (
+            <View
+              key={i}
+              style={{
+                width: 3,
+                height: h,
+                borderRadius: 2,
+                backgroundColor: theme.brand.hero,
+                opacity: 0.55,
+              }}
+            />
+          ))}
+        </View>
+        <Text style={{ fontSize: 12, fontWeight: '600', color: theme.text.secondary }}>
+          Voice note
+        </Text>
+      </View>
+    );
+  }
+
+  // ── Resume — a document card ───────────────────────────────────────────────
+  if (media.type === 'resume') {
+    if (uris[0]) {
+      return (
+        <Image
+          source={{ uri: uris[0] }}
+          style={{
+            marginTop: spacing.md,
+            width: '100%',
+            aspectRatio: 1,
+            borderRadius: radii.lg,
+          }}
+          resizeMode="cover"
+        />
+      );
+    }
+    return (
+      <View
+        style={{
+          marginTop: spacing.md,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.md,
+          padding: spacing.lg,
+          borderRadius: radii.lg,
+          borderWidth: 0.5,
+          borderColor: theme.border.subtle,
+          backgroundColor: theme.bg.surface,
+        }}
+      >
+        <View
+          style={{
+            width: 46,
+            height: 46,
+            borderRadius: 12,
+            backgroundColor: '#E7F6EC',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ fontSize: 22 }}>📄</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text.primary }}>
+            Resume
+          </Text>
+          <Text style={{ fontSize: 12, color: theme.text.tertiary }}>
+            Tap to view this worker's resume
+          </Text>
+        </View>
+        <Text style={{ fontSize: 18, color: theme.text.tertiary }}>›</Text>
+      </View>
+    );
+  }
+
+  // ── Certificate — image (optional) + gold title strip ──────────────────────
   if (media.type === 'certificate') {
     return (
       <View
@@ -189,9 +301,9 @@ export function PostMedia({ media }: { media: MediaShape }) {
           borderColor: '#E4C063',
         }}
       >
-        {media.mediaUri ? (
+        {uris[0] ? (
           <Image
-            source={{ uri: media.mediaUri }}
+            source={{ uri: uris[0] }}
             style={{ width: '100%', aspectRatio: 1 }}
             resizeMode="cover"
           />
@@ -241,57 +353,140 @@ export function PostMedia({ media }: { media: MediaShape }) {
   }
 
   const isVideo = media.type === 'video';
-  return (
-    <View
-      style={{ marginTop: spacing.md, borderRadius: radii.lg, overflow: 'hidden' }}
-    >
-      {media.mediaUri ? (
+
+  // ── No media yet — a tasteful placeholder panel ────────────────────────────
+  if (uris.length === 0) {
+    return (
+      <View
+        style={{
+          marginTop: spacing.md,
+          height: 200,
+          borderRadius: radii.lg,
+          overflow: 'hidden',
+          backgroundColor: theme.brand.heroSubtle,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontSize: 44 }}>{isVideo ? '🎬' : '🖼️'}</Text>
+        <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 4 }}>
+          {isVideo ? 'Video' : 'Photo'}
+        </Text>
+        {isVideo ? <PlayOverlay /> : null}
+      </View>
+    );
+  }
+
+  // ── Video — poster image + play overlay ────────────────────────────────────
+  if (isVideo) {
+    return (
+      <View
+        style={{ marginTop: spacing.md, borderRadius: radii.lg, overflow: 'hidden' }}
+      >
         <Image
-          source={{ uri: media.mediaUri }}
+          source={{ uri: uris[0] }}
           style={{ width: '100%', aspectRatio: 1 }}
           resizeMode="cover"
         />
-      ) : (
-        <View
-          style={{
-            height: 200,
-            backgroundColor: theme.brand.heroSubtle,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ fontSize: 44 }}>{isVideo ? '🎬' : '🖼️'}</Text>
-          <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 4 }}>
-            {isVideo ? 'Video' : 'Photo'}
-          </Text>
-        </View>
-      )}
-      {isVideo ? (
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
+        <PlayOverlay />
+      </View>
+    );
+  }
+
+  // ── Photo — single full image, or a 2-column grid ──────────────────────────
+  if (uris.length === 1) {
+    return (
+      <Image
+        source={{ uri: uris[0] }}
+        style={{
+          marginTop: spacing.md,
+          width: '100%',
+          aspectRatio: 1,
+          borderRadius: radii.lg,
+        }}
+        resizeMode="cover"
+      />
+    );
+  }
+
+  return (
+    <View
+      style={{
+        marginTop: spacing.md,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        rowGap: 6,
+      }}
+    >
+      {uris.slice(0, 4).map((u, i) => {
+        const overflow = i === 3 && uris.length > 4;
+        return (
           <View
+            key={`${i}-${u.slice(-12)}`}
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              backgroundColor: 'rgba(0,0,0,0.55)',
-              alignItems: 'center',
-              justifyContent: 'center',
+              width: '48.5%',
+              aspectRatio: 1,
+              borderRadius: radii.lg,
+              overflow: 'hidden',
             }}
           >
-            <Text style={{ fontSize: 20, color: '#FFFFFF', marginLeft: 3 }}>▶</Text>
+            <Image
+              source={{ uri: u }}
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="cover"
+            />
+            {overflow ? (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: 'rgba(9,8,11,0.55)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 22, fontWeight: '700' }}>
+                  +{uris.length - 4}
+                </Text>
+              </View>
+            ) : null}
           </View>
-        </View>
-      ) : null}
+        );
+      })}
+    </View>
+  );
+}
+
+/** The translucent circular play button laid over video media. */
+function PlayOverlay() {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <View
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: 'rgba(0,0,0,0.55)',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontSize: 20, color: '#FFFFFF', marginLeft: 3 }}>▶</Text>
+      </View>
     </View>
   );
 }

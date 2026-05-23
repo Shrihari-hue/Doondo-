@@ -218,7 +218,9 @@ export type AppStackParamList = {
   /** Modal: discover + request mentors in your trade. */
   Mentors: undefined;
   /** Modal: compose a new Community post (feed). */
-  CommunityComposer: { type?: 'photo' | 'video' | 'certificate' } | undefined;
+  CommunityComposer:
+    | { type?: 'text' | 'photo' | 'video' | 'certificate' | 'resume' | 'voice' }
+    | undefined;
   /** Modal: a Community post with its full comment thread. */
   CommunityPost: { postId: string };
   /** Modal: apply for a small cash advance. */

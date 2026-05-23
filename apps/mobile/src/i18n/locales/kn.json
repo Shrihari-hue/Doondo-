@@ -56,13 +56,22 @@
   },
   "earnings_hub": {
     "title": "ಗಳಿಕೆ",
-    "subtitle": "ನಿಮ್ಮ ಹಣ, ಮುಂಗಡ ಮತ್ತು ರಕ್ಷಣೆ",
+    "subtitle": "ನಿಮ್ಮ ಹಣ, ಚಟುವಟಿಕೆಗಳು ಮತ್ತು ರಕ್ಷಣೆ",
     "ledger": "ನನ್ನ ಗಳಿಕೆ",
     "ledger_hint": "ನಿಮ್ಮ ಪಾವತಿಗಳು ಮತ್ತು ಇತಿಹಾಸವನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಿ",
+    "ledger_caption": "ಈ ತಿಂಗಳು",
     "advance": "ನಗದು ಮುಂಗಡ",
     "advance_hint": "ಸಂಬಳಕ್ಕೆ ಮೊದಲು ಸಣ್ಣ ಮುಂಗಡ ಪಡೆಯಿರಿ",
+    "advance_cta": "ಈಗ ಪಡೆಯಿರಿ",
     "insurance": "ಕಾರ್ಮಿಕ ವಿಮೆ",
-    "insurance_hint": "ಕೆಲಸ ಮಾಡುವಾಗ ಅಪಘಾತ ರಕ್ಷಣೆ"
+    "insurance_hint": "ಕೆಲಸ ಮಾಡುವಾಗ ಅಪಘಾತ ರಕ್ಷಣೆ",
+    "insurance_active": "ಸಕ್ರಿಯ",
+    "insurance_inactive": "ನಿಷ್ಕ್ರಿಯ",
+    "insurance_since": "{{date}} ರಿಂದ",
+    "insurance_cta": "ರಕ್ಷಣೆ ಪಡೆಯಿರಿ",
+    "promo_title": "ಹೆಚ್ಚಿನ ಸುರಕ್ಷತೆ.\nಹೆಚ್ಚಿನ ಪ್ರಯೋಜನಗಳು.",
+    "promo_body": "ನಿಮಗಾಗಿ ರೂಪಿಸಲಾದ ವಿಮೆ ಮತ್ತು ಹಣಕಾಸು ಸಾಧನಗಳನ್ನು ಅನ್ವೇಷಿಸಿ.",
+    "promo_cta": "ಈಗ ಅನ್ವೇಷಿಸಿ"
   },
   "profile_groups": {
     "grow": "ನಿಮ್ಮ ವೃತ್ತಿಯನ್ನು ಬೆಳೆಸಿಕೊಳ್ಳಿ",
@@ -881,6 +890,7 @@
   },
   "resume_builder": {
     "header_title": "ರೆಸ್ಯೂಮ್ ಬಿಲ್ಡರ್",
+    "header_preview": "ಪ್ರಿವ್ಯೂ",
     "progress_intro": "ಪರಿಚಯ",
     "progress_review": "ವಿಮರ್ಶೆ",
     "couldnt_save_title": "ರೆಸ್ಯೂಮ್ ಉಳಿಸಲಾಗಲಿಲ್ಲ",

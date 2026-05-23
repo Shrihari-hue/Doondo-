@@ -56,13 +56,22 @@
   },
   "earnings_hub": {
     "title": "సంపాదన",
-    "subtitle": "మీ డబ్బు, అడ్వాన్స్ మరియు రక్షణ",
+    "subtitle": "మీ డబ్బు, కార్యకలాపాలు మరియు రక్షణ",
     "ledger": "నా సంపాదన",
     "ledger_hint": "మీ చెల్లింపులు మరియు చరిత్రను ట్రాక్ చేయండి",
+    "ledger_caption": "ఈ నెల",
     "advance": "నగదు అడ్వాన్స్",
     "advance_hint": "జీతానికి ముందు చిన్న అడ్వాన్స్ పొందండి",
+    "advance_cta": "ఇప్పుడే పొందండి",
     "insurance": "కార్మిక బీమా",
-    "insurance_hint": "పని చేస్తున్నప్పుడు ప్రమాద కవరేజ్"
+    "insurance_hint": "పని చేస్తున్నప్పుడు ప్రమాద కవరేజ్",
+    "insurance_active": "క్రియాశీలం",
+    "insurance_inactive": "నిష్క్రియం",
+    "insurance_since": "{{date}} నుండి",
+    "insurance_cta": "రక్షణ పొందండి",
+    "promo_title": "మరింత భద్రత.\nమరింత ప్రయోజనాలు.",
+    "promo_body": "మీ కోసం రూపొందించిన బీమా మరియు ఆర్థిక సాధనాలను అన్వేషించండి.",
+    "promo_cta": "ఇప్పుడే అన్వేషించండి"
   },
   "profile_groups": {
     "grow": "మీ కెరీర్‌ను పెంచుకోండి",
@@ -881,6 +890,7 @@
   },
   "resume_builder": {
     "header_title": "రెజ్యూమె బిల్డర్",
+    "header_preview": "ప్రివ్యూ",
     "progress_intro": "పరిచయం",
     "progress_review": "సమీక్ష",
     "couldnt_save_title": "రెజ్యూమెను సేవ్ చేయలేకపోయాము",

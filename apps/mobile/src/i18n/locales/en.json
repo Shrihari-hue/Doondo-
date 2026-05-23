@@ -56,13 +56,22 @@
   },
   "earnings_hub": {
     "title": "Earnings",
-    "subtitle": "Your money, advances and protection",
+    "subtitle": "Your money, activities and protection",
     "ledger": "My earnings",
-    "ledger_hint": "Track your payouts and history",
+    "ledger_hint": "Track your payout and history",
+    "ledger_caption": "This month",
     "advance": "Cash advance",
     "advance_hint": "Get a small advance before payday",
+    "advance_cta": "Get now",
     "insurance": "Worker insurance",
-    "insurance_hint": "Accident cover while you work"
+    "insurance_hint": "Accident cover while you work",
+    "insurance_active": "Active",
+    "insurance_inactive": "Not active",
+    "insurance_since": "Since {{date}}",
+    "insurance_cta": "Get covered",
+    "promo_title": "More security.\nMore benefits.",
+    "promo_body": "Explore insurances and financial tools made for you.",
+    "promo_cta": "Explore now"
   },
   "profile_groups": {
     "grow": "Grow your career",
@@ -888,6 +897,7 @@
   },
   "resume_builder": {
     "header_title": "Resume builder",
+    "header_preview": "Preview",
     "progress_intro": "Intro",
     "progress_review": "Review",
     "couldnt_save_title": "Couldn't save resume",

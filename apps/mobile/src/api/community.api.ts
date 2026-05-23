@@ -2,13 +2,19 @@
  * Community feed endpoints — typed wrappers around apiRequest.
  *
  * Backs the Community tab: a LinkedIn-style feed where workers post
- * updates, photos, videos and certificates, and like / comment / repost
- * each other's posts.
+ * thoughts, photos, videos, certificates, resumes and voice notes, and
+ * like / comment / repost each other's posts.
  */
 
 import { apiRequest } from './client';
 
-export type PostType = 'text' | 'photo' | 'video' | 'certificate';
+export type PostType =
+  | 'text'
+  | 'photo'
+  | 'video'
+  | 'certificate'
+  | 'resume'
+  | 'voice';
 
 export interface ApiAuthor {
   id: string;
@@ -37,7 +43,7 @@ export interface ApiReshared {
   author: ApiAuthor;
   type: PostType;
   text: string;
-  mediaUrl: string | null;
+  mediaUrls: string[];
   certificateTitle: string | null;
   createdAt: string;
 }
@@ -47,7 +53,7 @@ export interface ApiPost {
   author: ApiAuthor;
   type: PostType;
   text: string;
-  mediaUrl: string | null;
+  mediaUrls: string[];
   certificateTitle: string | null;
   createdAt: string;
   likeCount: number;
@@ -60,8 +66,8 @@ export interface ApiPost {
 export interface CreatePostParams {
   type: PostType;
   text: string;
-  /** Base64 data URL for photo / video poster / certificate image. */
-  mediaDataUrl?: string | null;
+  /** Base64 data URLs — photos, a video poster, a certificate or resume image. */
+  mediaDataUrls?: string[];
   certificateTitle?: string | null;
 }
 
@@ -79,7 +85,7 @@ export const communityApi = {
       body: {
         type: p.type,
         text: p.text,
-        mediaDataUrl: p.mediaDataUrl ?? null,
+        mediaDataUrls: p.mediaDataUrls ?? [],
         certificateTitle: p.certificateTitle ?? null,
       },
     }),

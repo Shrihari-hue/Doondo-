@@ -379,9 +379,25 @@ function ResumeBuilderInner() {
           >
             {t('resume_builder.header_title')}
           </Text>
-          <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>
-            {progressLabel(step, drafts.length, isReview, t)}
-          </Text>
+          {isReview ? (
+            <Pressable
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('ResumePreview');
+              }}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={t('resume_builder.header_preview')}
+            >
+              <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFFFFF' }}>
+                {t('resume_builder.header_preview')}
+              </Text>
+            </Pressable>
+          ) : (
+            <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>
+              {progressLabel(step, drafts.length, isReview, t)}
+            </Text>
+          )}
         </View>
         <ProgressBar step={step} totalSteps={drafts.length + 2} />
       </LinearGradient>
@@ -1100,7 +1116,7 @@ function ReviewSlide({
             letterSpacing: -0.3,
           }}
         >
-          {t('resume_builder.review_title')}
+          {t('resume_builder.review_title')} 👀
         </Text>
         <Text style={{ fontSize: 13, color: theme.text.secondary, lineHeight: 19 }}>
           {t('resume_builder.review_body')}
