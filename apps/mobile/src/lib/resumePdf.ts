@@ -15,6 +15,7 @@
 
 import * as Sharing from 'expo-sharing';
 import type {
+  CraftPhoto,
   Education,
   PublicUser,
   WorkExperience,
@@ -22,6 +23,7 @@ import type {
 import type { PublicCourseSummary } from '@/api/courses.api';
 import { formatRange, sortWorkHistory } from './workHistory';
 import { prettifySkill } from './trades';
+import { buildCollections } from './craftShowcase';
 
 export interface ResumePdfInput {
   user: PublicUser;
@@ -210,6 +212,29 @@ function renderResumeHtml(input: ResumePdfInput): string {
       color: #78350F;
       border-color: #FDE68A;
     }
+    .craft-group { margin-bottom: 12px; }
+    .craft-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #0F172A;
+      margin-bottom: 6px;
+    }
+    .photo-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+    .photo { width: 31%; }
+    .photo img {
+      width: 100%;
+      height: 104px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 0.5px solid #E2E8F0;
+      display: block;
+    }
+    .photo-cap {
+      font-size: 9px;
+      color: #64748B;
+      margin-top: 3px;
+      line-height: 1.3;
+    }
     .footer {
       margin-top: 18px;
       font-size: 10px;
@@ -247,6 +272,7 @@ function renderResumeHtml(input: ResumePdfInput): string {
           </div>`
         : ''
     }
+    ${renderShowcase(user)}
     ${
       entries.length > 0
         ? `<div class="section">
@@ -277,6 +303,50 @@ function renderResumeHtml(input: ResumePdfInput): string {
   </div>
 </body>
 </html>`;
+}
+
+/**
+ * Craft Showcase section — the worker's work photos, grouped per craft
+ * exactly like the in-app showcase (`buildCollections`). Returns an empty
+ * string when there are no photos, so the section simply doesn't appear.
+ *
+ * Photos are base64 data URLs, which embed straight into the PDF — no
+ * network fetch needed at print time.
+ */
+function renderShowcase(user: PublicUser): string {
+  const photos = user.workPhotos ?? [];
+  if (photos.length === 0) return '';
+
+  const collections = buildCollections(user.skills ?? [], photos);
+  const groups: Array<{ label: string; photos: CraftPhoto[] }> =
+    collections.length > 0
+      ? collections.map((c) => ({ label: c.label, photos: c.photos }))
+      : [{ label: 'Work samples', photos: [...photos] }];
+
+  const groupsHtml = groups
+    .map(
+      (g) => `
+      <div class="craft-group">
+        <div class="craft-label">${escapeHtml(g.label)}</div>
+        <div class="photo-grid">
+          ${g.photos
+            .map(
+              (p) => `
+            <div class="photo">
+              <img src="${escapeHtml(p.url)}" />
+              ${p.caption ? `<div class="photo-cap">${escapeHtml(p.caption)}</div>` : ''}
+            </div>`,
+            )
+            .join('')}
+        </div>
+      </div>`,
+    )
+    .join('');
+
+  return `<div class="section">
+            <h2>Craft Showcase</h2>
+            ${groupsHtml}
+          </div>`;
 }
 
 function renderExperience(e: WorkExperience): string {

@@ -355,29 +355,37 @@ function HeroCard({ onExplore, t }: { onExplore: () => void; t: TFn }) {
               }}
               accessibilityRole="button"
               accessibilityLabel={t('home.hero.cta_a11y')}
-              style={({ pressed }) => ({
-                paddingVertical: 12,
-                paddingHorizontal: spacing.lg,
-                borderRadius: radii.pill,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                opacity: pressed ? 0.85 : 1,
-              })}
+              style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
             >
-              <Text
+              {/* Layout (the row direction + padding) lives on this static
+                 inner View. Keeping `flexDirection: 'row'` on the Pressable
+                 style function let RN collapse it to a column on some
+                 builds — that pushed the arrow onto its own line and made
+                 the label overflow the pill. */}
+              <View
                 style={{
-                  fontSize: 14,
-                  fontWeight: '800',
-                  color: '#0F1A45',
-                  letterSpacing: 0.1,
+                  paddingVertical: 12,
+                  paddingHorizontal: spacing.lg,
+                  borderRadius: radii.pill,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
                 }}
               >
-                {t('home.hero.cta')}
-              </Text>
-              <Text style={{ fontSize: 14, color: '#0F1A45', fontWeight: '800' }}>
-                →
-              </Text>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '800',
+                    color: '#0F1A45',
+                    letterSpacing: 0.1,
+                  }}
+                >
+                  {t('home.hero.cta')}
+                </Text>
+                <Text style={{ fontSize: 14, color: '#0F1A45', fontWeight: '800' }}>
+                  →
+                </Text>
+              </View>
             </Pressable>
           </View>
         </View>

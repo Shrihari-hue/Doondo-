@@ -52,6 +52,7 @@ import { profileViewsApi } from '@/api/profileViews.api';
 import { skillSuggestionsApi } from '@/api/skillSuggestions.api';
 import { useTranslate } from '@/i18n/useTranslate';
 import { ProfileCompletionMeter } from './ProfileCompletionMeter';
+import { computeCompleteness } from '@/lib/profileCompleteness';
 import { useUnratedApplications } from '@/hooks/useRatings';
 import { pickProfilePhoto } from '@/lib/photo';
 import { haptic } from '@/lib/haptics';
@@ -109,7 +110,12 @@ export function ProfileScreen() {
   });
   const applicationsCount = applicationsQuery.data?.applications.length ?? 0;
   const savedCount = savedQuery.data?.jobs.length ?? 0;
-  const profileCompletion = user?.profileCompletion ?? 0;
+  // Single source of truth for completion. The hero bar previously read the
+  // backend `user.profileCompletion` field while the meter below computed
+  // its own score via computeCompleteness() — so the screen showed two
+  // different numbers (e.g. 100% in the hero, 85% in the meter). Both now
+  // use the same computed score, so they always agree.
+  const profileCompletion = computeCompleteness(user).score;
 
   // Pending ratings — surfaces a "Rate now" banner above the stats
   // strip when the seeker has hires they haven't rated yet. Closes the
@@ -787,29 +793,34 @@ export function ProfileScreen() {
                   </View>
                 )}
               </View>
-              {/* Hardcoded blue/white so the Edit pen never disappears
-                  on a stale build — same pattern used on the Apply CTA. */}
+              {/* The blue fill sits on a static inner View — leaving
+                  `backgroundColor` on the Pressable style function let RN
+                  drop it on some builds, leaving white "Edit" text with no
+                  visible button behind it. */}
               <Pressable
                 onPress={openSalaryEdit}
                 accessibilityRole="button"
                 accessibilityLabel={t('profile_screen.edit_salary_a11y')}
-                style={({ pressed }) => ({
-                  paddingHorizontal: 18,
-                  paddingVertical: 10,
-                  borderRadius: radii.pill,
-                  backgroundColor: '#2563EB',
-                  opacity: pressed ? 0.85 : 1,
-                })}
+                style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
               >
-                <Text
+                <View
                   style={{
-                    color: '#FFFFFF',
-                    fontSize: 14,
-                    fontWeight: '700',
+                    paddingHorizontal: 18,
+                    paddingVertical: 10,
+                    borderRadius: radii.pill,
+                    backgroundColor: '#2563EB',
                   }}
                 >
-                  {t('profile_screen.salary.edit')}
-                </Text>
+                  <Text
+                    style={{
+                      color: '#FFFFFF',
+                      fontSize: 14,
+                      fontWeight: '700',
+                    }}
+                  >
+                    {t('profile_screen.salary.edit')}
+                  </Text>
+                </View>
               </Pressable>
             </View>
           </View>

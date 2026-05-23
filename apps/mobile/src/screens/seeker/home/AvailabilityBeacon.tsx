@@ -123,7 +123,7 @@ export function AvailabilityBeaconChip({
       <View
         style={{
           borderRadius: radii.lg,
-          backgroundColor: isLive ? '#2537af' : '#0b4086',
+          backgroundColor: isLive ? '#ECFDF5' : '#EFF6FF',
           borderWidth: 1,
           borderColor: isLive ? '#86EFAC' : '#0855b3',
           shadowColor: isLive ? '#10B981' : '#2563EB',
@@ -142,74 +142,82 @@ export function AvailabilityBeaconChip({
         accessibilityLabel={
           isLive ? t('home.beacon.chip_a11y_active') : t('home.beacon.chip_a11y_inactive')
         }
-        style={({ pressed }) => ({
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: spacing.sm,
-          padding: spacing.md,
-          borderRadius: radii.lg,
-          opacity: pressed ? 0.85 : 1,
-        })}
+        style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
       >
+        {/* Row layout lives on this static inner View — keeping
+           `flexDirection: 'row'` on the Pressable style function let RN
+           collapse the icon + text into a column on some builds. */}
         <View
           style={{
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            backgroundColor: isLive ? '#10B981' : '#2563EB',
+            flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'center',
+            gap: spacing.sm,
+            padding: spacing.md,
+            borderRadius: radii.lg,
           }}
         >
-          <Text style={{ fontSize: 16 }}>{isLive ? '🟢' : '📢'}</Text>
-        </View>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text
+          <View
             style={{
-              fontSize: 14,
-              fontWeight: '700',
-              color: isLive ? '#065F46' : '#1E40AF',
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: isLive ? '#10B981' : '#2563EB',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            {isLive
-              ? t('home.beacon.chip_active_title', { left: formatLeft(minutesLeft!, t) })
-              : t('home.beacon.chip_inactive_title')}
-          </Text>
-          <Text
-            style={{
-              fontSize: 12,
-              color: isLive ? '#047857' : '#1E3A8A',
-              opacity: 0.85,
-            }}
-            numberOfLines={1}
-          >
-            {isLive
-              ? t('home.beacon.chip_active_hint', { time: formatClock(active!.until) })
-              : t('home.beacon.chip_inactive_hint')}
-          </Text>
-        </View>
-        {isLive ? (
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation();
-              onWithdraw();
-            }}
-            hitSlop={8}
-            style={({ pressed }) => ({
-              paddingHorizontal: spacing.sm,
-              paddingVertical: 4,
-              borderRadius: radii.pill,
-              backgroundColor: '#FFFFFF',
-              borderWidth: 0.5,
-              borderColor: '#A7F3D0',
-              opacity: pressed ? 0.6 : 1,
-            })}
-          >
-            <Text style={{ fontSize: 11, fontWeight: '700', color: '#065F46' }}>
-              {t('home.beacon.stop')}
+            <Text style={{ fontSize: 16 }}>{isLive ? '🟢' : '📢'}</Text>
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text
+              style={{
+                fontSize: 14,
+                fontWeight: '700',
+                color: isLive ? '#065F46' : '#1E40AF',
+              }}
+            >
+              {isLive
+                ? t('home.beacon.chip_active_title', { left: formatLeft(minutesLeft!, t) })
+                : t('home.beacon.chip_inactive_title')}
             </Text>
-          </Pressable>
-        ) : null}
+            <Text
+              style={{
+                fontSize: 12,
+                color: isLive ? '#047857' : '#1E3A8A',
+              }}
+              numberOfLines={1}
+            >
+              {isLive
+                ? t('home.beacon.chip_active_hint', { time: formatClock(active!.until) })
+                : t('home.beacon.chip_inactive_hint')}
+            </Text>
+          </View>
+          {isLive ? (
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                onWithdraw();
+              }}
+              hitSlop={8}
+              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+            >
+              <View
+                style={{
+                  paddingHorizontal: spacing.sm,
+                  paddingVertical: 4,
+                  borderRadius: radii.pill,
+                  backgroundColor: '#FFFFFF',
+                  borderWidth: 0.5,
+                  borderColor: '#A7F3D0',
+                }}
+              >
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#065F46' }}>
+                  {t('home.beacon.stop')}
+                </Text>
+              </View>
+            </Pressable>
+          ) : null}
+        </View>
       </Pressable>
       </View>
 
@@ -611,7 +619,7 @@ function AvailabilityBeaconSheet({
                   borderRadius: radii.lg,
                   borderWidth: 0.5,
                   borderColor: recurring ? '#2563EB' : theme.border.default,
-                  backgroundColor: recurring ? '#7cb2f7' : theme.bg.surface,
+                  backgroundColor: recurring ? '#EFF6FF' : theme.bg.surface,
                   opacity: pressed ? 0.85 : 1,
                 })}
               >
@@ -628,18 +636,27 @@ function AvailabilityBeaconSheet({
                   }}
                 >
                   {recurring ? (
-                    <Text style={{ color: '#5e97e7', fontSize: 13, fontWeight: '700' }}>
+                    <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>
                       ✓
                     </Text>
                   ) : null}
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text
-                    style={{ fontSize: 14, fontWeight: '700', color: theme.text.primary }}
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '700',
+                      color: recurring ? '#1E3A8A' : theme.text.primary,
+                    }}
                   >
                     {t('home.beacon.sheet.repeat_weekly_title')}
                   </Text>
-                  <Text style={{ fontSize: 12, color: theme.text.secondary }}>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: recurring ? '#475569' : theme.text.secondary,
+                    }}
+                  >
                     {t('home.beacon.sheet.repeat_weekly_hint')}
                   </Text>
                 </View>
@@ -686,7 +703,7 @@ function AvailabilityBeaconSheet({
                             style={{
                               fontSize: 13,
                               fontWeight: '700',
-                              color: active ? '#8865f3' : theme.text.primary,
+                              color: active ? '#FFFFFF' : theme.text.primary,
                             }}
                           >
                             {label}
@@ -819,7 +836,7 @@ function AvailabilityBeaconSheet({
                 style={{
                   fontSize: 16,
                   fontWeight: '700',
-                  color: '#977ded',
+                  color: '#FFFFFF',
                   letterSpacing: 0.2,
                 }}
               >

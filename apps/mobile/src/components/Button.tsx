@@ -1,4 +1,4 @@
-import { Pressable, type PressableProps } from 'react-native';
+import { Pressable, View, type PressableProps } from 'react-native';
 import { radii, spacing } from '@doondo/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
@@ -92,34 +92,43 @@ export function Button({
         haptic('light');
         onPress?.(e);
       }}
-      style={({ pressed }) => ({
-        backgroundColor: pressed && !disabled ? v.bgPressed : v.bg,
-        borderRadius: radii.lg,
-        borderWidth: 0.5,
-        borderColor: v.borderColor,
-        paddingVertical: s.paddingV,
-        paddingHorizontal: s.paddingH,
-        alignItems: 'center',
-        justifyContent: 'center',
-        alignSelf: fullWidth ? 'stretch' : 'flex-start',
-        opacity: disabled ? 0.5 : 1,
-      })}
+      // Only width-anchoring lives on the Pressable. All paint (background,
+      // border, padding) sits on the static inner <View> below — RN drops
+      // properties from a Pressable style *function* on some builds, which
+      // was rendering this button as bare text with no background.
+      style={{ alignSelf: fullWidth ? 'stretch' : 'flex-start' }}
     >
-      {/* Indic-language labels for actions like "Apply Now" can be 1.5-2x
-         longer than English (ಈಗ ಅರ್ಜಿ ಸಲ್ಲಿಸಿ vs Apply Now). Let the label
-         wrap to two lines and shrink to 85% so it never clips on the
-         smallest devices in any of our supported languages. */}
-      <Text
-        variant={s.textVariant}
-        weight="medium"
-        tone={v.tone}
-        numberOfLines={2}
-        adjustsFontSizeToFit
-        minimumFontScale={0.85}
-        style={{ textAlign: 'center' }}
-      >
-        {label}
-      </Text>
+      {({ pressed }) => (
+        <View
+          style={{
+            backgroundColor: pressed && !disabled ? v.bgPressed : v.bg,
+            borderRadius: radii.lg,
+            borderWidth: 0.5,
+            borderColor: v.borderColor,
+            paddingVertical: s.paddingV,
+            paddingHorizontal: s.paddingH,
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: disabled ? 0.5 : 1,
+          }}
+        >
+          {/* Indic-language labels for actions like "Apply Now" can be 1.5-2x
+             longer than English (ಈಗ ಅರ್ಜಿ ಸಲ್ಲಿಸಿ vs Apply Now). Let the label
+             wrap to two lines and shrink to 85% so it never clips on the
+             smallest devices in any of our supported languages. */}
+          <Text
+            variant={s.textVariant}
+            weight="medium"
+            tone={v.tone}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+            style={{ textAlign: 'center' }}
+          >
+            {label}
+          </Text>
+        </View>
+      )}
     </Pressable>
   );
 }

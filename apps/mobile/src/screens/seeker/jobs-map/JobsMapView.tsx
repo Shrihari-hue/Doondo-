@@ -314,13 +314,27 @@ function TrackingMarker({
   isActive: boolean;
   children: React.ReactNode;
 }) {
-  // Initial track for first 600ms, then off. Re-arm on active change.
+  // The native Android marker captures the custom child as a bitmap. If it
+  // captures *before* the price label has finished measuring, the chip is
+  // frozen too narrow and the text is clipped ("₹1.5" instead of
+  // "₹1.5k/day"). So we keep tracksViewChanges on until the content has
+  // actually laid out, then freeze a couple of frames later — with a
+  // generous timeout as a safety net. Re-armed whenever the pin's active
+  // (scaled) state flips so the larger bitmap is re-captured cleanly.
   const [tracking, setTracking] = useState(true);
   useEffect(() => {
     setTracking(true);
-    const t = setTimeout(() => setTracking(false), 600);
+    const t = setTimeout(() => setTracking(false), 1500);
     return () => clearTimeout(t);
   }, [isActive]);
+
+  const handleContentLayout = () => {
+    // Content has measured — let one more paint settle, then stop tracking
+    // so the frozen bitmap is the fully-sized one.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => setTracking(false)),
+    );
+  };
 
   return (
     <Marker
@@ -331,7 +345,7 @@ function TrackingMarker({
       // Slight upward offset so the tail's tip sits exactly on the geo point.
       centerOffset={{ x: 0, y: -8 }}
     >
-      {children}
+      <View onLayout={handleContentLayout}>{children}</View>
     </Marker>
   );
 }

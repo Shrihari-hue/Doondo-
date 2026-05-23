@@ -272,73 +272,82 @@ function MoneyCard({
         haptic('selection');
         onPress();
       }}
-      style={({ pressed }) => ({
-        marginHorizontal: spacing.xl,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
-        padding: spacing.lg,
-        minHeight: 84,
-        backgroundColor: theme.bg.surface,
-        borderRadius: 18,
-        borderWidth: 0.5,
-        borderColor: theme.border.subtle,
-        // Soft lift off the blue-tinted canvas.
-        shadowColor: '#0F172A',
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 2,
-        opacity: pressed ? 0.85 : 1,
-        transform: [{ scale: pressed ? 0.99 : 1 }],
-      })}
+      style={{ marginHorizontal: spacing.xl }}
     >
-      {/* Icon tile */}
-      <View
-        style={{
-          width: 46,
-          height: 46,
-          borderRadius: 13,
-          backgroundColor: tint,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ fontSize: 20 }}>{glyph}</Text>
-      </View>
-
-      {/* Label + hint */}
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 15, fontWeight: '600', color: theme.text.primary }}>
-          {label}
-        </Text>
-        <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 2 }}>
-          {hint}
-        </Text>
-      </View>
-
-      {/* Value column */}
-      <View style={{ alignItems: 'flex-end', maxWidth: 132 }}>
-        <Text
-          numberOfLines={1}
-          style={{ fontSize: 16, fontWeight: '700', color: toneColor[topTone] }}
+      {({ pressed }) => (
+        // The row layout + card paint live on this static View. Keeping
+        // `flexDirection: 'row'` on the Pressable style function let RN
+        // collapse the card to a column on some builds — that stacked the
+        // value (e.g. "—") below the label instead of beside it.
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.md,
+            padding: spacing.lg,
+            minHeight: 84,
+            backgroundColor: theme.bg.surface,
+            borderRadius: 18,
+            borderWidth: 0.5,
+            borderColor: theme.border.subtle,
+            // Soft lift off the blue-tinted canvas.
+            shadowColor: '#0F172A',
+            shadowOpacity: 0.06,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 2,
+            opacity: pressed ? 0.85 : 1,
+            transform: [{ scale: pressed ? 0.99 : 1 }],
+          }}
         >
-          {topValue}
-        </Text>
-        {bottomValue !== '' && (
-          <Text
-            numberOfLines={1}
+          {/* Icon tile */}
+          <View
             style={{
-              fontSize: 12,
-              fontWeight: bottomTone === 'hero' ? '600' : '400',
-              color: toneColor[bottomTone],
-              marginTop: 2,
+              width: 46,
+              height: 46,
+              borderRadius: 13,
+              backgroundColor: tint,
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            {bottomValue}
-          </Text>
-        )}
-      </View>
+            <Text style={{ fontSize: 20 }}>{glyph}</Text>
+          </View>
+
+          {/* Label + hint */}
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: theme.text.primary }}>
+              {label}
+            </Text>
+            <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 2 }}>
+              {hint}
+            </Text>
+          </View>
+
+          {/* Value column */}
+          <View style={{ alignItems: 'flex-end', maxWidth: 132 }}>
+            <Text
+              numberOfLines={1}
+              style={{ fontSize: 16, fontWeight: '700', color: toneColor[topTone] }}
+            >
+              {topValue}
+            </Text>
+            {bottomValue !== '' && (
+              <Text
+                numberOfLines={1}
+                style={{
+                  fontSize: 12,
+                  fontWeight: bottomTone === 'hero' ? '600' : '400',
+                  color: toneColor[bottomTone],
+                  marginTop: 2,
+                }}
+              >
+                {bottomValue}
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
     </Pressable>
   );
 }

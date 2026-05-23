@@ -281,18 +281,23 @@ function CourseDetailInner() {
             <Pressable
               onPress={() => enrollMutation.mutate()}
               disabled={enrollMutation.isPending}
-              style={({ pressed }) => ({
-                marginTop: spacing.sm,
-                paddingVertical: 12,
-                borderRadius: radii.pill,
-                alignItems: 'center',
-                backgroundColor: '#2563EB',
-                opacity: enrollMutation.isPending ? 0.5 : pressed ? 0.85 : 1,
-              })}
+              style={{ marginTop: spacing.sm }}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
-                {enrollMutation.isPending ? t('course_detail.starting') : t('course_detail.start_course')}
-              </Text>
+              {({ pressed }) => (
+                <View
+                  style={{
+                    paddingVertical: 12,
+                    borderRadius: radii.pill,
+                    alignItems: 'center',
+                    backgroundColor: '#2563EB',
+                    opacity: enrollMutation.isPending ? 0.5 : pressed ? 0.85 : 1,
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
+                    {enrollMutation.isPending ? t('course_detail.starting') : t('course_detail.start_course')}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           ) : null}
         </View>
@@ -490,33 +495,41 @@ function LessonModal({
                 disabled={completed || completing}
                 accessibilityRole="button"
                 accessibilityLabel={completed ? t('course_detail.a11y_completed') : t('course_detail.a11y_mark_complete')}
-                style={({ pressed }) => ({
-                  paddingVertical: 14,
-                  borderRadius: radii.pill,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: completed ? '#10B981' : '#2563EB',
-                  opacity: completed
-                    ? 0.7
-                    : completing
-                      ? 0.5
-                      : pressed
-                        ? 0.85
-                        : 1,
-                  shadowColor: completed ? '#10B981' : '#2563EB',
-                  shadowOpacity: 0.25,
-                  shadowRadius: 10,
-                  shadowOffset: { width: 0, height: 4 },
-                  elevation: 4,
-                })}
               >
-                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
-                  {completed
-                    ? t('course_detail.lesson_complete_done')
-                    : completing
-                      ? t('course_detail.lesson_complete_saving')
-                      : t('course_detail.lesson_complete_cta')}
-                </Text>
+                {({ pressed }) => (
+                  // Background + shape sit on this static View. With them on
+                  // the Pressable style function, RN dropped the fill on some
+                  // builds — leaving white text on a white sheet.
+                  <View
+                    style={{
+                      paddingVertical: 14,
+                      borderRadius: radii.pill,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: completed ? '#10B981' : '#2563EB',
+                      opacity: completed
+                        ? 0.7
+                        : completing
+                          ? 0.5
+                          : pressed
+                            ? 0.85
+                            : 1,
+                      shadowColor: completed ? '#10B981' : '#2563EB',
+                      shadowOpacity: 0.25,
+                      shadowRadius: 10,
+                      shadowOffset: { width: 0, height: 4 },
+                      elevation: 4,
+                    }}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+                      {completed
+                        ? t('course_detail.lesson_complete_done')
+                        : completing
+                          ? t('course_detail.lesson_complete_saving')
+                          : t('course_detail.lesson_complete_cta')}
+                    </Text>
+                  </View>
+                )}
               </Pressable>
             </View>
           </>

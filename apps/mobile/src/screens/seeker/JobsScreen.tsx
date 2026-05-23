@@ -401,8 +401,9 @@ function timeOfDayCaption(t: TFn): string {
   if (h < 5) return t('jobs.greeting.still_up');
   if (h < 12) return t('jobs.greeting.good_morning');
   if (h < 17) return t('jobs.greeting.good_afternoon');
-  if (h < 21) return t('jobs.greeting.good_evening');
-  return t('jobs.greeting.good_night');
+  // 17:00 onward stays "Good evening" — someone opening a job app at 11pm
+  // is starting a task, not being sent to bed, so "Good night" read wrong.
+  return t('jobs.greeting.good_evening');
 }
 
 function Header({
@@ -670,22 +671,27 @@ function Header({
         </Pressable>
       </View>
 
-      {/* Recommended for you — section header above the cards */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginTop: spacing.xs,
-        }}
-      >
-        <Text variant="bodyLarge" weight="medium">
-          {t('jobs.sections.recommended_for_you')}
-        </Text>
-        <Text variant="footnote" tone="hero" weight="medium">
-          {t('jobs.sections.see_all_arrow')}
-        </Text>
-      </View>
+      {/* Recommended for you — section header for the job cards. Only shown
+          in list view: in map view the cards are replaced by the map, so
+          this header would otherwise sit on top of the map labelling
+          nothing. */}
+      {view === 'list' && (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: spacing.xs,
+          }}
+        >
+          <Text variant="bodyLarge" weight="medium">
+            {t('jobs.sections.recommended_for_you')}
+          </Text>
+          <Text variant="footnote" tone="hero" weight="medium">
+            {t('jobs.sections.see_all_arrow')}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }

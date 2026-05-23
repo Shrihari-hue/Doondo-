@@ -1060,9 +1060,20 @@ function SendButton({
       }}
     >
       {sending ? (
-        <ActivityIndicator size="small" color="#FFFDF7" />
+        <ActivityIndicator
+          size="small"
+          color={disabled ? theme.text.tertiary : '#FFFDF7'}
+        />
       ) : (
-        <Text style={{ color: '#FFFDF7', fontSize: 18, fontWeight: '600' }}>↑</Text>
+        <Text
+          style={{
+            color: disabled ? theme.text.tertiary : '#FFFDF7',
+            fontSize: 18,
+            fontWeight: '600',
+          }}
+        >
+          ↑
+        </Text>
       )}
     </Pressable>
   );
