@@ -17,6 +17,9 @@
 
 import { Schema, model, type Model, type HydratedDocument } from 'mongoose';
 import type { UserRole } from '@/lib/jwt';
+import type { CraftPhoto } from '@/modules/skills/skill.catalogue';
+
+export type { CraftPhoto } from '@/modules/skills/skill.catalogue';
 
 // ─── Subdocuments ───────────────────────────────────────────────────────────
 
@@ -302,12 +305,16 @@ export interface User {
   education: Education[];
   /**
    * Photos of the seeker's work — a mason's wall, a cook's plates, an
-   * electrician's panel. Up to 6 base64 data URLs, each ~350KB after
-   * client-side compression (so the user document stays under 2.5MB).
-   * Empty when the seeker hasn't uploaded any. Renders as a carousel on
-   * the resume preview and the employer's applicant detail.
+   * electrician's panel. Up to 6 entries, each ~350KB after client-side
+   * compression (so the user document stays under 2.5MB). Empty when the
+   * seeker hasn't uploaded any.
+   *
+   * Each photo is a `CraftPhoto`: a base64/CDN URL plus the catalogue
+   * `skill` slug it belongs to. The skill tag is what lets a multi-craft
+   * worker's gallery split into per-craft collections — see
+   * `modules/skills/skill.catalogue` and `buildCollections`.
    */
-  workPhotos: string[];
+  workPhotos: CraftPhoto[];
   /** Bookmarked Job IDs — small array, denormalised on the user. */
   savedJobs: Schema.Types.ObjectId[];
   /**
@@ -439,8 +446,8 @@ export interface PublicUser {
   workHistory: WorkExperience[];
   /** Education entries. Empty when the seeker hasn't added any. */
   education: Education[];
-  /** Photos of the seeker's work — up to 6 entries. */
-  workPhotos: string[];
+  /** Photos of the seeker's work — up to 6 entries, each tagged to a craft skill. */
+  workPhotos: CraftPhoto[];
   // Employer-only (null for seekers)
   companyName: string | null;
   businessType: BusinessType | null;
@@ -545,6 +552,22 @@ const userLocationSchema = new Schema(
     area: { type: String, default: null, trim: true, maxlength: 80 },
     pincode: { type: String, default: null, trim: true, maxlength: 12 },
     geo: { type: geoPointSchema, default: null },
+  },
+  { _id: false },
+);
+
+/**
+ * One photo in a worker's craft portfolio. `skill` is a catalogue slug
+ * (see modules/skills/skill.catalogue) tagging which craft collection the
+ * photo belongs to — this is what makes a multi-craft worker's gallery
+ * split into per-craft collections instead of one undifferentiated pile.
+ */
+const craftPhotoSchema = new Schema<CraftPhoto>(
+  {
+    url: { type: String, required: true, maxlength: 500_000 },
+    skill: { type: String, required: true, trim: true, maxlength: 40 },
+    caption: { type: String, default: null, trim: true, maxlength: 120 },
+    isCover: { type: Boolean, default: false },
   },
   { _id: false },
 );
@@ -685,14 +708,14 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
         message: 'education may not exceed 6 entries',
       },
     },
-    // Photos of the seeker's work — up to 6 base64 data URLs. Each
-    // capped at 400KB on the way in; the array max is enforced both
-    // here and in the mobile picker.
+    // Photos of the seeker's work, each tagged to the craft skill it
+    // belongs to. Up to 6 entries; the array max is enforced both here
+    // and in the mobile picker. See modules/skills/skill.catalogue.
     workPhotos: {
-      type: [String],
+      type: [craftPhotoSchema],
       default: [],
       validate: {
-        validator: (v: string[]) => Array.isArray(v) && v.length <= 6,
+        validator: (v: CraftPhoto[]) => Array.isArray(v) && v.length <= 6,
         message: 'workPhotos may not exceed 6 entries',
       },
     },
@@ -864,7 +887,12 @@ userSchema.method('toPublicJSON', function (
       endYear: e.endYear ?? null,
       current: Boolean(e.current),
     })),
-    workPhotos: this.workPhotos ?? [],
+    workPhotos: (this.workPhotos ?? []).map((p) => ({
+      url: p.url,
+      skill: p.skill,
+      caption: p.caption ?? null,
+      isCover: Boolean(p.isCover),
+    })),
     companyName: this.companyName ?? null,
     businessType: this.businessType ?? null,
     gstin: this.gstin ?? null,

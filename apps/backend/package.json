@@ -40,6 +40,7 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^20.16.5",
     "@types/node-cron": "^3.0.11",
+    "mongodb-memory-server": "^11.1.0",
     "tsc-alias": "^1.8.10",
     "tsx": "^4.19.1",
     "typescript": "^5.5.4"

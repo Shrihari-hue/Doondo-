@@ -13,8 +13,10 @@
  *
  *   4. Skills — chips with brand-tinted background.
  *
- *   5. Menu — each row gets a colored icon tile + secondary count line.
- *      Card splits visually into two groups: Activity / Account.
+ *   5. Menu — three collapsible groups (Grow your career / Your rights
+ *      & safety / Resume & account). Jobs, money and community actions
+ *      now live in their own bottom-tab destinations, so they no longer
+ *      clutter this list.
  *
  *   6. Sign out — its own danger-tinted button.
  *
@@ -22,8 +24,8 @@
  * tasteful CTAs (e.g. "Add what you'd like to earn") instead of zeros.
  */
 
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, Share, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -46,7 +48,6 @@ import { useAuthStore } from '@/stores/auth.store';
 import { meApi } from '@/api/me.api';
 import { jobsApi } from '@/api/jobs.api';
 import { applicationsApi } from '@/api/applications.api';
-import { referralsApi } from '@/api/referrals.api';
 import { profileViewsApi } from '@/api/profileViews.api';
 import { skillSuggestionsApi } from '@/api/skillSuggestions.api';
 import { useTranslate } from '@/i18n/useTranslate';
@@ -158,10 +159,6 @@ export function ProfileScreen() {
     navigation.navigate('EditExpectedSalary' as never);
   }
 
-  function openRatings() {
-    haptic('selection');
-    navigation.navigate('Ratings');
-  }
   function openApplications() {
     haptic('selection');
     navigation.navigate('MyApplications');
@@ -169,10 +166,6 @@ export function ProfileScreen() {
   function openSavedJobs() {
     haptic('selection');
     navigation.navigate('MyJobs');
-  }
-  function openEarnings() {
-    haptic('selection');
-    navigation.navigate('MyEarnings');
   }
   function openDownloads() {
     haptic('selection');
@@ -705,10 +698,20 @@ export function ProfileScreen() {
               onPress={openSavedJobs}
             />
             <Divider vertical color={theme.border.subtle} />
+            {/* Rating, not a second completion % — the hero already
+                shows completion, so this tile carries a distinct,
+                motivating metric instead (see spec §7). */}
             <StatTile
-              label={t('profile_screen.stats.profile')}
-              value={`${profileCompletion}%`}
-              onPress={() => goEdit('basics')}
+              label={t('profile_screen.stats.rating')}
+              value={
+                user.rating && user.rating.count > 0
+                  ? user.rating.avg.toFixed(1)
+                  : '—'
+              }
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('Ratings');
+              }}
             />
           </View>
         </View>
@@ -888,7 +891,7 @@ export function ProfileScreen() {
                 : 'Add real work photos so your profile feels like a premium portfolio, not a plain listing.'
             }
             photos={user.workPhotos}
-            skillLabels={user.skills.map(capitalize)}
+            skills={user.skills}
             emptyTitle="No craft showcase yet"
             emptyBody="Your best photos can do what a resume cannot: prove quality at a glance."
             emptyCtaLabel="Build it now"
@@ -904,73 +907,15 @@ export function ProfileScreen() {
           {/* Skill suggestions — "Add cooking → +30% job matches" rail. */}
           <SkillSuggestionsRail onEdit={() => goEdit('skills')} />
 
-          {/* Activity menu */}
-          <SectionLabel>{t('profile.sections.activity')}</SectionLabel>
-          <View style={cardBase(theme)}>
-            <MenuRow
-              icon="📋"
-              tint="#DBEAFE"
-              label={t('profile.menu.applications')}
-              subtitle={
-                applicationsCount === 0
-                  ? t('profile.menu.applications_empty')
-                  : t(
-                      applicationsCount === 1
-                        ? 'profile.menu.applications_count_one'
-                        : 'profile.menu.applications_count_other',
-                      { count: applicationsCount },
-                    )
-              }
-              onPress={openApplications}
-            />
-            <Divider color={theme.border.subtle} />
-            <MenuRow
-              icon="📂"
-              tint="#FEF3C7"
-              label={t('profile.menu.my_jobs')}
-              subtitle={
-                savedCount === 0
-                  ? t('profile.menu.saved_empty')
-                  : t('profile.menu.saved_count', { count: savedCount })
-              }
-              onPress={openSavedJobs}
-            />
-            <Divider color={theme.border.subtle} />
-            <MenuRow
-              icon="🔔"
-              tint="#FEE2E2"
-              label={t('profile.menu.job_alerts')}
-              subtitle={t('profile.menu.job_alerts_subtitle')}
-              onPress={() => {
-                haptic('selection');
-                navigation.navigate('JobAlerts');
-              }}
-            />
-            <Divider color={theme.border.subtle} />
-            <MenuRow
-              icon="🪙"
-              tint="#FDE68A"
-              label={t('profile_screen.menu_extra.cash_advance')}
-              subtitle={t('profile_screen.menu_extra.cash_advance_subtitle')}
-              onPress={() => {
-                haptic('selection');
-                navigation.navigate('Advance');
-              }}
-            />
-            <Divider color={theme.border.subtle} />
-            <MenuRow
-              icon="🛡"
-              tint="#DBEAFE"
-              label={t('profile_screen.menu_extra.worker_insurance')}
-              subtitle={t('profile_screen.menu_extra.worker_insurance_subtitle')}
-              onPress={() => {
-                haptic('selection');
-                navigation.navigate('Insurance');
-              }}
-            />
-            <Divider color={theme.border.subtle} />
-            <ReferralMenuRow />
-            <Divider color={theme.border.subtle} />
+          {/* Menu — collapsible groups. Replaces the old single 19-row
+              "ACTIVITY" list; jobs / money / community actions moved to
+              their own bottom-tab destinations. */}
+          <CollapsibleGroup
+            glyph="📈"
+            tint="#DDD6FE"
+            title={t('profile_groups.grow')}
+            defaultOpen
+          >
             <MenuRow
               icon="📚"
               tint="#DDD6FE"
@@ -1005,17 +950,6 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
-              icon="📜"
-              tint="#FDE68A"
-              label={t('constitution.title')}
-              subtitle={t('constitution.tagline')}
-              onPress={() => {
-                haptic('selection');
-                navigation.navigate('Constitution');
-              }}
-            />
-            <Divider color={theme.border.subtle} />
-            <MenuRow
               icon="🪜"
               tint="#C7D2FE"
               label={t('career_path.title')}
@@ -1023,6 +957,34 @@ export function ProfileScreen() {
               onPress={() => {
                 haptic('selection');
                 navigation.navigate('CareerPath');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="💬"
+              tint="#E0E7FF"
+              label={t('profile_screen.menu_extra.interview_prep')}
+              subtitle={t('profile_screen.menu_extra.interview_prep_subtitle')}
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('InterviewPrep');
+              }}
+            />
+          </CollapsibleGroup>
+
+          <CollapsibleGroup
+            glyph="🛡️"
+            tint="#FEE2E2"
+            title={t('profile_groups.rights')}
+          >
+            <MenuRow
+              icon="📜"
+              tint="#FDE68A"
+              label={t('constitution.title')}
+              subtitle={t('constitution.tagline')}
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('Constitution');
               }}
             />
             <Divider color={theme.border.subtle} />
@@ -1047,80 +1009,13 @@ export function ProfileScreen() {
                 navigation.navigate('WomenHub');
               }}
             />
-            <Divider color={theme.border.subtle} />
-            <MenuRow
-              icon="🎬"
-              tint="#FEF3C7"
-              label={t('reels.menu_label')}
-              subtitle={t('reels.menu_subtitle')}
-              onPress={() => {
-                haptic('selection');
-                navigation.navigate('RecordReel');
-              }}
-            />
-            <Divider color={theme.border.subtle} />
-            <MenuRow
-              icon="💬"
-              tint="#E0E7FF"
-              label={t('profile_screen.menu_extra.interview_prep')}
-              subtitle={t('profile_screen.menu_extra.interview_prep_subtitle')}
-              onPress={() => {
-                haptic('selection');
-                navigation.navigate('InterviewPrep');
-              }}
-            />
-            <Divider color={theme.border.subtle} />
-            <MenuRow
-              icon="👥"
-              tint="#FCE7F3"
-              label={t('profile_screen.menu_extra.find_friends')}
-              subtitle={t('profile_screen.menu_extra.find_friends_subtitle')}
-              onPress={() => {
-                haptic('selection');
-                navigation.navigate('FindFriends');
-              }}
-            />
-            <Divider color={theme.border.subtle} />
-            <MenuRow
-              icon="🤝"
-              tint="#DBEAFE"
-              label={t('profile_screen.menu_extra.trade_buddies')}
-              subtitle={t('profile_screen.menu_extra.trade_buddies_subtitle')}
-              onPress={() => {
-                haptic('selection');
-                navigation.navigate('Mentors');
-              }}
-            />
-            <Divider color={theme.border.subtle} />
-            <MenuRow
-              icon="⭐"
-              tint="#FDE68A"
-              label={t('profile.menu.ratings')}
-              subtitle={
-                user.rating && user.rating.count > 0
-                  ? t(
-                      user.rating.count === 1
-                        ? 'profile_screen.menu_extra.ratings_count_one'
-                        : 'profile_screen.menu_extra.ratings_count_other',
-                      { avg: user.rating.avg.toFixed(1), count: user.rating.count },
-                    )
-                  : t('profile.menu.ratings_empty')
-              }
-              onPress={openRatings}
-            />
-            <Divider color={theme.border.subtle} />
-            <MenuRow
-              icon="💰"
-              tint="#D1FAE5"
-              label={t('profile.menu.earnings')}
-              subtitle={t('profile.menu.earnings_subtitle')}
-              onPress={openEarnings}
-            />
-          </View>
+          </CollapsibleGroup>
 
-          {/* Resume menu */}
-          <SectionLabel>{t('profile.sections.resume')}</SectionLabel>
-          <View style={cardBase(theme)}>
+          <CollapsibleGroup
+            glyph="⚙️"
+            tint="#E0E7FF"
+            title={t('profile_groups.account')}
+          >
             <MenuRow
               icon="📝"
               tint="#DDD6FE"
@@ -1142,11 +1037,18 @@ export function ProfileScreen() {
                 );
               }}
             />
-          </View>
-
-          {/* Account menu */}
-          <SectionLabel>{t('profile.sections.account')}</SectionLabel>
-          <View style={cardBase(theme)}>
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="🎬"
+              tint="#FEF3C7"
+              label={t('reels.menu_label')}
+              subtitle={t('reels.menu_subtitle')}
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('RecordReel');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
             <MenuRow
               icon="✏️"
               tint="#E0E7FF"
@@ -1170,7 +1072,7 @@ export function ProfileScreen() {
               subtitle={t('profile.menu.settings_subtitle')}
               onPress={openSettings}
             />
-          </View>
+          </CollapsibleGroup>
 
           {/* Sign out */}
           <Pressable
@@ -1343,71 +1245,6 @@ function SkillSuggestionsRail({ onEdit }: { onEdit: () => void }) {
 }
 
 /**
- * MenuRow variant for referral credits.
- *
- * Two-tone behaviour:
- *   - When the seeker HAS earned bonuses, the row reads as ledger:
- *     "₹300 earned · 3 hires" and tapping routes to MyEarnings.
- *   - When they haven't, the row reads as a CTA: "Invite a friend ·
- *     ₹100 when they get hired" and tapping opens the OS share sheet
- *     with a prefilled message + the user's referral link.
- *
- * The referral link carries the seeker's user id as `?ref=...` —
- * the apply flow already records this on the Application so a hire
- * naturally credits this referrer via the existing pipeline.
- *
- * The base URL is intentionally a placeholder for v1 and should be
- * swapped to a real universal-link host once that's stood up.
- */
-const REFERRAL_LINK_BASE = 'https://doondo.app/install';
-
-function ReferralMenuRow() {
-  const navigation = useNavigation<Nav>();
-  const { user } = useAuth();
-  const t = useTranslate();
-  const query = useQuery({
-    queryKey: ['referrals', 'me'],
-    queryFn: () => referralsApi.myReferrals(),
-    staleTime: 60_000,
-  });
-  const summary = query.data?.summary;
-  const hasEarned = Boolean(summary && summary.totalBonusPaise > 0);
-
-  const subtitle = hasEarned
-    ? t('profile_screen.referrals.subtitle_earned', {
-        amount: Math.round((summary?.totalBonusPaise ?? 0) / 100).toLocaleString('en-IN'),
-        count: summary?.hired ?? 0,
-      })
-    : 'Invite a friend · ₹100 when they get hired';
-
-  const onPress = () => {
-    haptic('selection');
-    if (hasEarned) {
-      navigation.navigate('MyEarnings');
-      return;
-    }
-    if (!user?.id) return;
-    const link = `${REFERRAL_LINK_BASE}?ref=${user.id}`;
-    const message =
-      `I'm using Doondo to find work near me. Try it — when you get hired, we both earn ₹100.\n\n${link}`;
-    void Share.share({
-      message,
-      url: link,
-    }).catch(() => undefined);
-  };
-
-  return (
-    <MenuRow
-      icon="💸"
-      tint="#FEF3C7"
-      label={hasEarned ? t('profile.menu.referrals') : 'Refer a friend'}
-      subtitle={subtitle}
-      onPress={onPress}
-    />
-  );
-}
-
-/**
  * StreakChip — one of three tiles on the Profile streak strip.
  *
  * The chip lights up with a flame icon and brand-hero color when the
@@ -1490,6 +1327,93 @@ function StreakChip({
             : t('streak_strip.start_today')}
       </Text>
     </Pressable>
+  );
+}
+
+/**
+ * CollapsibleGroup — a titled, expandable card for the Profile menu.
+ *
+ * Replaces the old single 19-row "ACTIVITY" list. Each group shows a
+ * tinted icon + title + chevron; tapping the header expands or collapses
+ * its rows. `defaultOpen` controls the initial state — the first group
+ * opens on mount, the rest stay closed, so the screen lands calm and
+ * the worker scans three headers instead of nineteen rows.
+ */
+function CollapsibleGroup({
+  glyph,
+  tint,
+  title,
+  defaultOpen,
+  children,
+}: {
+  glyph: string;
+  tint: string;
+  title: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const { theme } = useTheme();
+  const [open, setOpen] = useState(Boolean(defaultOpen));
+  return (
+    <View style={cardBase(theme)}>
+      <Pressable
+        onPress={() => {
+          haptic('selection');
+          setOpen((o) => !o);
+        }}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={title}
+        android_ripple={{ color: 'rgba(0,0,0,0.04)' }}
+        style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+      >
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: spacing.lg,
+            paddingVertical: spacing.md + 2,
+          }}
+        >
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              backgroundColor: tint,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: spacing.md,
+            }}
+          >
+            <Text style={{ fontSize: 22 }}>{glyph}</Text>
+          </View>
+          <Text
+            style={{
+              flex: 1,
+              fontSize: 15,
+              fontWeight: '700',
+              color: theme.text.primary,
+            }}
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
+          <Text
+            style={{ fontSize: 16, color: theme.text.tertiary, lineHeight: 20 }}
+            allowFontScaling={false}
+          >
+            {open ? '▾' : '▸'}
+          </Text>
+        </View>
+      </Pressable>
+      {open ? (
+        <View>
+          <View style={{ height: 0.5, backgroundColor: theme.border.subtle }} />
+          {children}
+        </View>
+      ) : null}
+    </View>
   );
 }
 

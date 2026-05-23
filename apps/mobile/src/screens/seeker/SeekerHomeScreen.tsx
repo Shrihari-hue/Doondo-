@@ -5,7 +5,9 @@
  *   1. Header — Doondo wordmark + notification bell with live badge,
  *      sits below the system status bar with proper safe-area padding
  *   2. Location pill — current city + nearby-jobs count (real, from API)
- *   3. Voice search card — gradient blue CTA → VoiceSearch
+ *   3. Voice search card — gradient blue CTA → VoiceAgent (the
+ *      conversational voice agent; this card replaced the old center
+ *      mic FAB when the tab bar moved to six tabs)
  *   4. Job categories — 5 tile shortcuts with colored emoji backgrounds
  *   5. Nearby jobs — real /jobs/nearby data, capped to 6 here; full list
  *      lives in the Jobs tab.
@@ -169,7 +171,7 @@ export function SeekerHomeScreen() {
 
   function openVoice() {
     haptic('selection');
-    navigation.navigate('VoiceSearch');
+    navigation.navigate('VoiceAgent');
   }
 
   function openCategory(c: Category) {

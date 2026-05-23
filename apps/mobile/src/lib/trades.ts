@@ -54,8 +54,14 @@ export const TRADES: TradeOption[] = [
 
   // ─── Hospitality / food ────────────────────────────────────────────────
   { slug: 'cook', label: 'Cook', emoji: '👨‍🍳', aliases: ['chef', 'kitchen', 'tiffin', 'cook for home'] },
+  { slug: 'baker', label: 'Baker', emoji: '🧁', aliases: ['cake', 'bakery', 'pastry', 'confectioner', 'baking', 'cake artist'] },
   { slug: 'kitchen_helper', label: 'Kitchen helper', shortLabel: 'Kitchen', emoji: '🍳', aliases: ['dishwasher', 'kitchen assistant', 'commis'] },
   { slug: 'waiter', label: 'Waiter / server', shortLabel: 'Waiter', emoji: '🍽️', aliases: ['steward', 'restaurant staff', 'service'] },
+
+  // ─── Events / craft services ───────────────────────────────────────────
+  { slug: 'mehndi_artist', label: 'Mehndi artist', shortLabel: 'Mehndi', emoji: '🤲', aliases: ['mehndi', 'henna', 'mehendi', 'bridal mehndi'] },
+  { slug: 'decorator', label: 'Decorator', emoji: '🎈', aliases: ['decoration', 'event decor', 'balloon decoration', 'wedding decor', 'stage decoration'] },
+  { slug: 'photographer', label: 'Photographer', shortLabel: 'Photo', emoji: '📸', aliases: ['photography', 'videographer', 'wedding photographer', 'camera'] },
 
   // ─── Retail / shop ─────────────────────────────────────────────────────
   { slug: 'shop_assistant', label: 'Shop assistant', shortLabel: 'Shop', emoji: '🛍️', aliases: ['retail', 'salesman', 'counter', 'shopkeeper'] },

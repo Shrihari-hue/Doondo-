@@ -33,6 +33,7 @@ import mentorsRouter from '@/modules/mentors/mentor.routes';
 import paymentsRouter from '@/modules/payments/payment.routes';
 import voiceAgentRouter from '@/modules/voiceAgent/voiceAgent.routes';
 import reelsRouter from '@/modules/reels/reel.routes';
+import communityRouter from '@/modules/community/post.routes';
 import {
   applicantsForJobSchema,
   applyParamsSchema,
@@ -58,6 +59,8 @@ v1.use('/payments', paymentsRouter);
 v1.use('/voice-agent', voiceAgentRouter);
 // Hire Reels — worker intro videos + the employer discovery feed.
 v1.use('/reels', reelsRouter);
+// Community — the worker feed: posts, likes, comments, reposts.
+v1.use('/community', communityRouter);
 
 // Earned-badges helper — employer-side card on ApplicantDetail uses this.
 v1.get('/seekers/:id/badges', requireAuth, coursesController.listSeekerBadges);

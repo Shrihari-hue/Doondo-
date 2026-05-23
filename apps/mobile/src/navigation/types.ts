@@ -49,8 +49,12 @@ export type SeekerTabParamList = {
   Home: undefined;
   /** Full jobs list — accepts an initial query keyword from category tile / voice. */
   Jobs: { initialQuery?: string } | undefined;
+  /** Community hub — find work buddies, mentors, ratings & reviews. */
+  Community: undefined;
   /** Conversations list. */
   Chat: undefined;
+  /** Earnings hub — payout ledger, cash advance, worker insurance. */
+  Earnings: undefined;
   /** Profile — verified badge, rating, salary, skills, menu. */
   Profile: undefined;
 };
@@ -213,6 +217,10 @@ export type AppStackParamList = {
   FindFriends: undefined;
   /** Modal: discover + request mentors in your trade. */
   Mentors: undefined;
+  /** Modal: compose a new Community post (feed). */
+  CommunityComposer: { type?: 'photo' | 'video' | 'certificate' } | undefined;
+  /** Modal: a Community post with its full comment thread. */
+  CommunityPost: { postId: string };
   /** Modal: apply for a small cash advance. */
   Advance: undefined;
   /** Modal: opt-in for worker accident cover. */

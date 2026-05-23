@@ -62,14 +62,26 @@ export const updateProfileSchema = z.object({
         .nullable()
         .optional(),
       // Work-sample photos — PUT-style: array on the wire is the array
-      // stored. Empty array clears. Per-photo cap mirrors photoUrl plus
-      // some slack for slightly less compression-friendly samples.
+      // stored. Empty array clears. Each photo is tagged with the craft
+      // `skill` slug it belongs to (see modules/skills/skill.catalogue);
+      // the service additionally checks the slug is one of the worker's
+      // own gallery skills. Per-photo url cap mirrors photoUrl plus slack.
       workPhotos: z
         .array(
           z
-            .string()
-            .max(500_000)
-            .regex(/^data:image\/(jpeg|jpg|png|webp);base64,/i, 'Each photo must be a data URL'),
+            .object({
+              url: z
+                .string()
+                .max(500_000)
+                .regex(
+                  /^data:image\/(jpeg|jpg|png|webp);base64,/i,
+                  'Each photo must be a data URL',
+                ),
+              skill: z.string().trim().min(1).max(40),
+              caption: z.string().trim().max(120).nullable().optional(),
+              isCover: z.boolean().optional(),
+            })
+            .strict(),
         )
         .max(6)
         .optional(),

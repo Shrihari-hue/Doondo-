@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -11,6 +11,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { champagne, spacing, radii } from '@doondo/tokens';
 import { useTheme } from '@/theme/useTheme';
+import type { CraftPhoto } from '@/api/types';
+import { buildCollections, type CraftCollection } from '@/lib/craftShowcase';
 import { Text } from './Text';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -21,27 +23,41 @@ const SNAP = CARD_WIDTH + CARD_GAP;
 interface Props {
   title: string;
   subtitle: string;
-  photos: string[];
-  skillLabels?: string[];
+  /** The worker's full, flat photo list — each tagged to a craft skill. */
+  photos: CraftPhoto[];
+  /**
+   * The worker's skills. Used to split `photos` into per-craft collections.
+   * When omitted (or no gallery skill matches), all photos render as one
+   * "Portfolio" collection so nothing is ever hidden.
+   */
+  skills?: string[];
+  /** Verification counts, keyed by the photo's index in the flat `photos`. */
   verificationCounts?: Map<number, number>;
-  onVerifyPhoto?: (index: number) => void;
+  /** Called with the photo's flat index in `photos`. */
+  onVerifyPhoto?: (flatIndex: number) => void;
   verifyPending?: boolean;
   verifyLabel?: string;
+  /** Premium subscribers get the champagne-gold collection border. */
+  premium?: boolean;
   emptyTitle?: string;
   emptyBody?: string;
   emptyCtaLabel?: string;
   onEmptyPress?: () => void;
 }
 
+const GOLD_STRONG = 'rgba(184, 153, 104, 0.85)';
+const GOLD_SOFT = 'rgba(184, 153, 104, 0.55)';
+
 export function CraftShowcase({
   title,
   subtitle,
   photos,
-  skillLabels = [],
+  skills,
   verificationCounts,
   onVerifyPhoto,
   verifyPending = false,
   verifyLabel = 'Verify',
+  premium = false,
   emptyTitle,
   emptyBody,
   emptyCtaLabel,
@@ -49,8 +65,19 @@ export function CraftShowcase({
 }: Props) {
   const { theme } = useTheme();
   const scrollX = useRef(new Animated.Value(0)).current;
+  const [activeIdx, setActiveIdx] = useState(0);
 
-  if (photos.length === 0) {
+  // Group the flat photo list into per-craft collections. If no gallery
+  // skill matches, fall back to a single "Portfolio" collection so a
+  // worker's photos are never silently dropped.
+  const collections = useMemo<CraftCollection[]>(() => {
+    const built = buildCollections(skills ?? [], photos);
+    if (built.length > 0) return built;
+    if (photos.length === 0) return [];
+    return [{ skill: '', label: 'Portfolio', photos, cover: photos[0] ?? null }];
+  }, [skills, photos]);
+
+  if (photos.length === 0 || collections.length === 0) {
     if (!emptyTitle || !emptyBody) return null;
     return (
       <View
@@ -92,6 +119,9 @@ export function CraftShowcase({
     );
   }
 
+  const clampedIdx = Math.min(activeIdx, collections.length - 1);
+  const active = collections[clampedIdx]!;
+
   return (
     <View style={{ gap: spacing.sm }}>
       <View style={{ gap: 4, paddingHorizontal: 2 }}>
@@ -103,7 +133,54 @@ export function CraftShowcase({
         </Text>
       </View>
 
+      {/* Collection switcher — one chip per craft. Hidden for single-craft
+          workers, where there's nothing to switch between. */}
+      {collections.length > 1 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: spacing.xs, paddingHorizontal: 2, paddingVertical: 2 }}
+        >
+          {collections.map((collection, index) => {
+            const selected = index === clampedIdx;
+            return (
+              <Pressable
+                key={collection.skill || `collection-${index}`}
+                onPress={() => {
+                  setActiveIdx(index);
+                  scrollX.setValue(0);
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                style={({ pressed }) => ({
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: 7,
+                  borderRadius: radii.pill,
+                  backgroundColor: selected ? theme.brand.hero : theme.bg.surface,
+                  borderWidth: 0.5,
+                  borderColor: selected ? theme.brand.hero : theme.border.subtle,
+                  opacity: pressed ? 0.8 : 1,
+                })}
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '700',
+                    color: selected ? '#FFFFFF' : theme.text.secondary,
+                  }}
+                >
+                  {collection.label}
+                  {`  ${collection.photos.length}`}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+
       <Animated.ScrollView
+        // Remount per collection so the scroll offset resets cleanly.
+        key={active.skill || 'portfolio'}
         horizontal
         showsHorizontalScrollIndicator={false}
         decelerationRate="fast"
@@ -117,7 +194,7 @@ export function CraftShowcase({
         )}
         scrollEventThrottle={16}
       >
-        {photos.map((uri, index) => {
+        {active.photos.map((photo, index) => {
           const inputRange = [
             (index - 1) * SNAP,
             index * SNAP,
@@ -138,12 +215,15 @@ export function CraftShowcase({
             outputRange: ['-3deg', '0deg', '3deg'],
             extrapolate: 'clamp',
           });
-          const verifyCount = verificationCounts?.get(index) ?? 0;
-          const labels = pickLabels(skillLabels, index);
+          // Verification is keyed by the photo's index in the flat list.
+          const flatIndex = photos.indexOf(photo);
+          const verifyCount =
+            flatIndex >= 0 ? verificationCounts?.get(flatIndex) ?? 0 : 0;
+          const goldBorder = premium || verifyCount > 0;
 
           return (
             <Animated.View
-              key={`${uri.slice(-20)}-${index}`}
+              key={`${photo.url.slice(-20)}-${index}`}
               style={{
                 width: CARD_WIDTH,
                 transform: [{ translateY }, { scale }, { rotate }],
@@ -154,9 +234,12 @@ export function CraftShowcase({
                   borderRadius: radii.xl,
                   overflow: 'hidden',
                   backgroundColor: theme.bg.surface,
-                  borderWidth: verifyCount > 0 ? 0.75 : 0.5,
-                  borderColor:
-                    verifyCount > 0 ? 'rgba(184, 153, 104, 0.55)' : theme.border.subtle,
+                  borderWidth: premium ? 1 : verifyCount > 0 ? 0.75 : 0.5,
+                  borderColor: premium
+                    ? GOLD_STRONG
+                    : verifyCount > 0
+                      ? GOLD_SOFT
+                      : theme.border.subtle,
                   shadowColor: '#0F172A',
                   shadowOffset: { width: 0, height: 10 },
                   shadowOpacity: 0.18,
@@ -164,7 +247,7 @@ export function CraftShowcase({
                   elevation: 6,
                 }}
               >
-                <Image source={{ uri }} style={{ width: '100%', height: 240 }} />
+                <Image source={{ uri: photo.url }} style={{ width: '100%', height: 240 }} />
 
                 <LinearGradient
                   colors={['rgba(9,8,11,0.02)', 'rgba(9,8,11,0.78)', 'rgba(9,8,11,0.96)']}
@@ -217,37 +300,36 @@ export function CraftShowcase({
 
                   <View style={{ gap: spacing.sm }}>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                      {labels.map((label) => (
-                        <View
-                          key={`${label}-${index}`}
-                          style={{
-                            paddingHorizontal: 10,
-                            paddingVertical: 5,
-                            borderRadius: radii.pill,
-                            backgroundColor: 'rgba(255, 253, 247, 0.12)',
-                            borderWidth: 0.5,
-                            borderColor: 'rgba(255, 253, 247, 0.18)',
-                          }}
-                        >
-                          <Text style={{ color: '#FFFDF7', fontSize: 11, fontWeight: '600' }}>
-                            {label}
-                          </Text>
-                        </View>
-                      ))}
+                      <View
+                        style={{
+                          paddingHorizontal: 10,
+                          paddingVertical: 5,
+                          borderRadius: radii.pill,
+                          backgroundColor: 'rgba(255, 253, 247, 0.12)',
+                          borderWidth: 0.5,
+                          borderColor: 'rgba(255, 253, 247, 0.18)',
+                        }}
+                      >
+                        <Text style={{ color: '#FFFDF7', fontSize: 11, fontWeight: '600' }}>
+                          {active.label}
+                        </Text>
+                      </View>
                     </View>
 
                     <View style={{ gap: 4 }}>
                       <Text style={{ color: '#FFFDF7', fontSize: 18, fontWeight: '700' }}>
-                        {`Craft sample ${index + 1}`}
+                        {photo.caption?.trim()
+                          ? photo.caption.trim()
+                          : `${active.label} · ${index + 1}`}
                       </Text>
                       <Text style={{ color: 'rgba(255,253,247,0.82)', fontSize: 13, lineHeight: 18 }}>
                         Proof of work that employers can scan in seconds.
                       </Text>
                     </View>
 
-                    {onVerifyPhoto ? (
+                    {onVerifyPhoto && flatIndex >= 0 ? (
                       <Pressable
-                        onPress={() => onVerifyPhoto(index)}
+                        onPress={() => onVerifyPhoto(flatIndex)}
                         disabled={verifyPending}
                         style={({ pressed }) => ({
                           alignSelf: 'flex-start',
@@ -276,8 +358,13 @@ export function CraftShowcase({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: spacing.xs, paddingHorizontal: 2 }}
       >
-        <MetaPill label={`${photos.length} samples`} />
+        <MetaPill
+          label={`${active.photos.length} ${active.photos.length === 1 ? 'photo' : 'photos'}`}
+        />
         <MetaPill label="Swipe to browse" />
+        {collections.length > 1 ? (
+          <MetaPill label={`${collections.length} crafts`} />
+        ) : null}
         {verificationCounts && verificationCounts.size > 0 ? (
           <MetaPill label="Employer-verified proof" />
         ) : null}
@@ -304,11 +391,4 @@ function MetaPill({ label }: { label: string }) {
       </Text>
     </View>
   );
-}
-
-function pickLabels(skills: string[], index: number): string[] {
-  if (skills.length === 0) return [`Portfolio ${index + 1}`];
-  const a = skills[index % skills.length];
-  const b = skills[(index + 1) % skills.length];
-  return Array.from(new Set([a, b].filter(Boolean)));
 }

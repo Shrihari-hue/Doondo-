@@ -1,10 +1,10 @@
 # Doondo — Navigation & Profile Tab Redesign Spec
 
-**Version:** 3.0
-**Date:** 21 May 2026
+**Version:** 4.0
+**Date:** 23 May 2026
 **Owner:** Shree
 **Audience:** Mobile developers and product designers
-**Status:** Draft for review
+**Status:** Implemented in the mobile app (phases 1–2). This version of the spec is updated to match what was actually built.
 
 ---
 
@@ -79,18 +79,21 @@ Top to bottom:
 
 **B. Skills summary.** The existing editable skill chips, kept near the top since skills directly affect job matching.
 
-**C. Two collapsible groups.** Each group is a card with a tinted icon, a group name, and a chevron. Tapping the header expands/collapses the group. Group contents:
+**C. Three collapsible groups.** Each group is a card with a tinted icon, a group name, and a chevron. Tapping the header expands/collapses the group. The implementation uses three groups rather than two: the live app has trust/safety features (the Doondo Constitution, the payslip explainer, the Doondo for Women hub) that don't belong under either "career" or "account," so they get their own group instead of being forced into a vague catch-all. Group contents as built:
 
-| Group | Items | Notes |
-|-------|-------|-------|
-| Grow your career | Training & courses; Skills hub; Interview prep | "Skills hub" merges the old *Skill tests* and *Skill Passport* into one destination. |
-| Account & settings | My resume; Work preferences; Edit profile; Download center; Settings | "Work preferences" is the renamed *Your Work Rules*. |
+| Group | Items |
+|-------|-------|
+| Grow your career | Training & courses; Skill tests; Skill passport; Career path; Interview prep |
+| Your rights & safety | Doondo Constitution; Payslip explainer; Doondo for Women |
+| Resume & account | My resume; Hire Reels; Edit profile; Download center; Settings |
 
-The old "Community & rewards" group does not appear here — those items moved to the Community tab (§4.3).
+Note: an earlier draft proposed merging *Skill tests* and *Skill Passport* into a single "Skills hub" destination. They are kept as separate rows for now because each is already its own screen in the app; merging them is a worthwhile future consolidation but was out of scope for this pass.
+
+The old "Community & rewards" items do not appear here — they moved to the Community tab (§4.3); jobs and money items moved to the Jobs and Earnings tabs.
 
 **D. Sign out.** A single, visually de-emphasized row at the very bottom.
 
-Default expand state: expand the first group ("Grow your career") on first visit; remember the worker's expand/collapse choices after that.
+Default expand state: the first group ("Grow your career") is expanded on mount; the other two start collapsed. Expand/collapse state is held in component state for the session (persisting it across app restarts is a possible future refinement).
 
 ---
 
@@ -109,13 +112,17 @@ Replace jargon with plain descriptions of what the feature does.
 
 General copy rules: sentence case everywhere (no ALL CAPS headers), describe the benefit not the mechanism, and keep every label translatable into the regional languages Doondo supports.
 
+Implementation status: the structural regrouping in §5 is built, but the individual label rewrites in the table above were **not** applied in this pass — the grouped rows still use the app's existing strings (for example "Doondo Constitution", and separate "Skill tests" / "Skill passport" rows). Apply these as a fast-follow copy pass.
+
 ---
 
 ## 7. Fix: duplicate profile-completion figure
 
-The current screen shows profile completion twice with conflicting values ("100% Profile" in the stats row and "70%" further down). This erodes trust.
+The original screen showed profile completion in two places — the progress bar in the hero and a "Profile %" tile in the stats strip — both reading the same value, which is redundant and, on stale builds, can read inconsistently.
 
-Recommendation: keep **one** completion indicator — the progress bar in the Profile identity header — as the single source of truth. The stats row should then show genuinely different, motivating metrics (for example: jobs completed, average rating, months active). Completion should always pair the percentage with the specific next action that raises it.
+Implemented: the hero progress bar is kept as the single completion indicator. The stats strip's third tile changed from "Profile %" to **Rating** — it now shows the worker's average star rating (or a dash when unrated) and opens the Ratings screen on tap. The stats strip therefore shows three distinct, motivating numbers: Applications, Saved jobs, Rating.
+
+Remaining nuance: the Profile screen also renders the `ProfileCompletionMeter` component, which is an *actionable* completion checklist (it lists the next step and self-hides at 100%). It serves a different purpose from the passive hero bar, so both are kept; if the team wants strictly one completion surface, the meter is the one to keep and the hero bar could be simplified later.
 
 ---
 
@@ -172,17 +179,17 @@ Because six tabs is above the recommended count, the following are **mandatory**
 | My Earnings | **Earnings** tab |
 | Refer a friend | **Community** tab |
 | Find friends on Doondo | **Community** tab (Find work buddies) |
-| Trade buddies | **Community** tab (Find work buddies) |
+| Trade buddies | **Community** tab (Mentors) |
 | Ratings & Reviews | **Community** tab |
 | Training & courses | **Profile** tab → Grow your career |
-| Skill tests | **Profile** tab → Grow your career (Skills hub) |
-| Skill Passport | **Profile** tab → Grow your career (Skills hub) |
+| Skill tests | **Profile** tab → Grow your career |
+| Skill Passport | **Profile** tab → Grow your career |
 | Interview prep | **Profile** tab → Grow your career |
-| Your Work Rules | **Profile** tab → Account & settings (Work preferences) |
-| My resume | **Profile** tab → Account & settings |
-| Edit Profile Details | **Profile** tab → Account & settings (Edit profile) |
-| Download Center | **Profile** tab → Account & settings (Download center) |
-| Settings | **Profile** tab → Account & settings |
+| Your Work Rules | **Profile** tab → Your rights & safety (Doondo Constitution) |
+| My resume | **Profile** tab → Resume & account |
+| Edit Profile Details | **Profile** tab → Resume & account (Edit profile) |
+| Download Center | **Profile** tab → Resume & account (Download center) |
+| Settings | **Profile** tab → Resume & account |
 
 (New) **Chat** is a new top-level tab for direct messaging; if Doondo already has employer messaging, that feature moves here.
 
@@ -190,9 +197,9 @@ Because six tabs is above the recommended count, the following are **mandatory**
 
 ## 11. Suggested rollout phasing
 
-1. **Phase 1 — Navigation.** Ship the 6-tab bottom bar and move Jobs, Community, Chat and Earnings content out of the old Profile list. This delivers most of the decluttering benefit on its own.
-2. **Phase 2 — Profile groups.** Replace the flat list with the two collapsible groups and apply the new copy.
-3. **Phase 3 — Polish.** Fix the completion meter, redesign the stats row, add badges, and complete regional-language coverage.
+1. **Phase 1 — Navigation. Done.** The 6-tab bottom bar shipped; Jobs, Community, Chat and Earnings content moved out of the old Profile list into their own tabs.
+2. **Phase 2 — Profile groups. Done.** The flat 19-row list is replaced by three collapsible groups (§5). The label rewrites in §6 are a separate copy pass and are not yet applied.
+3. **Phase 3 — Polish. Partly done.** The stats strip no longer duplicates the completion figure (§7). Still open: bottom-bar badges, the §6 copy pass, and a native-speaker review of the new regional-language strings.
 
 ---
 

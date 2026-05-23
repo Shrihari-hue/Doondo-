@@ -9,11 +9,13 @@
 import { errors } from '@/lib/errors';
 import {
   UserModel,
+  type CraftPhoto,
   type Education,
   type ExpectedSalary,
   type PublicUser,
   type WorkExperience,
 } from '@/modules/users/user.model';
+import { isGallerySkill } from '@/modules/skills/skill.catalogue';
 
 interface UpdateProfileInput {
   name?: string;
@@ -28,7 +30,7 @@ interface UpdateProfileInput {
   expectedSalary?: ExpectedSalary | null;
   photoUrl?: string | null;
   /** Replace the whole list. Empty array clears all work-sample photos. */
-  workPhotos?: string[];
+  workPhotos?: CraftPhoto[];
   /** Replace the education list. Empty array clears the section. */
   education?: Array<{
     degree: string;
@@ -75,10 +77,28 @@ export async function updateProfile(
   }
   if (input.photoUrl !== undefined) user.photoUrl = input.photoUrl;
   if (input.workPhotos !== undefined) {
-    // PUT semantics — the array on the wire is the array stored. The
-    // model cap (6) is mirrored in the zod schema so anything that
-    // reaches this point is already bounded.
-    user.workPhotos = input.workPhotos;
+    // PUT semantics — the array on the wire replaces what's stored (the
+    // 6-photo cap is mirrored in the zod schema). Every photo must be
+    // tagged to one of the worker's own *gallery*-type craft skills: a
+    // photo tagged to a non-craft skill — or to a craft the worker
+    // doesn't claim — would never render in a collection, so reject it
+    // loudly rather than store an orphan. `user.skills` is already the
+    // updated list here (the skills block above runs first).
+    const gallerySkills = new Set(user.skills.filter(isGallerySkill));
+    for (const photo of input.workPhotos) {
+      if (!gallerySkills.has(photo.skill)) {
+        throw errors.validation(
+          { skill: photo.skill },
+          `Photo skill "${photo.skill}" must be one of your craft skills.`,
+        );
+      }
+    }
+    user.workPhotos = input.workPhotos.map((p) => ({
+      url: p.url,
+      skill: p.skill,
+      caption: p.caption ?? null,
+      isCover: Boolean(p.isCover),
+    }));
   }
   if (input.education !== undefined) {
     const cleaned: Education[] = input.education.map((e) => ({

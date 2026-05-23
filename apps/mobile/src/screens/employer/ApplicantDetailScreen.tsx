@@ -36,6 +36,7 @@ import { formatRange, formatTenure, sortWorkHistory, tenureMonths } from '@/lib/
 import type { AppStackParamList } from '@/navigation/types';
 import type {
   ApplicationStatus,
+  CraftPhoto,
   InterviewMode,
   PublicInterview,
   SeekerConstitution,
@@ -747,7 +748,7 @@ function WorkPhotosCarousel({
   skills,
   canVerify,
 }: {
-  photos: string[];
+  photos: CraftPhoto[];
   seekerId: string | null;
   applicationId: string;
   skills: string[];
@@ -795,7 +796,7 @@ function WorkPhotosCarousel({
       title={`${t('employer.applicant_detail.work_photos')} · ${photos.length}`}
       subtitle="A premium read of the candidate's real work, so you can judge quality before you judge polish."
       photos={photos}
-      skillLabels={skills.map(prettifySkill)}
+      skills={skills}
       verificationCounts={verifyCountByIndex}
       onVerifyPhoto={canVerify ? (index) => verifyMutation.mutate(index) : undefined}
       verifyPending={verifyMutation.isPending}

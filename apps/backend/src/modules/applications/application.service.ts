@@ -33,7 +33,7 @@ import {
   sendTrustCircleHirePush,
 } from '@/lib/push';
 import { JobModel, type PublicJob } from '@/modules/jobs/job.model';
-import { UserModel, type SeekerConstitution } from '@/modules/users/user.model';
+import { UserModel, type SeekerConstitution, type CraftPhoto } from '@/modules/users/user.model';
 import {
   getOrCreateForApplication,
   postSystemMessage,
@@ -770,8 +770,8 @@ interface ApplicantListEntry extends PublicApplication {
       current: boolean;
       description: string | null;
     }>;
-    /** Photos of the seeker's work — up to 6 data URLs. */
-    workPhotos: string[];
+    /** Photos of the seeker's work — up to 6 entries, tagged by craft skill. */
+    workPhotos: CraftPhoto[];
     /** The seeker's Doondo Constitution — their stated work boundaries. */
     constitution: SeekerConstitution;
   };

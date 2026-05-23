@@ -6,6 +6,7 @@ import { apiRequest } from './client';
 import type {
   Availability,
   BusinessType,
+  CraftPhoto,
   JobType,
   PublicUser,
   WorkExperience,
@@ -35,10 +36,10 @@ export interface UpdateProfilePayload {
   /** data:image/...;base64 string, or null to clear. */
   photoUrl?: string | null;
   /**
-   * Replace the seeker's work-sample photos. Up to 6 base64 data URLs.
-   * Empty array clears. Omit to leave unchanged.
+   * Replace the seeker's work-sample photos. Up to 6 entries, each tagged
+   * to a craft skill. Empty array clears. Omit to leave unchanged.
    */
-  workPhotos?: string[];
+  workPhotos?: CraftPhoto[];
   /** Replace the seeker's education list. Empty array clears. */
   education?: Array<{
     degree: string;

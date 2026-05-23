@@ -104,6 +104,22 @@ export interface WorkExperience {
 }
 
 /**
+ * One photo in a worker's craft portfolio. `skill` is a catalogue slug
+ * (see lib/trades) tagging which craft collection the photo belongs to —
+ * a multi-craft worker's gallery splits into one collection per skill.
+ * See lib/craftShowcase for the grouping helpers.
+ */
+export interface CraftPhoto {
+  /** base64 data URL today; CDN URL once the file pipeline lands. */
+  url: string;
+  /** Catalogue slug of the craft this photo belongs to. */
+  skill: string;
+  caption?: string | null;
+  /** One photo per collection is the cover. */
+  isCover?: boolean;
+}
+
+/**
  * Education row — mandatory for white-collar candidates, optional for
  * blue-collar. Year-only (no month) because workers rarely remember
  * exact dates for school.
@@ -182,10 +198,11 @@ export interface PublicUser {
    */
   workHistory: WorkExperience[];
   /**
-   * Photos of the seeker's work — up to 6 base64 data URLs. Renders as a
-   * carousel on the resume preview + the employer's applicant detail.
+   * Photos of the seeker's work — up to 6 entries, each tagged to a craft
+   * skill. Renders as the per-craft 3D showcase on the profile, resume
+   * preview, and the employer's applicant detail.
    */
-  workPhotos: string[];
+  workPhotos: CraftPhoto[];
   /** Education entries — empty when the seeker hasn't added any. */
   education: Education[];
   // Employer (Phase 3)

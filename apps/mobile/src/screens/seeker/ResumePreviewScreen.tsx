@@ -48,7 +48,7 @@ import {
 } from '@/lib/workHistory';
 import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
-import type { PublicUser, WorkExperience } from '@/api/types';
+import type { CraftPhoto, PublicUser, WorkExperience } from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
@@ -650,7 +650,7 @@ function WorkPhotosWithVerifyBadges({
   seekerId,
   skills,
 }: {
-  photos: string[];
+  photos: CraftPhoto[];
   seekerId: string;
   skills: string[];
 }) {
@@ -668,7 +668,7 @@ function WorkPhotosWithVerifyBadges({
         title="Craft showcase"
         subtitle="Your resume now opens with visual proof: the kind of work you can actually deliver."
         photos={photos}
-        skillLabels={skills.map(prettifySkill)}
+        skills={skills}
         verificationCounts={counts}
       />
     </Section>

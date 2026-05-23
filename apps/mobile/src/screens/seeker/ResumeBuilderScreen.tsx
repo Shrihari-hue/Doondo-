@@ -42,6 +42,9 @@ import { haptic } from '@/lib/haptics';
 import { pickWorkPhoto } from '@/lib/photo';
 import { meApi, type WorkHistoryEntryInput } from '@/api/me.api';
 import { ApiError } from '@/api/errors';
+import type { CraftPhoto } from '@/api/types';
+import { isGallerySkill } from '@/lib/craftShowcase';
+import { prettifySkill } from '@/lib/trades';
 import {
   currentMonth,
   formatMonthYear,
@@ -112,9 +115,17 @@ function ResumeBuilderInner() {
   const [drafts, setDrafts] = useState<DraftEntry[]>(initialDrafts);
   // Work-sample photos — hydrated from the user's existing list, edited
   // locally, persisted at the same time as the work history when the
-  // seeker taps "Generate resume". Up to 6.
-  const [photos, setPhotos] = useState<string[]>(user?.workPhotos ?? []);
+  // seeker taps "Generate resume". Up to 6. Each photo is tagged to one
+  // of the worker's craft skills so the showcase can group it.
+  const [photos, setPhotos] = useState<CraftPhoto[]>(user?.workPhotos ?? []);
   const [pickingPhoto, setPickingPhoto] = useState(false);
+  // The worker's gallery-type craft skills (baking, tailoring, …). Only
+  // these can carry a photo showcase; new photos are tagged to the first
+  // one and can be re-tagged per photo.
+  const galleryOptions = useMemo(
+    () => (user?.skills ?? []).filter(isGallerySkill),
+    [user?.skills],
+  );
   // Education — local list, saved with the wizard's main mutation.
   const [education, setEducation] = useState<EducationDraft[]>(
     (user?.education ?? []).map((e) => ({
@@ -156,7 +167,16 @@ function ResumeBuilderInner() {
       const initialPhotos = user?.workPhotos ?? [];
       const photosChanged =
         photos.length !== initialPhotos.length ||
-        photos.some((p, i) => p !== initialPhotos[i]);
+        photos.some((p, i) => {
+          const before = initialPhotos[i];
+          return (
+            !before ||
+            p.url !== before.url ||
+            p.skill !== before.skill ||
+            (p.caption ?? null) !== (before.caption ?? null) ||
+            Boolean(p.isCover) !== Boolean(before.isCover)
+          );
+        });
       const initialEducation = user?.education ?? [];
       const educationOut = education
         .filter((e) => e.degree.trim() && e.institution.trim() && e.startYear.trim())
@@ -184,7 +204,18 @@ function ResumeBuilderInner() {
           );
         });
       const patch: Parameters<typeof meApi.updateProfile>[0] = {};
-      if (photosChanged) patch.workPhotos = photos;
+      if (photosChanged) {
+        // The backend rejects any photo tagged to a skill that isn't one
+        // of the worker's craft skills. Re-tag stragglers (e.g. legacy
+        // photos migrated with no craft skill) to the worker's first
+        // craft so the save can't 400. `photosChanged` is only ever true
+        // when the photo grid is shown, which means galleryOptions[0]
+        // exists.
+        const validSkills = new Set(galleryOptions);
+        patch.workPhotos = photos.map((p) =>
+          validSkills.has(p.skill) ? p : { ...p, skill: galleryOptions[0] ?? p.skill },
+        );
+      }
       if (educationChanged) patch.education = educationOut;
       return meApi.updateProfile(patch);
     },
@@ -217,12 +248,19 @@ function ResumeBuilderInner() {
 
   const addPhoto = async () => {
     if (photos.length >= 6 || pickingPhoto) return;
+    // A photo has to belong to a craft. With no craft skill there's
+    // nothing to tag it to, so the section shows guidance instead.
+    const defaultSkill = galleryOptions[0];
+    if (!defaultSkill) return;
     setPickingPhoto(true);
     haptic('selection');
     try {
       const picked = await pickWorkPhoto();
       if (picked) {
-        setPhotos((cur) => [...cur, picked.dataUrl]);
+        setPhotos((cur) => [
+          ...cur,
+          { url: picked.dataUrl, skill: defaultSkill, caption: null, isCover: false },
+        ]);
         haptic('light');
       }
     } catch (err) {
@@ -234,6 +272,22 @@ function ResumeBuilderInner() {
     } finally {
       setPickingPhoto(false);
     }
+  };
+
+  // Re-tag a photo to a different craft. Surfaced as a tap on the photo's
+  // skill chip; only meaningful when the worker has more than one craft.
+  const retagPhoto = (index: number) => {
+    if (galleryOptions.length < 2) return;
+    Alert.alert('Tag this photo', 'Which craft does this photo show?', [
+      ...galleryOptions.map((slug) => ({
+        text: prettifySkill(slug),
+        onPress: () => {
+          setPhotos((cur) => cur.map((p, i) => (i === index ? { ...p, skill: slug } : p)));
+          haptic('selection');
+        },
+      })),
+      { text: t('resume_builder.cancel'), style: 'cancel' as const },
+    ]);
   };
 
   const removePhoto = (index: number) => {
@@ -376,8 +430,10 @@ function ResumeBuilderInner() {
             <WorkPhotosSection
               t={t}
               photos={photos}
+              galleryOptions={galleryOptions}
               onAdd={addPhoto}
               onRemove={removePhoto}
+              onRetag={retagPhoto}
               picking={pickingPhoto}
             />
           </>
@@ -817,22 +873,32 @@ function inputStyle(theme: ReturnType<typeof useTheme>['theme']) {
  * add to / remove from. Caps at 6 to keep the user document small.
  * Rendered on the Review slide so workers see their photos in context
  * with the job entries before they hit Generate.
+ *
+ * Each photo is tagged to one of the worker's craft skills (baking,
+ * tailoring, …) so the showcase can group it into a per-craft collection.
+ * Workers with no craft skill see guidance instead of an upload grid —
+ * a photo gallery only makes sense for visual crafts.
  */
 function WorkPhotosSection({
   t,
   photos,
+  galleryOptions,
   onAdd,
   onRemove,
+  onRetag,
   picking,
 }: {
   t: TFn;
-  photos: string[];
+  photos: CraftPhoto[];
+  galleryOptions: string[];
   onAdd: () => void;
   onRemove: (index: number) => void;
+  onRetag: (index: number) => void;
   picking: boolean;
 }) {
   const { theme } = useTheme();
   const canAdd = photos.length < 6;
+  const canRetag = galleryOptions.length > 1;
 
   return (
     <View style={{ gap: spacing.sm }}>
@@ -854,14 +920,36 @@ function WorkPhotosSection({
         </Text>
       </View>
 
+      {galleryOptions.length === 0 ? (
+        <View
+          style={{
+            borderRadius: radii.md,
+            borderWidth: 0.5,
+            borderColor: theme.border.subtle,
+            backgroundColor: theme.bg.surface,
+            padding: spacing.md,
+            gap: 4,
+          }}
+        >
+          <Text style={{ fontSize: 13, fontWeight: '700', color: theme.text.primary }}>
+            Add a craft skill to build a showcase
+          </Text>
+          <Text style={{ fontSize: 12, color: theme.text.secondary, lineHeight: 18 }}>
+            Visual crafts — baking, tailoring, mehndi, decoration, photography and
+            the like — get a photo showcase. Other skills (driver, accounts…) prove
+            out through your resume and credentials instead. Add a craft skill on
+            your profile to unlock photo uploads here.
+          </Text>
+        </View>
+      ) : (
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.lg }}
       >
-        {photos.map((uri, i) => (
+        {photos.map((photo, i) => (
           <Pressable
-            key={`${uri.slice(-20)}-${i}`}
+            key={`${photo.url.slice(-20)}-${i}`}
             onPress={() => onRemove(i)}
             accessibilityRole="button"
             accessibilityLabel={t('resume_builder.photos_remove_a11y', { n: i + 1 })}
@@ -875,7 +963,7 @@ function WorkPhotosSection({
               opacity: pressed ? 0.7 : 1,
             })}
           >
-            <Image source={{ uri }} style={{ width: '100%', height: '100%' }} />
+            <Image source={{ uri: photo.url }} style={{ width: '100%', height: '100%' }} />
             <View
               style={{
                 position: 'absolute',
@@ -893,6 +981,37 @@ function WorkPhotosSection({
                 ×
               </Text>
             </View>
+            {/* Craft tag — tap to re-tag when the worker has >1 craft. */}
+            <Pressable
+              onPress={canRetag ? () => onRetag(i) : undefined}
+              disabled={!canRetag}
+              accessibilityRole="button"
+              accessibilityLabel={`Photo ${i + 1} craft tag`}
+              style={{
+                position: 'absolute',
+                left: 4,
+                right: 4,
+                bottom: 4,
+                paddingHorizontal: 6,
+                paddingVertical: 3,
+                borderRadius: radii.sm,
+                backgroundColor: 'rgba(15,23,42,0.78)',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 3,
+              }}
+            >
+              <Text
+                numberOfLines={1}
+                style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}
+              >
+                {photo.skill ? prettifySkill(photo.skill) : 'Tap to tag'}
+              </Text>
+              {canRetag ? (
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 9 }}>✎</Text>
+              ) : null}
+            </Pressable>
           </Pressable>
         ))}
         {canAdd ? (
@@ -928,15 +1047,18 @@ function WorkPhotosSection({
           </Pressable>
         ) : null}
       </ScrollView>
+      )}
 
-      <Text
-        style={{
-          fontSize: 11,
-          color: theme.text.tertiary,
-        }}
-      >
-        {t('resume_builder.photos_count_label', { n: photos.length })}
-      </Text>
+      {galleryOptions.length > 0 ? (
+        <Text
+          style={{
+            fontSize: 11,
+            color: theme.text.tertiary,
+          }}
+        >
+          {t('resume_builder.photos_count_label', { n: photos.length })}
+        </Text>
+      ) : null}
     </View>
   );
 }

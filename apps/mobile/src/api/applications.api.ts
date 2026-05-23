@@ -5,6 +5,7 @@
 import { apiRequest } from './client';
 import type {
   ApplicationStatus,
+  CraftPhoto,
   InterviewMode,
   PublicApplication,
   SeekerConstitution,
@@ -39,8 +40,8 @@ export interface ApplicantEntry extends PublicApplication {
     resumeUploadedAt: string | null;
     /** Work history entries from the Resume Builder (may be empty). */
     workHistory: WorkExperience[];
-    /** Photos of the seeker's work (may be empty). */
-    workPhotos: string[];
+    /** Photos of the seeker's work, tagged by craft skill (may be empty). */
+    workPhotos: CraftPhoto[];
     /** The seeker's Doondo Constitution — their stated work boundaries. */
     constitution: SeekerConstitution;
   };

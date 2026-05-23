@@ -37,8 +37,37 @@
   "tabs": {
     "home": "Home",
     "jobs": "Jobs",
+    "community": "Community",
     "chat": "Chat",
+    "earnings": "Earnings",
     "profile": "Profile"
+  },
+  "community_hub": {
+    "title": "Community",
+    "subtitle": "Connect, learn and grow with other workers",
+    "buddies": "Find work buddies",
+    "buddies_hint": "Connect with workers near you",
+    "refer": "Refer a friend",
+    "refer_hint": "Earn ₹100 when they get hired",
+    "mentors": "Mentors",
+    "mentors_hint": "Get guidance from experienced workers",
+    "ratings": "Ratings & reviews",
+    "ratings_hint": "See what employers say about you"
+  },
+  "earnings_hub": {
+    "title": "Earnings",
+    "subtitle": "Your money, advances and protection",
+    "ledger": "My earnings",
+    "ledger_hint": "Track your payouts and history",
+    "advance": "Cash advance",
+    "advance_hint": "Get a small advance before payday",
+    "insurance": "Worker insurance",
+    "insurance_hint": "Accident cover while you work"
+  },
+  "profile_groups": {
+    "grow": "Grow your career",
+    "rights": "Your rights & safety",
+    "account": "Resume & account"
   },
   "home": {
     "title": "Doondo",
@@ -468,7 +497,7 @@
     "stats": {
       "applications": "Applications",
       "saved_jobs": "Saved jobs",
-      "profile": "Profile"
+      "rating": "Rating"
     },
     "salary": {
       "eyebrow": "You're looking for",

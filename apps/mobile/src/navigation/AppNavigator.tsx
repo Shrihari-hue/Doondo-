@@ -59,6 +59,8 @@ import { PayslipExplainerScreen } from '@/screens/seeker/PayslipExplainerScreen'
 import { InterviewPrepScreen } from '@/screens/seeker/InterviewPrepScreen';
 import { FindFriendsScreen } from '@/screens/seeker/FindFriendsScreen';
 import { MentorsScreen } from '@/screens/seeker/MentorsScreen';
+import { PostComposerScreen } from '@/screens/community/PostComposerScreen';
+import { CommunityPostScreen } from '@/screens/community/CommunityPostScreen';
 import { AdvanceScreen } from '@/screens/seeker/AdvanceScreen';
 import { InsuranceScreen } from '@/screens/seeker/InsuranceScreen';
 import { JobSwipeScreen } from '@/screens/seeker/JobSwipeScreen';
@@ -331,6 +333,16 @@ export function AppNavigator() {
         name="Mentors"
         component={MentorsScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="CommunityComposer"
+        component={PostComposerScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="CommunityPost"
+        component={CommunityPostScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_right' }}
       />
       <Stack.Screen
         name="Advance"
