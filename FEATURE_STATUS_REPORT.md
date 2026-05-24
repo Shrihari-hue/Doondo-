@@ -1,14 +1,15 @@
 # Doondo V2 — Feature Status Report
 
-_Audited 23 May 2026, against the codebase + `WHATS_NEW.md` (Sessions 1–28)._
+_Audited 23 May 2026; updated 24 May 2026 after the in-chat translate /
+Smart Resume / Festival Mode / Doondo Score QR build._
 
 ## Summary
 
 Of the 46 features in the list:
 
-- **27 fully shipped** — built, wired, and verified (typecheck + offline bootcheck).
-- **7 partially shipped** — the core is built; a described extension is not.
-- **12 not started.**
+- **31 fully shipped** — built, wired, and verified (typecheck + offline bootcheck).
+- **6 partially shipped** — the core is built; a described extension is not.
+- **9 not started.**
 
 Verification caveat that applies throughout: everything is verified as far as
 this build environment allows (TypeScript, the offline boot smoke-test, pure-logic
@@ -63,9 +64,11 @@ safe site, fair hours).
 fans an alert to the Trust Circle plus the 2 nearest verified peers — not just
 an admin.
 
-**❌ 12. In-chat auto-translate** — Not started. Voice notes are transcribed
-(not translated) and quick replies are pre-translated (#15), but free-text chat
-messages are not auto-translated vernacular ↔ English.
+**✅ 12. In-chat auto-translate** — Built (24 May 2026). The `translation`
+module (swappable mock / Anthropic provider) auto-translates each text message
+into the recipient's locale; the translation lands under the bubble live via a
+new `chat:message_translated` socket event. A new `User.locale` field +
+`PUT /me/locale` keep the server's copy of the reader's language in sync.
 
 **✅ 13. Voice-note replies + auto-transcription** — Session 15. The
 `transcription` module; a transcript renders under each voice bubble and is
@@ -98,7 +101,7 @@ both sides paid on the referred worker's first shift.
 `notifications/reengagement` cron — one role-aware win-back nudge with cooldown
 and attempt caps.
 
-**Core total: 18 ✅ · 1 🟡 · 2 ❌**
+**Core total: 19 ✅ · 1 🟡 · 1 ❌**
 
 ---
 
@@ -118,9 +121,12 @@ swap is left as a documented seam).
 intro reel; employers swipe a full-screen discovery feed. _(v1 is browse-only;
 auto-captioning and auto-translation of reels are not built.)_
 
-**🟡 25. Doondo Score** — Partial (Session 1). The portable employability score
-is computed from verified signals and exposed on a public read endpoint. The
-cryptographically-signed, QR-shareable credential is not built.
+**✅ 25. Doondo Score** — Built (24 May 2026). The score is computed from
+verified signals (Session 1); the cryptographically-signed, QR-shareable
+credential is now built — the `scoreCredential` module mints an HMAC-signed
+token, encodes the QR, and serves a public verification page at
+`GET /score/verify/:token`. The worker shares it from the Skill Passport;
+anyone can scan and verify it without a Doondo account.
 
 **✅ 26. Crew Apply** — Session 17 (found already shipped). 3–5 seekers register
 as a crew and apply as one unit (`teamMembers` / `teamSize` on the application).
@@ -175,9 +181,12 @@ signals, a Women's Mode feed filter, a women-safety badge, and a dedicated hub.
 `Workforce` views ship the broadcast direction. A full seeker-posted open shift
 (set wage, time window, area → nearby employers pinged) is not built out.
 
-**❌ 41. Smart Resume that rewrites itself per job** — Not started.
-`ResumeBuilder` / `ResumePreview` exist, but there is no per-application AI
-rewrite.
+**✅ 41. Smart Resume that rewrites itself per job** — Built (24 May 2026).
+The `resumeRewrite` module (swappable mock / Anthropic provider) tailors the
+worker's resume to one job — a job-tuned summary, relevance-ranked skills, and
+re-worded work blurbs. `POST /me/resume/tailor`; entered from a card on the job
+screen, with the worker reviewing the draft on `TailoredResumeScreen` before
+saving it to their profile.
 
 **✅ 42. Doondo Constitution** — Session 20. The worker sets personal work rules
 (max distance, no nights, no Sundays, PPE, contract); employers see them on the
@@ -188,22 +197,27 @@ applicant view.
 **✅ 44. Doondo Trust Circle** — Session 3. Up to 3 vouched contacts are
 notified on shift start/end and on SOS.
 
-**❌ 45. Doondo Festival Mode** — Not started.
+**✅ 45. Doondo Festival Mode** — Built (24 May 2026). A festival calendar
+(`lib/festivals.ts` — Pongal, Eid, Onam, Diwali, Christmas) drives a self-hiding
+themed Home banner, a `FestivalJobs` board that surfaces the trades which spike
+that season, and festival flair in the Hire Celebration. _(Lunar-festival dates
+are config and need an annual review.)_
 
 **❌ 46. Wage Strike Alerts** — Not started.
 
-**Moonshot total: 9 ✅ · 6 🟡 · 10 ❌**
+**Moonshot total: 12 ✅ · 5 🟡 · 8 ❌**
 
 ---
 
 ## What's left
 
-### Finish the 7 partials (small, high-value)
+### Finish the 6 partials (small, high-value)
 
 - **#35 "Why was I rejected?"** — the skill-gap data already exists; this is
   mostly a richer explanation screen + a "similar jobs" query.
-- **#25 Doondo Score QR** — the score is computed; add signing + a QR card.
-- **#32 Skill Passport credentials** — add a verifiable/signed export.
+- **#32 Skill Passport credentials** — add a verifiable/signed export. The
+  signing + QR groundwork now exists in the `scoreCredential` module, so the
+  Skill Passport can reuse exactly that pattern.
 - **#8 Bookable mentor sessions** — add calendar slots on top of the existing
   `mentors` module.
 - **#40 Open-shift from seeker** — extend the availability beacon into a posted
@@ -211,10 +225,9 @@ notified on shift start/end and on SOS.
 - **#23 Doondo Coach** — add voice interview-scheduling / reading replies aloud.
 - **#30 Doondo Pulse** — a native OS home-screen widget.
 
-### The 12 not-started features
+### The 9 not-started features
 
-Smaller / well-scoped: **#7 Peer cohorts**, **#12 In-chat auto-translate**,
-**#41 Smart Resume**, **#46 Wage Strike Alerts**, **#45 Festival Mode**.
+Smaller / well-scoped: **#7 Peer cohorts**, **#46 Wage Strike Alerts**.
 
 Larger / infrastructure-heavy: **#22 AR Job Vision**, **#27 In-shift AI
 coaching**, **#33 Predictive availability**, **#34 Voice biometric identity**,

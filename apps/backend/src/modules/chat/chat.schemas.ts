@@ -13,6 +13,11 @@ export const conversationIdParamsSchema = z.object({
   params: z.object({ id: objectIdSchema }),
 });
 
+/** Params for the "retry translation of one message" endpoint. */
+export const retranslateSchema = z.object({
+  params: z.object({ id: objectIdSchema, messageId: objectIdSchema }),
+});
+
 /**
  * "Start a chat from an application" — used by the seeker NewChat flow.
  * Server checks that the caller is the seeker on that application and

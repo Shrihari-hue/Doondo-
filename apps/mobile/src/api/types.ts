@@ -520,8 +520,36 @@ export interface PublicMessage {
    * transcript lands.
    */
   transcript?: string | null;
+  /**
+   * Auto-translation of a text message into the reader's language.
+   * Filled in a moment after send (arrives via `chat:message_translated`);
+   * null / absent for media messages, until it lands, and when the
+   * message was already in the reader's language.
+   */
+  translation?: MessageTranslation | null;
+  /**
+   * Lifecycle of the auto-translation:
+   *   none    — nothing to translate (already in the reader's language)
+   *   pending — in flight; the bubble shows a "translating…" shimmer
+   *   done    — `translation` is populated
+   *   failed  — errored or over budget; the reader can tap to retry
+   * Absent on optimistic (not-yet-sent) messages — treat as 'none'.
+   */
+  translationStatus?: 'none' | 'pending' | 'done' | 'failed';
   readAt: string | null;
   createdAt: string;
+}
+
+/** Auto-translation of a chat message into the reader's language. */
+export interface MessageTranslation {
+  /** The translated text, in `targetLang`. */
+  text: string;
+  /** Language the original message was written in (en/hi/ta/te/kn). */
+  sourceLang: string;
+  /** Language the message was translated into — the reader's locale. */
+  targetLang: string;
+  /** Which provider produced this — 'anthropic' or 'mock'. */
+  provider: string;
 }
 
 /** Doondo Pulse — the worker's momentum snapshot for the Home dashboard. */
@@ -649,6 +677,18 @@ export interface PublicApplication {
   flaggedAsGhostedAt: string | null;
   /** Latest interview if scheduled, null otherwise. */
   interview: PublicInterview | null;
+  /**
+   * Snapshot of the worker's Smart Resume tailored to this job, captured
+   * at apply time. Null when the worker applied without tailoring.
+   * Shown to the employer on the applicant view.
+   */
+  tailoredResume: {
+    summary: string;
+    pitch: string;
+    highlightedSkills: string[];
+    matchedSkills: string[];
+    workBlurbs: Array<{ company: string; role: string; blurb: string }>;
+  } | null;
   /** Hydrated by listMine / detail. */
   job?: PublicJob;
   createdAt: string;

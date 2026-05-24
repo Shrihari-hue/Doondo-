@@ -157,6 +157,44 @@ const schema = z.object({
   /** Transcription model. Default Whisper v1 — solid multilingual STT. */
   TRANSCRIPTION_MODEL: z.string().default('whisper-1'),
 
+  // ─── In-chat translation ──────────────────────────────────────────────
+  /**
+   * 'anthropic' translates chat messages via the Anthropic Messages API;
+   * 'mock' returns a deterministic, clearly-labelled preview so the chat
+   * UX works on a fresh checkout with no API key. Default 'mock' in
+   * development — production deploys that want real translations must set
+   * this to 'anthropic' explicitly and supply ANTHROPIC_API_KEY.
+   */
+  TRANSLATION_PROVIDER: z.enum(['anthropic', 'mock']).default('mock'),
+  /**
+   * Model used for text generation (chat translation + Smart Resume
+   * rewrites). Default a recent Sonnet — strong multilingual quality at a
+   * reasonable cost. Shares ANTHROPIC_API_KEY with the vision provider.
+   */
+  ANTHROPIC_TEXT_MODEL: z.string().default('claude-sonnet-4-6'),
+
+  // ─── Smart Resume — per-job AI resume rewrite ─────────────────────────
+  /**
+   * 'anthropic' rewrites the worker's resume to target a specific job via
+   * the Anthropic Messages API; 'mock' returns a deterministic tailored
+   * draft so the flow works on a fresh checkout. Default 'mock'.
+   */
+  RESUME_REWRITE_PROVIDER: z.enum(['anthropic', 'mock']).default('mock'),
+
+  // ─── Doondo Score — shareable signed credential ───────────────────────
+  /**
+   * HMAC secret used to sign the QR-shareable Doondo Score credential.
+   * Defaults to the JWT access secret so a fresh checkout works without
+   * extra configuration; production deploys should set a dedicated value.
+   */
+  DOONDO_SCORE_SECRET: z.string().optional(),
+  /**
+   * Public base URL the score QR points at — the verification page is
+   * served at `${PUBLIC_BASE_URL}/api/v1/score/verify/:token`. Defaults
+   * to the local dev server.
+   */
+  PUBLIC_BASE_URL: z.string().default('http://localhost:4000'),
+
   // ─── Hire Reels — worker intro-video storage ──────────────────────────
   /**
    * Where a worker's intro-reel video is stored. 'mock' returns a

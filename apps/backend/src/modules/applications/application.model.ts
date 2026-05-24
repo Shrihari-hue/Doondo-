@@ -65,6 +65,18 @@ export interface Interview {
 
 // ─── Document interface ─────────────────────────────────────────────────────
 
+/**
+ * Snapshot of a worker's job-tuned Smart Resume, copied onto the
+ * Application at apply time so the employer sees the tailored version.
+ */
+export interface ApplicationTailoredResume {
+  summary: string;
+  pitch: string;
+  highlightedSkills: string[];
+  matchedSkills: string[];
+  workBlurbs: Array<{ company: string; role: string; blurb: string }>;
+}
+
 export interface Application {
   seekerId: Schema.Types.ObjectId;
   jobId: Schema.Types.ObjectId;
@@ -141,6 +153,12 @@ export interface Application {
   flaggedAsGhostedAt?: Date | null;
   /** Latest interview attached to this application, if any. */
   interview?: Interview | null;
+  /**
+   * Snapshot of the worker's Smart Resume tailored to THIS job, copied
+   * from their saved TailoredResume at apply time. Null when the worker
+   * applied without tailoring their resume first.
+   */
+  tailoredResume?: ApplicationTailoredResume | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -200,6 +218,8 @@ export interface PublicApplication {
   flaggedAsGhostedAt: string | null;
   /** Latest interview, if scheduled. Surfaces in both employer + seeker views. */
   interview: PublicInterview | null;
+  /** Job-tuned Smart Resume snapshot — shown on the employer's applicant view. */
+  tailoredResume: ApplicationTailoredResume | null;
   /** Hydrated by the service when listing for the seeker. */
   job?: import('@/modules/jobs/job.model').PublicJob;
   createdAt: string;
@@ -291,6 +311,31 @@ const applicationSchema = new Schema<Application, ApplicationModel, ApplicationM
       ),
       default: null,
     },
+    tailoredResume: {
+      type: new Schema<ApplicationTailoredResume>(
+        {
+          summary: { type: String, default: '', trim: true, maxlength: 2000 },
+          pitch: { type: String, default: '', trim: true, maxlength: 600 },
+          highlightedSkills: { type: [String], default: [] },
+          matchedSkills: { type: [String], default: [] },
+          workBlurbs: {
+            type: [
+              new Schema(
+                {
+                  company: { type: String, required: true, trim: true, maxlength: 160 },
+                  role: { type: String, required: true, trim: true, maxlength: 160 },
+                  blurb: { type: String, default: '', trim: true, maxlength: 600 },
+                },
+                { _id: false },
+              ),
+            ],
+            default: [],
+          },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
   },
   { timestamps: true },
 );
@@ -360,6 +405,19 @@ applicationSchema.method('toPublicJSON', function (
           reminderSentAt: this.interview.reminderSentAt
             ? this.interview.reminderSentAt.toISOString()
             : null,
+        }
+      : null,
+    tailoredResume: this.tailoredResume
+      ? {
+          summary: this.tailoredResume.summary,
+          pitch: this.tailoredResume.pitch,
+          highlightedSkills: [...(this.tailoredResume.highlightedSkills ?? [])],
+          matchedSkills: [...(this.tailoredResume.matchedSkills ?? [])],
+          workBlurbs: (this.tailoredResume.workBlurbs ?? []).map((w) => ({
+            company: w.company,
+            role: w.role,
+            blurb: w.blurb,
+          })),
         }
       : null,
     createdAt: this.createdAt.toISOString(),

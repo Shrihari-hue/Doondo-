@@ -13,6 +13,7 @@ export { EmptyState } from './EmptyState';
 export { DoondoMark, DoondoLockup } from './DoondoLogo';
 export { Stars } from './Stars';
 export { NotificationsBell } from './NotificationsBell';
+export { FestivalBanner } from './FestivalBanner';
 export { PaymentConfirmationPanel } from './PaymentConfirmationPanel';
 export { ErrorPanel } from './ErrorPanel';
 export { AccountSwitcherSheet } from './AccountSwitcherSheet';

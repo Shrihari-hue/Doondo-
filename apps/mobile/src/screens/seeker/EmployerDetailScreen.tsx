@@ -14,10 +14,10 @@
  * tab. This screen is read-only and public.
  */
 
-import { FlatList, Pressable, RefreshControl, View } from 'react-native';
+import { Alert, FlatList, Pressable, RefreshControl, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -27,6 +27,7 @@ import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { employersApi, type EmployerProfile } from '@/api/employers.api';
 import { ratingsApi, type TagSummary, type TagSummaryEntry } from '@/api/ratings.api';
+import { employerInterestApi } from '@/api/employerInterest.api';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
@@ -122,6 +123,7 @@ function EmployerDetailInner() {
             {tagSummaryQuery.data && (
               <TagSummaryPanel summary={tagSummaryQuery.data} />
             )}
+            <InterestButton employerId={userId} employerName={displayName} />
           </View>
         }
         ListEmptyComponent={
@@ -683,6 +685,128 @@ function formatPay(pay: PublicJob['pay'], t: TFn): string {
     fixed: t('job.pay_period.suffix_fixed'),
   };
   return `₹${rupees.toLocaleString('en-IN')}${periodLabel[pay.period]}`;
+}
+
+// ─── Express interest ───────────────────────────────────────────────────────
+
+/**
+ * Lets the worker raise a standing "I'd like to work for you" signal —
+ * the inbound half of two-way discovery. Works even when the employer
+ * has no live job posted; the employer sees it in their Find-workers
+ * "Interested in you" list.
+ */
+function InterestButton({
+  employerId,
+  employerName,
+}: {
+  employerId: string;
+  employerName: string;
+}) {
+  const { theme } = useTheme();
+  const queryClient = useQueryClient();
+
+  const mineQuery = useQuery({
+    queryKey: ['employerInterest', 'mine', employerId],
+    queryFn: () => employerInterestApi.mine(employerId),
+    staleTime: 30_000,
+  });
+  const interest = mineQuery.data?.interest ?? null;
+  const hasInterest = interest !== null && interest.status !== 'archived';
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({
+      queryKey: ['employerInterest', 'mine', employerId],
+    });
+
+  const expressMutation = useMutation({
+    mutationFn: () => employerInterestApi.express(employerId),
+    onSuccess: () => {
+      haptic('success');
+      void invalidate();
+    },
+    onError: () => {
+      haptic('error');
+      Alert.alert('Could not send', 'Please try again.');
+    },
+  });
+
+  const withdrawMutation = useMutation({
+    mutationFn: () => employerInterestApi.withdraw(employerId),
+    onSuccess: () => {
+      haptic('selection');
+      void invalidate();
+    },
+    onError: () => {
+      haptic('error');
+      Alert.alert('Could not update', 'Please try again.');
+    },
+  });
+
+  const busy = expressMutation.isPending || withdrawMutation.isPending;
+
+  // Don't flash a button before we know the current state.
+  if (mineQuery.isLoading) return null;
+
+  return (
+    <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg }}>
+      {hasInterest ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.sm,
+            padding: spacing.md,
+            borderRadius: radii.lg,
+            borderWidth: 0.5,
+            borderColor: theme.status.successBorder,
+            backgroundColor: theme.status.successSubtle,
+          }}
+        >
+          <Text style={{ fontSize: 16 }}>✓</Text>
+          <Text
+            variant="footnote"
+            weight="medium"
+            style={{ flex: 1, color: theme.status.success }}
+          >
+            {employerName} knows you’re interested.
+          </Text>
+          <Pressable
+            onPress={() => withdrawMutation.mutate()}
+            disabled={busy}
+            hitSlop={8}
+            accessibilityRole="button"
+          >
+            <Text
+              variant="footnote"
+              weight="medium"
+              style={{ color: theme.text.tertiary, opacity: busy ? 0.5 : 1 }}
+            >
+              Undo
+            </Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable
+          onPress={() => expressMutation.mutate()}
+          disabled={busy}
+          accessibilityRole="button"
+          style={({ pressed }) => ({
+            backgroundColor: theme.brand.hero,
+            paddingVertical: 14,
+            borderRadius: radii.pill,
+            alignItems: 'center',
+            opacity: busy ? 0.5 : pressed ? 0.85 : 1,
+          })}
+        >
+          <Text style={{ color: '#FFFDF7', fontSize: 15, fontWeight: '700' }}>
+            {expressMutation.isPending
+              ? 'Sending…'
+              : 'I’m interested in working here'}
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
 }
 
 // ─── Export ──────────────────────────────────────────────────────────────────

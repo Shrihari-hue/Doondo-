@@ -93,6 +93,33 @@ export interface UpdateWorkHistoryPayload {
   entries: WorkHistoryEntryInput[];
 }
 
+/** One re-worded work-history line from a Smart Resume rewrite. */
+export interface TailoredWorkBlurb {
+  company: string;
+  role: string;
+  blurb: string;
+}
+
+/** Smart Resume — the worker's resume tailored to one specific job. */
+export interface TailoredResume {
+  /** The job this resume was tailored for. */
+  jobTitle: string;
+  /** A 2-3 sentence summary tuned to the target job. */
+  summary: string;
+  /** The worker's skills, re-ordered most-relevant-first for this job. */
+  highlightedSkills: string[];
+  /** Which of the job's required skills the worker already has. */
+  matchedSkills: string[];
+  /** Job-required skills the worker doesn't have yet — drives a course nudge. */
+  missingSkills: string[];
+  /** Job-tuned one-liners, one per work-history entry. */
+  workBlurbs: TailoredWorkBlurb[];
+  /** A short, encouraging note on why the worker fits. */
+  pitch: string;
+  /** Which provider produced this — 'anthropic' or 'mock'. */
+  provider: string;
+}
+
 export const meApi = {
   updateProfile: (body: UpdateProfilePayload) =>
     apiRequest<{ user: PublicUser }>(`/me/profile`, { method: 'PATCH', body }),
@@ -123,6 +150,49 @@ export const meApi = {
 
   updateWorkHistory: (body: UpdateWorkHistoryPayload) =>
     apiRequest<{ user: PublicUser }>(`/me/work-history`, { method: 'PUT', body }),
+
+  /**
+   * Sync the worker's preferred app language to the server. Drives
+   * in-chat auto-translation — incoming messages are translated into
+   * this locale. Called by LanguageProvider whenever the UI language
+   * changes (and once after login).
+   */
+  updateLocale: (locale: 'en' | 'hi' | 'ta' | 'te' | 'kn') =>
+    apiRequest<{ locale: string }>(`/me/locale`, {
+      method: 'PUT',
+      body: { locale },
+    }),
+
+  /**
+   * Smart Resume — get the worker's resume tailored to one job. Returns
+   * the previously-saved version when one exists (`saved: true`),
+   * otherwise a freshly-generated draft.
+   */
+  tailorResume: (jobId: string) =>
+    apiRequest<{ resume: TailoredResume; saved: boolean }>(`/me/resume/tailor`, {
+      method: 'POST',
+      body: { jobId },
+    }),
+
+  /**
+   * Save the worker's reviewed/edited tailored resume for one job. The
+   * apply path snapshots it onto the application so the employer sees it.
+   */
+  saveTailoredResume: (
+    jobId: string,
+    payload: {
+      summary: string;
+      pitch: string;
+      highlightedSkills: string[];
+      matchedSkills: string[];
+      workBlurbs: TailoredWorkBlurb[];
+      provider?: string;
+    },
+  ) =>
+    apiRequest<{ resume: { jobId: string; updatedAt: string } }>(
+      `/me/resume/tailored/${jobId}`,
+      { method: 'PUT', body: payload },
+    ),
 };
 
 // Re-export so screens can `import type { WorkExperience }` from one file.

@@ -46,13 +46,20 @@ import { TrustCircleScreen } from '@/screens/seeker/TrustCircleScreen';
 import { ProfileFromPhotoScreen } from '@/screens/seeker/ProfileFromPhotoScreen';
 import { ResumeBuilderScreen } from '@/screens/seeker/ResumeBuilderScreen';
 import { ResumePreviewScreen } from '@/screens/seeker/ResumePreviewScreen';
+import { TailoredResumeScreen } from '@/screens/seeker/TailoredResumeScreen';
+import { FestivalJobsScreen } from '@/screens/seeker/FestivalJobsScreen';
 import { JobAlertsScreen } from '@/screens/seeker/JobAlertsScreen';
 import { JobAlertFormScreen } from '@/screens/seeker/JobAlertFormScreen';
 import { AvailableWorkersScreen } from '@/screens/employer/AvailableWorkersScreen';
+import { SendHiringRequestScreen } from '@/screens/employer/SendHiringRequestScreen';
+import { SentHiringRequestsScreen } from '@/screens/employer/SentHiringRequestsScreen';
+import { InterestedWorkersScreen } from '@/screens/employer/InterestedWorkersScreen';
+import { HiringRequestsScreen } from '@/screens/seeker/HiringRequestsScreen';
 import { CoursesScreen } from '@/screens/seeker/CoursesScreen';
 import { CourseDetailScreen } from '@/screens/seeker/CourseDetailScreen';
 import { SkillTestsScreen } from '@/screens/seeker/SkillTestsScreen';
 import { SkillPassportScreen } from '@/screens/seeker/SkillPassportScreen';
+import { ScoreCredentialScreen } from '@/screens/seeker/ScoreCredentialScreen';
 import { ConstitutionScreen } from '@/screens/seeker/ConstitutionScreen';
 import { CareerPathScreen } from '@/screens/seeker/CareerPathScreen';
 import { PayslipExplainerScreen } from '@/screens/seeker/PayslipExplainerScreen';
@@ -270,6 +277,16 @@ export function AppNavigator() {
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen
+        name="TailoredResume"
+        component={TailoredResumeScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="FestivalJobs"
+        component={FestivalJobsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
         name="JobAlerts"
         component={JobAlertsScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
@@ -282,6 +299,26 @@ export function AppNavigator() {
       <Stack.Screen
         name="AvailableWorkers"
         component={AvailableWorkersScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="SendHiringRequest"
+        component={SendHiringRequestScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="HiringRequests"
+        component={HiringRequestsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="SentHiringRequests"
+        component={SentHiringRequestsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="InterestedWorkers"
+        component={InterestedWorkersScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen
@@ -302,6 +339,11 @@ export function AppNavigator() {
       <Stack.Screen
         name="SkillPassport"
         component={SkillPassportScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="ScoreCredential"
+        component={ScoreCredentialScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen

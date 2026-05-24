@@ -1,15 +1,19 @@
 /**
- * AvailableWorkersScreen — employer-facing list of seekers who are
- * broadcasting their availability right now within ~10km.
+ * AvailableWorkersScreen — employer-facing view of seekers who are
+ * broadcasting their availability right now within ~15km.
  *
- * The page is the matchmaking counterpart to the seeker's
- * AvailabilityBeaconChip on Home: when a worker says "I'm free for the
- * next 2 hours, can do delivery or helper work", they show up here for
- * every nearby employer. Each row offers one-tap call (gated by the
- * /seekers/:id/contact reveal endpoint).
+ * Two ways to browse the same beacon feed:
+ *   - List — the original ranked rows.
+ *   - Map  — pins on a map (WorkersMapView), the headline of two-way
+ *            discovery.
  *
- * Reached from the Applicants tab via a new "Workers available right
- * now" section that links here.
+ * Each worker offers one-tap call (gated by /seekers/:id/contact) and
+ * "Send hiring request" — invite them to apply for one of your jobs.
+ * The header also links to the inbound "Interested in you" list and the
+ * outbound "Requests sent" list.
+ *
+ * Reached from the Applicants tab via a "Workers available right now"
+ * section that links here.
  */
 
 import { useEffect, useState } from 'react';
@@ -40,14 +44,18 @@ import {
 import { contactApi } from '@/api/contact.api';
 import { ApiError } from '@/api/errors';
 import { prettifySkill, tradeEmoji } from '@/lib/trades';
+import { WorkersMapView } from './workers-map/WorkersMapView';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
+type ViewMode = 'list' | 'map';
 
 // Tagged `manual` because it isn't device GPS — satisfies the Coords
 // interface so consumers can branch on the source if they want to.
 const FALLBACK_COORDS: Coords = { lat: 12.9716, lng: 77.5946, source: 'manual' };
+
+const SEARCH_RADIUS_M = 15_000;
 
 export function AvailableWorkersScreen() {
   const { theme } = useTheme();
@@ -55,6 +63,7 @@ export function AvailableWorkersScreen() {
   const insets = useSafeAreaInsets();
   const t = useTranslate();
   const [coords, setCoords] = useState<Coords | null>(null);
+  const [mode, setMode] = useState<ViewMode>('list');
 
   useEffect(() => {
     let cancelled = false;
@@ -74,7 +83,7 @@ export function AvailableWorkersScreen() {
       availabilityApi.nearby({
         lat: coords!.lat,
         lng: coords!.lng,
-        radius: 15_000,
+        radius: SEARCH_RADIUS_M,
         limit: 30,
       }),
     enabled: coords !== null,
@@ -113,6 +122,15 @@ export function AvailableWorkersScreen() {
 
   const availabilities = query.data?.availabilities ?? [];
 
+  // Open the send-hiring-request flow for a worker.
+  const onHire = (worker: NearbyAvailability) => {
+    haptic('selection');
+    navigation.navigate('SendHiringRequest', {
+      seekerId: worker.seeker.id,
+      seekerName: worker.seeker.name,
+    });
+  };
+
   return (
     <Screen edges={[]}>
       <LinearGradient
@@ -122,7 +140,7 @@ export function AvailableWorkersScreen() {
         style={{
           paddingTop: insets.top + spacing.md,
           paddingHorizontal: spacing.xl,
-          paddingBottom: spacing.xl,
+          paddingBottom: spacing.lg,
           borderBottomLeftRadius: radii.xl,
           borderBottomRightRadius: radii.xl,
         }}
@@ -154,11 +172,47 @@ export function AvailableWorkersScreen() {
             fontSize: 13,
             lineHeight: 19,
             color: 'rgba(255,255,255,0.85)',
+            marginBottom: spacing.md,
           }}
         >
           {t('employer.available_workers.header_subtitle')}
         </Text>
+
+        {/* Quick links — inbound interest + outbound requests */}
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          <HeaderLink
+            label="🙋  Interested in you"
+            onPress={() => {
+              haptic('selection');
+              navigation.navigate('InterestedWorkers');
+            }}
+          />
+          <HeaderLink
+            label="📤  Requests sent"
+            onPress={() => {
+              haptic('selection');
+              navigation.navigate('SentHiringRequests');
+            }}
+          />
+        </View>
       </LinearGradient>
+
+      {/* List / Map toggle */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignSelf: 'center',
+          marginTop: spacing.md,
+          backgroundColor: theme.bg.surface,
+          borderRadius: radii.pill,
+          borderWidth: 0.5,
+          borderColor: theme.border.subtle,
+          padding: 3,
+        }}
+      >
+        <ModeTab label="List" active={mode === 'list'} onPress={() => setMode('list')} />
+        <ModeTab label="Map" active={mode === 'map'} onPress={() => setMode('map')} />
+      </View>
 
       <View style={{ flex: 1, paddingTop: spacing.md }}>
         {query.isLoading ? (
@@ -176,6 +230,15 @@ export function AvailableWorkersScreen() {
                 void query.refetch();
               },
             }}
+          />
+        ) : mode === 'map' && coords ? (
+          <WorkersMapView
+            coords={{ lat: coords.lat, lng: coords.lng }}
+            workers={availabilities}
+            radiusKm={SEARCH_RADIUS_M / 1000}
+            onHire={onHire}
+            onCall={(w) => callMutation.mutate(w.seeker.id)}
+            calling={callMutation.isPending}
           />
         ) : availabilities.length === 0 ? (
           <EmptyState
@@ -204,6 +267,7 @@ export function AvailableWorkersScreen() {
               <AvailabilityRow
                 item={item}
                 onCall={() => callMutation.mutate(item.seeker.id)}
+                onHire={() => onHire(item)}
                 calling={callMutation.isPending}
                 t={t}
               />
@@ -215,16 +279,85 @@ export function AvailableWorkersScreen() {
   );
 }
 
+// ─── Header pieces ───────────────────────────────────────────────────────────
+
+function HeaderLink({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => ({
+        flex: 1,
+        paddingVertical: 8,
+        paddingHorizontal: spacing.sm,
+        borderRadius: radii.lg,
+        backgroundColor: 'rgba(255,255,255,0.18)',
+        borderWidth: 0.5,
+        borderColor: 'rgba(255,255,255,0.35)',
+        alignItems: 'center',
+        opacity: pressed ? 0.8 : 1,
+      })}
+    >
+      <Text
+        style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function ModeTab({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const { theme } = useTheme();
+  return (
+    <Pressable
+      onPress={() => {
+        haptic('selection');
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityState={active ? { selected: true } : {}}
+      style={{
+        paddingVertical: 7,
+        paddingHorizontal: spacing.xl,
+        borderRadius: radii.pill,
+        backgroundColor: active ? blue[600] : 'transparent',
+      }}
+    >
+      <Text
+        style={{
+          fontSize: 13,
+          fontWeight: '700',
+          color: active ? '#FFFFFF' : theme.text.tertiary,
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 // ─── Row ─────────────────────────────────────────────────────────────────────
 
 function AvailabilityRow({
   item,
   onCall,
+  onHire,
   calling,
   t,
 }: {
   item: NearbyAvailability;
   onCall: () => void;
+  onHire: () => void;
   calling: boolean;
   t: TFn;
 }) {
@@ -335,30 +468,47 @@ function AvailabilityRow({
         </Text>
       ) : null}
 
-      {/* Call CTA */}
-      <Pressable
-        onPress={onCall}
-        disabled={calling}
-        accessibilityRole="button"
-        accessibilityLabel={t('employer.available_workers.call_a11y', { name: item.seeker.name })}
-        style={({ pressed }) => ({
-          backgroundColor: '#2563EB',
-          paddingVertical: 12,
-          borderRadius: radii.pill,
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: calling ? 0.5 : pressed ? 0.85 : 1,
-          shadowColor: '#2563EB',
-          shadowOpacity: 0.25,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 3 },
-          elevation: 3,
-        })}
-      >
-        <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
-          {calling ? t('employer.available_workers.opening_dialer') : t('employer.available_workers.call_now')}
-        </Text>
-      </Pressable>
+      {/* Actions — hire (primary) + call */}
+      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+        <Pressable
+          onPress={onHire}
+          accessibilityRole="button"
+          accessibilityLabel={`Send a hiring request to ${item.seeker.name}`}
+          style={({ pressed }) => ({
+            flex: 1,
+            backgroundColor: theme.brand.hero,
+            paddingVertical: 12,
+            borderRadius: radii.pill,
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
+          <Text style={{ color: '#FFFDF7', fontSize: 14, fontWeight: '700' }}>
+            Send hiring request
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={onCall}
+          disabled={calling}
+          accessibilityRole="button"
+          accessibilityLabel={t('employer.available_workers.call_a11y', { name: item.seeker.name })}
+          style={({ pressed }) => ({
+            paddingVertical: 12,
+            paddingHorizontal: spacing.lg,
+            borderRadius: radii.pill,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: theme.border.default,
+            opacity: calling ? 0.5 : pressed ? 0.85 : 1,
+          })}
+        >
+          <Text style={{ color: theme.text.primary, fontSize: 14, fontWeight: '700' }}>
+            {calling ? t('employer.available_workers.opening_dialer') : t('employer.available_workers.call_now')}
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 }

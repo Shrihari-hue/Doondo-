@@ -44,6 +44,9 @@ export const NOTIFICATION_KINDS = [
   'hired_nearby',         // a worker near you got hired — social proof feed signal
   'reengagement',         // dormant-user win-back nudge — "it's been a while"
   'hire_celebration',     // a worker got hired — celebrate and move to next steps
+  'hiring_request',           // an employer invited this worker to apply for a job
+  'hiring_request_responded', // a worker accepted/declined the employer's invite
+  'employer_interest',        // a worker expressed interest in this employer
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

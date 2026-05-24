@@ -31,6 +31,7 @@ import { Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { jobsApi } from '@/api/jobs.api';
 import { TRADES, tradeShortLabel, tradeEmoji } from '@/lib/trades';
+import { useFestival, isFestivalJob, type Festival } from '@/lib/festivals';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
 import { AvailabilityBeaconChip } from './AvailabilityBeacon';
@@ -58,6 +59,8 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const t = useTranslate();
+  // Active festival — tags festival-relevant jobs right in the feed.
+  const festival = useFestival();
   const [tradeFilters, setTradeFilters] = useState<string[]>([]);
 
   // Join selected trade chips into a single space-separated query — the
@@ -248,7 +251,13 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
         />
       }
       renderItem={({ item }) => (
-        <PremiumJobCard job={item} onPress={openJob} mode={mode} t={t} />
+        <PremiumJobCard
+          job={item}
+          onPress={openJob}
+          mode={mode}
+          festival={festival}
+          t={t}
+        />
       )}
       ListEmptyComponent={
         query.isLoading ? (
@@ -417,14 +426,17 @@ function PremiumJobCard({
   job,
   onPress,
   mode,
+  festival,
   t,
 }: {
   job: PublicJob;
   onPress: (j: PublicJob) => void;
   mode: FeedMode;
+  festival: Festival | null;
   t: TFn;
 }) {
   const { theme } = useTheme();
+  const isFestivalPick = festival ? isFestivalJob(job.skills, festival) : false;
 
   const location = [job.location.area, job.location.city]
     .filter(Boolean)
@@ -517,6 +529,29 @@ function PremiumJobCard({
                   {t('home.job_card.distance_away', { distance })}
                 </Text>
               ) : null}
+            </View>
+          ) : null}
+          {/* Festival pick — this job's trade spikes for the active festival. */}
+          {isFestivalPick && festival ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 3,
+                alignSelf: 'flex-start',
+                paddingHorizontal: 7,
+                paddingVertical: 2,
+                borderRadius: radii.pill,
+                backgroundColor: festival.accentSoft,
+                marginTop: 2,
+              }}
+            >
+              <Text style={{ fontSize: 9 }}>{festival.emoji}</Text>
+              <Text
+                style={{ fontSize: 9, fontWeight: '800', color: festival.accent }}
+              >
+                {t('festival.tag')}
+              </Text>
             </View>
           ) : null}
         </View>

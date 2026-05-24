@@ -10,6 +10,7 @@ import {
   conversationIdParamsSchema,
   ensureConversationFromAppSchema,
   listMessagesSchema,
+  retranslateSchema,
   sendMessageSchema,
 } from './chat.schemas';
 
@@ -45,6 +46,12 @@ router.post(
   requireAuth,
   validate(conversationIdParamsSchema),
   controller.markRead,
+);
+router.post(
+  '/:id/messages/:messageId/retranslate',
+  requireAuth,
+  validate(retranslateSchema),
+  controller.retranslate,
 );
 
 export default router;

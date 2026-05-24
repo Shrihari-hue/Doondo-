@@ -1,11 +1,12 @@
 /**
  * useChatSocket — keeps chat React Query caches live.
  *
- * Listens for four events on the singleton socket:
+ * Listens for five events on the singleton socket:
  *   - chat:message_received       (new message FOR me)
  *   - chat:conversation_bumped    (some thread got a new message; both sides)
  *   - chat:read                   (other side read my messages)
  *   - chat:message_transcribed    (a voice note's transcript is ready)
+ *   - chat:message_translated     (a text message's translation is ready)
  *
  * On each event we mutate the relevant React Query cache (conversation
  * list + active-conversation message list) so the UI updates without a
@@ -37,6 +38,18 @@ interface TranscribedPayload {
   conversationId: string;
   messageId: string;
   transcript: string;
+}
+
+interface TranslatedPayload {
+  conversationId: string;
+  messageId: string;
+  translation: {
+    text: string;
+    sourceLang: string;
+    targetLang: string;
+    provider: string;
+  } | null;
+  status: 'none' | 'pending' | 'done' | 'failed';
 }
 
 export function useChatSocket() {
@@ -126,16 +139,38 @@ export function useChatSocket() {
       );
     };
 
+    const onTranslated = (p: TranslatedPayload) => {
+      // A text message's translation status changed (pending → done /
+      // failed, or a retry restarted it) — patch it onto the message
+      // already in the active conversation's cache.
+      queryClient.setQueryData<{ messages: PublicMessage[]; hasMore: boolean }>(
+        ['chat', 'messages', p.conversationId],
+        (prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            messages: prev.messages.map((m) =>
+              m.id === p.messageId
+                ? { ...m, translation: p.translation, translationStatus: p.status }
+                : m,
+            ),
+          };
+        },
+      );
+    };
+
     socket.on('chat:message_received', onMessage);
     socket.on('chat:conversation_bumped', onBumped);
     socket.on('chat:read', onRead);
     socket.on('chat:message_transcribed', onTranscribed);
+    socket.on('chat:message_translated', onTranslated);
 
     return () => {
       socket.off('chat:message_received', onMessage);
       socket.off('chat:conversation_bumped', onBumped);
       socket.off('chat:read', onRead);
       socket.off('chat:message_transcribed', onTranscribed);
+      socket.off('chat:message_translated', onTranslated);
     };
   }, [accessToken, status, queryClient]);
 }

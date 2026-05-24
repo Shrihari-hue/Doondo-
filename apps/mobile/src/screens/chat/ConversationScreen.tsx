@@ -29,6 +29,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -65,6 +66,16 @@ type Nav = NativeStackNavigationProp<AppStackParamList, 'Conversation'>;
 type Route = RouteProp<AppStackParamList, 'Conversation'>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
+/** How the reader wants foreign-language messages shown. */
+type TranslateMode = 'both' | 'translation-only';
+
+/**
+ * Per-conversation translate-mode preference. Module-level so the
+ * choice survives navigating out of and back into a thread within the
+ * session (a tiny preference store, not worth persisting to disk).
+ */
+const translateModeByConversation = new Map<string, TranslateMode>();
+
 /**
  * Top-level export wraps in seekerLight palette ONLY when the current
  * user is a seeker. Employers viewing chat keep their warm-dark theme.
@@ -91,6 +102,20 @@ function ConversationScreenInner() {
   const [draft, setDraft] = useState('');
 
   const conversationId = route.params.conversationId;
+
+  // Per-thread translate preference — 'both' shows the translation with
+  // the original tucked beneath; 'translation-only' hides the original.
+  const [translateMode, setTranslateMode] = useState<TranslateMode>(
+    () => translateModeByConversation.get(conversationId) ?? 'both',
+  );
+  function toggleTranslateMode() {
+    haptic('selection');
+    setTranslateMode((prev) => {
+      const next: TranslateMode = prev === 'both' ? 'translation-only' : 'both';
+      translateModeByConversation.set(conversationId, next);
+      return next;
+    });
+  }
 
   const headerQuery = useQuery({
     queryKey: ['chat', 'conversation', conversationId],
@@ -172,6 +197,16 @@ function ConversationScreenInner() {
       haptic('error');
     },
   });
+
+  // Retry a failed translation — the backend re-emits 'pending' over the
+  // socket, so the bubble flips straight back to the shimmer.
+  const retryTranslateMutation = useMutation({
+    mutationFn: (messageId: string) => chatApi.retranslate(conversationId, messageId),
+  });
+  function onRetryTranslate(messageId: string) {
+    haptic('light');
+    retryTranslateMutation.mutate(messageId);
+  }
 
   const messages = messagesQuery.data?.messages ?? [];
   const counterpart = headerQuery.data?.conversation.counterpart;
@@ -380,6 +415,29 @@ function ConversationScreenInner() {
               </Text>
             )}
           </View>
+
+          {/* Translate toggle — 'both' (translation + original) vs
+              'translation-only'. Tinted when translation-only is on. */}
+          <Pressable
+            onPress={toggleTranslateMode}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityState={{ selected: translateMode === 'translation-only' }}
+            accessibilityLabel={t('conversation.translate_toggle_a11y')}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor:
+                translateMode === 'translation-only'
+                  ? theme.brand.heroSubtle
+                  : 'transparent',
+            }}
+          >
+            <Text style={{ fontSize: 18 }}>🌐</Text>
+          </Pressable>
         </View>
 
         {/* Messages */}
@@ -426,6 +484,8 @@ function ConversationScreenInner() {
                   isMine={item.senderId === user?.id}
                   showTail={!sameSenderAsNext}
                   isVerifiedCounterpart={Boolean(counterpart?.isVerified)}
+                  translateMode={translateMode}
+                  onRetryTranslate={onRetryTranslate}
                   t={t}
                 />
               );
@@ -678,12 +738,16 @@ function MessageBubble({
   isMine,
   showTail,
   isVerifiedCounterpart,
+  translateMode,
+  onRetryTranslate,
   t,
 }: {
   message: PublicMessage;
   isMine: boolean;
   showTail: boolean;
   isVerifiedCounterpart: boolean;
+  translateMode: TranslateMode;
+  onRetryTranslate: (messageId: string) => void;
   t: TFn;
 }) {
   const { theme } = useTheme();
@@ -741,9 +805,14 @@ function MessageBubble({
             captionFg={fg}
           />
         ) : (
-          <Text style={{ color: fg, fontSize: 15, lineHeight: 21 }}>
-            {renderMessageBody(message.body, message.templateKey, t)}
-          </Text>
+          <TranslatedText
+            message={message}
+            isMine={isMine}
+            fg={fg}
+            mode={translateMode}
+            onRetry={onRetryTranslate}
+            t={t}
+          />
         )}
       </View>
       {/* Read receipt for sent messages */}
@@ -771,6 +840,142 @@ function MessageBubble({
         </Text>
       )}
     </View>
+  );
+}
+
+// ─── Translated text (inverted hierarchy) ────────────────────────────────────
+
+/**
+ * Renders a text message with its auto-translation. For a received
+ * foreign-language message the translation IS the message — shown
+ * primary, with the original tucked beneath (dimmed, tap to expand).
+ * 'translation-only' mode hides the original entirely. A quiet
+ * "auto-translated" line keeps the reader from over-trusting it on a
+ * high-stakes message (wage, address).
+ */
+function TranslatedText({
+  message,
+  isMine,
+  fg,
+  mode,
+  onRetry,
+  t,
+}: {
+  message: PublicMessage;
+  isMine: boolean;
+  fg: string;
+  mode: TranslateMode;
+  onRetry: (messageId: string) => void;
+  t: TFn;
+}) {
+  const { theme } = useTheme();
+  const [showOriginal, setShowOriginal] = useState(false);
+  const original = renderMessageBody(message.body, message.templateKey, t);
+  const status = message.translationStatus ?? 'none';
+
+  // My own messages, quick-reply templates (already per-locale), and
+  // same-language messages render as plain text.
+  if (isMine || message.templateKey || status === 'none') {
+    return (
+      <Text style={{ color: fg, fontSize: 15, lineHeight: 21 }}>{original}</Text>
+    );
+  }
+
+  // In flight — a shimmer holds the space so the bubble doesn't jump
+  // when the translation lands.
+  if (status === 'pending') {
+    return (
+      <View style={{ gap: 6 }}>
+        <TranslatingShimmer color={fg} label={t('conversation.translating')} />
+        <Text style={{ color: fg, fontSize: 13, lineHeight: 19, opacity: 0.5 }}>
+          {original}
+        </Text>
+      </View>
+    );
+  }
+
+  // Failed (or over budget) — show the original + a tap-to-retry.
+  if (status === 'failed' || !message.translation) {
+    return (
+      <View style={{ gap: 6 }}>
+        <Text style={{ color: fg, fontSize: 15, lineHeight: 21 }}>{original}</Text>
+        <Pressable onPress={() => onRetry(message.id)} hitSlop={6} accessibilityRole="button">
+          <Text style={{ fontSize: 12, fontWeight: '700', color: theme.brand.hero }}>
+            {t('conversation.translate_retry')}
+          </Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  // Done — the translation is the message; the original is secondary.
+  return (
+    <View style={{ gap: 4 }}>
+      <Text style={{ color: fg, fontSize: 15, lineHeight: 21 }}>
+        {message.translation.text}
+      </Text>
+
+      {mode === 'both' ? (
+        <Pressable
+          onPress={() => setShowOriginal((v) => !v)}
+          hitSlop={4}
+          accessibilityRole="button"
+        >
+          <Text style={{ fontSize: 11, fontWeight: '600', color: fg, opacity: 0.5 }}>
+            {showOriginal
+              ? t('conversation.hide_original')
+              : t('conversation.show_original')}
+          </Text>
+          {showOriginal ? (
+            <Text
+              style={{
+                fontSize: 13,
+                lineHeight: 19,
+                color: fg,
+                opacity: 0.55,
+                marginTop: 3,
+              }}
+            >
+              {original}
+            </Text>
+          ) : null}
+        </Pressable>
+      ) : null}
+
+      <Text style={{ fontSize: 10, color: fg, opacity: 0.4, marginTop: 1 }}>
+        {t('conversation.auto_translated')}
+      </Text>
+    </View>
+  );
+}
+
+// ─── Translating shimmer ─────────────────────────────────────────────────────
+
+/** A gently pulsing placeholder shown while a translation is in flight. */
+function TranslatingShimmer({ color, label }: { color: string; label: string }) {
+  const pulse = useRef(new Animated.Value(0.45)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 650, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.45, duration: 650, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+
+  return (
+    <Animated.View
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 7, opacity: pulse }}
+    >
+      <View
+        style={{ width: 56, height: 9, borderRadius: 5, backgroundColor: color, opacity: 0.22 }}
+      />
+      <Text style={{ fontSize: 11, fontStyle: 'italic', color, opacity: 0.6 }}>
+        {label}
+      </Text>
+    </Animated.View>
   );
 }
 

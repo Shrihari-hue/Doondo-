@@ -109,6 +109,14 @@ function SkillPassportInner() {
 
           <Button label={t('skill_passport.share')} onPress={() => onShare(data)} />
 
+          {/* Doondo Score QR — a signed, scannable credential anyone can
+             verify without a Doondo account. */}
+          <Button
+            label={t('score_qr.passport_cta')}
+            variant="secondary"
+            onPress={() => navigation.navigate('ScoreCredential')}
+          />
+
           {isRefetching && (
             <Text variant="caption" tone="tertiary" style={{ textAlign: 'center' }}>
               …

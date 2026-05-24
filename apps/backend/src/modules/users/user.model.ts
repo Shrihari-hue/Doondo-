@@ -205,6 +205,13 @@ export interface User {
    */
   phoneHash?: string | null;
   /**
+   * Preferred app language (en / hi / ta / te / kn). Drives in-chat
+   * auto-translation — an incoming message is translated into the
+   * recipient's `locale`. The mobile app syncs this whenever the worker
+   * changes the UI language. Defaults to 'en'.
+   */
+  locale: string;
+  /**
    * Seeker's UPI VPA (e.g. "shree@okhdfcbank"). Used by the UPI
    * payment intent flow so employers can pay over UPI. Optional —
    * workers can still receive cash.
@@ -412,6 +419,8 @@ export interface PublicUser {
   role: UserRole;
   name: string;
   phone: string | null;
+  /** Preferred app language (en/hi/ta/te/kn) — drives chat auto-translate. */
+  locale: string;
   isVerified: boolean;
   /** Granular verification state — drives the ProfileScreen verification card. */
   verificationStatus: VerificationStatus;
@@ -613,6 +622,11 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
      * findFriends.service hashPhone() for the canonical formula.
      */
     phoneHash: { type: String, default: null, index: true },
+    /**
+     * Preferred app language — drives in-chat auto-translation. Synced by
+     * the mobile app whenever the worker changes the UI language.
+     */
+    locale: { type: String, enum: ['en', 'hi', 'ta', 'te', 'kn'], default: 'en' },
     /**
      * Seeker's UPI VPA (Virtual Payment Address) — e.g. "shree@okhdfcbank".
      * Used by the UPI payment intent flow so employers can pay directly
@@ -842,6 +856,7 @@ userSchema.method('toPublicJSON', function (
     role: this.role,
     name: this.name,
     phone: this.phone ?? null,
+    locale: this.locale ?? 'en',
     isVerified: this.isVerified,
     verificationStatus: this.verificationStatus ?? 'unverified',
     phoneVerified: Boolean(this.phoneVerifiedAt),

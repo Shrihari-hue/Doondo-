@@ -110,3 +110,21 @@ export async function markRead(
     next(err);
   }
 }
+
+export async function retranslate(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const result = await chatService.retranslateMessage(
+      req.user.id,
+      req.params.id!,
+      req.params.messageId!,
+    );
+    ok(req, res, 200, result);
+  } catch (err) {
+    next(err);
+  }
+}

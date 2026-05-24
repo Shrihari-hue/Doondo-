@@ -527,6 +527,33 @@ function JobDetailScreenInner() {
           />
         ) : null}
 
+        {/* Smart Resume — tailor the worker's own history to this exact
+           job before applying. AI re-orders skills, re-words past roles,
+           and writes a job-tuned summary the worker reviews. */}
+        {!appliedNow ? (
+          <Card>
+            <View style={{ gap: spacing.sm }}>
+              <Text variant="bodyLarge" weight="medium">
+                {t('smart_resume.card_title')}
+              </Text>
+              <Text variant="footnote" tone="secondary">
+                {t('smart_resume.card_body')}
+              </Text>
+              <Button
+                label={t('smart_resume.card_cta')}
+                variant="secondary"
+                size="sm"
+                onPress={() =>
+                  navigation.navigate('TailoredResume', {
+                    jobId: route.params.jobId,
+                    jobTitle: job.title,
+                  })
+                }
+              />
+            </View>
+          </Card>
+        ) : null}
+
         {/* Cover letter — optional, Career mode only. Multiline,
            preserves line breaks. Sent with the application; the employer
            sees it on ApplicantDetail. */}

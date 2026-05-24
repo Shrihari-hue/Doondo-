@@ -67,6 +67,13 @@ export const chatApi = {
       { method: 'POST' },
     ),
 
+  /** Retry a failed auto-translation for one message. */
+  retranslate: (conversationId: string, messageId: string) =>
+    apiRequest<{ ok: true }>(
+      `/conversations/${conversationId}/messages/${messageId}/retranslate`,
+      { method: 'POST' },
+    ),
+
   /**
    * Idempotently get (or create) the chat for one of my applications.
    * Used by the seeker NewChat flow to start a thread before the

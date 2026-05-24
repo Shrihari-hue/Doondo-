@@ -175,6 +175,11 @@ export type AppStackParamList = {
   ResumeBuilder: undefined;
   /** Modal: read-only resume preview, sharable. */
   ResumePreview: undefined;
+  /**
+   * Modal: Smart Resume — an AI-tailored version of the worker's resume
+   * for one specific job. Entered from the job detail screen.
+   */
+  TailoredResume: { jobId: string; jobTitle?: string };
   /** Modal: list of saved job alerts + toggle/edit/delete. */
   JobAlerts: undefined;
   /**
@@ -197,6 +202,17 @@ export type AppStackParamList = {
     | undefined;
   /** Modal: employers see seekers broadcasting "available now" nearby. */
   AvailableWorkers: undefined;
+  /**
+   * Modal: employer picks one of their active jobs + an optional note to
+   * invite a specific worker (the outbound half of two-way discovery).
+   */
+  SendHiringRequest: { seekerId: string; seekerName: string };
+  /** Modal: the worker's inbox of hiring requests from employers. */
+  HiringRequests: undefined;
+  /** Modal: the employer's list of hiring requests they've sent out. */
+  SentHiringRequests: undefined;
+  /** Modal: the employer's inbound list of workers who expressed interest. */
+  InterestedWorkers: undefined;
   /** Modal: catalogue of training courses. */
   Courses: undefined;
   /** Modal: a single course with its lessons + progress + enroll CTA. */
@@ -205,6 +221,11 @@ export type AppStackParamList = {
   SkillTests: undefined;
   /** Modal: the worker's portable, verified Skill Passport. */
   SkillPassport: undefined;
+  /**
+   * Modal: the shareable Doondo Score QR credential — a signed,
+   * scannable proof of the worker's employability score.
+   */
+  ScoreCredential: undefined;
   /** Modal: the worker's Doondo Constitution — personal work rules. */
   Constitution: undefined;
   /** Modal: the career-path ladder for a trade. */
@@ -229,6 +250,11 @@ export type AppStackParamList = {
   Insurance: undefined;
   /** Modal: same-day Tinder-style swipe deck for Today-mode jobs. */
   JobSwipe: undefined;
+  /**
+   * Modal: Festival Mode job board — jobs in the trades that spike for
+   * the currently-active festival. Reached from the Home festival banner.
+   */
+  FestivalJobs: undefined;
   /**
    * Modal: add a second account (Instagram-style switcher target).
    * Lives in AppStack because the user is already authenticated when

@@ -28,6 +28,13 @@ import {
   type PublicConversation,
 } from './conversation.model';
 import { MessageModel, type PublicMessage } from './message.model';
+import {
+  consumeTranslationBudget,
+  detectLang,
+  isTranslatableLang,
+  translateText,
+  type TranslatableLang,
+} from '@/modules/translation/translation.service';
 
 interface ParticipantSummary {
   id: string;
@@ -285,6 +292,28 @@ export async function sendMessage(
   const kind = input.kind ?? 'text';
   const body = (input.body ?? '').trim();
 
+  // Decide up-front whether this message will need translating, so the
+  // recipient's bubble can show a "translating…" shimmer the instant the
+  // message lands — instead of the layout jumping when the translation
+  // arrives a beat later.
+  let translationTarget: TranslatableLang | null = null;
+  let translationStatus: 'none' | 'pending' | 'failed' = 'none';
+  if (kind === 'text' && body) {
+    const recipient = await UserModel.findById(recipientId).select('locale').lean();
+    const loc = recipient?.locale;
+    if (isTranslatableLang(loc) && detectLang(body) !== loc) {
+      if (consumeTranslationBudget(userId)) {
+        translationTarget = loc;
+        translationStatus = 'pending';
+      } else {
+        // Over the hourly translation budget — mark it 'failed' so the
+        // reader gets a tap-to-retry rather than the message silently
+        // never translating.
+        translationStatus = 'failed';
+      }
+    }
+  }
+
   const sentAt = new Date();
   const msg = await MessageModel.create({
     conversationId: conversation._id,
@@ -293,6 +322,7 @@ export async function sendMessage(
     kind,
     attachment: input.attachment ?? null,
     templateKey: input.templateKey ?? null,
+    translationStatus,
   });
 
   // Bump conversation denorm fields. Preview shows a friendly summary
@@ -361,7 +391,159 @@ export async function sendMessage(
     });
   }
 
+  // Text messages get an auto-translation into the recipient's language
+  // a moment later. Detached + best-effort — same contract as voice
+  // transcription: a slow or failed translation never delays the message.
+  if (translationTarget) {
+    void translateMessageForRecipient({
+      messageId: messageJson.id,
+      conversationId: conversation.id,
+      senderId: userId,
+      recipientId,
+      body,
+      targetLang: translationTarget,
+    });
+  }
+
   return messageJson;
+}
+
+/**
+ * Re-run translation for one message — used by the "tap to retry"
+ * affordance the reader sees when a translation failed. Marks the
+ * message `pending` again (so the shimmer reappears) and kicks off a
+ * fresh translation. Either participant may trigger it.
+ */
+export async function retranslateMessage(
+  userId: string,
+  conversationId: string,
+  messageId: string,
+): Promise<{ ok: true }> {
+  const conversation = await assertParticipant(userId, conversationId);
+  const msg = await MessageModel.findOne({
+    _id: messageId,
+    conversationId: conversation._id,
+  });
+  if (!msg) throw errors.notFound('Message not found.');
+  if (msg.kind !== 'text' || !msg.body) {
+    throw errors.conflict('Only text messages can be translated.');
+  }
+
+  const senderId = msg.senderId.toString();
+  const recipientId = (
+    senderId === conversation.employerId.toString()
+      ? conversation.seekerId
+      : conversation.employerId
+  ).toString();
+
+  await MessageModel.updateOne(
+    { _id: msg._id },
+    { $set: { translationStatus: 'pending' } },
+  );
+  for (const uid of [
+    conversation.employerId.toString(),
+    conversation.seekerId.toString(),
+  ]) {
+    emitToUser(uid, 'chat:message_translated', {
+      messageId,
+      conversationId: conversation.id,
+      translation: null,
+      status: 'pending',
+    });
+  }
+
+  void translateMessageForRecipient({
+    messageId,
+    conversationId: conversation.id,
+    senderId,
+    recipientId,
+    body: msg.body,
+  });
+
+  return { ok: true };
+}
+
+/**
+ * Best-effort message translation. Runs fully detached from the send
+ * request. Looks up the recipient's preferred language, translates the
+ * message body into it, stamps `translation` on the message, and emits
+ * `chat:message_translated` to both participants so an open thread
+ * updates the bubble live. If the recipient already reads the sender's
+ * language — or anything fails — it logs and gives up; the message
+ * itself is already delivered.
+ */
+async function translateMessageForRecipient(input: {
+  messageId: string;
+  conversationId: string;
+  senderId: string;
+  recipientId: string;
+  body: string;
+  /** Pre-resolved on the send path; re-resolved here on retry. */
+  targetLang?: TranslatableLang;
+}): Promise<void> {
+  const emitStatus = (
+    status: 'none' | 'done' | 'failed',
+    translation:
+      | { text: string; sourceLang: string; targetLang: string; provider: string }
+      | null,
+  ) => {
+    for (const uid of [input.senderId, input.recipientId]) {
+      emitToUser(uid, 'chat:message_translated', {
+        messageId: input.messageId,
+        conversationId: input.conversationId,
+        translation,
+        status,
+      });
+    }
+  };
+
+  try {
+    let targetLang = input.targetLang;
+    if (!targetLang) {
+      const recipient = await UserModel.findById(input.recipientId)
+        .select('locale')
+        .lean();
+      const loc = recipient?.locale;
+      if (!isTranslatableLang(loc)) {
+        await MessageModel.updateOne(
+          { _id: input.messageId },
+          { $set: { translationStatus: 'none' } },
+        );
+        return;
+      }
+      targetLang = loc;
+    }
+
+    const result = await translateText({ text: input.body, targetLang });
+    // Already in the reader's language — nothing to show.
+    if (result.skipped) {
+      await MessageModel.updateOne(
+        { _id: input.messageId },
+        { $set: { translationStatus: 'none' } },
+      );
+      emitStatus('none', null);
+      return;
+    }
+
+    const translation = {
+      text: result.text.slice(0, 4000),
+      sourceLang: result.sourceLang,
+      targetLang: result.targetLang,
+      provider: result.provider,
+    };
+    await MessageModel.updateOne(
+      { _id: input.messageId },
+      { $set: { translation, translationStatus: 'done' } },
+    );
+    emitStatus('done', translation);
+  } catch (err) {
+    logger.warn({ err, messageId: input.messageId }, 'message translation failed');
+    await MessageModel.updateOne(
+      { _id: input.messageId },
+      { $set: { translationStatus: 'failed' } },
+    ).catch(() => undefined);
+    emitStatus('failed', null);
+  }
 }
 
 /**

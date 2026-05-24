@@ -28,12 +28,24 @@ import * as endorsementController from '@/modules/endorsements/endorsement.contr
 import * as skillTestController from '@/modules/skillTests/skillTests.controller';
 import * as profileViewService from '@/modules/me/profileView.service';
 import * as doondoScoreService from '@/modules/users/doondoScore.service';
+import * as scoreCredentialController from '@/modules/users/scoreCredential.controller';
+import * as resumeRewriteService from '@/modules/resumeRewrite/resumeRewrite.service';
+import * as festivalService from '@/modules/festivals/festival.service';
 import * as sosService from '@/modules/sos/sos.service';
+import { UserModel } from '@/modules/users/user.model';
 import mentorsRouter from '@/modules/mentors/mentor.routes';
 import paymentsRouter from '@/modules/payments/payment.routes';
 import voiceAgentRouter from '@/modules/voiceAgent/voiceAgent.routes';
 import reelsRouter from '@/modules/reels/reel.routes';
 import communityRouter from '@/modules/community/post.routes';
+import hiringRequestsRouter from '@/modules/hiringRequests/hiringRequest.routes';
+import * as employerInterestController from '@/modules/employerInterest/employerInterest.controller';
+import {
+  expressInterestSchema,
+  employerIdParamSchema,
+  interestIdParamSchema,
+  listInterestedWorkersSchema,
+} from '@/modules/employerInterest/employerInterest.schemas';
 import {
   applicantsForJobSchema,
   applyParamsSchema,
@@ -61,6 +73,8 @@ v1.use('/voice-agent', voiceAgentRouter);
 v1.use('/reels', reelsRouter);
 // Community — the worker feed: posts, likes, comments, reposts.
 v1.use('/community', communityRouter);
+// Two-way discovery — the employer→worker outbound invite flow.
+v1.use('/hiring-requests', hiringRequestsRouter);
 
 // Earned-badges helper — employer-side card on ApplicantDetail uses this.
 v1.get('/seekers/:id/badges', requireAuth, coursesController.listSeekerBadges);
@@ -133,6 +147,54 @@ v1.get(
 // Public employer detail. Anyone (even unauthenticated) can pull this up —
 // it's the same trust signal a seeker uses to decide whether to apply.
 v1.get('/employers/:id', employersController.getEmployerProfile);
+
+// ─── Two-way discovery — worker→employer "I'm interested" ───────────────────
+// Worker side: raise / withdraw / check a standing interest in an employer
+// (the inbound mirror of an employer's hiring request). Lets a worker reach
+// out even when the employer has no live job posted.
+v1.post(
+  '/employers/:id/interest',
+  requireAuth,
+  requireRole('seeker'),
+  validate(expressInterestSchema),
+  employerInterestController.express,
+);
+v1.delete(
+  '/employers/:id/interest',
+  requireAuth,
+  requireRole('seeker'),
+  validate(employerIdParamSchema),
+  employerInterestController.withdraw,
+);
+v1.get(
+  '/employers/:id/interest/mine',
+  requireAuth,
+  requireRole('seeker'),
+  validate(employerIdParamSchema),
+  employerInterestController.getMine,
+);
+// Employer side: the inbound list of workers who want to work for them.
+v1.get(
+  '/me/interested-workers',
+  requireAuth,
+  requireRole('employer'),
+  validate(listInterestedWorkersSchema),
+  employerInterestController.listForEmployer,
+);
+v1.post(
+  '/me/interested-workers/:id/viewed',
+  requireAuth,
+  requireRole('employer'),
+  validate(interestIdParamSchema),
+  employerInterestController.markViewed,
+);
+v1.post(
+  '/me/interested-workers/:id/archive',
+  requireAuth,
+  requireRole('employer'),
+  validate(interestIdParamSchema),
+  employerInterestController.archive,
+);
 
 // ─── SOS (safety) ───────────────────────────────────────────────────────────
 // `POST /sos/trigger` fans the alert to Trust Circle + 2 nearest verified
@@ -217,6 +279,148 @@ v1.get(
     try {
       const score = await doondoScoreService.computeForUser(req.params.id!);
       res.json({ ok: true, data: score, requestId: req.id });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ─── Doondo Score — shareable signed credential ─────────────────────────────
+// `POST /me/score-credential` mints (or refreshes) a QR-encodable
+// credential for the caller. `GET /score/verify/:code` is PUBLIC —
+// anyone who scans the QR (in a browser or another app) can confirm the
+// score is authentic.
+v1.post('/me/score-credential', requireAuth, scoreCredentialController.issue);
+v1.get('/score/verify/:code', scoreCredentialController.verify);
+
+// ─── Festival Mode ──────────────────────────────────────────────────────────
+// The festival calendar lives server-side (festival.config) so lunar
+// dates are a config edit, not an app release. This returns the festival
+// active for the caller right now — region-aware, so a Bengaluru worker
+// isn't shown a Tamil Nadu festival — plus the next one for a countdown.
+v1.get('/festivals/active', requireAuth, async (req, res, next) => {
+  try {
+    const state = await festivalService.getFestivalStateForUser(req.user!.id);
+    res.json({ ok: true, data: state, requestId: req.id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Preferred app language ─────────────────────────────────────────────────
+// Synced by the mobile app whenever the worker changes the UI language.
+// Drives in-chat auto-translation — an incoming message is translated
+// into the recipient's locale.
+v1.put(
+  '/me/locale',
+  requireAuth,
+  validate(
+    z.object({
+      body: z.object({ locale: z.enum(['en', 'hi', 'ta', 'te', 'kn']) }),
+    }),
+  ),
+  async (req, res, next) => {
+    try {
+      const locale = req.body.locale as string;
+      await UserModel.updateOne({ _id: req.user!.id }, { $set: { locale } });
+      res.json({ ok: true, data: { locale }, requestId: req.id });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ─── Smart Resume — per-job AI resume rewrite ───────────────────────────────
+// On-demand: the worker taps "Tailor for this job" and we return a
+// job-tuned resume (summary, relevance-ranked skills, re-worded work
+// blurbs) for them to review. Nothing is persisted — the worker decides
+// what to do with the draft.
+v1.post(
+  '/me/resume/tailor',
+  requireAuth,
+  requireRole('seeker'),
+  validate(
+    z.object({
+      body: z.object({
+        jobId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid job id'),
+      }),
+    }),
+  ),
+  async (req, res, next) => {
+    try {
+      const result = await resumeRewriteService.tailorResumeForJob(
+        req.user!.id,
+        req.body.jobId as string,
+      );
+      res.json({ ok: true, data: result, requestId: req.id });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// Saved tailored resume per job — GET loads the worker's reviewed copy
+// (so re-opening Smart Resume is instant), PUT upserts their edited
+// version. The apply path snapshots it onto the Application.
+v1.get(
+  '/me/resume/tailored/:jobId',
+  requireAuth,
+  requireRole('seeker'),
+  validate(
+    z.object({
+      params: z.object({
+        jobId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid job id'),
+      }),
+    }),
+  ),
+  async (req, res, next) => {
+    try {
+      const resume = await resumeRewriteService.getSavedTailoredResume(
+        req.user!.id,
+        req.params.jobId!,
+      );
+      res.json({ ok: true, data: { resume }, requestId: req.id });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+v1.put(
+  '/me/resume/tailored/:jobId',
+  requireAuth,
+  requireRole('seeker'),
+  validate(
+    z.object({
+      params: z.object({
+        jobId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid job id'),
+      }),
+      body: z.object({
+        summary: z.string().trim().min(1).max(2000),
+        pitch: z.string().trim().max(600).default(''),
+        highlightedSkills: z.array(z.string().max(60)).max(40).default([]),
+        matchedSkills: z.array(z.string().max(60)).max(40).default([]),
+        workBlurbs: z
+          .array(
+            z.object({
+              company: z.string().trim().max(160),
+              role: z.string().trim().max(160),
+              blurb: z.string().trim().max(600),
+            }),
+          )
+          .max(10)
+          .default([]),
+        provider: z.string().max(20).optional(),
+      }),
+    }),
+  ),
+  async (req, res, next) => {
+    try {
+      const resume = await resumeRewriteService.saveTailoredResume(
+        req.user!.id,
+        req.params.jobId!,
+        req.body,
+      );
+      res.json({ ok: true, data: { resume }, requestId: req.id });
     } catch (err) {
       next(err);
     }

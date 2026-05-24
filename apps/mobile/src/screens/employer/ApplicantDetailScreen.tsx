@@ -359,6 +359,33 @@ export function ApplicantDetailScreen() {
           </View>
         )}
 
+        {/* Smart Resume — the worker's resume tailored to THIS job,
+            snapshotted at apply time. Hidden when they didn't tailor. */}
+        {applicant.tailoredResume ? (
+          <View style={{ gap: spacing.sm }}>
+            <Text
+              variant="footnote"
+              weight="medium"
+              tone="secondary"
+              style={{ letterSpacing: 1.0 }}
+            >
+              {t('employer.applicant_detail.tailored_resume')}
+            </Text>
+            <Card>
+              <View style={{ gap: spacing.sm }}>
+                <Text variant="body" style={{ lineHeight: 22 }}>
+                  {applicant.tailoredResume.summary}
+                </Text>
+                {applicant.tailoredResume.pitch ? (
+                  <Text variant="footnote" tone="secondary" style={{ lineHeight: 19 }}>
+                    {applicant.tailoredResume.pitch}
+                  </Text>
+                ) : null}
+              </View>
+            </Card>
+          </View>
+        ) : null}
+
         {/* Doondo Constitution — the worker's stated work rules. Hidden
             when they've set none. */}
         {applicant.seeker?.constitution ? (

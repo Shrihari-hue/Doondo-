@@ -18,6 +18,16 @@ export const MESSAGE_KINDS = ['text', 'image', 'voice', 'video', 'system'] as co
 export type MessageKind = (typeof MESSAGE_KINDS)[number];
 
 /**
+ * Lifecycle of a text message's auto-translation:
+ *   none    — no translation needed (already in the reader's language)
+ *   pending — translation in flight; the bubble shows a shimmer
+ *   done    — `translation` is populated
+ *   failed  — translation errored; the reader can tap to retry
+ */
+export const TRANSLATION_STATUSES = ['none', 'pending', 'done', 'failed'] as const;
+export type TranslationStatus = (typeof TRANSLATION_STATUSES)[number];
+
+/**
  * Inline attachment payload. For v1 we keep the raw bytes on the message
  * as a base64 data URL; swap to a CDN URL later by keeping `dataUrl`
  * optional and adding `url?: string`.
@@ -32,6 +42,24 @@ export interface MessageAttachment {
   height?: number | null;
   /** Voice / video duration in seconds. */
   durationSeconds?: number | null;
+}
+
+/**
+ * Auto-translation of a text message into the recipient's language.
+ * Filled in asynchronously a moment after the message is sent (see the
+ * translation kickoff in chat.service); null until then, null for media
+ * and system messages, and null when the message was already written in
+ * the recipient's language (nothing to translate).
+ */
+export interface MessageTranslation {
+  /** The translated text, in `targetLang`. */
+  text: string;
+  /** Language the original `body` was written in (en/hi/ta/te/kn). */
+  sourceLang: string;
+  /** Language `text` was translated into — the recipient's locale. */
+  targetLang: string;
+  /** Which provider produced this — 'anthropic' or 'mock'. */
+  provider: string;
 }
 
 export interface Message {
@@ -62,6 +90,19 @@ export interface Message {
    * whatever language the sender spoke.
    */
   transcript?: string | null;
+  /**
+   * Auto-translation of a `kind: 'text'` message into the recipient's
+   * language. Filled in asynchronously a moment after send; null until
+   * then, null for non-text messages, and null when the message was
+   * already in the recipient's language.
+   */
+  translation?: MessageTranslation | null;
+  /**
+   * Lifecycle of the auto-translation. 'none' for media/system messages
+   * and same-language text; 'pending' while in flight; 'done'/'failed'
+   * once the translation job resolves.
+   */
+  translationStatus: TranslationStatus;
   /** When the recipient marked the conversation as read past this msg. */
   readAt: Date | null;
   createdAt: Date;
@@ -85,6 +126,10 @@ export interface PublicMessage {
   templateKey: string | null;
   /** Auto-generated transcript for voice messages; null otherwise. */
   transcript: string | null;
+  /** Auto-translation into the recipient's language; null otherwise. */
+  translation: MessageTranslation | null;
+  /** Lifecycle of the auto-translation — drives the shimmer / retry UI. */
+  translationStatus: TranslationStatus;
   readAt: string | null;
   createdAt: string;
 }
@@ -99,6 +144,16 @@ const attachmentSchema = new Schema<MessageAttachment>(
     width: { type: Number, default: null, min: 0 },
     height: { type: Number, default: null, min: 0 },
     durationSeconds: { type: Number, default: null, min: 0 },
+  },
+  { _id: false },
+);
+
+const translationSchema = new Schema<MessageTranslation>(
+  {
+    text: { type: String, required: true, maxlength: 4000 },
+    sourceLang: { type: String, required: true, trim: true, maxlength: 8 },
+    targetLang: { type: String, required: true, trim: true, maxlength: 8 },
+    provider: { type: String, required: true, trim: true, maxlength: 20 },
   },
   { _id: false },
 );
@@ -122,6 +177,12 @@ const messageSchema = new Schema<Message, MessageModelType, MessageMethods>(
     attachment: { type: attachmentSchema, default: null },
     templateKey: { type: String, default: null, trim: true, maxlength: 80 },
     transcript: { type: String, default: null, trim: true, maxlength: 4000 },
+    translation: { type: translationSchema, default: null },
+    translationStatus: {
+      type: String,
+      enum: TRANSLATION_STATUSES,
+      default: 'none',
+    },
     readAt: { type: Date, default: null },
   },
   { timestamps: true },
@@ -140,6 +201,15 @@ messageSchema.method('toPublicJSON', function (this: MessageDocument): PublicMes
     attachment: this.attachment ?? null,
     templateKey: this.templateKey ?? null,
     transcript: this.transcript ?? null,
+    translation: this.translation
+      ? {
+          text: this.translation.text,
+          sourceLang: this.translation.sourceLang,
+          targetLang: this.translation.targetLang,
+          provider: this.translation.provider,
+        }
+      : null,
+    translationStatus: this.translationStatus ?? 'none',
     readAt: this.readAt ? this.readAt.toISOString() : null,
     createdAt: this.createdAt.toISOString(),
   };

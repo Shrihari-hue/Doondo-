@@ -26,6 +26,8 @@ import {
   SUPPORTED_LOCALES,
   type SupportedLocale,
 } from './index';
+import { useAuthStore } from '@/stores/auth.store';
+import { meApi } from '@/api/me.api';
 
 interface LocaleContextValue {
   /** Active locale code. Always one of SUPPORTED_LOCALES. */
@@ -76,6 +78,16 @@ export function LanguageProvider({ children, blockUntilReady = false }: Language
     await persistLocale(next);
     setLocaleState(next);
   }, []);
+
+  // Keep the server's copy of the worker's language in sync — it drives
+  // in-chat auto-translation (incoming messages are translated into this
+  // locale). Fires when the language changes and once after login.
+  // Best-effort: a failed sync (offline, not logged in) is swallowed.
+  const authStatus = useAuthStore((s) => s.status);
+  useEffect(() => {
+    if (!ready || authStatus !== 'authenticated') return;
+    void meApi.updateLocale(locale).catch(() => undefined);
+  }, [locale, authStatus, ready]);
 
   const value = useMemo<LocaleContextValue>(
     () => ({ locale, ready, setLocale }),

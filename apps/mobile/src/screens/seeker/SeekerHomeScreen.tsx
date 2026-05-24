@@ -38,7 +38,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 
 import { spacing, radii, categoryTints, blue } from '@doondo/tokens';
-import { Screen, Text, NotificationsBell, LanguageToggle } from '@/components';
+import { Screen, Text, NotificationsBell, LanguageToggle, FestivalBanner } from '@/components';
+import { useFestival } from '@/lib/festivals';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { jobsApi } from '@/api/jobs.api';
@@ -99,6 +100,8 @@ export function SeekerHomeScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const t = useTranslate();
+  // Festival Mode — tints the wordmark during a festival window.
+  const festival = useFestival();
 
   const [coords, setCoords] = useState<Coords | null>(null);
 
@@ -265,11 +268,12 @@ export function SeekerHomeScreen() {
               fontSize: 26,
               lineHeight: 30,
               fontWeight: '700',
-              color: theme.brand.hero,
+              // Festival Mode gives the wordmark a seasonal tint.
+              color: festival ? festival.accent : theme.brand.hero,
               letterSpacing: -0.5,
             }}
           >
-            Doondo
+            {festival ? `Doondo ${festival.emoji}` : 'Doondo'}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <LanguageToggle />
@@ -287,6 +291,11 @@ export function SeekerHomeScreen() {
            browsing. Sits between the toggle and the location pill so it
            reads as a top-priority action. */}
         <AvailabilityBeaconChip coords={coords} user={user ?? null} />
+
+        {/* Festival Mode — a themed banner during festival windows (Diwali,
+           Onam, …) linking to the festival job board. Self-hides the rest
+           of the year. */}
+        <FestivalBanner />
 
         {/* Location pill */}
         <View

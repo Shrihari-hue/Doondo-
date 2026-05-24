@@ -1,8 +1,8 @@
 # Doondo V2 — Punch List
 
-What's left before a wider release. Generated 2026-05-22 by cross-checking
-`DOONDO_V2_ROADMAP.md` and `Doondo-Profile-Redesign-Spec.md` against the
-actual `apps/backend` + `apps/mobile` source tree and commit history.
+What's left before a wider release. Generated 2026-05-22, updated 2026-05-24,
+by cross-checking `DOONDO_V2_ROADMAP.md` and `Doondo-Profile-Redesign-Spec.md`
+against the actual `apps/backend` + `apps/mobile` source tree and commit history.
 
 Tick items as they land. Status legend: `[ ]` not started · `[~]` partial · `[x]` done.
 
@@ -10,9 +10,8 @@ Tick items as they land. Status legend: `[ ]` not started · `[~]` partial · `[
 
 ## Snapshot
 
-- **Roadmap:** 25 of 36 numbered features shipped · 3 partial · 8 not started · 8 "bets" untouched (by design).
-- **Git:** on `main`, in sync with origin (0 ahead / 0 behind). Only uncommitted change is `pnpm-lock.yaml`. No stuck branch work.
-- **Last commit:** Session 25 — Stay signed in + app lock (2026-05-22).
+- **Roadmap:** 28 of 36 numbered features shipped · 2 partial · 6 not started · 8 "bets" untouched (by design).
+- **Latest build (2026-05-24, uncommitted):** in-chat auto-translate (#24), Smart Resume (#21), Festival Mode (#32), and the Doondo Score QR credential — backend + mobile, both packages typecheck clean.
 - **Beta-ready today** in English and Hindi.
 
 ---
@@ -20,8 +19,12 @@ Tick items as they land. Status legend: `[ ]` not started · `[~]` partial · `[
 ## 1. Profile / navigation redesign — highest priority
 
 Source: `Doondo-Profile-Redesign-Spec.md` v3.0 (dated 2026-05-21, still "Draft for
-review"). Nothing here is built yet — the app runs a 4-tab bar (Home, Jobs, Chat,
-Profile) and the old flat `ProfileScreen`.
+review").
+
+> **UPDATE 2026-05-24:** the 6-tab navigation has since shipped — the app now
+> runs Home / Jobs / Community / Chat / Earnings / Profile, and the Earnings tab
+> has been rebuilt with the card layout. This section predates that work and
+> needs a fresh audit; treat the checkboxes below as stale.
 
 Resolve before building — the 5 open questions in spec §12:
 
@@ -55,7 +58,6 @@ Phase 3 — Polish:
 
 ## 2. Roadmap — partially done
 
-- [~] **#21 Smart Resume that rewrites per job** — per-job draft editing exists in `ResumeBuilderScreen`; the automatic LLM rewrite per application is not built.
 - [~] **#28 Bookable 1:1 mentor sessions** — mentor discovery + request lifecycle work (`mentors` module); calendar slots and payment are missing.
 - [~] **#31 Hire Celebration** — an apply-moment 3D celebration exists (`apply-moment/ApplyCelebration`); the hire-moment celebration does not.
 
@@ -64,9 +66,7 @@ Phase 3 — Polish:
 ## 3. Roadmap — not started (Later, Q2)
 
 - [ ] **#19 "Why was I rejected?" AI explainer** — skill-gap diff (#3) is done; the generative one-paragraph explanation is not. Effort M / Risk Med.
-- [ ] **#24 In-chat auto-translate (vernacular ↔ English)** — only quick-reply pre-translation + i18n exist today; no message translation middleware. Effort M / Risk Med.
 - [ ] **#27 Peer cohorts via Find Friends (5-person course groups)** — Effort M / Risk Low.
-- [ ] **#32 Festival Mode** — Effort M / Risk Low.
 - [ ] **#33 Doondo for Women** — needs verifier model + location masking; mockup only. Effort L / Risk High.
 - [ ] **#34 Predictive availability** — needs usage data first. Effort L / Risk Med.
 - [ ] **#35 Hire Reels (30-sec video resume)** — mockup only. Effort L / Risk High.
@@ -97,9 +97,10 @@ Untouched by design — validate before building.
 
 ---
 
-## Done — for reference (25 of 36)
+## Done — for reference (28 of 36)
 
 - **Now-5 (#1–5):** 60-sec first match · anti-ghost engine · skill gap on rejection · morning digest · Doondo Score — plus the `node-cron` scheduler, `Course.skills[]` metadata, and new notification kinds.
 - **Next (#6–17):** one-photo OCR profile · quick-reply templates + language toggle · voice-note auto-transcription · live shift check-in · interview scheduler · anonymous employer reviews · SOS upgrade · streaks · refer-a-friend · re-engagement flow · "hired near you today" · Skill Passport.
 - **Later (#18, 20, 22, 23, 25, 26, 29, 30):** Crew Apply · Reverse Interview · Doondo Constitution · open-shift from seeker side · PF/ESI/tax explainer · career-path map · Trust Circle · Doondo Pulse.
+- **2026-05-24 build (#21, #24, #32):** Smart Resume (per-job AI rewrite) · in-chat auto-translate · Festival Mode — plus the Doondo Score QR credential (signed, scannable, public verification page), which finishes the #5 Doondo Score moonshot.
 - **Beyond the roadmap:** offline mode (queued applications), stay-signed-in + app lock, cash-paid confirmation, recurring availability beacons, Sentry integration.

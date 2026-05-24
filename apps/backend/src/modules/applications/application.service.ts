@@ -34,6 +34,7 @@ import {
 } from '@/lib/push';
 import { JobModel, type PublicJob } from '@/modules/jobs/job.model';
 import { UserModel, type SeekerConstitution, type CraftPhoto } from '@/modules/users/user.model';
+import { getSavedTailoredResume } from '@/modules/resumeRewrite/resumeRewrite.service';
 import {
   getOrCreateForApplication,
   postSystemMessage,
@@ -109,6 +110,33 @@ export async function apply(input: ApplyInput): Promise<PublicApplication> {
           }))
         : [];
 
+    // If the worker tailored their Smart Resume for this job, snapshot it
+    // onto the application so the employer sees the job-tuned version.
+    let tailoredResume: {
+      summary: string;
+      pitch: string;
+      highlightedSkills: string[];
+      matchedSkills: string[];
+      workBlurbs: Array<{ company: string; role: string; blurb: string }>;
+    } | null = null;
+    try {
+      const saved = await getSavedTailoredResume(
+        input.seekerId,
+        job._id.toString(),
+      );
+      if (saved) {
+        tailoredResume = {
+          summary: saved.summary,
+          pitch: saved.pitch,
+          highlightedSkills: saved.highlightedSkills,
+          matchedSkills: saved.matchedSkills,
+          workBlurbs: saved.workBlurbs,
+        };
+      }
+    } catch {
+      // Non-fatal — apply without the tailored resume.
+    }
+
     const app = await ApplicationModel.create({
       seekerId: new Types.ObjectId(input.seekerId),
       jobId: job._id,
@@ -117,6 +145,7 @@ export async function apply(input: ApplyInput): Promise<PublicApplication> {
       expressedAsInterest: Boolean(input.asInterest),
       teamSizeSnapshot,
       teamMembers,
+      tailoredResume,
       status: 'pending',
       appliedAt: new Date(),
     });

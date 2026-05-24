@@ -7,6 +7,8 @@ import { champagne, coral, jade, radii, spacing } from '@doondo/tokens';
 import { Button } from './Button';
 import { Text } from './Text';
 import { useTheme } from '@/theme/useTheme';
+import { useTranslate } from '@/i18n/useTranslate';
+import { useFestival } from '@/lib/festivals';
 
 interface Props {
   eyebrow?: string;
@@ -32,6 +34,10 @@ export function HireCelebration({
   onClose,
 }: Props) {
   const { theme } = useTheme();
+  const t = useTranslate();
+  // Festival flair — when a hire lands during a festival window, the
+  // celebration picks up the festival's emoji + a seasonal line.
+  const festival = useFestival();
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const ringScale = useRef(new Animated.Value(0)).current;
   const ringOpacity = useRef(new Animated.Value(1)).current;
@@ -142,6 +148,26 @@ export function HireCelebration({
           >
             {subtitle}
           </Text>
+
+          {festival ? (
+            <View
+              style={{
+                marginTop: spacing.xs,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: radii.pill,
+                backgroundColor: festival.accentSoft,
+              }}
+            >
+              <Text style={{ fontSize: 15 }}>{festival.emoji}</Text>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: festival.accent }}>
+                {t('festival.celebration', { festival: festival.name })}
+              </Text>
+            </View>
+          ) : null}
 
           {details.length > 0 ? (
             <View
