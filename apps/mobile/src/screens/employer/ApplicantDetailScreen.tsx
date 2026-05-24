@@ -119,6 +119,12 @@ export function ApplicantDetailScreen() {
     onError: () => haptic('error'),
   });
 
+  // Pending-rating lookup. This hook MUST run before the loading / error
+  // early returns below — calling it later would change the hook count
+  // once `query` resolves, which crashes the screen with "rendered more
+  // hooks than during the previous render".
+  const unratedQuery = useUnratedApplications();
+
   if (query.isLoading) {
     // Skeleton arrangement that mirrors the loaded layout silhouette —
     // identity header → job-context block → skills/note rows.
@@ -161,10 +167,10 @@ export function ApplicantDetailScreen() {
 
   const applicant = query.data;
 
-  // Pending rating — true when this applicant has been hired by us and
-  // we haven't left a rating yet. Drives the inline "Rate this worker"
-  // banner near the top of the screen.
-  const unratedQuery = useUnratedApplications();
+  // Pending rating — true when this applicant has been hired by us and we
+  // haven't left a rating yet. Drives the inline "Rate this worker" banner.
+  // The hook itself runs above, before the early returns; here we only
+  // read its result.
   const unratedHere = (unratedQuery.data?.unrated ?? []).find(
     (u) => u.applicationId === applicant.id,
   );

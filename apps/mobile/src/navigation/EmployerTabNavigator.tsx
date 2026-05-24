@@ -1,10 +1,17 @@
 /**
  * EmployerTabNavigator — bottom tabs for the employer role.
  *
- * Same custom tab bar shape as the seeker side; different glyphs and
- * different destinations:
+ * Five top-level destinations (Phase E1 of the Employer-Side Spec):
  *
- *   Posts → Applicants → Workforce → Profile
+ *   Home → Jobs → Workers → Chat → You
+ *
+ * - Home is the command center — "what needs me now?".
+ * - Jobs is the job-postings list (the former Posts tab).
+ * - Workers unifies worker discovery + the hired workforce.
+ * - Chat and You are unchanged in spirit.
+ *
+ * The old flat Applicants tab is gone: applicant review is reached from
+ * Home's "applicants waiting on you" list and from each job.
  */
 
 import { Pressable, View } from 'react-native';
@@ -16,8 +23,9 @@ import { spacing } from '@doondo/tokens';
 import { Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
+import { EmployerHomeScreen } from '@/screens/employer/EmployerHomeScreen';
 import { PostsScreen } from '@/screens/employer/PostsScreen';
-import { ApplicantsScreen } from '@/screens/employer/ApplicantsScreen';
+import { WorkersScreen } from '@/screens/employer/WorkersScreen';
 import { EmployerProfileScreen } from '@/screens/employer/EmployerProfileScreen';
 import { ChatListScreen } from '@/screens/chat/ChatListScreen';
 import type { EmployerTabParamList } from './types';
@@ -25,8 +33,9 @@ import type { EmployerTabParamList } from './types';
 const Tab = createBottomTabNavigator<EmployerTabParamList>();
 
 const TAB_META: Record<keyof EmployerTabParamList, { label: string; glyph: string }> = {
-  Posts: { label: 'Posts', glyph: '◊' },
-  Applicants: { label: 'Applicants', glyph: '◉' },
+  EmployerHome: { label: 'Home', glyph: '⌂' },
+  EmployerJobs: { label: 'Jobs', glyph: '◊' },
+  Workers: { label: 'Workers', glyph: '◉' },
   Chat: { label: 'Chat', glyph: '✦' },
   EmployerProfile: { label: 'You', glyph: '⌘' },
 };
@@ -40,8 +49,9 @@ export function EmployerTabNavigator() {
       }}
       tabBar={(props) => <DoondoEmployerTabBar {...props} />}
     >
-      <Tab.Screen name="Posts" component={PostsScreen} />
-      <Tab.Screen name="Applicants" component={ApplicantsScreen} />
+      <Tab.Screen name="EmployerHome" component={EmployerHomeScreen} />
+      <Tab.Screen name="EmployerJobs" component={PostsScreen} />
+      <Tab.Screen name="Workers" component={WorkersScreen} />
       <Tab.Screen name="Chat" component={ChatListScreen} />
       <Tab.Screen
         name="EmployerProfile"

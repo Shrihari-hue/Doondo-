@@ -60,9 +60,15 @@ export type SeekerTabParamList = {
 };
 
 export type EmployerTabParamList = {
-  Posts: undefined;
-  Applicants: undefined;
+  /** Command center — what needs the employer's attention right now. */
+  EmployerHome: undefined;
+  /** Job postings (the former Posts tab). */
+  EmployerJobs: undefined;
+  /** Find workers (discovery) + the hired workforce. */
+  Workers: undefined;
+  /** Conversations with applicants and hired workers. */
   Chat: undefined;
+  /** Business profile, verification, reviews, payouts, settings. */
   EmployerProfile: undefined;
 };
 
