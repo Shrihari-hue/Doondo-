@@ -263,6 +263,15 @@ export interface SkillDocument {
   kind: 'document' | 'photo';
   sizeBytes: number;
   uploadedAt: string;
+  /**
+   * What OCR read out of the document on upload — title / issuer / date.
+   * Null when extraction found nothing (blurry photo, non-document).
+   */
+  extracted: {
+    title: string | null;
+    issuer: string | null;
+    issuedOn: string | null;
+  } | null;
 }
 
 export interface StreakCounter {

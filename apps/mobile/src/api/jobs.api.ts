@@ -32,6 +32,14 @@ export interface NearbyResponse {
   hasMore: boolean;
 }
 
+/** A city that currently has active jobs — drives the location picker. */
+export interface JobLocationSuggestion {
+  city: string;
+  lat: number;
+  lng: number;
+  jobCount: number;
+}
+
 function qs(params: Record<string, string | number | undefined>): string {
   const parts: string[] = [];
   for (const [k, v] of Object.entries(params)) {
@@ -91,6 +99,16 @@ export const jobsApi = {
         limit: p.limit,
       })}`,
       { auth: false },
+    ),
+
+  /**
+   * Cities that currently have active jobs — the location picker's
+   * suggestions, so a worker can search a place other than where they
+   * physically are. Optional `q` narrows by city name.
+   */
+  locations: (q?: string) =>
+    apiRequest<{ locations: JobLocationSuggestion[] }>(
+      `/jobs/locations${qs({ q: q && q.trim() ? q.trim() : undefined })}`,
     ),
 
   /**

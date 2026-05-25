@@ -48,6 +48,7 @@ import { ResumeBuilderScreen } from '@/screens/seeker/ResumeBuilderScreen';
 import { ResumePreviewScreen } from '@/screens/seeker/ResumePreviewScreen';
 import { TailoredResumeScreen } from '@/screens/seeker/TailoredResumeScreen';
 import { FestivalJobsScreen } from '@/screens/seeker/FestivalJobsScreen';
+import { LocationPickerScreen } from '@/screens/seeker/LocationPickerScreen';
 import { JobAlertsScreen } from '@/screens/seeker/JobAlertsScreen';
 import { JobAlertFormScreen } from '@/screens/seeker/JobAlertFormScreen';
 import { AvailableWorkersScreen } from '@/screens/employer/AvailableWorkersScreen';
@@ -284,6 +285,11 @@ export function AppNavigator() {
       <Stack.Screen
         name="FestivalJobs"
         component={FestivalJobsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="LocationPicker"
+        component={LocationPickerScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen

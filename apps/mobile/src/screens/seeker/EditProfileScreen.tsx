@@ -844,13 +844,26 @@ function SkillProofSection({
                   <Text style={{ fontSize: 14 }}>
                     {d.kind === 'photo' ? '🖼️' : '📄'}
                   </Text>
-                  <Text
-                    variant="caption"
-                    numberOfLines={1}
-                    style={{ flex: 1, color: theme.text.secondary }}
-                  >
-                    {d.fileName}
-                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      variant="caption"
+                      weight="medium"
+                      numberOfLines={1}
+                      style={{ color: theme.text.secondary }}
+                    >
+                      {d.extracted?.title || d.fileName}
+                    </Text>
+                    {d.extracted && (d.extracted.issuer || d.extracted.issuedOn) ? (
+                      <Text
+                        numberOfLines={1}
+                        style={{ fontSize: 10, color: theme.text.tertiary }}
+                      >
+                        {[d.extracted.issuer, d.extracted.issuedOn]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </Text>
+                    ) : null}
+                  </View>
                   <Pressable
                     onPress={() => deleteMutation.mutate(d.id)}
                     hitSlop={8}

@@ -34,6 +34,10 @@ router.get('/nearby', validate(nearbyQuerySchema), controller.nearby);
 // to commit. Must be registered before /:id to avoid the param route
 // capturing the literal "preview" segment.
 router.get('/preview', validate(previewQuerySchema), controller.preview);
+// Distinct cities with active jobs — powers the Jobs-screen location
+// picker (search jobs in a place other than where you physically are).
+// Registered before /:id so it isn't captured by the param route.
+router.get('/locations', requireAuth, controller.jobLocations);
 // "Today" + "This week" feeds — same geo pipeline, different time/urgency
 // filter. Listed above `/saved` so route ordering stays predictable.
 router.get('/today', validate(todayQuerySchema), controller.today);

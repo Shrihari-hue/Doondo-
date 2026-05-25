@@ -20,6 +20,20 @@ export async function nearby(req: Request, res: Response, next: NextFunction): P
   }
 }
 
+export async function jobLocations(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const q = typeof req.query.q === 'string' ? req.query.q : undefined;
+    const locations = await jobService.listJobLocations(q);
+    ok(req, res, 200, { locations });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function today(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const result = await jobService.findToday(req.query as never);

@@ -157,6 +157,16 @@ const schema = z.object({
   /** Transcription model. Default Whisper v1 — solid multilingual STT. */
   TRANSCRIPTION_MODEL: z.string().default('whisper-1'),
 
+  // ─── Skill-document OCR ───────────────────────────────────────────────
+  /**
+   * 'anthropic' reads uploaded skill-proof documents (certificates,
+   * licences) with the Anthropic Messages API to pull out title / issuer
+   * / date; 'mock' returns a plausible skill-derived stub so the feature
+   * works on a fresh checkout. Default 'mock'. Shares ANTHROPIC_API_KEY
+   * and ANTHROPIC_VISION_MODEL with the one-photo-profile extractor.
+   */
+  DOCUMENT_EXTRACT_PROVIDER: z.enum(['anthropic', 'mock']).default('mock'),
+
   // ─── In-chat translation ──────────────────────────────────────────────
   /**
    * 'anthropic' translates chat messages via the Anthropic Messages API;

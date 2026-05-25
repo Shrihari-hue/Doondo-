@@ -172,6 +172,21 @@ export const SKILL_DOC_KINDS = ['document', 'photo'] as const;
 export type SkillDocumentKind = (typeof SKILL_DOC_KINDS)[number];
 
 /**
+ * What OCR read out of a skill-proof document on upload — drives a
+ * human-meaningful display ("ITI Electrician Certificate · Govt ITI ·
+ * 2019") instead of a raw filename. All fields are nullable: a blurry
+ * photo or a non-document yields nulls.
+ */
+export interface SkillDocumentExtraction {
+  /** What the document is. */
+  title: string | null;
+  /** Who issued it. */
+  issuer: string | null;
+  /** Issue date as printed. */
+  issuedOn: string | null;
+}
+
+/**
  * A file the worker uploaded as proof of one skill — a certificate, a
  * licence, a training document, or a photo. The file itself lives on
  * cloud storage (see fileStorage.service); only the URL + metadata are
@@ -190,6 +205,8 @@ export interface SkillDocument {
   kind: SkillDocumentKind;
   sizeBytes: number;
   uploadedAt: Date;
+  /** OCR read of the document — null when extraction found nothing. */
+  extracted?: SkillDocumentExtraction | null;
 }
 
 /** Wire shape of a SkillDocument — `uploadedAt` serialised to ISO. */
@@ -202,6 +219,8 @@ export interface PublicSkillDocument {
   kind: SkillDocumentKind;
   sizeBytes: number;
   uploadedAt: string;
+  /** OCR read of the document — null when extraction found nothing. */
+  extracted: SkillDocumentExtraction | null;
 }
 
 export const BUSINESS_TYPES = [
@@ -628,6 +647,15 @@ const craftPhotoSchema = new Schema<CraftPhoto>(
 
 // Skill-proof files — only the CDN URL + metadata live on the document
 // (the file itself is on cloud storage), so each entry is tiny.
+const skillDocumentExtractionSchema = new Schema<SkillDocumentExtraction>(
+  {
+    title: { type: String, default: null, trim: true, maxlength: 200 },
+    issuer: { type: String, default: null, trim: true, maxlength: 200 },
+    issuedOn: { type: String, default: null, trim: true, maxlength: 80 },
+  },
+  { _id: false },
+);
+
 const skillDocumentSchema = new Schema<SkillDocument>(
   {
     id: { type: String, required: true },
@@ -638,6 +666,7 @@ const skillDocumentSchema = new Schema<SkillDocument>(
     kind: { type: String, enum: SKILL_DOC_KINDS, required: true },
     sizeBytes: { type: Number, required: true, min: 0 },
     uploadedAt: { type: Date, required: true },
+    extracted: { type: skillDocumentExtractionSchema, default: null },
   },
   { _id: false },
 );
@@ -988,6 +1017,13 @@ userSchema.method('toPublicJSON', function (
       kind: d.kind,
       sizeBytes: d.sizeBytes,
       uploadedAt: d.uploadedAt.toISOString(),
+      extracted: d.extracted
+        ? {
+            title: d.extracted.title ?? null,
+            issuer: d.extracted.issuer ?? null,
+            issuedOn: d.extracted.issuedOn ?? null,
+          }
+        : null,
     })),
     companyName: this.companyName ?? null,
     businessType: this.businessType ?? null,

@@ -54,7 +54,19 @@ export type SecureKey =
    * on, the seeker's job feeds are filtered to women-safe postings.
    * Opt-in; off by default. Lives on-device only.
    */
-  | 'womenModeEnabled';
+  | 'womenModeEnabled'
+  /**
+   * Jobs-list search location — a JSON `{ label, lat, lng }` of the place
+   * the worker chose to search around, or "" for "use my location".
+   * Lets a worker browse jobs in a city other than where they are.
+   */
+  | 'jobSearchPlace'
+  /**
+   * Recently-searched job places — a JSON array of `{ label, lat, lng }`,
+   * newest first, capped at 5. Powers one-tap re-selection in the
+   * location picker.
+   */
+  | 'jobSearchRecents';
 
 const PREFIX = 'doondo:';
 const memoryFallback = new Map<string, string>();

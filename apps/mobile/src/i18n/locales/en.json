@@ -304,7 +304,8 @@
       "find_gig": "Find your next gig nearby.",
       "within_km_of_you": "Within {{km}} km of you",
       "within_km_of_your_area": "Within {{km}} km of your area",
-      "demo_location": "Demo location — turn on GPS to see your area"
+      "demo_location": "Demo location — turn on GPS to see your area",
+      "within_km_of_place": "Within {{km}} km of {{place}}"
     },
     "job_count_one": "{{count}} job",
     "job_count_other": "{{count}} jobs",
@@ -378,7 +379,14 @@
       "overlay_interested": "INTERESTED",
       "overlay_skip": "SKIP",
       "overlay_save": "SAVE"
-    }
+    },
+    "change_location": "Change",
+    "no_jobs_in_place": {
+      "title": "No jobs in {{place}} yet",
+      "message": "Try a wider distance, or get notified when a job opens here.",
+      "notify": "Notify me"
+    },
+    "clear_location": "Clear location"
   },
   "job_detail": {
     "apply_now": "Apply Now",
@@ -2686,5 +2694,21 @@
     "error_title": "Couldn't attach file",
     "error_generic": "Something went wrong. Please try again.",
     "remove_a11y": "Remove {{name}}"
+  },
+  "location_picker": {
+    "title": "Search a place",
+    "search_placeholder": "City or area — e.g. Bengaluru",
+    "use_my_location": "Use my location",
+    "use_my_location_hint": "Jobs nearest to where you are",
+    "search_anywhere": "Search \"{{query}}\"",
+    "search_anywhere_hint": "Find this place anywhere",
+    "not_found": "Couldn't find that place — check the spelling",
+    "popular": "PLACES HIRING NOW",
+    "results": "PLACES WITH JOBS",
+    "jobs_count": "{{count}} jobs",
+    "no_job_cities": "No matching cities have jobs yet — try searching it as a place above.",
+    "no_cities_yet": "No jobs posted anywhere yet.",
+    "recent": "RECENT",
+    "home_town": "Your home town"
   }
 }

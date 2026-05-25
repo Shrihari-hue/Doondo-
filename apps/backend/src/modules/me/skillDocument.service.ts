@@ -10,6 +10,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { errors } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 import {
   UserModel,
   type PublicUser,
@@ -81,6 +82,30 @@ export async function addSkillDocument(
     fileName: input.fileName,
   });
 
+  // Best-effort OCR — read the certificate so the worker and the
+  // employer see "ITI Electrician Certificate · Govt ITI · 2019" instead
+  // of a raw filename. A failed read just leaves `extracted` null.
+  let extracted: {
+    title: string | null;
+    issuer: string | null;
+    issuedOn: string | null;
+  } | null = null;
+  try {
+    const { extractDocument } = await import(
+      '@/modules/documentExtract/documentExtract.service'
+    );
+    const r = await extractDocument({
+      dataUrl: input.dataUrl,
+      mimeType: input.mimeType,
+      skill: input.skill,
+    });
+    if (r.title || r.issuer || r.issuedOn) {
+      extracted = { title: r.title, issuer: r.issuer, issuedOn: r.issuedOn };
+    }
+  } catch (err) {
+    logger.warn({ err }, 'skill-document OCR failed');
+  }
+
   user.skillDocuments = [
     ...docs,
     {
@@ -92,6 +117,7 @@ export async function addSkillDocument(
       kind: inferKind(input.mimeType),
       sizeBytes: stored.sizeBytes,
       uploadedAt: new Date(),
+      extracted,
     },
   ];
   await user.save();

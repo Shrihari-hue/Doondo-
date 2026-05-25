@@ -443,9 +443,18 @@ export function ApplicantDetailScreen() {
                       <Text style={{ fontSize: 15 }}>
                         {d.kind === 'photo' ? '🖼️' : '📄'}
                       </Text>
-                      <Text variant="footnote" numberOfLines={1} style={{ flex: 1 }}>
-                        {d.fileName}
-                      </Text>
+                      <View style={{ flex: 1 }}>
+                        <Text variant="footnote" weight="medium" numberOfLines={1}>
+                          {d.extracted?.title || d.fileName}
+                        </Text>
+                        {d.extracted && (d.extracted.issuer || d.extracted.issuedOn) ? (
+                          <Text variant="caption" tone="tertiary" numberOfLines={1}>
+                            {[d.extracted.issuer, d.extracted.issuedOn]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </Text>
+                        ) : null}
+                      </View>
                       <Text variant="footnote" tone="hero">
                         ›
                       </Text>

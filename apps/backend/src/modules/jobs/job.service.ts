@@ -357,6 +357,72 @@ async function runGeoNearPipeline(input: {
   return { jobs, hasMore };
 }
 
+export interface JobLocationSuggestion {
+  /** City name as posted. */
+  city: string;
+  /** Representative coordinate to re-centre the nearby search on. */
+  lat: number;
+  lng: number;
+  /** How many active jobs are in this city. */
+  jobCount: number;
+}
+
+/**
+ * Distinct cities that currently have active jobs, optionally narrowed by
+ * a text query. Powers the Jobs-screen location picker — a worker can
+ * search jobs in a place other than where they physically are, and these
+ * suggestions only ever point at places that actually have jobs.
+ */
+export async function listJobLocations(
+  q?: string,
+): Promise<JobLocationSuggestion[]> {
+  const pipeline: PipelineStage[] = [
+    {
+      $match: {
+        status: 'active',
+        'location.city': { $type: 'string', $ne: '' },
+        'location.geo.coordinates': { $type: 'array' },
+      },
+    },
+  ];
+
+  const query = (q ?? '').trim();
+  if (query) {
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    pipeline.push({
+      $match: { 'location.city': { $regex: escaped, $options: 'i' } },
+    });
+  }
+
+  pipeline.push(
+    {
+      $group: {
+        _id: { $toLower: '$location.city' },
+        city: { $first: '$location.city' },
+        coordinates: { $first: '$location.geo.coordinates' },
+        jobCount: { $sum: 1 },
+      },
+    },
+    { $sort: { jobCount: -1 } },
+    { $limit: 12 },
+  );
+
+  const rows = await JobModel.aggregate<{
+    city: string;
+    coordinates: [number, number];
+    jobCount: number;
+  }>(pipeline);
+
+  return rows
+    .filter((r) => Array.isArray(r.coordinates) && r.coordinates.length === 2)
+    .map((r) => ({
+      city: r.city,
+      lng: r.coordinates[0],
+      lat: r.coordinates[1],
+      jobCount: r.jobCount,
+    }));
+}
+
 export async function findById(jobId: string): Promise<PublicJob> {
   // audioDescriptionUrl is select:false (list payloads stay small);
   // detail callers explicitly include it so the seeker can play it back.

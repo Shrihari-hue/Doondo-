@@ -297,7 +297,8 @@
       "find_gig": "अपने पास अगला काम ढूंढें।",
       "within_km_of_you": "आपसे {{km}} किमी के अंदर",
       "within_km_of_your_area": "आपके इलाके के {{km}} किमी के अंदर",
-      "demo_location": "डेमो स्थान — अपना इलाका देखने के लिए GPS चालू करें"
+      "demo_location": "डेमो स्थान — अपना इलाका देखने के लिए GPS चालू करें",
+      "within_km_of_place": "{{place}} के {{km}} किमी के भीतर"
     },
     "job_count_one": "{{count}} नौकरी",
     "job_count_other": "{{count}} नौकरियां",
@@ -371,7 +372,14 @@
       "overlay_interested": "इंटरेस्टेड",
       "overlay_skip": "छोड़ें",
       "overlay_save": "सेव"
-    }
+    },
+    "change_location": "बदलें",
+    "no_jobs_in_place": {
+      "title": "{{place}} में अभी कोई नौकरी नहीं",
+      "message": "अधिक दूरी आज़माएं, या यहाँ नौकरी खुलने पर सूचना पाएं।",
+      "notify": "मुझे सूचित करें"
+    },
+    "clear_location": "स्थान हटाएं"
   },
   "job_detail": {
     "apply_now": "अभी आवेदन करें",
@@ -2679,5 +2687,21 @@
     "error_title": "फ़ाइल नहीं जुड़ सकी",
     "error_generic": "कुछ गलत हुआ। कृपया फिर से कोशिश करें।",
     "remove_a11y": "{{name}} हटाएं"
+  },
+  "location_picker": {
+    "title": "जगह खोजें",
+    "search_placeholder": "शहर या क्षेत्र — जैसे बेंगलुरु",
+    "use_my_location": "मेरा स्थान उपयोग करें",
+    "use_my_location_hint": "आप जहाँ हैं उसके पास की नौकरियां",
+    "search_anywhere": "\"{{query}}\" खोजें",
+    "search_anywhere_hint": "यह जगह कहीं भी खोजें",
+    "not_found": "वह जगह नहीं मिली — वर्तनी जाँचें",
+    "popular": "अभी भर्ती करने वाले स्थान",
+    "results": "नौकरियों वाले स्थान",
+    "jobs_count": "{{count}} नौकरियां",
+    "no_job_cities": "मेल खाते किसी शहर में अभी नौकरियां नहीं — ऊपर इसे जगह के रूप में खोजें।",
+    "no_cities_yet": "अभी कहीं कोई नौकरी पोस्ट नहीं हुई।",
+    "recent": "हाल ही में",
+    "home_town": "आपका गृह नगर"
   }
 }

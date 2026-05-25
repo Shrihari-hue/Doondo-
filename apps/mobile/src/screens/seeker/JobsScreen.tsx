@@ -37,6 +37,7 @@ import { useTheme } from '@/theme/useTheme';
 import { jobsApi } from '@/api/jobs.api';
 import { applicationsApi, type MassApplyResult } from '@/api/applications.api';
 import { getCurrentCoords, type Coords } from '@/lib/location';
+import { useJobSearchLocationStore } from '@/stores/jobSearchLocation.store';
 import { haptic } from '@/lib/haptics';
 import { useAuth } from '@/hooks/useAuth';
 import { useTranslate } from '@/i18n/useTranslate';
@@ -81,6 +82,19 @@ export function JobsScreen() {
 
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [coordsSource, setCoordsSource] = useState<Coords['source'] | 'fallback'>('fallback');
+
+  // Search location — the worker can re-centre the feed on a chosen
+  // place instead of their own GPS position. `place` is null = use GPS.
+  const searchPlace = useJobSearchLocationStore((s) => s.place);
+  const setSearchPlace = useJobSearchLocationStore((s) => s.setPlace);
+  const hydrateSearchPlace = useJobSearchLocationStore((s) => s.hydrate);
+  useEffect(() => {
+    void hydrateSearchPlace();
+  }, [hydrateSearchPlace]);
+  // The coordinates the feed actually searches around.
+  const effectiveCoords = searchPlace
+    ? { lat: searchPlace.lat, lng: searchPlace.lng }
+    : coords;
   const [type, setType] = useState<JobType | 'all'>('all');
   const [view, setView] = useState<'list' | 'map'>('list');
   /** Search radius in km (UI unit). Converted to meters when calling the API. */
@@ -138,8 +152,8 @@ export function JobsScreen() {
     queryKey: [
       'jobs',
       'nearby',
-      coords?.lat,
-      coords?.lng,
+      effectiveCoords?.lat,
+      effectiveCoords?.lng,
       type,
       debouncedSearch,
       radiusKm,
@@ -147,15 +161,15 @@ export function JobsScreen() {
     ],
     queryFn: () =>
       jobsApi.nearby({
-        lat: coords!.lat,
-        lng: coords!.lng,
+        lat: effectiveCoords!.lat,
+        lng: effectiveCoords!.lng,
         radius: radiusKm * 1000, // km → meters
         ...(type !== 'all' ? { type } : {}),
         ...(debouncedSearch ? { q: debouncedSearch } : {}),
         ...(safeForWomenOnly ? { safeForWomenOnly: true } : {}),
         limit: 50,
       }),
-    enabled: coords != null,
+    enabled: effectiveCoords != null,
     staleTime: 60_000,
   });
 
@@ -265,6 +279,15 @@ export function JobsScreen() {
                 setRadiusKm(r);
               }}
               coordsSource={coordsSource}
+              searchPlaceLabel={searchPlace?.label ?? null}
+              onOpenLocationPicker={() => {
+                haptic('light');
+                navigation.navigate('LocationPicker');
+              }}
+              onClearLocation={() => {
+                haptic('selection');
+                void setSearchPlace(null);
+              }}
               jobCount={jobs.length}
               view={view}
               onChangeView={(v) => {
@@ -287,6 +310,46 @@ export function JobsScreen() {
               </View>
             ) : query.isError ? (
               <ErrorPanel error={query.error} onRetry={() => void query.refetch()} />
+            ) : searchPlace ? (
+              // A place was chosen but has no jobs in range — offer a
+              // job alert so the worker hears about the first one.
+              <View
+                style={{
+                  alignItems: 'center',
+                  gap: spacing.md,
+                  paddingVertical: spacing['2xl'],
+                  paddingHorizontal: spacing.xl,
+                }}
+              >
+                <Text style={{ fontSize: 40 }}>📍</Text>
+                <Text
+                  variant="bodyLarge"
+                  weight="medium"
+                  style={{ textAlign: 'center' }}
+                >
+                  {t('jobs.no_jobs_in_place.title', { place: searchPlace.label })}
+                </Text>
+                <Text
+                  variant="footnote"
+                  tone="secondary"
+                  style={{ textAlign: 'center' }}
+                >
+                  {t('jobs.no_jobs_in_place.message')}
+                </Text>
+                <Button
+                  label={t('jobs.no_jobs_in_place.notify')}
+                  fullWidth={false}
+                  onPress={() => {
+                    haptic('selection');
+                    navigation.navigate('JobAlertForm', {
+                      suggestion: {
+                        name: searchPlace.label,
+                        city: searchPlace.label,
+                      },
+                    });
+                  }}
+                />
+              </View>
             ) : (
               <EmptyState
                 glyph="◔"
@@ -347,6 +410,15 @@ export function JobsScreen() {
                 setRadiusKm(r);
               }}
               coordsSource={coordsSource}
+              searchPlaceLabel={searchPlace?.label ?? null}
+              onOpenLocationPicker={() => {
+                haptic('light');
+                navigation.navigate('LocationPicker');
+              }}
+              onClearLocation={() => {
+                haptic('selection');
+                void setSearchPlace(null);
+              }}
               jobCount={jobs.length}
               view={view}
               onChangeView={(v) => {
@@ -360,9 +432,9 @@ export function JobsScreen() {
               }}
             />
           </View>
-          {coords ? (
+          {effectiveCoords ? (
             <MapErrorBoundary onError={() => setView('list')}>
-              <JobsMapView coords={coords} jobs={jobs} radiusKm={radiusKm} />
+              <JobsMapView coords={effectiveCoords} jobs={jobs} radiusKm={radiusKm} />
             </MapErrorBoundary>
           ) : (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -389,6 +461,12 @@ interface HeaderProps {
   radiusKm: number;
   onChangeRadius: (km: number) => void;
   coordsSource: Coords['source'] | 'fallback';
+  /** Label of the chosen search place, or null = the worker's own location. */
+  searchPlaceLabel: string | null;
+  /** Open the location picker to change where the feed searches. */
+  onOpenLocationPicker: () => void;
+  /** Clear the chosen place — snap the feed back to the worker's location. */
+  onClearLocation: () => void;
   jobCount: number;
   view: 'list' | 'map';
   onChangeView: (v: 'list' | 'map') => void;
@@ -416,6 +494,9 @@ function Header({
   radiusKm,
   onChangeRadius,
   coordsSource,
+  searchPlaceLabel,
+  onOpenLocationPicker,
+  onClearLocation,
   jobCount,
   view,
   onChangeView,
@@ -424,12 +505,24 @@ function Header({
 }: HeaderProps) {
   const { theme } = useTheme();
 
-  const subtitle =
-    coordsSource === 'gps'
+  const subtitle = searchPlaceLabel
+    ? t('jobs.subtitle.within_km_of_place', {
+        km: radiusKm,
+        place: searchPlaceLabel,
+      })
+    : coordsSource === 'gps'
       ? t('jobs.subtitle.within_km_of_you', { km: radiusKm })
       : coordsSource === 'manual'
         ? t('jobs.subtitle.within_km_of_your_area', { km: radiusKm })
         : t('jobs.subtitle.demo_location');
+
+  const countSuffix =
+    jobCount > 0
+      ? ' · ' +
+        t(jobCount === 1 ? 'jobs.job_count_one' : 'jobs.job_count_other', {
+          count: jobCount,
+        })
+      : '';
 
   // First name only (less likely to wrap, friendlier)
   const firstName = userName?.split(/\s+/)[0]?.trim() || null;
@@ -487,16 +580,91 @@ function Header({
           <Text variant="bodyLarge" tone="secondary">
             {t('jobs.subtitle.find_gig')}
           </Text>
-          <Text variant="footnote" tone="tertiary" style={{ marginTop: 2 }}>
-            {subtitle}
-            {jobCount > 0
-              ? ' · ' +
-                t(
-                  jobCount === 1 ? 'jobs.job_count_one' : 'jobs.job_count_other',
-                  { count: jobCount },
-                )
-              : ''}
-          </Text>
+          {/* Location line — a removable chip while searching another
+             place, otherwise a tappable "Within X km of you · Change". */}
+          {searchPlaceLabel ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 8,
+                marginTop: 4,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderRadius: radii.pill,
+                  backgroundColor: theme.brand.heroSubtle,
+                  borderWidth: 0.5,
+                  borderColor: theme.brand.hero,
+                }}
+              >
+                <Pressable
+                  onPress={onOpenLocationPicker}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    paddingLeft: 10,
+                    paddingRight: 6,
+                    paddingVertical: 5,
+                  }}
+                >
+                  <Text style={{ fontSize: 12 }}>📍</Text>
+                  <Text
+                    variant="footnote"
+                    weight="medium"
+                    numberOfLines={1}
+                    style={{ color: theme.brand.hero, maxWidth: 180 }}
+                  >
+                    {searchPlaceLabel}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={onClearLocation}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('jobs.clear_location')}
+                  style={{ paddingRight: 9, paddingLeft: 2, paddingVertical: 5 }}
+                >
+                  <Text style={{ fontSize: 13, color: theme.brand.hero }}>✕</Text>
+                </Pressable>
+              </View>
+              <Text variant="footnote" tone="tertiary">
+                {t('jobs.km_chip', { km: radiusKm })}
+                {countSuffix}
+              </Text>
+            </View>
+          ) : (
+            <Pressable
+              onPress={onOpenLocationPicker}
+              hitSlop={6}
+              accessibilityRole="button"
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                marginTop: 2,
+              }}
+            >
+              <Text variant="footnote" tone="tertiary">
+                {subtitle}
+                {countSuffix}
+              </Text>
+              <Text
+                variant="footnote"
+                weight="medium"
+                style={{ color: theme.brand.hero, marginLeft: 6 }}
+              >
+                {t('jobs.change_location')}
+              </Text>
+            </Pressable>
+          )}
         </View>
 
         {/* List / Map segmented toggle */}

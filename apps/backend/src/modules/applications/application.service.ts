@@ -816,8 +816,14 @@ interface ApplicantListEntry extends PublicApplication {
 /** Normalise stored skill-document sub-docs into their wire shape. */
 function publicSkillDocuments(raw: unknown): PublicSkillDocument[] {
   if (!Array.isArray(raw)) return [];
+  const str = (v: unknown): string | null =>
+    typeof v === 'string' && v.trim() ? v.trim() : null;
   return raw.map((d) => {
     const o = (d ?? {}) as Record<string, unknown>;
+    const ex =
+      o.extracted && typeof o.extracted === 'object'
+        ? (o.extracted as Record<string, unknown>)
+        : null;
     return {
       id: String(o.id ?? ''),
       skill: String(o.skill ?? ''),
@@ -830,6 +836,13 @@ function publicSkillDocuments(raw: unknown): PublicSkillDocument[] {
         o.uploadedAt instanceof Date
           ? o.uploadedAt.toISOString()
           : String(o.uploadedAt ?? ''),
+      extracted: ex
+        ? {
+            title: str(ex.title),
+            issuer: str(ex.issuer),
+            issuedOn: str(ex.issuedOn),
+          }
+        : null,
     };
   });
 }
