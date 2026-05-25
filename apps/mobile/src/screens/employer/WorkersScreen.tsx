@@ -6,15 +6,25 @@
  *     workers map/list, Hire Reels, inbound interest, and sent requests.
  *   - My workforce — the people this employer has hired (a real, if
  *     initially thin, screen — the home for the old WorkforceScreen stub).
+ *
+ * Visual refresh: a light, illustrated hero (worker characters + a
+ * location pin), colour-coded launcher tiles, and a sun/moon control so
+ * the employer can flip between the dark and light palettes in place.
+ * Every surface is theme-driven, so the screen reads correctly in both.
  */
 
 import { useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import {
+  Image,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  View,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { spacing, radii, blue } from '@doondo/tokens';
 import { Screen, Text, LoadingSpinner, EmptyState, Avatar } from '@/components';
@@ -23,14 +33,70 @@ import { haptic } from '@/lib/haptics';
 import { applicationsApi, type ApplicantEntry } from '@/api/applications.api';
 import type { AppStackParamList } from '@/navigation/types';
 
+const HERO_IMAGE = require('../../../assets/images/workers-hero.png');
+
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type Segment = 'find' | 'workforce';
+type TileTone = 'blue' | 'purple' | 'amber' | 'green';
+
+/**
+ * Launcher-tile tints. Intentionally OFF the coral brand palette — these
+ * five-ish colours add wayfinding variety, the same way the seeker home
+ * category tiles do. Each tone carries a light and a dark variant so the
+ * tile stays legible whichever palette is active.
+ */
+const TILE_TINT: Record<TileTone, { light: string; dark: string }> = {
+  blue: { light: '#DBEAFE', dark: 'rgba(59,130,246,0.22)' },
+  purple: { light: '#EAE4FD', dark: 'rgba(139,109,232,0.24)' },
+  amber: { light: '#FFE7CC', dark: 'rgba(239,138,60,0.22)' },
+  green: { light: '#D6F5E3', dark: 'rgba(34,197,138,0.22)' },
+};
+
+const LAUNCHERS: {
+  tone: TileTone;
+  glyph: string;
+  title: string;
+  subtitle: string;
+  route: keyof AppStackParamList;
+}[] = [
+  {
+    tone: 'blue',
+    glyph: '📡',
+    title: 'Available now',
+    subtitle:
+      'Workers broadcasting that they’re free nearby — browse them as a list or on a map.',
+    route: 'AvailableWorkers',
+  },
+  {
+    tone: 'purple',
+    glyph: '🎬',
+    title: 'Hire Reels',
+    subtitle: 'Swipe through 30-second worker intro videos.',
+    route: 'ReelFeed',
+  },
+  {
+    tone: 'amber',
+    glyph: '🙋',
+    title: 'Interested in you',
+    subtitle: 'Workers who asked to work for you — invite them to a job.',
+    route: 'InterestedWorkers',
+  },
+  {
+    tone: 'green',
+    glyph: '📤',
+    title: 'Requests sent',
+    subtitle: 'Hiring requests you’ve sent, and how workers responded.',
+    route: 'SentHiringRequests',
+  },
+];
 
 export function WorkersScreen() {
-  const { theme } = useTheme();
+  const { theme, scheme, setScheme } = useTheme();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const [segment, setSegment] = useState<Segment>('find');
+
+  const isDark = scheme === 'dark';
 
   const hiredQuery = useQuery({
     queryKey: ['applicants', 'employer', 'hired'],
@@ -44,39 +110,87 @@ export function WorkersScreen() {
 
   return (
     <Screen edges={[]}>
-      <LinearGradient
-        colors={[blue[700], blue[600], blue[500]]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      {/* ── Illustrated hero ─────────────────────────────────────────── */}
+      <View
         style={{
-          paddingTop: insets.top + spacing.lg,
+          paddingTop: insets.top + spacing.sm,
           paddingHorizontal: spacing.xl,
-          paddingBottom: spacing.xl,
-          borderBottomLeftRadius: radii.xl,
-          borderBottomRightRadius: radii.xl,
+          paddingBottom: spacing.md,
         }}
       >
-        <Text style={{ fontSize: 22, fontWeight: '700', color: '#FFFFFF' }}>
-          Workers
-        </Text>
-        <Text
+        {/* top row — palette toggle */}
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+          <Pressable
+            onPress={() => {
+              haptic('selection');
+              setScheme(isDark ? 'light' : 'dark');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={
+              isDark ? 'Switch to light theme' : 'Switch to dark theme'
+            }
+            hitSlop={8}
+            style={({ pressed }) => ({
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: theme.bg.surface,
+              borderWidth: 0.5,
+              borderColor: theme.border.default,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Text style={{ fontSize: 16 }}>{isDark ? '☀️' : '🌙'}</Text>
+          </Pressable>
+        </View>
+
+        {/* title + illustration */}
+        <View
           style={{
-            fontSize: 13,
-            lineHeight: 19,
-            color: 'rgba(255,255,255,0.85)',
-            marginTop: 2,
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: -spacing.xs,
           }}
         >
-          Find people to hire and manage the team you’ve built.
-        </Text>
-      </LinearGradient>
+          <View style={{ flex: 1, paddingRight: spacing.sm }}>
+            <Text
+              style={{
+                fontSize: 30,
+                fontWeight: '800',
+                letterSpacing: -0.6,
+                color: theme.text.primary,
+              }}
+            >
+              Workers
+            </Text>
+            <Text
+              style={{
+                fontSize: 13.5,
+                lineHeight: 19,
+                color: theme.text.secondary,
+                marginTop: 4,
+              }}
+            >
+              Find people to hire and manage the team you’ve built.
+            </Text>
+          </View>
+          <Image
+            source={HERO_IMAGE}
+            resizeMode="contain"
+            style={{ width: 152, height: 124 }}
+            accessibilityIgnoresInvertColors
+          />
+        </View>
+      </View>
 
-      {/* Segmented toggle */}
+      {/* ── Segmented toggle ─────────────────────────────────────────── */}
       <View
         style={{
           flexDirection: 'row',
           alignSelf: 'center',
-          marginTop: spacing.md,
+          marginTop: spacing.xs,
           backgroundColor: theme.bg.surface,
           borderRadius: radii.pill,
           borderWidth: 0.5,
@@ -98,36 +212,24 @@ export function WorkersScreen() {
 
       {segment === 'find' ? (
         <ScrollView
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             padding: spacing.xl,
             paddingBottom: insets.bottom + spacing['5xl'],
             gap: spacing.sm,
           }}
         >
-          <LauncherCard
-            glyph="📡"
-            title="Available now"
-            subtitle="Workers broadcasting that they’re free nearby — browse them as a list or on a map."
-            onPress={() => navigation.navigate('AvailableWorkers')}
-          />
-          <LauncherCard
-            glyph="🎬"
-            title="Hire Reels"
-            subtitle="Swipe through 30-second worker intro videos."
-            onPress={() => navigation.navigate('ReelFeed')}
-          />
-          <LauncherCard
-            glyph="🙋"
-            title="Interested in you"
-            subtitle="Workers who asked to work for you — invite them to a job."
-            onPress={() => navigation.navigate('InterestedWorkers')}
-          />
-          <LauncherCard
-            glyph="📤"
-            title="Requests sent"
-            subtitle="Hiring requests you’ve sent, and how workers responded."
-            onPress={() => navigation.navigate('SentHiringRequests')}
-          />
+          {LAUNCHERS.map((item) => (
+            <LauncherCard
+              key={item.route}
+              glyph={item.glyph}
+              title={item.title}
+              subtitle={item.subtitle}
+              tileColor={isDark ? TILE_TINT[item.tone].dark : TILE_TINT[item.tone].light}
+              isDark={isDark}
+              onPress={() => navigation.navigate(item.route as never)}
+            />
+          ))}
         </ScrollView>
       ) : hiredQuery.isLoading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -148,6 +250,7 @@ export function WorkersScreen() {
         />
       ) : (
         <ScrollView
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             padding: spacing.xl,
             paddingBottom: insets.bottom + spacing['5xl'],
@@ -221,7 +324,7 @@ function SegTab({
         style={{
           fontSize: 13,
           fontWeight: '700',
-          color: active ? '#FFFFFF' : theme.text.tertiary,
+          color: active ? '#FFFFFF' : theme.text.secondary,
         }}
       >
         {label}
@@ -234,11 +337,15 @@ function LauncherCard({
   glyph,
   title,
   subtitle,
+  tileColor,
+  isDark,
   onPress,
 }: {
   glyph: string;
   title: string;
   subtitle: string;
+  tileColor: string;
+  isDark: boolean;
   onPress: () => void;
 }) {
   const { theme } = useTheme();
@@ -258,34 +365,40 @@ function LauncherCard({
         borderWidth: 0.5,
         borderColor: theme.border.subtle,
         padding: spacing.lg,
-        opacity: pressed ? 0.8 : 1,
+        opacity: pressed ? 0.85 : 1,
+        transform: [{ scale: pressed ? 0.99 : 1 }],
+        shadowColor: '#0B1B3A',
+        shadowOpacity: isDark ? 0 : 0.07,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 5 },
+        elevation: isDark ? 0 : 2,
       })}
     >
       <View
         style={{
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          backgroundColor: theme.bg.canvas,
+          width: 52,
+          height: 52,
+          borderRadius: 15,
+          backgroundColor: tileColor,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Text style={{ fontSize: 20 }}>{glyph}</Text>
+        <Text style={{ fontSize: 24 }}>{glyph}</Text>
       </View>
-      <View style={{ flex: 1, gap: 2 }}>
+      <View style={{ flex: 1, gap: 3 }}>
         <Text
-          style={{ fontSize: 15, fontWeight: '700', color: theme.text.primary }}
+          style={{ fontSize: 15.5, fontWeight: '700', color: theme.text.primary }}
         >
           {title}
         </Text>
         <Text
-          style={{ fontSize: 12, color: theme.text.tertiary, lineHeight: 17 }}
+          style={{ fontSize: 12.5, color: theme.text.secondary, lineHeight: 17 }}
         >
           {subtitle}
         </Text>
       </View>
-      <Text style={{ fontSize: 18, color: theme.text.tertiary }}>›</Text>
+      <Text style={{ fontSize: 20, color: theme.text.tertiary }}>›</Text>
     </Pressable>
   );
 }

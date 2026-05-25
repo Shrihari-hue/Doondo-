@@ -4,7 +4,7 @@
  *
  * Why a separate provider instead of switching the root ThemeProvider:
  *   - The employer side stays on warm-dark luxe. We only want the
- *     seeker tabs + seeker modal screens (JobDetail, VoiceSearch, etc.)
+ *     seeker tabs + seeker modal screens (JobDetail, VoiceAgent, etc.)
  *     to switch palette.
  *   - The root ThemeProvider stays untouched so existing screens that
  *     use useTheme() inside the employer tree still get the dark palette.

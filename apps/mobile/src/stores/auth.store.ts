@@ -73,6 +73,13 @@ interface AuthState {
   /** Id of the active account inside `savedAccounts`. */
   activeAccountId: string | null;
 
+  /**
+   * Display name of the account a switch is moving to. Set for the
+   * duration of an in-flight switchAccount so the boot splash can show
+   * "Switching to …"; null at all other times.
+   */
+  switchingToName: string | null;
+
   /** Hydrate from secure store + /me on app start. Idempotent. */
   bootstrap: () => Promise<void>;
 
@@ -89,9 +96,18 @@ interface AuthState {
   /**
    * Swap the active session to another saved account. The whole app
    * re-routes (seeker tabs ↔ employer tabs) because AppNavigator keys
-   * off user.role.
+   * off user.role. Resolves `true` on success, `false` if the switch
+   * failed (the caller can then surface an error).
    */
-  switchAccount: (accountId: string) => Promise<void>;
+  switchAccount: (accountId: string) => Promise<boolean>;
+
+  /**
+   * Remove a saved account from THIS device. For a non-active account
+   * its refresh token is revoked server-side (best-effort) and the entry
+   * is dropped from the switcher. Removing the active account is just a
+   * logout.
+   */
+  removeAccount: (accountId: string) => Promise<void>;
 
   /** Update the access token (e.g. after a refresh interceptor rotation). */
   updateTokens: (accessToken: string, refreshToken: string) => Promise<void>;
@@ -171,6 +187,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   offline: false,
   savedAccounts: [],
   activeAccountId: null,
+  switchingToName: null,
 
   async bootstrap() {
     // Pull both the legacy single-account key and the new multi-account
@@ -295,8 +312,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   async switchAccount(accountId) {
     const account = get().savedAccounts.find((a) => a.userId === accountId);
-    if (!account) return;
-    if (account.userId === get().activeAccountId) return;
+    if (!account) return false;
+    if (account.userId === get().activeAccountId) return true;
+
+    // The name shown on the boot splash while the switch is in flight.
+    const switchingToName =
+      account.role === 'employer' && account.companyName
+        ? account.companyName
+        : account.name;
 
     // Flip to bootstrapping so the RootNavigator shows the splash while
     // we exchange the new account's refresh token for a fresh access
@@ -307,6 +330,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       user: null,
       accessToken: null,
       refreshToken: null,
+      switchingToName,
     });
 
     try {
@@ -337,19 +361,52 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           refreshToken: tokens.refreshToken,
         }),
         activeAccountId: user.id,
+        switchingToName: null,
       });
-    } catch {
-      // Switch failed (revoked / network). Drop the bad entry so the
-      // switcher doesn't keep offering it, then fall back to whichever
-      // account was active before (if its token is still around).
-      const remaining = get().savedAccounts.filter(
-        (a) => a.userId !== account.userId,
-      );
-      await writeSavedAccounts(remaining);
-      set({ savedAccounts: remaining });
+      return true;
+    } catch (err) {
+      // A transient failure (no signal, 5xx) must NOT evict the account —
+      // the worker may just be in a low-coverage area, and the account is
+      // still perfectly valid. Only a permanent failure (revoked / expired
+      // token) drops the entry from the switcher. On this failure path the
+      // secure `refreshToken` key was never overwritten, so bootstrap
+      // restores whichever account was active before the attempt.
+      const transient = err instanceof ApiError && err.isTransient;
+      if (!transient) {
+        const remaining = get().savedAccounts.filter(
+          (a) => a.userId !== account.userId,
+        );
+        await writeSavedAccounts(remaining);
+        set({ savedAccounts: remaining });
+      }
+      set({ switchingToName: null });
       // Re-run bootstrap to re-establish whatever session is still valid.
       await get().bootstrap();
+      return false;
     }
+  },
+
+  async removeAccount(accountId) {
+    // Removing the account you're currently using is just a logout —
+    // delegate so the revoke + auto-switch-to-next logic stays in one place.
+    if (accountId === get().activeAccountId) {
+      await get().logout();
+      return;
+    }
+    const account = get().savedAccounts.find((a) => a.userId === accountId);
+    if (!account) return;
+    // Best-effort server-side revoke of this account's refresh token so a
+    // removed account can't be silently brought back. Local removal
+    // proceeds even if the network call fails.
+    try {
+      await authApi.logout(account.refreshToken);
+    } catch {
+      // ignore — local removal is what matters here
+    }
+    const remaining = get().savedAccounts.filter((a) => a.userId !== accountId);
+    await writeSavedAccounts(remaining);
+    void clearCachedUser(accountId);
+    set({ savedAccounts: remaining });
   },
 
   async updateTokens(accessToken, refreshToken) {

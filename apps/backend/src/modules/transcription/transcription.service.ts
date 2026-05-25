@@ -51,10 +51,11 @@ class MockTranscriptionProvider implements TranscriptionProvider {
       { audioBytes: input.dataUrl.length, mimeType: input.mimeType },
       'transcription: using mock provider',
     );
+    // A clearly-labelled placeholder — NOT a fake real transcript. The
+    // old mock returned a plausible sentence, which read as a wrong real
+    // transcription. This makes it obvious a provider isn't configured.
     return {
-      text:
-        'Hello, I saw your job post and I am interested. I can start soon — ' +
-        'please let me know the timing and the location.',
+      text: '(Voice transcript preview — set TRANSCRIPTION_PROVIDER=openai for real transcripts.)',
       provider: 'mock',
     };
   }

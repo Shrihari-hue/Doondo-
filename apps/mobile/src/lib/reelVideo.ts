@@ -13,7 +13,11 @@
  */
 
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+// SDK 54 moved the functional file API to the `/legacy` entry point. The bare
+// `expo-file-system` import now exposes only the new File/Directory classes —
+// its `readAsStringAsync`/`getInfoAsync` shims `throw` at runtime. Importing
+// from `/legacy` keeps the supported, working functional API.
+import * as FileSystem from 'expo-file-system/legacy';
 
 export interface ReelCaptureResult {
   /** Local file URI — play this for an instant preview before upload. */
@@ -43,10 +47,8 @@ async function processAsset(
   }
 
   // ImagePicker doesn't hand back base64 for video — read it off the URI.
-  // `EncodingType` moved to the legacy entry in expo-file-system SDK 54+;
-  // the bare 'base64' string is the supported form across the versions we ship.
   const base64 = await FileSystem.readAsStringAsync(picked.uri, {
-    encoding: 'base64' as never,
+    encoding: FileSystem.EncodingType.Base64,
   });
   if (base64.length > MAX_BASE64_BYTES) {
     throw new Error(

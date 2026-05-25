@@ -25,7 +25,6 @@ import { SeekerTabNavigator } from './SeekerTabNavigator';
 import { EmployerTabNavigator } from './EmployerTabNavigator';
 import { JobDetailScreen } from '@/screens/seeker/JobDetailScreen';
 import { EditProfileScreen } from '@/screens/seeker/EditProfileScreen';
-import { VoiceSearchScreen } from '@/screens/seeker/VoiceSearchScreen';
 import { VoiceAgentScreen } from '@/screens/seeker/VoiceAgentScreen';
 import { WomenHubScreen } from '@/screens/seeker/WomenHubScreen';
 import { RecordReelScreen } from '@/screens/seeker/RecordReelScreen';
@@ -172,11 +171,6 @@ export function AppNavigator() {
       />
 
       {/* Seeker Phase 2 redesign modals */}
-      <Stack.Screen
-        name="VoiceSearch"
-        component={VoiceSearchScreen}
-        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
-      />
       <Stack.Screen
         name="VoiceAgent"
         component={VoiceAgentScreen}

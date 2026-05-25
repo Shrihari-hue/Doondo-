@@ -385,7 +385,8 @@ export async function sendMessage(
     void transcribeVoiceMessage({
       messageId: messageJson.id,
       conversationId: conversation.id,
-      participantIds: [userId, recipientId],
+      senderId: userId,
+      recipientId,
       dataUrl: input.attachment.dataUrl,
       mimeType: input.attachment.mimeType,
     });
@@ -556,7 +557,8 @@ async function translateMessageForRecipient(input: {
 async function transcribeVoiceMessage(input: {
   messageId: string;
   conversationId: string;
-  participantIds: string[];
+  senderId: string;
+  recipientId: string;
   dataUrl: string;
   mimeType: string;
 }): Promise<void> {
@@ -576,11 +578,24 @@ async function transcribeVoiceMessage(input: {
       { $set: { transcript } },
     );
 
-    for (const uid of input.participantIds) {
+    for (const uid of [input.senderId, input.recipientId]) {
       emitToUser(uid, 'chat:message_transcribed', {
         messageId: input.messageId,
         conversationId: input.conversationId,
         transcript,
+      });
+    }
+
+    // Translate the transcript into the recipient's language too — a
+    // voice note in another language should be readable, the same way a
+    // text message is. Best-effort + budget-capped, same as text.
+    if (consumeTranslationBudget(input.senderId)) {
+      void translateMessageForRecipient({
+        messageId: input.messageId,
+        conversationId: input.conversationId,
+        senderId: input.senderId,
+        recipientId: input.recipientId,
+        body: transcript,
       });
     }
   } catch (err) {

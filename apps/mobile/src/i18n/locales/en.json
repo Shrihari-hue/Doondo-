@@ -76,7 +76,8 @@
   "profile_groups": {
     "grow": "Grow your career",
     "rights": "Your rights & safety",
-    "account": "Resume & account"
+    "account": "Resume & account",
+    "connect": "Find work buddies"
   },
   "home": {
     "title": "Doondo",
@@ -191,7 +192,11 @@
         "trade_a11y_selected": "{{label}}, selected",
         "trade_a11y": "{{label}}",
         "day_a11y_selected": "Day {{n}}, selected",
-        "day_a11y": "Day {{n}}"
+        "day_a11y": "Day {{n}}",
+        "hint_need_trade": "Pick at least one type of work to broadcast.",
+        "hint_need_day": "Pick at least one day for the weekly schedule.",
+        "time_error": "Enter a valid window — HH:MM (24h), end after start.",
+        "summary_ready": "Ready — nearby employers will see you the moment you broadcast."
       }
     },
     "wage": {
@@ -378,7 +383,9 @@
       "fallback_employer": "Employer",
       "overlay_interested": "INTERESTED",
       "overlay_skip": "SKIP",
-      "overlay_save": "SAVE"
+      "overlay_save": "SAVE",
+      "entry_title": "Same-day swipe",
+      "entry_subtitle": "Swipe through today's urgent jobs"
     },
     "change_location": "Change",
     "no_jobs_in_place": {
@@ -386,7 +393,12 @@
       "message": "Try a wider distance, or get notified when a job opens here.",
       "notify": "Notify me"
     },
-    "clear_location": "Clear location"
+    "clear_location": "Clear location",
+    "hiring_requests_banner": {
+      "title_one": "{{count}} employer wants to hire you",
+      "title_other": "{{count}} employers want to hire you",
+      "subtitle": "Tap to view and respond"
+    }
   },
   "job_detail": {
     "apply_now": "Apply Now",
@@ -566,7 +578,9 @@
       "build_resume": "Build my resume",
       "build_resume_subtitle": "Walk through your last 1–5 jobs",
       "ratings_count_one": "{{avg}} from {{count}} rating",
-      "ratings_count_other": "{{avg}} from {{count}} ratings"
+      "ratings_count_other": "{{avg}} from {{count}} ratings",
+      "hiring_requests": "Hiring requests",
+      "hiring_requests_subtitle": "Job offers from employers"
     },
     "signout": {
       "button": "Sign out",
@@ -1619,7 +1633,17 @@
       "err_phone_invalid": "Enter a valid phone number",
       "err_email_taken": "An account with this email already exists — use a different email for this employer account",
       "err_rate_limited": "Too many attempts. Try again in a minute.",
-      "err_generic": "Something went wrong. Please try again."
+      "err_generic": "Something went wrong. Please try again.",
+      "login_eyebrow": "SIGN IN TO ANOTHER ACCOUNT",
+      "login_title": "Sign in to add an account",
+      "login_subtitle": "Sign in to an account you already have. It's added next to this one — both stay signed in.",
+      "cta_signin": "Sign in & add account",
+      "cta_signing_in": "Signing in…",
+      "have_account_q": "Already have an account?",
+      "have_account_cta": "Sign in",
+      "no_account_q": "Need a new account?",
+      "no_account_cta": "Create one",
+      "err_invalid_credentials": "Email or password is incorrect"
     }
   },
   "role_picker": {
@@ -2710,5 +2734,24 @@
     "no_cities_yet": "No jobs posted anywhere yet.",
     "recent": "RECENT",
     "home_town": "Your home town"
+  },
+  "account_switcher": {
+    "title": "SWITCH ACCOUNT",
+    "add_employer": "Add Employer account",
+    "add_another": "Add another account",
+    "add_employer_hint": "Post jobs and hire workers",
+    "add_another_hint": "Sign in or sign up — keeps this account active",
+    "role_employer": "Employer · Hiring",
+    "role_seeker": "Seeker · Looking for work",
+    "role_admin": "Admin",
+    "switching_to": "Switching to {{name}}…",
+    "switch_failed_title": "Couldn't switch account",
+    "switch_failed_body": "Something went wrong. Check your connection and try again.",
+    "remove_hint": "Press and hold an account to remove it from this device.",
+    "remove_title": "Remove account?",
+    "remove_body": "{{name}} will be removed from this device. You can sign in again any time.",
+    "remove_cancel": "Cancel",
+    "remove_confirm": "Remove",
+    "updates_a11y": "{{count}} updates waiting"
   }
 }

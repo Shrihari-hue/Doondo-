@@ -119,12 +119,10 @@ export type AppStackParamList = {
    * a working number on file for password reset.
    */
   AddRecoveryPhone: undefined;
-  /** Modal: voice-driven job search (legacy speech-to-textbox screen). */
-  VoiceSearch: undefined;
   /**
    * Modal: the conversational voice job-search agent — speak a search,
    * hear the results read back, apply by voice. Pushed by the center
-   * FAB mic; supersedes the older VoiceSearch screen.
+   * FAB mic.
    */
   VoiceAgent: undefined;
   /**

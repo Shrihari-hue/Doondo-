@@ -59,7 +59,12 @@ import {
   renderMessageBody,
   type QuickReply,
 } from '@/lib/quickReplyCatalog';
-import type { MessageAttachment, PublicMessage } from '@/api/types';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import type {
+  MessageAttachment,
+  MessageTranslation,
+  PublicMessage,
+} from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'Conversation'>;
@@ -796,6 +801,8 @@ function MessageBubble({
             isMine={isMine}
             fg={fg}
             transcript={message.transcript}
+            translation={message.translation}
+            t={t}
           />
         ) : message.kind === 'video' && message.attachment ? (
           <VideoAttachment
@@ -1044,116 +1051,159 @@ function VoiceAttachment({
   isMine,
   fg,
   transcript,
+  translation,
+  t,
 }: {
   attachment: MessageAttachment;
   isMine: boolean;
   fg: string;
   transcript?: string | null;
+  translation?: MessageTranslation | null;
+  t: TFn;
 }) {
-  const [player, setPlayer] = useState<unknown>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
   const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [preparing, setPreparing] = useState(false);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Lazy-load the audio module so it doesn't crash on platforms without it.
-  async function ensurePlayer() {
-    if (player) return player as { play: () => Promise<void>; pause: () => Promise<void>; release: () => void; duration: number; currentTime: number };
+  function stopTick() {
+    if (tickRef.current) {
+      clearInterval(tickRef.current);
+      tickRef.current = null;
+    }
+  }
+
+  /**
+   * Materialise the base64 data URL to a temp file, then create the
+   * player. expo-audio's native player can't reliably play a `data:`
+   * URI, so we write the bytes to the cache dir and play that file.
+   */
+  async function ensurePlayer(): Promise<AudioPlayer | null> {
+    if (playerRef.current) return playerRef.current;
+    const match = /^data:[^;]+;base64,(.*)$/.exec(attachment.dataUrl);
+    if (!match) return null;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { Audio } = require('expo-audio');
-      const inst = await Audio.AudioPlayer.createAsync({ uri: attachment.dataUrl });
-      setPlayer(inst);
-      return inst;
+      const fs = await import('expo-file-system/legacy');
+      const uri = `${fs.cacheDirectory ?? ''}voice-${Date.now()}.m4a`;
+      await fs.writeAsStringAsync(uri, match[1] ?? '', {
+        encoding: fs.EncodingType.Base64,
+      });
+      const player = createAudioPlayer(uri);
+      playerRef.current = player;
+      return player;
     } catch {
       return null;
     }
   }
 
   async function toggle() {
-    const p = (await ensurePlayer()) as
-      | { play: () => Promise<void>; pause: () => Promise<void>; currentTime: number; duration: number }
-      | null;
-    if (!p) return;
     if (playing) {
-      await p.pause();
+      playerRef.current?.pause();
       setPlaying(false);
-      if (tickRef.current) clearInterval(tickRef.current);
-    } else {
-      await p.play();
-      setPlaying(true);
-      tickRef.current = setInterval(() => {
-        setElapsed(Math.round((p.currentTime ?? 0)));
-        if (p.duration && p.currentTime >= p.duration - 0.1) {
-          setPlaying(false);
-          setElapsed(0);
-          if (tickRef.current) clearInterval(tickRef.current);
-        }
-      }, 250);
+      stopTick();
+      return;
     }
+    setPreparing(true);
+    const p = await ensurePlayer();
+    setPreparing(false);
+    if (!p) return;
+    // Restart from the beginning if it had played to the end.
+    if (p.duration > 0 && p.currentTime >= p.duration - 0.2) {
+      await p.seekTo(0);
+      setElapsed(0);
+    }
+    p.play();
+    setPlaying(true);
+    tickRef.current = setInterval(() => {
+      const player = playerRef.current;
+      if (!player) return;
+      const cur = player.currentTime ?? 0;
+      const dur = player.duration ?? 0;
+      setElapsed(cur);
+      if (dur > 0 && cur >= dur - 0.2) {
+        player.pause();
+        void player.seekTo(0);
+        setPlaying(false);
+        setElapsed(0);
+        stopTick();
+      }
+    }, 200);
   }
 
   useEffect(() => {
     return () => {
-      if (tickRef.current) clearInterval(tickRef.current);
+      stopTick();
       try {
-        (player as { release?: () => void } | null)?.release?.();
+        playerRef.current?.remove();
       } catch {
         /* best-effort */
       }
     };
-  }, [player]);
+  }, []);
 
   const duration = attachment.durationSeconds ?? 0;
   const shown = playing ? elapsed : duration;
+  const showTranslation =
+    !isMine && translation != null && translation.text.length > 0;
 
   return (
     <View style={{ gap: 6 }}>
-    <Pressable
-      onPress={toggle}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        paddingHorizontal: 4,
-        paddingVertical: 2,
-        minWidth: 140,
-      }}
-    >
-      <View
+      <Pressable
+        onPress={() => void toggle()}
+        accessibilityRole="button"
         style={{
-          width: 36,
-          height: 36,
-          borderRadius: 18,
-          backgroundColor: isMine ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.08)',
+          flexDirection: 'row',
           alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ fontSize: 16, color: fg }}>{playing ? '❚❚' : '▶'}</Text>
-      </View>
-      {/* Simple progress strip — full when paused, animated when playing */}
-      <View
-        style={{
-          flex: 1,
-          height: 4,
-          borderRadius: 2,
-          backgroundColor: isMine ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.08)',
-          overflow: 'hidden',
+          gap: 10,
+          paddingHorizontal: 4,
+          paddingVertical: 2,
+          minWidth: 150,
         }}
       >
         <View
           style={{
-            width: duration > 0 ? `${Math.min(100, (elapsed / duration) * 100)}%` : '0%',
-            height: '100%',
-            backgroundColor: fg,
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            backgroundColor: isMine ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.08)',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
-        />
-      </View>
-      <Text style={{ fontSize: 12, color: fg, minWidth: 36, textAlign: 'right' }}>
-        {fmt(shown)}
-      </Text>
-    </Pressable>
-      {/* Auto-transcript — appears a few seconds after the note is sent,
+        >
+          {preparing ? (
+            <ActivityIndicator size="small" color={fg} />
+          ) : (
+            <Text style={{ fontSize: 16, color: fg }}>{playing ? '❚❚' : '▶'}</Text>
+          )}
+        </View>
+        {/* Progress strip — fills as the clip plays */}
+        <View
+          style={{
+            flex: 1,
+            height: 4,
+            borderRadius: 2,
+            backgroundColor: isMine ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.08)',
+            overflow: 'hidden',
+          }}
+        >
+          <View
+            style={{
+              width:
+                duration > 0
+                  ? `${Math.min(100, (elapsed / duration) * 100)}%`
+                  : '0%',
+              height: '100%',
+              backgroundColor: fg,
+            }}
+          />
+        </View>
+        <Text style={{ fontSize: 12, color: fg, minWidth: 36, textAlign: 'right' }}>
+          {fmt(shown)}
+        </Text>
+      </Pressable>
+
+      {/* Auto-transcript — arrives a few seconds after the note is sent,
           pushed in live via the chat:message_transcribed socket event. */}
       {transcript ? (
         <Text
@@ -1168,6 +1218,27 @@ function VoiceAttachment({
         >
           {transcript}
         </Text>
+      ) : null}
+
+      {/* Translation of the transcript into the reader's language —
+          shown on received notes when the spoken language differs. */}
+      {showTranslation && translation ? (
+        <View
+          style={{
+            borderTopWidth: 0.5,
+            borderTopColor: 'rgba(0,0,0,0.12)',
+            paddingTop: 5,
+            paddingHorizontal: 4,
+            gap: 2,
+          }}
+        >
+          <Text style={{ fontSize: 10, fontWeight: '600', color: fg, opacity: 0.5 }}>
+            {t('conversation.auto_translated')}
+          </Text>
+          <Text style={{ fontSize: 13, lineHeight: 18, color: fg, opacity: 0.9 }}>
+            {translation.text}
+          </Text>
+        </View>
       ) : null}
     </View>
   );

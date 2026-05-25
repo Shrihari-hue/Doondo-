@@ -16,7 +16,7 @@
  * worker never raises the beacon.
  */
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Alert,
   Dimensions,
@@ -51,6 +51,15 @@ const DURATION_OPTIONS = [
   { minutes: 240, label: '4h', subKey: 'home.beacon.sheet.duration_4h_sub' },
   { minutes: 480, label: '8h', subKey: 'home.beacon.sheet.duration_8h_sub' },
 ] as const;
+
+// Day chips render Sunday-first; the index is the value stored in
+// `recurringPattern.days`. Two-letter codes replace the old single-letter
+// row where Sun/Sat and Tue/Thu were indistinguishable.
+const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as const;
+
+// A beacon time is strict 24h HH:MM. Anchored so "7:00", "24:10" and
+// "9:5" are all rejected before the payload is ever built.
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // Trade grid sizing — 4 columns with consistent gaps. We compute once at
 // module load instead of on every render: the sheet width is the full
@@ -276,16 +285,18 @@ function AvailabilityBeaconSheet({
     existing?.recurringPattern?.endTime ?? '10:00',
   );
 
-  // Re-seed when the sheet re-opens with new data.
-  useMemo(() => {
-    if (visible) {
-      setTradeSlugs(existing?.tradesAvailable ?? user?.skills ?? []);
-      setNote(existing?.note ?? '');
-      setRecurring(existing?.recurringPattern != null);
-      setRecurringDays(existing?.recurringPattern?.days ?? [1, 2, 3, 4, 5]);
-      setRecurringStart(existing?.recurringPattern?.startTime ?? '07:00');
-      setRecurringEnd(existing?.recurringPattern?.endTime ?? '10:00');
-    }
+  // Re-seed when the sheet re-opens with new data. This is a genuine
+  // side effect — it calls setState — so it belongs in useEffect. It
+  // previously ran inside useMemo, which mutates state during render and
+  // is an anti-pattern React does not guarantee.
+  useEffect(() => {
+    if (!visible) return;
+    setTradeSlugs(existing?.tradesAvailable ?? user?.skills ?? []);
+    setNote(existing?.note ?? '');
+    setRecurring(existing?.recurringPattern != null);
+    setRecurringDays(existing?.recurringPattern?.days ?? [1, 2, 3, 4, 5]);
+    setRecurringStart(existing?.recurringPattern?.startTime ?? '07:00');
+    setRecurringEnd(existing?.recurringPattern?.endTime ?? '10:00');
   }, [visible, existing, user?.skills]);
 
   const publishMutation = useMutation({
@@ -296,7 +307,11 @@ function AvailabilityBeaconSheet({
       // Build the recurring payload only when toggle is on AND at
       // least one day is picked. End must be after start.
       const recurringPayload =
-        recurring && recurringDays.length > 0 && recurringStart < recurringEnd
+        recurring &&
+        recurringDays.length > 0 &&
+        TIME_RE.test(recurringStart) &&
+        TIME_RE.test(recurringEnd) &&
+        recurringStart < recurringEnd
           ? {
               days: recurringDays,
               startTime: recurringStart,
@@ -337,6 +352,38 @@ function AvailabilityBeaconSheet({
       cur.includes(slug) ? cur.filter((s) => s !== slug) : [...cur, slug],
     );
   };
+
+  // ─── Form validity ────────────────────────────────────────────────────
+  // The publish button only goes live when the beacon is genuinely
+  // broadcastable. The old screen always fired and let the server
+  // silently drop an empty trade list or a half-built schedule — the
+  // worker ended up with a beacon no employer could find. The sheet now
+  // blocks early and names the one thing still missing.
+  const startTimeValid = TIME_RE.test(recurringStart);
+  const endTimeValid = TIME_RE.test(recurringEnd);
+  const timeRangeValid =
+    startTimeValid && endTimeValid && recurringStart < recurringEnd;
+  const scheduleValid =
+    !recurring || (recurringDays.length > 0 && timeRangeValid);
+  const hasTrade = tradeSlugs.length > 0;
+  const canPublish = hasTrade && scheduleValid;
+
+  // Per-field error flags for the time inputs.
+  const startFieldBad = recurring && !startTimeValid;
+  const endFieldBad =
+    recurring &&
+    (!endTimeValid || (startTimeValid && endTimeValid && !timeRangeValid));
+
+  // First blocking reason, in priority order — drives the status line.
+  const blockReason: 'trade' | 'day' | 'time' | null = !hasTrade
+    ? 'trade'
+    : recurring && recurringDays.length === 0
+      ? 'day'
+      : recurring && !timeRangeValid
+        ? 'time'
+        : null;
+
+  const todayIndex = new Date().getDay();
 
   return (
     <Modal
@@ -508,7 +555,7 @@ function AvailabilityBeaconSheet({
                       paddingHorizontal: spacing.sm,
                       paddingVertical: 2,
                       borderRadius: radii.pill,
-                      backgroundColor: '#94bdf4',
+                      backgroundColor: '#DBEAFE',
                     }}
                   >
                     <Text
@@ -664,12 +711,13 @@ function AvailabilityBeaconSheet({
 
               {recurring ? (
                 <View style={{ gap: spacing.sm }}>
-                  {/* Day chips */}
-                  <View
-                    style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}
-                  >
-                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((label, i) => {
+                  {/* Day chips — Sunday-first, two-letter codes so the
+                     row is unambiguous and never wraps. Today carries a
+                     soft accent border when it isn't already selected. */}
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    {DAY_LABELS.map((label, i) => {
                       const active = recurringDays.includes(i);
+                      const isToday = i === todayIndex;
                       return (
                         <Pressable
                           key={i}
@@ -682,20 +730,25 @@ function AvailabilityBeaconSheet({
                             );
                           }}
                           accessibilityRole="button"
+                          accessibilityState={{ selected: active }}
                           accessibilityLabel={
                             active
                               ? t('home.beacon.sheet.day_a11y_selected', { n: i })
                               : t('home.beacon.sheet.day_a11y', { n: i })
                           }
                           style={({ pressed }) => ({
-                            width: 38,
-                            height: 38,
-                            borderRadius: 19,
+                            flex: 1,
+                            height: 44,
+                            borderRadius: radii.md,
                             alignItems: 'center',
                             justifyContent: 'center',
                             backgroundColor: active ? '#2563EB' : theme.bg.surface,
                             borderWidth: active ? 0 : 1,
-                            borderColor: theme.border.default,
+                            borderColor: active
+                              ? '#2563EB'
+                              : isToday
+                                ? '#93C5FD'
+                                : theme.border.default,
                             opacity: pressed ? 0.7 : 1,
                           })}
                         >
@@ -703,7 +756,11 @@ function AvailabilityBeaconSheet({
                             style={{
                               fontSize: 13,
                               fontWeight: '700',
-                              color: active ? '#FFFFFF' : theme.text.primary,
+                              color: active
+                                ? '#FFFFFF'
+                                : isToday
+                                  ? '#1D4ED8'
+                                  : theme.text.primary,
                             }}
                           >
                             {label}
@@ -726,15 +783,20 @@ function AvailabilityBeaconSheet({
                         onChangeText={setRecurringStart}
                         placeholder="07:00"
                         placeholderTextColor={theme.text.tertiary}
+                        accessibilityLabel={t('home.beacon.sheet.from')}
                         style={{
-                          backgroundColor: theme.bg.surface,
+                          backgroundColor: startFieldBad
+                            ? '#FEF2F2'
+                            : theme.bg.surface,
                           borderWidth: 1,
-                          borderColor: theme.border.default,
+                          borderColor: startFieldBad
+                            ? '#DC2626'
+                            : theme.border.default,
                           borderRadius: radii.md,
                           paddingHorizontal: spacing.md,
                           paddingVertical: spacing.sm + 2,
                           fontSize: 15,
-                          color: theme.text.primary,
+                          color: startFieldBad ? '#DC2626' : theme.text.primary,
                         }}
                         maxLength={5}
                         keyboardType="numbers-and-punctuation"
@@ -751,33 +813,89 @@ function AvailabilityBeaconSheet({
                         onChangeText={setRecurringEnd}
                         placeholder="10:00"
                         placeholderTextColor={theme.text.tertiary}
+                        accessibilityLabel={t('home.beacon.sheet.to')}
                         style={{
-                          backgroundColor: theme.bg.surface,
+                          backgroundColor: endFieldBad
+                            ? '#FEF2F2'
+                            : theme.bg.surface,
                           borderWidth: 1,
-                          borderColor: theme.border.default,
+                          borderColor: endFieldBad
+                            ? '#DC2626'
+                            : theme.border.default,
                           borderRadius: radii.md,
                           paddingHorizontal: spacing.md,
                           paddingVertical: spacing.sm + 2,
                           fontSize: 15,
-                          color: theme.text.primary,
+                          color: endFieldBad ? '#DC2626' : theme.text.primary,
                         }}
                         maxLength={5}
                         keyboardType="numbers-and-punctuation"
                       />
                     </View>
                   </View>
-                  <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
-                    {t('home.beacon.sheet.format_hint')}
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      lineHeight: 16,
+                      fontWeight: timeRangeValid ? '400' : '600',
+                      color: timeRangeValid ? theme.text.tertiary : '#DC2626',
+                    }}
+                  >
+                    {timeRangeValid
+                      ? t('home.beacon.sheet.format_hint')
+                      : t('home.beacon.sheet.time_error')}
                   </Text>
                 </View>
               ) : null}
             </View>
           </ScrollView>
 
+          {/* Status line — replaces the old silent no-op. When the beacon
+             is ready it confirms it; otherwise it names the single thing
+             still blocking the broadcast. */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+              gap: spacing.sm,
+              paddingVertical: spacing.sm,
+              paddingHorizontal: spacing.md,
+              borderRadius: radii.md,
+              backgroundColor: canPublish ? '#ECFDF5' : '#FFF7ED',
+            }}
+          >
+            <View
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                marginTop: 4,
+                backgroundColor: canPublish ? '#10B981' : '#F59E0B',
+              }}
+            />
+            <Text
+              style={{
+                flex: 1,
+                fontSize: 12,
+                lineHeight: 17,
+                fontWeight: '600',
+                color: canPublish ? '#065F46' : '#9A3412',
+              }}
+            >
+              {canPublish
+                ? t('home.beacon.sheet.summary_ready')
+                : blockReason === 'day'
+                  ? t('home.beacon.sheet.hint_need_day')
+                  : blockReason === 'time'
+                    ? t('home.beacon.sheet.time_error')
+                    : t('home.beacon.sheet.hint_need_trade')}
+            </Text>
+          </View>
+
           {/* Sticky CTA — Cancel sits as a quiet ghost button; the primary
              action is a tall blue pill with a real shadow so it feels
-             tappable, not painted on. Disabled state is dimmed but still
-             clearly the primary action. */}
+             tappable, not painted on. When the beacon isn't broadcastable
+             yet the pill drops to a flat, shadowless disabled state. */}
           <View
             style={{
               flexDirection: 'row',
@@ -814,8 +932,9 @@ function AvailabilityBeaconSheet({
             </Pressable>
             <Pressable
               onPress={() => publishMutation.mutate()}
-              disabled={publishMutation.isPending}
+              disabled={publishMutation.isPending || !canPublish}
               accessibilityRole="button"
+              accessibilityState={{ disabled: !canPublish }}
               accessibilityLabel={t('home.beacon.sheet.broadcast_a11y')}
               style={({ pressed }) => ({
                 flex: 1,
@@ -823,20 +942,20 @@ function AvailabilityBeaconSheet({
                 borderRadius: radii.pill,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: '#2563EB',
-                opacity: publishMutation.isPending ? 0.55 : pressed ? 0.9 : 1,
+                backgroundColor: canPublish ? '#2563EB' : '#CBD5E1',
+                opacity: publishMutation.isPending ? 0.6 : pressed ? 0.9 : 1,
                 shadowColor: '#1D4ED8',
-                shadowOpacity: 0.35,
+                shadowOpacity: canPublish ? 0.35 : 0,
                 shadowRadius: 14,
                 shadowOffset: { width: 0, height: 6 },
-                elevation: 6,
+                elevation: canPublish ? 6 : 0,
               })}
             >
               <Text
                 style={{
                   fontSize: 16,
                   fontWeight: '700',
-                  color: '#FFFFFF',
+                  color: canPublish ? '#FFFFFF' : '#EEF2F7',
                   letterSpacing: 0.2,
                 }}
               >

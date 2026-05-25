@@ -11,13 +11,16 @@
  * caller decides where the add flow lives in their navigator.
  */
 
-import { Modal, Pressable, View } from 'react-native';
+import { Alert, Modal, Pressable, View } from 'react-native';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Text, Avatar } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { haptic } from '@/lib/haptics';
+import { useTranslate } from '@/i18n/useTranslate';
+import { useOtherAccountsActivity } from '@/hooks/useOtherAccountsActivity';
+import type { SavedAccount } from '@/stores/auth.store';
 
 interface Props {
   visible: boolean;
@@ -28,7 +31,12 @@ interface Props {
 
 export function AccountSwitcherSheet({ visible, onClose, onAddEmployer }: Props) {
   const { theme } = useTheme();
-  const { savedAccounts, activeAccountId, switchAccount } = useAuth();
+  const t = useTranslate();
+  const { savedAccounts, activeAccountId, switchAccount, removeAccount } =
+    useAuth();
+  // Per-account "things waiting" counts — drives the row badges so the
+  // worker can see their other account has activity before switching.
+  const { byId: activityById } = useOtherAccountsActivity();
 
   // Sort: active account first so the user sees "you are here" at the top.
   const ordered = [...savedAccounts].sort((a, b) => {
@@ -42,7 +50,7 @@ export function AccountSwitcherSheet({ visible, onClose, onAddEmployer }: Props)
   // dead-end them at "Add Employer" when they're already there.
   const hasEmployerAccount = savedAccounts.some((a) => a.role === 'employer');
 
-  async function onPick(userId: string) {
+  function onPick(userId: string) {
     if (userId === activeAccountId) {
       onClose();
       return;
@@ -52,8 +60,48 @@ export function AccountSwitcherSheet({ visible, onClose, onAddEmployer }: Props)
     // Defer the actual switch a tick so the sheet closes cleanly before
     // the RootNavigator swaps to the bootstrapping splash.
     setTimeout(() => {
-      void switchAccount(userId);
+      void (async () => {
+        const ok = await switchAccount(userId);
+        if (!ok) {
+          // The switch failed — the store has restored the previous
+          // session, so this sheet's host screen is still mounted and
+          // can surface the error. (On success the app re-routes and
+          // this component unmounts before we'd get here.)
+          haptic('error');
+          Alert.alert(
+            t('account_switcher.switch_failed_title'),
+            t('account_switcher.switch_failed_body'),
+          );
+        }
+      })();
     }, 50);
+  }
+
+  /**
+   * Long-press a saved (non-active) account to remove it from this
+   * device — important on shared phones, where a worker doesn't want a
+   * colleague's account one tap away. The active account isn't
+   * removable here; that's what Sign out is for.
+   */
+  function onRequestRemove(account: SavedAccount) {
+    if (account.userId === activeAccountId) return;
+    haptic('warning');
+    const displayName =
+      account.role === 'employer' && account.companyName
+        ? account.companyName
+        : account.name;
+    Alert.alert(
+      t('account_switcher.remove_title'),
+      t('account_switcher.remove_body', { name: displayName }),
+      [
+        { text: t('account_switcher.remove_cancel'), style: 'cancel' },
+        {
+          text: t('account_switcher.remove_confirm'),
+          style: 'destructive',
+          onPress: () => void removeAccount(account.userId),
+        },
+      ],
+    );
   }
 
   return (
@@ -109,7 +157,7 @@ export function AccountSwitcherSheet({ visible, onClose, onAddEmployer }: Props)
                 color: theme.text.tertiary,
               }}
             >
-              SWITCH ACCOUNT
+              {t('account_switcher.title')}
             </Text>
           </View>
 
@@ -121,10 +169,15 @@ export function AccountSwitcherSheet({ visible, onClose, onAddEmployer }: Props)
                 account.role === 'employer' && account.companyName
                   ? account.companyName
                   : account.name;
+              const activityCount = isActive
+                ? 0
+                : (activityById[account.userId]?.total ?? 0);
               return (
                 <Pressable
                   key={account.userId}
-                  onPress={() => void onPick(account.userId)}
+                  onPress={() => onPick(account.userId)}
+                  onLongPress={() => onRequestRemove(account)}
+                  delayLongPress={350}
                   android_ripple={{ color: 'rgba(0,0,0,0.04)' }}
                   style={({ pressed }) => ({
                     opacity: pressed ? 0.7 : 1,
@@ -162,7 +215,7 @@ export function AccountSwitcherSheet({ visible, onClose, onAddEmployer }: Props)
                           marginTop: 2,
                         }}
                       >
-                        {roleLabel(account.role)}
+                        {roleLabel(account.role, t)}
                       </Text>
                     </View>
                     {isActive ? (
@@ -182,12 +235,47 @@ export function AccountSwitcherSheet({ visible, onClose, onAddEmployer }: Props)
                           ✓
                         </Text>
                       </View>
+                    ) : activityCount > 0 ? (
+                      // "Things waiting" on this other account — unread
+                      // chats + pending offers / new applicants.
+                      <View
+                        accessibilityLabel={t('account_switcher.updates_a11y', {
+                          count: activityCount,
+                        })}
+                        style={{
+                          minWidth: 22,
+                          height: 22,
+                          borderRadius: 11,
+                          paddingHorizontal: 6,
+                          backgroundColor: '#EF4444',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Text
+                          style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '800' }}
+                        >
+                          {activityCount > 99 ? '99+' : activityCount}
+                        </Text>
+                      </View>
                     ) : null}
                   </View>
                 </Pressable>
               );
             })}
           </View>
+
+          {/* Discoverability hint for the long-press remove gesture. */}
+          <Text
+            style={{
+              fontSize: 11,
+              color: theme.text.tertiary,
+              paddingHorizontal: spacing.xl,
+              marginTop: spacing.xs,
+            }}
+          >
+            {t('account_switcher.remove_hint')}
+          </Text>
 
           {/* Divider */}
           <View
@@ -243,8 +331,8 @@ export function AccountSwitcherSheet({ visible, onClose, onAddEmployer }: Props)
                   }}
                 >
                   {hasEmployerAccount
-                    ? 'Add another account'
-                    : 'Add Employer account'}
+                    ? t('account_switcher.add_another')
+                    : t('account_switcher.add_employer')}
                 </Text>
                 <Text
                   style={{
@@ -254,8 +342,8 @@ export function AccountSwitcherSheet({ visible, onClose, onAddEmployer }: Props)
                   }}
                 >
                   {hasEmployerAccount
-                    ? 'Sign in or sign up — keeps this account active'
-                    : 'Post jobs and hire workers'}
+                    ? t('account_switcher.add_another_hint')
+                    : t('account_switcher.add_employer_hint')}
                 </Text>
               </View>
             </View>
@@ -266,8 +354,11 @@ export function AccountSwitcherSheet({ visible, onClose, onAddEmployer }: Props)
   );
 }
 
-function roleLabel(role: 'seeker' | 'employer' | 'admin'): string {
-  if (role === 'employer') return 'Employer · Hiring';
-  if (role === 'seeker') return 'Seeker · Looking for work';
-  return 'Admin';
+function roleLabel(
+  role: 'seeker' | 'employer' | 'admin',
+  t: (key: string) => string,
+): string {
+  if (role === 'employer') return t('account_switcher.role_employer');
+  if (role === 'seeker') return t('account_switcher.role_seeker');
+  return t('account_switcher.role_admin');
 }

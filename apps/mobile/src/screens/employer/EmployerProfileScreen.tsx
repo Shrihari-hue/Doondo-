@@ -24,6 +24,7 @@ import {
   AccountSwitcherSheet,
 } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
+import { useOtherAccountsActivity } from '@/hooks/useOtherAccountsActivity';
 import { useAuthStore } from '@/stores/auth.store';
 import { meApi } from '@/api/me.api';
 import { pickProfilePhoto } from '@/lib/photo';
@@ -36,7 +37,10 @@ type Nav = NativeStackNavigationProp<AppStackParamList>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 export function EmployerProfileScreen() {
-  const { user, logout, savedAccounts } = useAuth();
+  const { user, logout, savedAccounts, activeAccountId, switchAccount } =
+    useAuth();
+  // Activity waiting on the other account(s) — dot on the switcher pill.
+  const { totalOther: otherAccountActivity } = useOtherAccountsActivity();
   const setStore = useAuthStore.setState;
   const navigation = useNavigation<Nav>();
   const t = useTranslate();
@@ -57,6 +61,21 @@ export function EmployerProfileScreen() {
     } else {
       navigation.navigate('AddAccountSignup', { role: 'seeker' });
     }
+  }
+  /**
+   * Quick-switch: with exactly two accounts, a long-press on the pill
+   * flips straight to the other one — no sheet. With 3+ accounts we
+   * fall back to the full switcher.
+   */
+  function onLongPressSwitcher() {
+    if (savedAccounts.length !== 2) {
+      onPressSwitcher();
+      return;
+    }
+    const other = savedAccounts.find((a) => a.userId !== activeAccountId);
+    if (!other) return;
+    haptic('selection');
+    void switchAccount(other.userId);
   }
   function onAddFromSheet() {
     // Sheet's footer wording reads "Add another account" when more than
@@ -125,6 +144,8 @@ export function EmployerProfileScreen() {
         <View style={{ flexDirection: 'row' }}>
           <Pressable
             onPress={onPressSwitcher}
+            onLongPress={onLongPressSwitcher}
+            delayLongPress={350}
             accessibilityRole="button"
             accessibilityLabel={t('employer.profile.switch_a11y')}
             hitSlop={8}
@@ -132,14 +153,37 @@ export function EmployerProfileScreen() {
               flexDirection: 'row',
               alignItems: 'center',
               gap: 6,
-              paddingHorizontal: 12,
-              paddingVertical: 6,
+              paddingLeft: 6,
+              paddingRight: 12,
+              paddingVertical: 5,
               borderRadius: radii.pill,
               backgroundColor: 'rgba(15, 23, 42, 0.06)',
               opacity: pressed ? 0.65 : 1,
               maxWidth: '70%',
             })}
           >
+            <View>
+              <Avatar
+                name={user.companyName ?? user.name}
+                photoUrl={user.photoUrl}
+                size={22}
+              />
+              {otherAccountActivity > 0 ? (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -2,
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: '#EF4444',
+                    borderWidth: 1.5,
+                    borderColor: '#FFFFFF',
+                  }}
+                />
+              ) : null}
+            </View>
             <Text
               style={{ fontSize: 13, fontWeight: '600' }}
               numberOfLines={1}

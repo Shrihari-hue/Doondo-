@@ -9,6 +9,7 @@ import { AppNavigator } from './AppNavigator';
 import { LockScreen } from '@/screens/LockScreen';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Text } from '@/components/Text';
+import { useTranslate } from '@/i18n/useTranslate';
 import { spacing } from '@doondo/tokens';
 
 /**
@@ -55,6 +56,12 @@ export function RootNavigator() {
 
 function BootSplash() {
   const { theme } = useTheme();
+  const t = useTranslate();
+  // During an account switch the auth store sets this to the target
+  // account's name, so the splash reads "Switching to …" instead of a
+  // bare spinner — the worker knows what's happening, not just that the
+  // app went blank.
+  const { switchingToName } = useAuth();
   return (
     <View
       style={{
@@ -69,6 +76,11 @@ function BootSplash() {
         Doondo
       </Text>
       <LoadingSpinner />
+      {switchingToName ? (
+        <Text variant="footnote" tone="secondary">
+          {t('account_switcher.switching_to', { name: switchingToName })}
+        </Text>
+      ) : null}
     </View>
   );
 }

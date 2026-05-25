@@ -76,7 +76,8 @@
   "profile_groups": {
     "grow": "अपना करियर बढ़ाएं",
     "rights": "आपके अधिकार और सुरक्षा",
-    "account": "रिज़्यूमे और खाता"
+    "account": "रिज़्यूमे और खाता",
+    "connect": "काम के साथी खोजें"
   },
   "home": {
     "title": "Doondo",
@@ -191,7 +192,11 @@
         "trade_a11y_selected": "{{label}}, चुना गया",
         "trade_a11y": "{{label}}",
         "day_a11y_selected": "दिन {{n}}, चुना गया",
-        "day_a11y": "दिन {{n}}"
+        "day_a11y": "दिन {{n}}",
+        "hint_need_trade": "ब्रॉडकास्ट करने के लिए कम से कम एक काम चुनें।",
+        "hint_need_day": "साप्ताहिक शेड्यूल के लिए कम से कम एक दिन चुनें।",
+        "time_error": "सही समय भरें — HH:MM (24h), अंत समय शुरू के बाद हो।",
+        "summary_ready": "तैयार — ब्रॉडकास्ट करते ही आस-पास के एम्प्लॉयर आपको देखेंगे।"
       }
     },
     "wage": {
@@ -371,7 +376,9 @@
       "fallback_employer": "एम्प्लॉयर",
       "overlay_interested": "इंटरेस्टेड",
       "overlay_skip": "छोड़ें",
-      "overlay_save": "सेव"
+      "overlay_save": "सेव",
+      "entry_title": "आज का स्वाइप",
+      "entry_subtitle": "आज के ज़रूरी कामों को स्वाइप करें"
     },
     "change_location": "बदलें",
     "no_jobs_in_place": {
@@ -379,7 +386,12 @@
       "message": "अधिक दूरी आज़माएं, या यहाँ नौकरी खुलने पर सूचना पाएं।",
       "notify": "मुझे सूचित करें"
     },
-    "clear_location": "स्थान हटाएं"
+    "clear_location": "स्थान हटाएं",
+    "hiring_requests_banner": {
+      "title_one": "{{count}} नियोक्ता आपको काम पर रखना चाहता है",
+      "title_other": "{{count}} नियोक्ता आपको काम पर रखना चाहते हैं",
+      "subtitle": "देखने और जवाब देने के लिए टैप करें"
+    }
   },
   "job_detail": {
     "apply_now": "अभी आवेदन करें",
@@ -559,7 +571,9 @@
       "build_resume": "मेरा रिज्यूमे बनाएं",
       "build_resume_subtitle": "अपनी पिछली 1–5 नौकरियों से शुरू करें",
       "ratings_count_one": "{{count}} रेटिंग से {{avg}}",
-      "ratings_count_other": "{{count}} रेटिंग से {{avg}}"
+      "ratings_count_other": "{{count}} रेटिंग से {{avg}}",
+      "hiring_requests": "भर्ती अनुरोध",
+      "hiring_requests_subtitle": "नियोक्ताओं से नौकरी के प्रस्ताव"
     },
     "signout": {
       "button": "साइन आउट",
@@ -1612,7 +1626,17 @@
       "err_phone_invalid": "सही फोन नंबर डालें",
       "err_email_taken": "इस ईमेल से अकाउंट पहले से है — इस एम्प्लॉयर अकाउंट के लिए अलग ईमेल इस्तेमाल करें",
       "err_rate_limited": "बहुत कोशिशें। एक मिनट बाद कोशिश करें।",
-      "err_generic": "कुछ ग़लत हुआ। फिर कोशिश करें।"
+      "err_generic": "कुछ ग़लत हुआ। फिर कोशिश करें।",
+      "login_eyebrow": "दूसरे खाते में साइन इन करें",
+      "login_title": "खाता जोड़ने के लिए साइन इन करें",
+      "login_subtitle": "उस खाते में साइन इन करें जो आपके पास पहले से है। यह इस खाते के साथ जुड़ जाता है — दोनों साइन इन रहते हैं।",
+      "cta_signin": "साइन इन करें और खाता जोड़ें",
+      "cta_signing_in": "साइन इन हो रहा है…",
+      "have_account_q": "क्या आपके पास पहले से खाता है?",
+      "have_account_cta": "साइन इन करें",
+      "no_account_q": "नया खाता चाहिए?",
+      "no_account_cta": "एक बनाएं",
+      "err_invalid_credentials": "ईमेल या पासवर्ड गलत है"
     }
   },
   "role_picker": {
@@ -2703,5 +2727,24 @@
     "no_cities_yet": "अभी कहीं कोई नौकरी पोस्ट नहीं हुई।",
     "recent": "हाल ही में",
     "home_town": "आपका गृह नगर"
+  },
+  "account_switcher": {
+    "title": "खाता बदलें",
+    "add_employer": "नियोक्ता खाता जोड़ें",
+    "add_another": "एक और खाता जोड़ें",
+    "add_employer_hint": "नौकरियां पोस्ट करें और श्रमिकों को काम पर रखें",
+    "add_another_hint": "साइन इन या साइन अप करें — यह खाता सक्रिय रहता है",
+    "role_employer": "नियोक्ता · भर्ती",
+    "role_seeker": "खोजकर्ता · काम की तलाश में",
+    "role_admin": "एडमिन",
+    "switching_to": "{{name}} पर स्विच हो रहा है…",
+    "switch_failed_title": "खाता बदल नहीं सके",
+    "switch_failed_body": "कुछ गलत हो गया। अपना कनेक्शन जांचें और फिर से कोशिश करें।",
+    "remove_hint": "किसी खाते को इस डिवाइस से हटाने के लिए दबाकर रखें।",
+    "remove_title": "खाता हटाएं?",
+    "remove_body": "{{name}} को इस डिवाइस से हटा दिया जाएगा। आप कभी भी फिर से साइन इन कर सकते हैं।",
+    "remove_cancel": "रद्द करें",
+    "remove_confirm": "हटाएं",
+    "updates_a11y": "{{count}} अपडेट प्रतीक्षित"
   }
 }

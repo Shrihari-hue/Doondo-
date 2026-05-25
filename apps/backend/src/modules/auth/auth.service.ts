@@ -178,6 +178,42 @@ export async function logout(rawToken: string): Promise<void> {
   );
 }
 
+/**
+ * Read-only ownership check for a refresh token.
+ *
+ * Unlike `refresh()` this does NOT rotate, consume, or revoke anything —
+ * it merely confirms the token is cryptographically valid, present in
+ * the store, not revoked, and not expired, then returns the user it
+ * belongs to. It also does NOT trip reuse detection: we never present a
+ * revoked token here, we just read.
+ *
+ * Used by the cross-account activity summary so the account switcher can
+ * show a badge for a worker's *other* account without burning a refresh
+ * rotation (and risking a reuse-race) on every Profile open.
+ *
+ * Returns `null` for any token that fails a check — callers treat that
+ * as "no summary for this account" rather than an error.
+ */
+export async function inspectRefreshToken(
+  rawToken: string,
+): Promise<{ userId: string } | null> {
+  let payload;
+  try {
+    payload = verifyRefreshToken(rawToken);
+  } catch {
+    return null;
+  }
+
+  const stored = await RefreshTokenModel.findOne({
+    tokenHash: sha256(rawToken),
+  }).lean();
+  if (!stored) return null;
+  if (stored.revokedAt) return null;
+  if (stored.expiresAt.getTime() <= Date.now()) return null;
+
+  return { userId: payload.sub };
+}
+
 export async function getMe(userId: string): Promise<PublicUser> {
   const user = await UserModel.findById(userId);
   if (!user || !user.isActive) throw errors.notFound('User not found');

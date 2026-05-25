@@ -15,6 +15,8 @@ export function useAuth() {
   const activeAccountId = useAuthStore((s) => s.activeAccountId);
   const addAccount = useAuthStore((s) => s.addAccount);
   const switchAccount = useAuthStore((s) => s.switchAccount);
+  const removeAccount = useAuthStore((s) => s.removeAccount);
+  const switchingToName = useAuthStore((s) => s.switchingToName);
 
   return {
     status,
@@ -28,5 +30,7 @@ export function useAuth() {
     activeAccountId,
     addAccount,
     switchAccount,
+    removeAccount,
+    switchingToName,
   };
 }

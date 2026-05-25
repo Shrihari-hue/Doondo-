@@ -36,6 +36,7 @@ import { Screen, Text, Pill, Card, LoadingSpinner, SkeletonCard, Avatar, EmptySt
 import { useTheme } from '@/theme/useTheme';
 import { jobsApi } from '@/api/jobs.api';
 import { applicationsApi, type MassApplyResult } from '@/api/applications.api';
+import { hiringRequestsApi } from '@/api/hiringRequests.api';
 import { getCurrentCoords, type Coords } from '@/lib/location';
 import { useJobSearchLocationStore } from '@/stores/jobSearchLocation.store';
 import { haptic } from '@/lib/haptics';
@@ -193,6 +194,28 @@ export function JobsScreen() {
     },
   });
 
+  // Incoming hire offers — employers who invited this worker to apply.
+  // A pending count > 0 surfaces a banner at the top of the feed; this
+  // is the worker's only always-visible doorway to their offers inbox
+  // (the screen was otherwise reachable only via a push notification).
+  const hiringRequestsQuery = useQuery({
+    queryKey: ['hiringRequests', 'received'],
+    queryFn: () => hiringRequestsApi.received(),
+    enabled: user?.role === 'seeker',
+    staleTime: 60_000,
+  });
+  const pendingHiringCount = useMemo(
+    () =>
+      (hiringRequestsQuery.data?.requests ?? []).filter(
+        (r) => r.status === 'pending',
+      ).length,
+    [hiringRequestsQuery.data],
+  );
+  function openHiringRequests() {
+    haptic('selection');
+    navigation.navigate('HiringRequests');
+  }
+
   // ─── Multi-select / mass-apply ─────────────────────────────────────────────
   // Long-press a card to enter selection mode; tap others to add. The bottom
   // bar appears with "Apply to N". Cap at 20 (server hard limit too).
@@ -255,6 +278,18 @@ export function JobsScreen() {
           onApply={() => massApplyMutation.mutate([...selectedIds])}
         />
       )}
+      {/* Hire-offer banner — pinned above the feed (list or map) whenever
+          an employer is waiting on a reply. Time-sensitive: requests
+          expire, so it stays visible rather than scrolling away. */}
+      {user?.role === 'seeker' && pendingHiringCount > 0 && (
+        <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md }}>
+          <HiringRequestsBanner
+            t={t}
+            count={pendingHiringCount}
+            onPress={openHiringRequests}
+          />
+        </View>
+      )}
       {view === 'list' ? (
         <FlatList
           data={jobs}
@@ -293,6 +328,10 @@ export function JobsScreen() {
               onChangeView={(v) => {
                 haptic('selection');
                 setView(v);
+              }}
+              onOpenSwipe={() => {
+                haptic('selection');
+                navigation.navigate('JobSwipe');
               }}
               safeForWomenOnly={safeForWomenOnly}
               onToggleSafeForWomen={() => {
@@ -425,6 +464,10 @@ export function JobsScreen() {
                 haptic('selection');
                 setView(v);
               }}
+              onOpenSwipe={() => {
+                haptic('selection');
+                navigation.navigate('JobSwipe');
+              }}
               safeForWomenOnly={safeForWomenOnly}
               onToggleSafeForWomen={() => {
                 haptic('selection');
@@ -470,6 +513,8 @@ interface HeaderProps {
   jobCount: number;
   view: 'list' | 'map';
   onChangeView: (v: 'list' | 'map') => void;
+  /** Open the Tinder-style same-day swipe deck. */
+  onOpenSwipe: () => void;
   safeForWomenOnly: boolean;
   onToggleSafeForWomen: () => void;
 }
@@ -500,6 +545,7 @@ function Header({
   jobCount,
   view,
   onChangeView,
+  onOpenSwipe,
   safeForWomenOnly,
   onToggleSafeForWomen,
 }: HeaderProps) {
@@ -839,6 +885,50 @@ function Header({
         </Pressable>
       </View>
 
+      {/* Same-day swipe entry — opens the Tinder-style deck of today's
+          urgent jobs. Lives in the header so it's discoverable from the
+          home tab; the deck screen was otherwise unreachable. */}
+      <Pressable
+        onPress={onOpenSwipe}
+        accessibilityRole="button"
+        accessibilityLabel={t('jobs.swipe.entry_title')}
+        style={({ pressed }) => ({
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.md,
+          padding: spacing.md,
+          borderRadius: radii.lg,
+          borderWidth: 0.5,
+          borderColor: theme.brand.heroBorder,
+          backgroundColor: theme.brand.heroSubtle,
+          opacity: pressed ? 0.85 : 1,
+        })}
+      >
+        <View
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 12,
+            backgroundColor: theme.bg.surface,
+            borderWidth: 0.5,
+            borderColor: theme.brand.heroBorder,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ fontSize: 20 }}>🃏</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
+            {t('jobs.swipe.entry_title')}
+          </Text>
+          <Text variant="caption" tone="tertiary">
+            {t('jobs.swipe.entry_subtitle')}
+          </Text>
+        </View>
+        <Text style={{ fontSize: 16, color: theme.brand.hero, fontWeight: '700' }}>›</Text>
+      </Pressable>
+
       {/* Recommended for you — section header for the job cards. Only shown
           in list view: in map view the cards are replaced by the map, so
           this header would otherwise sit on top of the map labelling
@@ -861,6 +951,79 @@ function Header({
         </View>
       )}
     </View>
+  );
+}
+
+// ─── Hire-offer banner ───────────────────────────────────────────────────────
+
+/**
+ * HiringRequestsBanner — a tappable card surfacing pending hire offers
+ * at the top of the Jobs feed. An employer who found this worker on the
+ * map / Find-workers list has invited them to apply for a specific job;
+ * tapping opens the offers inbox where they can Accept / Decline.
+ *
+ * Rendered only when `count > 0`, so a worker with no offers sees a
+ * clean feed. This is the worker's always-visible doorway to the inbox.
+ */
+function HiringRequestsBanner({
+  t,
+  count,
+  onPress,
+}: {
+  t: TFn;
+  count: number;
+  onPress: () => void;
+}) {
+  const { theme } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+        padding: spacing.md,
+        borderRadius: radii.lg,
+        backgroundColor: theme.brand.hero,
+        opacity: pressed ? 0.9 : 1,
+        shadowColor: theme.brand.hero,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.28,
+        shadowRadius: 14,
+        elevation: 4,
+      })}
+    >
+      <View
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 21,
+          backgroundColor: 'rgba(255,255,255,0.22)',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontSize: 20 }}>📨</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text
+          style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}
+          numberOfLines={2}
+        >
+          {t(
+            count === 1
+              ? 'jobs.hiring_requests_banner.title_one'
+              : 'jobs.hiring_requests_banner.title_other',
+            { count },
+          )}
+        </Text>
+        <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 1 }}>
+          {t('jobs.hiring_requests_banner.subtitle')}
+        </Text>
+      </View>
+      <Text style={{ fontSize: 18, color: '#FFFFFF', fontWeight: '700' }}>›</Text>
+    </Pressable>
   );
 }
 

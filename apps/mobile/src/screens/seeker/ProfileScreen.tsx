@@ -13,10 +13,10 @@
  *
  *   4. Skills — chips with brand-tinted background.
  *
- *   5. Menu — three collapsible groups (Grow your career / Your rights
- *      & safety / Resume & account). Jobs, money and community actions
- *      now live in their own bottom-tab destinations, so they no longer
- *      clutter this list.
+ *   5. Menu — four collapsible groups (Grow your career / Find work
+ *      buddies / Your rights & safety / Resume & account). Jobs, money
+ *      and community actions now live in their own bottom-tab
+ *      destinations, so they no longer clutter this list.
  *
  *   6. Sign out — its own danger-tinted button.
  *
@@ -50,10 +50,12 @@ import { jobsApi } from '@/api/jobs.api';
 import { applicationsApi } from '@/api/applications.api';
 import { profileViewsApi } from '@/api/profileViews.api';
 import { skillSuggestionsApi } from '@/api/skillSuggestions.api';
+import { hiringRequestsApi } from '@/api/hiringRequests.api';
 import { useTranslate } from '@/i18n/useTranslate';
 import { ProfileCompletionMeter } from './ProfileCompletionMeter';
 import { computeCompleteness } from '@/lib/profileCompleteness';
 import { useUnratedApplications } from '@/hooks/useRatings';
+import { useOtherAccountsActivity } from '@/hooks/useOtherAccountsActivity';
 import { pickProfilePhoto } from '@/lib/photo';
 import { haptic } from '@/lib/haptics';
 import { prettifySkill } from '@/lib/trades';
@@ -64,7 +66,11 @@ type Nav = NativeStackNavigationProp<AppStackParamList>;
 
 export function ProfileScreen() {
   const { theme } = useTheme();
-  const { user, logout, savedAccounts } = useAuth();
+  const { user, logout, savedAccounts, activeAccountId, switchAccount } =
+    useAuth();
+  // Activity waiting on the worker's other account(s) — shows as a dot
+  // on the switcher pill so a switch isn't "blind".
+  const { totalOther: otherAccountActivity } = useOtherAccountsActivity();
   const setStore = useAuthStore.setState;
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
@@ -90,6 +96,21 @@ export function ProfileScreen() {
     } else {
       navigation.navigate('AddAccountSignup', { role: 'employer' });
     }
+  }
+  /**
+   * Quick-switch: with exactly two accounts, a long-press on the pill
+   * flips straight to the other one — no sheet. With 3+ accounts there's
+   * no single "other", so we fall back to opening the full switcher.
+   */
+  function onLongPressSwitcher() {
+    if (savedAccounts.length !== 2) {
+      onPressSwitcher();
+      return;
+    }
+    const other = savedAccounts.find((a) => a.userId !== activeAccountId);
+    if (!other) return;
+    haptic('selection');
+    void switchAccount(other.userId);
   }
   function onAddEmployerFromSheet() {
     navigation.navigate('AddAccountSignup', { role: 'employer' });
@@ -216,6 +237,8 @@ export function ProfileScreen() {
               doesn't have to be reshaped. */}
           <Pressable
             onPress={onPressSwitcher}
+            onLongPress={onLongPressSwitcher}
+            delayLongPress={350}
             accessibilityRole="button"
             accessibilityLabel={t('profile_screen.switch_account_a11y')}
             hitSlop={8}
@@ -226,8 +249,9 @@ export function ProfileScreen() {
               flexDirection: 'row',
               alignItems: 'center',
               gap: 6,
-              paddingHorizontal: 12,
-              paddingVertical: 6,
+              paddingLeft: 6,
+              paddingRight: 12,
+              paddingVertical: 5,
               borderRadius: radii.pill,
               backgroundColor: 'rgba(255,255,255,0.18)',
               borderWidth: 0.5,
@@ -236,6 +260,24 @@ export function ProfileScreen() {
               maxWidth: '70%',
             })}
           >
+            <View>
+              <Avatar name={user.name} photoUrl={user.photoUrl} size={22} />
+              {otherAccountActivity > 0 ? (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -2,
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: '#EF4444',
+                    borderWidth: 1.5,
+                    borderColor: '#FFFFFF',
+                  }}
+                />
+              ) : null}
+            </View>
             <Text
               style={{
                 color: '#FFFFFF',
@@ -918,6 +960,11 @@ export function ProfileScreen() {
           {/* Skill suggestions — "Add cooking → +30% job matches" rail. */}
           <SkillSuggestionsRail onEdit={() => goEdit('skills')} />
 
+          {/* Hire offers — permanent doorway to the hiring-requests inbox.
+              That screen used to be reachable only from a push
+              notification; this row guarantees it can always be found. */}
+          <HiringRequestsRow />
+
           {/* Menu — collapsible groups. Replaces the old single 19-row
               "ACTIVITY" list; jobs / money / community actions moved to
               their own bottom-tab destinations. */}
@@ -979,6 +1026,38 @@ export function ProfileScreen() {
               onPress={() => {
                 haptic('selection');
                 navigation.navigate('InterviewPrep');
+              }}
+            />
+          </CollapsibleGroup>
+
+          {/* Find work buddies — surfaces the contacts-match invite flow
+              and the trade-mentor finder. Both screens were previously
+              orphaned (built + routed, but no entry point); this group
+              is their home. */}
+          <CollapsibleGroup
+            glyph="🤝"
+            tint="#D1FAE5"
+            title={t('profile_groups.connect')}
+          >
+            <MenuRow
+              icon="📇"
+              tint="#DBEAFE"
+              label={t('profile_screen.menu_extra.find_friends')}
+              subtitle={t('profile_screen.menu_extra.find_friends_subtitle')}
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('FindFriends');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="🧑‍🏫"
+              tint="#FEF3C7"
+              label={t('profile_screen.menu_extra.trade_buddies')}
+              subtitle={t('profile_screen.menu_extra.trade_buddies_subtitle')}
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('Mentors');
               }}
             />
           </CollapsibleGroup>
@@ -1252,6 +1331,105 @@ function SkillSuggestionsRail({ onEdit }: { onEdit: () => void }) {
         ))}
       </ScrollView>
     </View>
+  );
+}
+
+/**
+ * HiringRequestsRow — a permanent, always-visible doorway to the worker's
+ * hire-offer inbox (the HiringRequests screen). That screen was
+ * previously reachable only from a push notification, so a worker who
+ * dismissed the notification lost their offers; this row fixes that.
+ *
+ * A count badge appears when offers are still pending a reply. The
+ * query shares its cache key with the Jobs-tab banner, so opening
+ * either screen warms both.
+ */
+function HiringRequestsRow() {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  const navigation = useNavigation<Nav>();
+  const { user } = useAuth();
+  const query = useQuery({
+    queryKey: ['hiringRequests', 'received'],
+    queryFn: () => hiringRequestsApi.received(),
+    enabled: Boolean(user),
+    staleTime: 60_000,
+  });
+  const pending = (query.data?.requests ?? []).filter(
+    (r) => r.status === 'pending',
+  ).length;
+  return (
+    <Pressable
+      onPress={() => {
+        haptic('selection');
+        navigation.navigate('HiringRequests');
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={t('profile_screen.menu_extra.hiring_requests')}
+      android_ripple={{ color: 'rgba(0,0,0,0.04)' }}
+      style={({ pressed }) => ({ ...cardBase(theme), opacity: pressed ? 0.6 : 1 })}
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md + 2,
+        }}
+      >
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            backgroundColor: '#DBEAFE',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: spacing.md,
+          }}
+        >
+          <Text style={{ fontSize: 22 }}>📨</Text>
+        </View>
+        <View style={{ flex: 1, paddingRight: spacing.sm }}>
+          <Text
+            style={{ fontSize: 15, fontWeight: '600', color: theme.text.primary }}
+            numberOfLines={1}
+          >
+            {t('profile_screen.menu_extra.hiring_requests')}
+          </Text>
+          <Text
+            style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 2 }}
+            numberOfLines={1}
+          >
+            {t('profile_screen.menu_extra.hiring_requests_subtitle')}
+          </Text>
+        </View>
+        {pending > 0 ? (
+          <View
+            style={{
+              minWidth: 22,
+              height: 22,
+              borderRadius: 11,
+              paddingHorizontal: 7,
+              backgroundColor: theme.brand.hero,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: spacing.sm,
+            }}
+          >
+            <Text style={{ fontSize: 12, fontWeight: '800', color: '#FFFFFF' }}>
+              {pending}
+            </Text>
+          </View>
+        ) : null}
+        <Text
+          style={{ fontSize: 22, color: theme.text.tertiary, lineHeight: 24 }}
+          allowFontScaling={false}
+        >
+          ›
+        </Text>
+      </View>
+    </Pressable>
   );
 }
 
