@@ -33,7 +33,12 @@ import {
   sendTrustCircleHirePush,
 } from '@/lib/push';
 import { JobModel, type PublicJob } from '@/modules/jobs/job.model';
-import { UserModel, type SeekerConstitution, type CraftPhoto } from '@/modules/users/user.model';
+import {
+  UserModel,
+  type SeekerConstitution,
+  type CraftPhoto,
+  type PublicSkillDocument,
+} from '@/modules/users/user.model';
 import { getSavedTailoredResume } from '@/modules/resumeRewrite/resumeRewrite.service';
 import {
   getOrCreateForApplication,
@@ -801,9 +806,32 @@ interface ApplicantListEntry extends PublicApplication {
     }>;
     /** Photos of the seeker's work — up to 6 entries, tagged by craft skill. */
     workPhotos: CraftPhoto[];
+    /** Worker-uploaded proof files (certificates, licences, photos) per skill. */
+    skillDocuments: PublicSkillDocument[];
     /** The seeker's Doondo Constitution — their stated work boundaries. */
     constitution: SeekerConstitution;
   };
+}
+
+/** Normalise stored skill-document sub-docs into their wire shape. */
+function publicSkillDocuments(raw: unknown): PublicSkillDocument[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((d) => {
+    const o = (d ?? {}) as Record<string, unknown>;
+    return {
+      id: String(o.id ?? ''),
+      skill: String(o.skill ?? ''),
+      url: String(o.url ?? ''),
+      fileName: String(o.fileName ?? ''),
+      mimeType: String(o.mimeType ?? ''),
+      kind: o.kind === 'photo' ? 'photo' : 'document',
+      sizeBytes: typeof o.sizeBytes === 'number' ? o.sizeBytes : 0,
+      uploadedAt:
+        o.uploadedAt instanceof Date
+          ? o.uploadedAt.toISOString()
+          : String(o.uploadedAt ?? ''),
+    };
+  });
 }
 
 /** Normalise a stored constitution sub-doc into a complete, defaulted object. */
@@ -841,7 +869,7 @@ export async function listApplicantsForEmployer(
 
   const [seekers, jobs] = await Promise.all([
     UserModel.find({ _id: { $in: seekerIds } })
-      .select('name photoUrl skills isVerified location resumeFilename resumeMimeType resumeSizeBytes resumeUploadedAt workHistory workPhotos constitution +resumeUrl')
+      .select('name photoUrl skills isVerified location resumeFilename resumeMimeType resumeSizeBytes resumeUploadedAt workHistory workPhotos constitution skillDocuments +resumeUrl')
       .lean(),
     JobModel.find({ _id: { $in: jobIds } }),
   ]);
@@ -874,6 +902,7 @@ export async function listApplicantsForEmployer(
           description: w.description ?? null,
         })),
         workPhotos: s.workPhotos ?? [],
+        skillDocuments: publicSkillDocuments(s.skillDocuments),
         constitution: publicConstitution(s.constitution),
       },
     ]),
@@ -910,7 +939,7 @@ export async function listApplicantsForJob(
 
   const seekerIds = [...new Set(apps.map((a) => a.seekerId.toString()))];
   const seekers = await UserModel.find({ _id: { $in: seekerIds } })
-    .select('name photoUrl skills isVerified location resumeFilename resumeMimeType resumeSizeBytes resumeUploadedAt constitution +resumeUrl')
+    .select('name photoUrl skills isVerified location resumeFilename resumeMimeType resumeSizeBytes resumeUploadedAt constitution skillDocuments +resumeUrl')
     .lean();
   const seekerMap = new Map(
     seekers.map((s) => [
@@ -940,6 +969,7 @@ export async function listApplicantsForJob(
           description: w.description ?? null,
         })),
         workPhotos: s.workPhotos ?? [],
+        skillDocuments: publicSkillDocuments(s.skillDocuments),
         constitution: publicConstitution(s.constitution),
       },
     ]),

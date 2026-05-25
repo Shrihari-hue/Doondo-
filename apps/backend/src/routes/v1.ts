@@ -31,6 +31,7 @@ import * as doondoScoreService from '@/modules/users/doondoScore.service';
 import * as scoreCredentialController from '@/modules/users/scoreCredential.controller';
 import * as resumeRewriteService from '@/modules/resumeRewrite/resumeRewrite.service';
 import * as festivalService from '@/modules/festivals/festival.service';
+import * as skillDocumentService from '@/modules/me/skillDocument.service';
 import * as sosService from '@/modules/sos/sos.service';
 import { UserModel } from '@/modules/users/user.model';
 import mentorsRouter from '@/modules/mentors/mentor.routes';
@@ -324,6 +325,62 @@ v1.put(
       const locale = req.body.locale as string;
       await UserModel.updateOne({ _id: req.user!.id }, { $set: { locale } });
       res.json({ ok: true, data: { locale }, requestId: req.id });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ─── Skill-proof documents ──────────────────────────────────────────────────
+// A worker attaches a certificate / licence / training doc / photo to a
+// skill they claim. The file goes to cloud storage (fileStorage) and only
+// the URL is kept on the user. Employers see these per-skill on the
+// applicant view, which makes a claimed trade credible.
+v1.post(
+  '/me/skill-documents',
+  requireAuth,
+  requireRole('seeker'),
+  validate(
+    z.object({
+      body: z.object({
+        skill: z.string().trim().min(1).max(60),
+        dataUrl: z
+          .string()
+          .min(20)
+          .max(1_550_000)
+          .regex(
+            /^data:[\w.+-]+\/[\w.+-]+;base64,/i,
+            'dataUrl must be a base64 data URL',
+          ),
+        fileName: z.string().trim().min(1).max(200),
+        mimeType: z.string().trim().min(1).max(80),
+      }),
+    }),
+  ),
+  async (req, res, next) => {
+    try {
+      const user = await skillDocumentService.addSkillDocument(
+        req.user!.id,
+        req.body,
+      );
+      res.status(201).json({ ok: true, data: { user }, requestId: req.id });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+v1.delete(
+  '/me/skill-documents/:id',
+  requireAuth,
+  requireRole('seeker'),
+  validate(z.object({ params: z.object({ id: z.string().min(1).max(80) }) })),
+  async (req, res, next) => {
+    try {
+      const user = await skillDocumentService.removeSkillDocument(
+        req.user!.id,
+        req.params.id!,
+      );
+      res.json({ ok: true, data: { user }, requestId: req.id });
     } catch (err) {
       next(err);
     }

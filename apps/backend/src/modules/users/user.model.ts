@@ -167,6 +167,43 @@ export interface SeekerConstitution {
   requiresContract: boolean;
 }
 
+/** Kind of a skill-proof file — inferred from the MIME type on upload. */
+export const SKILL_DOC_KINDS = ['document', 'photo'] as const;
+export type SkillDocumentKind = (typeof SKILL_DOC_KINDS)[number];
+
+/**
+ * A file the worker uploaded as proof of one skill — a certificate, a
+ * licence, a training document, or a photo. The file itself lives on
+ * cloud storage (see fileStorage.service); only the URL + metadata are
+ * kept here. Employers see these grouped by skill on the applicant view.
+ */
+export interface SkillDocument {
+  /** Stable id (generated on upload) — used for deletes. */
+  id: string;
+  /** Skill slug this document is proof for. */
+  skill: string;
+  /** CDN URL of the stored file. */
+  url: string;
+  /** Original file name, shown in the UI. */
+  fileName: string;
+  mimeType: string;
+  kind: SkillDocumentKind;
+  sizeBytes: number;
+  uploadedAt: Date;
+}
+
+/** Wire shape of a SkillDocument — `uploadedAt` serialised to ISO. */
+export interface PublicSkillDocument {
+  id: string;
+  skill: string;
+  url: string;
+  fileName: string;
+  mimeType: string;
+  kind: SkillDocumentKind;
+  sizeBytes: number;
+  uploadedAt: string;
+}
+
 export const BUSINESS_TYPES = [
   'individual',
   'shop',
@@ -322,6 +359,12 @@ export interface User {
    * `modules/skills/skill.catalogue` and `buildCollections`.
    */
   workPhotos: CraftPhoto[];
+  /**
+   * Files the worker uploaded as proof of their skills — certificates,
+   * licences, training docs, photos. Each is tagged to a skill slug.
+   * The files live on cloud storage; this array holds URLs + metadata.
+   */
+  skillDocuments: SkillDocument[];
   /** Bookmarked Job IDs — small array, denormalised on the user. */
   savedJobs: Schema.Types.ObjectId[];
   /**
@@ -457,6 +500,8 @@ export interface PublicUser {
   education: Education[];
   /** Photos of the seeker's work — up to 6 entries, each tagged to a craft skill. */
   workPhotos: CraftPhoto[];
+  /** Worker-uploaded proof files (certificates, licences, photos) per skill. */
+  skillDocuments: PublicSkillDocument[];
   // Employer-only (null for seekers)
   companyName: string | null;
   businessType: BusinessType | null;
@@ -577,6 +622,22 @@ const craftPhotoSchema = new Schema<CraftPhoto>(
     skill: { type: String, required: true, trim: true, maxlength: 40 },
     caption: { type: String, default: null, trim: true, maxlength: 120 },
     isCover: { type: Boolean, default: false },
+  },
+  { _id: false },
+);
+
+// Skill-proof files — only the CDN URL + metadata live on the document
+// (the file itself is on cloud storage), so each entry is tiny.
+const skillDocumentSchema = new Schema<SkillDocument>(
+  {
+    id: { type: String, required: true },
+    skill: { type: String, required: true, trim: true, maxlength: 60 },
+    url: { type: String, required: true, maxlength: 1000 },
+    fileName: { type: String, required: true, trim: true, maxlength: 200 },
+    mimeType: { type: String, required: true, trim: true, maxlength: 80 },
+    kind: { type: String, enum: SKILL_DOC_KINDS, required: true },
+    sizeBytes: { type: Number, required: true, min: 0 },
+    uploadedAt: { type: Date, required: true },
   },
   { _id: false },
 );
@@ -731,6 +792,16 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
       validate: {
         validator: (v: CraftPhoto[]) => Array.isArray(v) && v.length <= 6,
         message: 'workPhotos may not exceed 6 entries',
+      },
+    },
+    // Skill-proof files. URLs only (files live on cloud storage), so the
+    // 40-entry cap keeps the document small without crowding base64.
+    skillDocuments: {
+      type: [skillDocumentSchema],
+      default: [],
+      validate: {
+        validator: (v: SkillDocument[]) => Array.isArray(v) && v.length <= 40,
+        message: 'skillDocuments may not exceed 40 entries',
       },
     },
     // Employer-only (Phase 3) — left null on seeker accounts.
@@ -907,6 +978,16 @@ userSchema.method('toPublicJSON', function (
       skill: p.skill,
       caption: p.caption ?? null,
       isCover: Boolean(p.isCover),
+    })),
+    skillDocuments: (this.skillDocuments ?? []).map((d) => ({
+      id: d.id,
+      skill: d.skill,
+      url: d.url,
+      fileName: d.fileName,
+      mimeType: d.mimeType,
+      kind: d.kind,
+      sizeBytes: d.sizeBytes,
+      uploadedAt: d.uploadedAt.toISOString(),
     })),
     companyName: this.companyName ?? null,
     businessType: this.businessType ?? null,

@@ -1901,7 +1901,8 @@
       "shortlist": "Shortlist",
       "saving": "Saving…",
       "decline": "Decline",
-      "tailored_resume": "Tailored resume for this job"
+      "tailored_resume": "Tailored resume for this job",
+      "skill_proof": "Skills & proof"
     },
     "post_job": {
       "cancel": "Cancel",
@@ -2670,5 +2671,20 @@
     "refresh": "Refresh score",
     "save_permission": "Allow photo access to save your score card.",
     "action_error": "Something went wrong. Please try again."
+  },
+  "skill_proof": {
+    "section_title": "Proof of your skills",
+    "section_hint": "Attach a certificate, licence, or photo for any skill. Employers see this on your application.",
+    "add": "Add proof",
+    "none_yet": "No proof attached yet",
+    "add_title": "Add proof",
+    "add_body": "Attach a certificate, licence, or photo for this skill.",
+    "opt_camera": "Take a photo",
+    "opt_gallery": "Choose a photo",
+    "opt_pdf": "Choose a PDF",
+    "cancel": "Cancel",
+    "error_title": "Couldn't attach file",
+    "error_generic": "Something went wrong. Please try again.",
+    "remove_a11y": "Remove {{name}}"
   }
 }

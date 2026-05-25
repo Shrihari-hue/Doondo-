@@ -175,6 +175,28 @@ export const meApi = {
     }),
 
   /**
+   * Attach a proof file (certificate, licence, photo) to a skill. The
+   * file is pushed to cloud storage; the returned user carries the new
+   * `skillDocuments` entry.
+   */
+  uploadSkillDocument: (payload: {
+    skill: string;
+    dataUrl: string;
+    fileName: string;
+    mimeType: string;
+  }) =>
+    apiRequest<{ user: PublicUser }>(`/me/skill-documents`, {
+      method: 'POST',
+      body: payload,
+    }),
+
+  /** Remove one skill-proof file by id. */
+  deleteSkillDocument: (id: string) =>
+    apiRequest<{ user: PublicUser }>(`/me/skill-documents/${id}`, {
+      method: 'DELETE',
+    }),
+
+  /**
    * Save the worker's reviewed/edited tailored resume for one job. The
    * apply path snapshots it onto the application so the employer sees it.
    */

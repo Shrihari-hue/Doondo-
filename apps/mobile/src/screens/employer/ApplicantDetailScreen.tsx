@@ -22,6 +22,7 @@ import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, Tex
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { applicationsApi, type ApplicantEntry, type SchedulePayload } from '@/api/applications.api';
+import type { SkillDocument } from '@/api/types';
 import { contactApi } from '@/api/contact.api';
 import { coursesApi } from '@/api/courses.api';
 import { endorsementsApi } from '@/api/endorsements.api';
@@ -51,6 +52,19 @@ type TFn = (key: string, opts?: Record<string, unknown>) => string;
 function statusEyebrow(status: ApplicationStatus, t: TFn): string {
   const key = status === 'pending' ? 'status_new' : `status_${status}`;
   return t(`employer.applicant_detail.${key}`);
+}
+
+/** Group the seeker's uploaded skill-proof files by skill. */
+function groupSkillDocuments(
+  docs: SkillDocument[],
+): Array<{ skill: string; docs: SkillDocument[] }> {
+  const map = new Map<string, SkillDocument[]>();
+  for (const d of docs) {
+    const arr = map.get(d.skill) ?? [];
+    arr.push(d);
+    map.set(d.skill, arr);
+  }
+  return [...map.entries()].map(([skill, list]) => ({ skill, docs: list }));
 }
 
 export function ApplicantDetailScreen() {
@@ -389,6 +403,57 @@ export function ApplicantDetailScreen() {
                 ) : null}
               </View>
             </Card>
+          </View>
+        ) : null}
+
+        {/* Skills & proof — files the worker uploaded as evidence for
+            their skills (certificates, licences, photos). Hidden when
+            they've attached none. */}
+        {applicant.seeker?.skillDocuments &&
+        applicant.seeker.skillDocuments.length > 0 ? (
+          <View style={{ gap: spacing.sm }}>
+            <Text
+              variant="footnote"
+              weight="medium"
+              tone="secondary"
+              style={{ letterSpacing: 1.0 }}
+            >
+              {t('employer.applicant_detail.skill_proof')}
+            </Text>
+            {groupSkillDocuments(applicant.seeker.skillDocuments).map((group) => (
+              <Card key={group.skill}>
+                <View style={{ gap: spacing.xs }}>
+                  <Text variant="footnote" weight="medium">
+                    {group.skill.replace(/_/g, ' ')}
+                  </Text>
+                  {group.docs.map((d) => (
+                    <Pressable
+                      key={d.id}
+                      onPress={() => {
+                        void Linking.openURL(d.url).catch(() => undefined);
+                      }}
+                      accessibilityRole="button"
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: spacing.xs,
+                        paddingVertical: 4,
+                      }}
+                    >
+                      <Text style={{ fontSize: 15 }}>
+                        {d.kind === 'photo' ? '🖼️' : '📄'}
+                      </Text>
+                      <Text variant="footnote" numberOfLines={1} style={{ flex: 1 }}>
+                        {d.fileName}
+                      </Text>
+                      <Text variant="footnote" tone="hero">
+                        ›
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </Card>
+            ))}
           </View>
         ) : null}
 

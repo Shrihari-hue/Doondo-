@@ -208,6 +208,20 @@ const schema = z.object({
   REEL_UPLOAD_URL: z.string().url().optional(),
   /** Optional bearer token sent with the upload request. */
   REEL_UPLOAD_TOKEN: z.string().optional(),
+
+  // ─── File storage — skill-proof documents (certificates, licences) ────
+  /**
+   * Where uploaded skill-proof documents live. 'mock' returns a
+   * deterministic placeholder URL so the feature works on a fresh
+   * checkout with no media host; 'http' POSTs the file to
+   * FILE_UPLOAD_URL (whatever CDN / uploader the deploy runs) and uses
+   * the URL it returns. Default 'mock' — production sets this to 'http'.
+   */
+  FILE_STORAGE_PROVIDER: z.enum(['mock', 'http']).default('mock'),
+  /** Upload endpoint (required when FILE_STORAGE_PROVIDER=http). */
+  FILE_UPLOAD_URL: z.string().url().optional(),
+  /** Optional bearer token sent with the file-upload request. */
+  FILE_UPLOAD_TOKEN: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

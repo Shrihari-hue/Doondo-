@@ -205,6 +205,8 @@ export interface PublicUser {
   workPhotos: CraftPhoto[];
   /** Education entries — empty when the seeker hasn't added any. */
   education: Education[];
+  /** Worker-uploaded proof files (certificates, licences, photos) per skill. */
+  skillDocuments: SkillDocument[];
   // Employer (Phase 3)
   companyName: string | null;
   businessType:
@@ -245,6 +247,22 @@ export interface PublicUser {
     shift: StreakCounter;
   };
   createdAt: string;
+}
+
+/** A worker-uploaded proof file attached to one skill. */
+export interface SkillDocument {
+  /** Stable id — used for deletes. */
+  id: string;
+  /** Skill slug this file is proof for. */
+  skill: string;
+  /** CDN URL of the stored file. */
+  url: string;
+  fileName: string;
+  mimeType: string;
+  /** 'photo' for images, 'document' for PDFs. */
+  kind: 'document' | 'photo';
+  sizeBytes: number;
+  uploadedAt: string;
 }
 
 export interface StreakCounter {

@@ -14,6 +14,7 @@
 
 import { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -32,6 +33,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { meApi } from '@/api/me.api';
 import { getCurrentCoords } from '@/lib/location';
 import { haptic } from '@/lib/haptics';
+import { pickSkillDoc, type SkillDocSource } from '@/lib/skillDocPicker';
 import {
   TRADES,
   findTrade,
@@ -641,6 +643,11 @@ function SkillsForm({ user }: { user: PublicUser }) {
         </View>
       )}
 
+      {/* Proof of skills — attach a certificate / licence / photo per
+         skill. Uploads immediately (separate from the Save below) and
+         shows to employers on the applicant view. */}
+      <SkillProofSection user={user} selectedSkills={skills} />
+
       {/* Hardcoded blue/white CTA so it never disappears on stale themes. */}
       <Pressable
         onPress={() => mutation.mutate()}
@@ -676,6 +683,190 @@ function SkillsForm({ user }: { user: PublicUser }) {
       >
         {t('edit_profile.skills.count_selected', { n: skills.length })}
       </Text>
+    </View>
+  );
+}
+
+// ─── Skill proof — certificates / licences / photos per skill ────────────────
+
+/**
+ * Below the skill grid: each selected skill listed with an "Add proof"
+ * button and the files already attached to it. Uploads go straight to
+ * cloud storage and are saved immediately (independent of the Skills
+ * "Save" button); employers see them per-skill on the applicant view.
+ */
+function SkillProofSection({
+  user,
+  selectedSkills,
+}: {
+  user: PublicUser;
+  selectedSkills: string[];
+}) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  const setUser = useAuthStore.setState;
+
+  const uploadMutation = useMutation({
+    mutationFn: (input: {
+      skill: string;
+      dataUrl: string;
+      fileName: string;
+      mimeType: string;
+    }) => meApi.uploadSkillDocument(input),
+    onSuccess: ({ user: updated }) => {
+      haptic('success');
+      setUser((s) => ({ ...s, user: updated }));
+    },
+    onError: (err) => {
+      haptic('error');
+      Alert.alert(
+        t('skill_proof.error_title'),
+        err instanceof Error ? err.message : t('skill_proof.error_generic'),
+      );
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => meApi.deleteSkillDocument(id),
+    onSuccess: ({ user: updated }) => {
+      haptic('light');
+      setUser((s) => ({ ...s, user: updated }));
+    },
+  });
+
+  async function runPick(skill: string, source: SkillDocSource) {
+    try {
+      const picked = await pickSkillDoc(source);
+      if (!picked) return;
+      uploadMutation.mutate({
+        skill,
+        dataUrl: picked.dataUrl,
+        fileName: picked.fileName,
+        mimeType: picked.mimeType,
+      });
+    } catch (err) {
+      Alert.alert(
+        t('skill_proof.error_title'),
+        err instanceof Error ? err.message : t('skill_proof.error_generic'),
+      );
+    }
+  }
+
+  function onAddProof(skill: string) {
+    haptic('light');
+    Alert.alert(t('skill_proof.add_title'), t('skill_proof.add_body'), [
+      { text: t('skill_proof.opt_camera'), onPress: () => void runPick(skill, 'camera') },
+      { text: t('skill_proof.opt_gallery'), onPress: () => void runPick(skill, 'gallery') },
+      { text: t('skill_proof.opt_pdf'), onPress: () => void runPick(skill, 'pdf') },
+      { text: t('skill_proof.cancel'), style: 'cancel' },
+    ]);
+  }
+
+  if (selectedSkills.length === 0) return null;
+
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Text variant="footnote" weight="medium" tone="secondary">
+        {t('skill_proof.section_title')}
+      </Text>
+      <Text variant="caption" tone="tertiary">
+        {t('skill_proof.section_hint')}
+      </Text>
+
+      {selectedSkills.map((skill) => {
+        const trade = findTrade(skill);
+        const label = trade ? tradeShortLabel(trade) : prettifySkill(skill);
+        const emoji = trade ? trade.emoji : '🧰';
+        const docs = (user.skillDocuments ?? []).filter((d) => d.skill === skill);
+        return (
+          <View
+            key={skill}
+            style={{
+              backgroundColor: theme.bg.surface,
+              borderRadius: radii.lg,
+              borderWidth: 0.5,
+              borderColor: theme.border.subtle,
+              padding: spacing.md,
+              gap: spacing.xs,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: spacing.sm,
+              }}
+            >
+              <Text
+                variant="footnote"
+                weight="medium"
+                numberOfLines={1}
+                style={{ flex: 1 }}
+              >
+                {emoji}  {label}
+              </Text>
+              <Pressable
+                onPress={() => onAddProof(skill)}
+                disabled={uploadMutation.isPending}
+                hitSlop={6}
+                accessibilityRole="button"
+                style={{
+                  paddingVertical: 4,
+                  paddingHorizontal: 10,
+                  borderRadius: radii.pill,
+                  borderWidth: 0.5,
+                  borderColor: '#2563EB',
+                  opacity: uploadMutation.isPending ? 0.5 : 1,
+                }}
+              >
+                <Text variant="caption" weight="medium" style={{ color: '#2563EB' }}>
+                  + {t('skill_proof.add')}
+                </Text>
+              </Pressable>
+            </View>
+
+            {docs.length === 0 ? (
+              <Text variant="caption" tone="tertiary">
+                {t('skill_proof.none_yet')}
+              </Text>
+            ) : (
+              docs.map((d) => (
+                <View
+                  key={d.id}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: spacing.xs,
+                    paddingVertical: 4,
+                  }}
+                >
+                  <Text style={{ fontSize: 14 }}>
+                    {d.kind === 'photo' ? '🖼️' : '📄'}
+                  </Text>
+                  <Text
+                    variant="caption"
+                    numberOfLines={1}
+                    style={{ flex: 1, color: theme.text.secondary }}
+                  >
+                    {d.fileName}
+                  </Text>
+                  <Pressable
+                    onPress={() => deleteMutation.mutate(d.id)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('skill_proof.remove_a11y', {
+                      name: d.fileName,
+                    })}
+                  >
+                    <Text style={{ fontSize: 16, color: theme.text.tertiary }}>×</Text>
+                  </Pressable>
+                </View>
+              ))
+            )}
+          </View>
+        );
+      })}
     </View>
   );
 }
