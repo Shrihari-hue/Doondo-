@@ -498,9 +498,14 @@ function AvailabilityBeaconSheet({
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: 2,
-                        backgroundColor: active ? '#2563EB' : theme.bg.surface,
-                        borderWidth: active ? 0 : 1,
-                        borderColor: theme.border.default,
+                        // Active fill is the deeper blue-700 (#1D4ED8)
+                        // because the brighter #2563EB renders pale on
+                        // some Android displays / Force Dark setups; the
+                        // navy border anchors the shape even if the fill
+                        // is muted by the device.
+                        backgroundColor: active ? '#1D4ED8' : theme.bg.surface,
+                        borderWidth: 1,
+                        borderColor: active ? '#1E3A8A' : theme.border.default,
                         opacity: pressed ? 0.85 : 1,
                         shadowColor: active ? '#2563EB' : '#0F172A',
                         shadowOffset: { width: 0, height: active ? 4 : 1 },
@@ -594,9 +599,13 @@ function AvailabilityBeaconSheet({
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: 4,
-                        backgroundColor: active ? '#2563EB' : theme.bg.surface,
-                        borderWidth: active ? 0 : 1,
-                        borderColor: theme.border.default,
+                        // Same hardening as the duration tile — keep a
+                        // navy border on active so the selected card is
+                        // visible even when the device renders the blue
+                        // fill faintly.
+                        backgroundColor: active ? '#1D4ED8' : theme.bg.surface,
+                        borderWidth: 1,
+                        borderColor: active ? '#1E3A8A' : theme.border.default,
                         opacity: pressed ? 0.75 : 1,
                         shadowColor: active ? '#2563EB' : '#0F172A',
                         shadowOffset: { width: 0, height: 2 },
@@ -742,10 +751,14 @@ function AvailabilityBeaconSheet({
                             borderRadius: radii.md,
                             alignItems: 'center',
                             justifyContent: 'center',
-                            backgroundColor: active ? '#2563EB' : theme.bg.surface,
-                            borderWidth: active ? 0 : 1,
+                            // Same hardening: deeper blue fill + navy
+                            // border on active so the chip never reads
+                            // as white-on-white if the device attenuates
+                            // the fill.
+                            backgroundColor: active ? '#1D4ED8' : theme.bg.surface,
+                            borderWidth: 1,
                             borderColor: active
-                              ? '#2563EB'
+                              ? '#1E3A8A'
                               : isToday
                                 ? '#93C5FD'
                                 : theme.border.default,
@@ -942,7 +955,13 @@ function AvailabilityBeaconSheet({
                 borderRadius: radii.pill,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: canPublish ? '#2563EB' : '#CBD5E1',
+                // Enabled state uses the deeper blue-700 with a navy
+                // outline — same robustness fix as the active tiles, so
+                // the primary CTA never disappears into the canvas on
+                // devices where the brighter blue attenuates.
+                backgroundColor: canPublish ? '#1D4ED8' : '#CBD5E1',
+                borderWidth: canPublish ? 1 : 0,
+                borderColor: '#1E3A8A',
                 opacity: publishMutation.isPending ? 0.6 : pressed ? 0.9 : 1,
                 shadowColor: '#1D4ED8',
                 shadowOpacity: canPublish ? 0.35 : 0,

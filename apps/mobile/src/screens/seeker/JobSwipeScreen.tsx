@@ -8,6 +8,15 @@
  *   - Swipe up    → save the job for later
  *   - Tap card    → open full JobDetail
  *
+ * Visual identity (the V2 redesign):
+ *   Each card adopts the visual personality of the job's trade — a
+ *   trade-coloured hero gradient, an oversized motif glyph, and a small
+ *   circular badge that names the role at a glance. The personality is
+ *   resolved by `flavourForJob` (see ./job-swipe/jobFlavour.ts) which
+ *   maps the job's first known skill slug (or a keyword in the title)
+ *   to a `JobFlavour` token. Adding a new trade is one entry in that
+ *   file — the layout below is fully trade-agnostic.
+ *
  * Uses react-native-gesture-handler's PanGestureHandler with Reanimated
  * for the snap-back / fly-off animations. Loaded defensively so a build
  * without those deps just doesn't expose the swipe action — JobsScreen
@@ -25,6 +34,7 @@ import {
   Pressable,
   View,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -42,11 +52,15 @@ import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
 import type { PublicJob } from '@/api/types';
 
+import { flavourForJob, type JobFlavour } from './job-swipe/jobFlavour';
+import { JobHeroScene } from './job-swipe/JobHeroScene';
+
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_W * 0.25;
+const CARD_RADIUS = 24;
 
 function formatPay(p: PublicJob['pay'], t: TFn): string {
   const min = Math.round(p.amount / 100);
@@ -151,30 +165,76 @@ function Inner() {
     });
   }
 
+  // ─── PanResponder wiring ──────────────────────────────────────────
+  // PanResponder.create() is captured once via useRef so the handler
+  // identity stays stable across renders — but its closures would
+  // otherwise pin the FIRST render's `jobs` / `index` / callbacks,
+  // which is empty + stale once the query resolves and the user starts
+  // swiping. The fix: read everything through live refs that we keep
+  // in sync each render below.
+  const liveRef = useRef({
+    jobs: jobs as PublicJob[],
+    index,
+    fly,
+    interestMut,
+    saveMut,
+    setSaved,
+    navigation,
+  });
+  liveRef.current = {
+    jobs,
+    index,
+    fly,
+    interestMut,
+    saveMut,
+    setSaved,
+    navigation,
+  };
+
   const panResponder = useRef(
     PanResponder.create({
+      // Claim moves only — taps stay with us via onPanResponderRelease.
       onMoveShouldSetPanResponder: (_e, g) =>
         Math.abs(g.dx) > 4 || Math.abs(g.dy) > 4,
+      onMoveShouldSetPanResponderCapture: (_e, g) =>
+        Math.abs(g.dx) > 4 || Math.abs(g.dy) > 4,
+      // We also need to claim the touch on start so child Pressables /
+      // hero scene can't steal it before a move is detected.
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => false,
+      // Never let iOS yank the responder away mid-gesture (e.g., when
+      // a parent ScrollView would otherwise claim it).
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
       onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
         useNativeDriver: false,
       }),
       onPanResponderRelease: (_e, g) => {
-        const job = jobs[index];
+        const live = liveRef.current;
+        const job = live.jobs[live.index];
         if (!job) {
+          Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: true }).start();
+          return;
+        }
+        // Tap (negligible drag) → open detail. We handle taps here
+        // instead of using a nested Pressable, which would compete
+        // with the PanResponder for the touch on iOS.
+        if (Math.abs(g.dx) < 6 && Math.abs(g.dy) < 6) {
+          live.navigation.navigate('JobDetail', { jobId: job.id });
           Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: true }).start();
           return;
         }
         if (g.dx > SWIPE_THRESHOLD) {
           haptic('success');
-          fly('right', () => interestMut.mutate(job.id));
+          live.fly('right', () => live.interestMut.mutate(job.id));
         } else if (g.dx < -SWIPE_THRESHOLD) {
           haptic('selection');
-          fly('left', () => undefined);
+          live.fly('left', () => undefined);
         } else if (g.dy < -SWIPE_THRESHOLD) {
           haptic('selection');
-          fly('up', () => {
-            saveMut.mutate(job.id);
-            setSaved((s) => new Set(s).add(job.id));
+          live.fly('up', () => {
+            live.saveMut.mutate(job.id);
+            live.setSaved((s) => new Set(s).add(job.id));
           });
         } else {
           Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: true }).start();
@@ -187,29 +247,62 @@ function Inner() {
 
   return (
     <Screen edges={[]}>
+      {/* ─── Header ─────────────────────────────────────────────────────
+          Back button lives inside a soft white card to match the
+          reference comp — feels like a "control surface" sitting on
+          the canvas rather than a flat chrome bar. */}
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
           paddingTop: insets.top + spacing.md,
           paddingHorizontal: spacing.xl,
-          paddingBottom: spacing.md,
+          paddingBottom: spacing.lg,
           gap: spacing.md,
         }}
       >
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-          <Text style={{ fontSize: 22, color: theme.text.primary }}>←</Text>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          hitSlop={12}
+          style={({ pressed }) => ({
+            width: 44,
+            height: 44,
+            borderRadius: 14,
+            backgroundColor: theme.bg.surface,
+            borderWidth: 0.5,
+            borderColor: theme.border.subtle,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: '#0F172A',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.08,
+            shadowRadius: 10,
+            elevation: 2,
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <MaterialCommunityIcons
+            name="arrow-left"
+            size={22}
+            color={theme.text.primary}
+          />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text.primary }}>
+          <Text
+            variant="title"
+            weight="semibold"
+            display
+            style={{ color: theme.text.primary }}
+          >
             {t('jobs.swipe.title')}
           </Text>
-          <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
+          <Text variant="footnote" style={{ color: theme.text.tertiary }}>
             {t('jobs.swipe.hint')}
           </Text>
         </View>
       </View>
 
+      {/* ─── Deck ───────────────────────────────────────────────────── */}
       <View
         style={{
           flex: 1,
@@ -230,6 +323,7 @@ function Inner() {
         ) : (
           remaining.map((job, i) => {
             const isTop = i === 0;
+            const flavour = flavourForJob(job);
             const baseTransform = isTop
               ? [
                   { translateX: pan.x as unknown as number },
@@ -244,48 +338,31 @@ function Inner() {
                 style={{
                   position: 'absolute',
                   width: SCREEN_W - spacing.xl * 2,
-                  height: SCREEN_H * 0.55,
-                  borderRadius: 24,
+                  height: SCREEN_H * 0.62,
+                  borderRadius: CARD_RADIUS,
                   backgroundColor: theme.bg.surface,
                   borderWidth: 0.5,
                   borderColor: theme.border.subtle,
-                  padding: spacing.lg,
+                  overflow: 'hidden',
                   shadowColor: '#0F172A',
-                  shadowOffset: { width: 0, height: 10 },
+                  shadowOffset: { width: 0, height: 12 },
                   shadowOpacity: 0.18,
-                  shadowRadius: 18,
+                  shadowRadius: 22,
                   elevation: 8,
                   transform: baseTransform as never,
                   zIndex: 10 - i,
                 }}
               >
-                <Pressable
-                  onPress={() => navigation.navigate('JobDetail', { jobId: job.id })}
-                  style={{ flex: 1, gap: spacing.sm }}
-                >
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-                    {job.urgent && <Pill label={t('jobs.card.urgent')} tone="warning" leading="●" />}
-                    {job.safeForWomen && <Pill label={t('jobs.card.women_safe')} tone="success" leading="🛡" />}
-                    <Pill label={formatPay(job.pay, t)} tone="warning" />
-                  </View>
-                  <Text style={{ fontSize: 24, fontWeight: '800', color: theme.text.primary }}>
-                    {job.title}
-                  </Text>
-                  <Text style={{ fontSize: 14, color: theme.text.secondary }}>
-                    {job.employer?.companyName ?? job.employer?.name ?? t('jobs.swipe.fallback_employer')}
-                    {job.location.area ? ` · ${job.location.area}` : ''}
-                  </Text>
-                  <Text numberOfLines={5} style={{ fontSize: 13, color: theme.text.secondary, lineHeight: 18 }}>
-                    {job.description}
-                  </Text>
-                  <View style={{ marginTop: 'auto', alignItems: 'center', gap: 4 }}>
-                    <Text style={{ fontSize: 11, color: theme.text.tertiary }}>
-                      {t('jobs.swipe.tap_for_details')}
-                    </Text>
-                  </View>
-                </Pressable>
+                {/* No Pressable wrapper here: it would race the
+                    PanResponder for the touch on iOS and swipes would
+                    intermittently fail to register. Taps are detected
+                    inside onPanResponderRelease via a small-distance
+                    threshold and navigate to JobDetail there. */}
+                <View style={{ flex: 1 }} pointerEvents="box-none">
+                  <CardBody job={job} flavour={flavour} t={t} />
+                </View>
 
-                {/* Like/Nope/Save overlays — only render on top card */}
+                {/* Like / Nope / Save overlays — only top card. */}
                 {isTop && (
                   <>
                     <Animated.View
@@ -327,7 +404,7 @@ function Inner() {
                     <Animated.View
                       style={{
                         position: 'absolute',
-                        bottom: 28,
+                        bottom: 96,
                         alignSelf: 'center',
                         opacity: saveOpacity,
                         borderWidth: 3,
@@ -349,7 +426,7 @@ function Inner() {
         )}
       </View>
 
-      {/* Big tap buttons as accessibility alternative for swipes */}
+      {/* Big tap buttons — accessibility alternative for swipe gestures. */}
       {jobs[index] && (
         <View
           style={{
@@ -360,13 +437,12 @@ function Inner() {
           }}
         >
           <ActionButton
-            label="✕"
+            iconName="close"
             onPress={() => fly('left', () => undefined)}
-            bg="#FEE2E2"
             color="#B91C1C"
           />
           <ActionButton
-            label="★"
+            iconName="star"
             onPress={() => {
               const j = jobs[index];
               if (!j) return;
@@ -375,17 +451,15 @@ function Inner() {
                 setSaved((s) => new Set(s).add(j.id));
               });
             }}
-            bg="#DBEAFE"
             color="#2563EB"
           />
           <ActionButton
-            label="✓"
+            iconName="check"
             onPress={() => {
               const j = jobs[index];
               if (!j) return;
               fly('right', () => interestMut.mutate(j.id));
             }}
-            bg="#D1FAE5"
             color="#047857"
           />
         </View>
@@ -394,17 +468,206 @@ function Inner() {
   );
 }
 
+/**
+ * CardBody — the per-job content tree. Separated so the swipe screen
+ * can compose it inside an animated wrapper without re-running layout
+ * work on every gesture frame.
+ */
+function CardBody({
+  job,
+  flavour,
+  t,
+}: {
+  job: PublicJob;
+  flavour: JobFlavour;
+  t: TFn;
+}) {
+  const { theme } = useTheme();
+
+  return (
+    <View style={{ flex: 1 }}>
+      {/* ─── Top: pills + trade glyph badge ───────────────────────── */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          paddingTop: spacing.lg,
+          paddingHorizontal: spacing.lg,
+        }}
+      >
+        <View
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: spacing.xs,
+          }}
+        >
+          {job.urgent && (
+            <Pill label={t('jobs.card.urgent')} tone="warning" leading="⚡" />
+          )}
+          <Pill label={formatPay(job.pay, t)} tone="warning" />
+          {job.safeForWomen && (
+            <Pill
+              label={t('jobs.card.women_safe')}
+              tone="success"
+              leading="🛡"
+            />
+          )}
+        </View>
+
+        {/* The "steering wheel in a circle" motif from the reference,
+            generalised per-trade via flavour.iconName. */}
+        <View
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: theme.premium.goldSubtle,
+            borderWidth: 0.5,
+            borderColor: theme.premium.goldBorder,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <MaterialCommunityIcons
+            name={flavour.iconName}
+            size={28}
+            color={theme.premium.gold}
+          />
+        </View>
+      </View>
+
+      {/* ─── Title ─────────────────────────────────────────────────── */}
+      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}>
+        <Text
+          variant="display"
+          weight="semibold"
+          display
+          style={{ color: theme.text.primary }}
+          numberOfLines={1}
+        >
+          {job.title}
+        </Text>
+      </View>
+
+      {/* ─── Location with map-pin ────────────────────────────────── */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.xs,
+          paddingHorizontal: spacing.lg,
+          paddingTop: spacing.xs,
+        }}
+      >
+        <MaterialCommunityIcons
+          name="map-marker-outline"
+          size={16}
+          color={theme.text.secondary}
+        />
+        <Text variant="footnote" style={{ color: theme.text.secondary }}>
+          {job.employer?.companyName ??
+            job.employer?.name ??
+            t('jobs.swipe.fallback_employer')}
+          {job.location.area ? ` · ${job.location.area}` : ''}
+        </Text>
+      </View>
+
+      {/* ─── Champagne accent rule (brand-constant, never theme-flavoured) ─ */}
+      <View
+        style={{
+          marginTop: spacing.md,
+          marginHorizontal: spacing.lg,
+          width: 32,
+          height: 2,
+          borderRadius: 1,
+          backgroundColor: theme.premium.gold,
+        }}
+      />
+
+      {/* ─── Description ───────────────────────────────────────────── */}
+      <View
+        style={{
+          paddingHorizontal: spacing.lg,
+          paddingTop: spacing.md,
+          paddingBottom: spacing.lg,
+        }}
+      >
+        <Text
+          numberOfLines={3}
+          variant="bodyLarge"
+          style={{ color: theme.text.secondary, lineHeight: 24 }}
+        >
+          {job.description}
+        </Text>
+      </View>
+
+      {/* ─── Hero scene (fills remainder) ─────────────────────────── */}
+      <View style={{ flex: 1, position: 'relative' }}>
+        <JobHeroScene flavour={flavour} bottomRadius={CARD_RADIUS} />
+
+        {/* "Tap to see full details ▾" — floating pill near hero bottom.
+            Sits inside the card boundaries (overflow: hidden on parent),
+            so it never clips weirdly across the rounded corners. */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: spacing.lg,
+            alignItems: 'center',
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.xs,
+              backgroundColor: theme.bg.surface,
+              borderRadius: radii.pill,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.xs,
+              borderWidth: 0.5,
+              borderColor: theme.border.subtle,
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 3,
+            }}
+          >
+            <Text variant="footnote" style={{ color: theme.text.secondary }}>
+              {t('jobs.swipe.tap_for_details')}
+            </Text>
+            <MaterialCommunityIcons
+              name="chevron-down"
+              size={14}
+              color={theme.text.secondary}
+            />
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * ActionButton — large tap target for accessibility-mode swipe input.
+ * Now icon-driven (instead of ASCII glyphs) so they read crisply on
+ * any density and inherit the icon font's perfect optical sizing.
+ */
 function ActionButton({
-  label,
+  iconName,
   onPress,
-  bg,
   color,
 }: {
-  label: string;
+  iconName: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   onPress: () => void;
-  bg: string;
   color: string;
 }) {
+  const { theme } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -412,18 +675,20 @@ function ActionButton({
         width: 64,
         height: 64,
         borderRadius: 32,
-        backgroundColor: bg,
+        backgroundColor: theme.bg.surface,
+        borderWidth: 0.5,
+        borderColor: theme.border.subtle,
         alignItems: 'center',
         justifyContent: 'center',
         opacity: pressed ? 0.7 : 1,
         shadowColor: color,
         shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.25,
+        shadowOpacity: 0.18,
         shadowRadius: 10,
         elevation: 6,
       })}
     >
-      <Text style={{ fontSize: 28, color, fontWeight: '800' }}>{label}</Text>
+      <MaterialCommunityIcons name={iconName} size={30} color={color} />
     </Pressable>
   );
 }

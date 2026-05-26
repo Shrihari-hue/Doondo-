@@ -31,15 +31,23 @@ export function SeekerThemeOverride({ children }: Props) {
 
   // Fall back to the seekerLight palette directly if the root provider
   // somehow isn't there (e.g. an isolated test render).
+  //
+  // We pin `theme` to the seekerLight tokens so the seeker subtree keeps
+  // its blue palette, but we pass `scheme` through from the root provider.
+  // That way SettingsScreen — which lives inside this override — can read
+  // the user's true light/dark preference and reflect it in the appearance
+  // toggle. Without this passthrough, `scheme` would always be
+  // 'seekerLight' here, and the Light / Dark rows could never show as
+  // active no matter what the user picked.
   const value = useMemo<ThemeContextValue>(
     () => ({
       theme: themes.seekerLight,
-      scheme: 'seekerLight',
+      scheme: parent?.scheme ?? 'seekerLight',
       setScheme: parent?.setScheme ?? (() => undefined),
       followSystem: parent?.followSystem ?? (() => undefined),
       isManual: parent?.isManual ?? false,
     }),
-    [parent?.setScheme, parent?.followSystem, parent?.isManual],
+    [parent?.scheme, parent?.setScheme, parent?.followSystem, parent?.isManual],
   );
 
   return (

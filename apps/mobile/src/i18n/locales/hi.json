@@ -2394,6 +2394,8 @@
   "app_lock": {
     "lock_screen_message": "जारी रखने के लिए अपनी उँगली, चेहरे या स्क्रीन लॉक से अनलॉक करें।",
     "unlock_button": "अनलॉक करें",
+    "unlock_button_subtitle": "सेंसर को छुएँ",
+    "or": "या",
     "unlocking": "अनलॉक हो रहा है…",
     "unlock_prompt": "दूंडो अनलॉक करें",
     "unlock_failed": "पुष्टि नहीं हो सकी। फिर कोशिश करें।",

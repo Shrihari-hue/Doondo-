@@ -13,23 +13,34 @@
  *     endpoint that doesn't exist yet — surfaces a confirmation with
  *     an "Email support to delete" fallback for now).
  *
+ * Visual language:
+ *   - Section labels render in champagne / amber with a small leading icon
+ *     (globe, bell, paintbrush, shield, lock, person, account). This gives
+ *     the screen the same editorial polish as the rest of Doondo —
+ *     section "headers" feel like signage rather than plain caps text.
+ *   - Notification rows lead with a small soft-tinted icon avatar so the
+ *     category is parseable at a glance.
+ *   - Safety + App Lock sit side-by-side in a two-column row (they're
+ *     both single-control sections, so giving each its own row would
+ *     waste vertical space).
+ *
  * All visible strings on this screen route through useTranslate(), which
  * makes it the canonical example of how to localise a screen — copy the
  * pattern when wiring i18n into other screens.
  */
 
-import { useEffect, useState } from 'react';
+import type { ComponentProps } from 'react';
 import { Alert, Pressable, ScrollView, Switch, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 
-import { spacing, radii } from '@doondo/tokens';
+import { spacing, radii, fontFamily } from '@doondo/tokens';
 import { Screen, Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppLockStore } from '@/stores/appLock.store';
-import { getSecure, setSecure } from '@/lib/secureStore';
 import { haptic } from '@/lib/haptics';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import type { AppStackParamList } from '@/navigation/types';
@@ -49,6 +60,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type FeatherName = ComponentProps<typeof Feather>['name'];
 
 const LANGUAGES = SUPPORTED_LOCALES.map((code) => ({
   code,
@@ -137,26 +149,55 @@ function SettingsInner() {
   }
 
   return (
-    <Screen edges={[]}>
+    <Screen edges={['top']}>
       <ScrollView
         contentContainerStyle={{
-          paddingTop: insets.top + spacing.md,
+          paddingTop: spacing.md,
           paddingHorizontal: spacing.xl,
-          paddingBottom: spacing['5xl'],
+          paddingBottom: insets.bottom + spacing['5xl'],
           gap: spacing.xl,
         }}
       >
-        {/* Header */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={{ fontSize: 22, color: theme.text.primary }}>←</Text>
+        {/* Header — chip-style back button + display-font title */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.md,
+            marginBottom: spacing.xs,
+          }}
+        >
+          <Pressable
+            onPress={() => navigation.goBack()}
+            hitSlop={12}
+            style={({ pressed }) => ({
+              width: 44,
+              height: 44,
+              borderRadius: radii.md,
+              backgroundColor: theme.bg.surface,
+              borderWidth: 0.5,
+              borderColor: theme.border.subtle,
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: '#000',
+              shadowOpacity: 0.04,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 2 },
+              opacity: pressed ? 0.6 : 1,
+            })}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
+            <Feather name="arrow-left" size={20} color={theme.text.primary} />
           </Pressable>
           <Text
             style={{
-              fontSize: 22,
+              fontFamily: fontFamily.display,
+              fontSize: 30,
               fontWeight: '700',
               color: theme.text.primary,
               flex: 1,
+              letterSpacing: -0.5,
             }}
           >
             {t('settings.title')}
@@ -164,7 +205,7 @@ function SettingsInner() {
         </View>
 
         {/* Language */}
-        <Section title={t('settings.language').toUpperCase()}>
+        <Section icon="globe" title={t('settings.language').toUpperCase()}>
           <View style={cardStyle(theme)}>
             {LANGUAGES.map((l, i) => {
               const active = locale === l.code;
@@ -184,16 +225,18 @@ function SettingsInner() {
                       style={{
                         flex: 1,
                         fontSize: 15,
-                        fontWeight: '500',
+                        fontWeight: active ? '600' : '500',
                         color: theme.text.primary,
                       }}
                     >
                       {l.label}
                     </Text>
                     {active && (
-                      <Text style={{ color: theme.brand.hero, fontSize: 18, fontWeight: '700' }}>
-                        ✓
-                      </Text>
+                      <Feather
+                        name="check"
+                        size={18}
+                        color={theme.brand.hero}
+                      />
                     )}
                   </Pressable>
                   {i < LANGUAGES.length - 1 && (
@@ -209,15 +252,16 @@ function SettingsInner() {
               );
             })}
           </View>
-          <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 6 }}>
+          <Hint icon="shield" theme={theme}>
             {t('settings.language_hint')}
-          </Text>
+          </Hint>
         </Section>
 
         {/* Notifications — granular per-type toggles */}
-        <Section title={t('settings.notifications').toUpperCase()}>
+        <Section icon="bell" title={t('settings.notifications').toUpperCase()}>
           <View style={cardStyle(theme)}>
             <PrefRow
+              icon="briefcase"
               label="New jobs"
               hint="Posts that match your skills and location"
               value={prefs.jobs}
@@ -225,6 +269,7 @@ function SettingsInner() {
             />
             <Divider color={theme.border.subtle} />
             <PrefRow
+              icon="download"
               label="Application updates"
               hint="Shortlisted, hired, declined"
               value={prefs.applications}
@@ -232,6 +277,7 @@ function SettingsInner() {
             />
             <Divider color={theme.border.subtle} />
             <PrefRow
+              icon="message-circle"
               label="Messages"
               hint="Chats from employers"
               value={prefs.messages}
@@ -239,6 +285,7 @@ function SettingsInner() {
             />
             <Divider color={theme.border.subtle} />
             <PrefRow
+              icon="star"
               label="Ratings"
               hint="When an employer rates your work"
               value={prefs.ratings}
@@ -246,85 +293,172 @@ function SettingsInner() {
             />
             <Divider color={theme.border.subtle} />
             <PrefRow
+              icon="user-plus"
               label="Referrals"
               hint="When a friend you referred gets hired"
               value={prefs.referrals}
               onChange={() => toggleType('referrals')}
             />
           </View>
-          <Text style={{ fontSize: 11, color: theme.text.tertiary, marginTop: 6 }}>
+          <Hint icon="info" theme={theme}>
             Turning a category off stops both push and in-app banners for that type.
-          </Text>
+          </Hint>
         </Section>
 
         {/* Theme */}
-        <Section title={t('settings.appearance').toUpperCase()}>
+        <Section icon="edit-2" title={t('settings.appearance').toUpperCase()}>
           <View style={cardStyle(theme)}>
             <ThemeRow
+              icon="sun"
               label={t('settings.appearance_light')}
               active={isManual && scheme === 'light'}
               onPress={() => setScheme('light')}
             />
             <Divider color={theme.border.subtle} />
             <ThemeRow
+              icon="moon"
               label={t('settings.appearance_dark')}
               active={isManual && scheme === 'dark'}
               onPress={() => setScheme('dark')}
             />
             <Divider color={theme.border.subtle} />
             <ThemeRow
+              icon="settings"
               label={t('settings.appearance_system')}
               active={!isManual}
               onPress={followSystem}
             />
           </View>
-          <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 6 }}>
+          <Hint icon="star" theme={theme}>
             {t('settings.appearance_hint')}
-          </Text>
+          </Hint>
         </Section>
 
-        {/* Safety */}
-        <Section title={t('settings.safety').toUpperCase()}>
-          <View style={cardStyle(theme)}>
-            <RowAction
-              label={t('settings.sos_label')}
-              value={t('settings.sos_value')}
+        {/* Safety + App Lock — two columns; both are single-control sections */}
+        <View style={{ flexDirection: 'row', gap: spacing.md }}>
+          {/* Safety */}
+          <View style={{ flex: 1, gap: spacing.sm }}>
+            <SectionLabel icon="shield" title={t('settings.safety').toUpperCase()} />
+            <Pressable
               onPress={() => {
                 haptic('selection');
                 navigation.navigate('Sos');
               }}
-            />
-          </View>
-          <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 6 }}>
-            {t('settings.sos_hint')}
-          </Text>
-        </Section>
-
-        {/* App lock */}
-        <Section title={t('app_lock.settings_section').toUpperCase()}>
-          <View style={cardStyle(theme)}>
-            {lockAvailable ? (
-              <PrefRow
-                label={t('app_lock.settings_toggle')}
-                hint={t('app_lock.settings_toggle_desc')}
-                value={lockEnabled}
-                onChange={() => {
-                  haptic('selection');
-                  void setLockEnabled(!lockEnabled);
+              style={({ pressed }) => ({
+                ...cardStyle(theme),
+                padding: spacing.lg,
+                gap: spacing.xs,
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    flex: 1,
+                    fontSize: 15,
+                    fontWeight: '600',
+                    color: theme.text.primary,
+                  }}
+                >
+                  {t('settings.sos_label')}
+                </Text>
+                <Feather
+                  name="chevron-right"
+                  size={18}
+                  color={theme.text.tertiary}
+                />
+              </View>
+              <Text style={{ fontSize: 12, color: theme.text.secondary }}>
+                {t('settings.sos_value')}
+              </Text>
+              <View
+                style={{
+                  height: 0.5,
+                  backgroundColor: theme.border.subtle,
+                  marginVertical: spacing.xs,
                 }}
               />
-            ) : (
-              <View style={{ padding: spacing.md }}>
+              <View style={{ flexDirection: 'row', gap: spacing.xs }}>
+                <Feather
+                  name="shield"
+                  size={11}
+                  color={theme.text.tertiary}
+                  style={{ marginTop: 2 }}
+                />
+                <Text
+                  style={{
+                    flex: 1,
+                    fontSize: 11,
+                    color: theme.text.tertiary,
+                    lineHeight: 15,
+                  }}
+                >
+                  {t('settings.sos_hint')}
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+
+          {/* App lock */}
+          <View style={{ flex: 1, gap: spacing.sm }}>
+            <SectionLabel
+              icon="lock"
+              title={t('app_lock.settings_section').toUpperCase()}
+            />
+            <View style={[cardStyle(theme), { padding: spacing.lg, gap: spacing.xs }]}>
+              {lockAvailable ? (
+                <>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        flex: 1,
+                        fontSize: 15,
+                        fontWeight: '600',
+                        color: theme.text.primary,
+                      }}
+                    >
+                      {t('app_lock.settings_toggle')}
+                    </Text>
+                    <Switch
+                      value={lockEnabled}
+                      onValueChange={() => {
+                        haptic('selection');
+                        void setLockEnabled(!lockEnabled);
+                      }}
+                      trackColor={{ false: theme.bg.muted, true: theme.brand.hero }}
+                    />
+                  </View>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: theme.text.tertiary,
+                      lineHeight: 15,
+                    }}
+                  >
+                    {t('app_lock.settings_toggle_desc')}
+                  </Text>
+                </>
+              ) : (
                 <Text variant="footnote" tone="tertiary">
                   {t('app_lock.settings_unavailable')}
                 </Text>
-              </View>
-            )}
+              )}
+            </View>
           </View>
-        </Section>
+        </View>
 
         {/* Accessibility */}
-        <Section title="ACCESSIBILITY">
+        <Section icon="user" title="ACCESSIBILITY">
           <View style={cardStyle(theme)}>
             <View
               style={{
@@ -334,7 +468,7 @@ function SettingsInner() {
               }}
             >
               <Text
-                style={{ fontSize: 15, fontWeight: '500', color: theme.text.primary }}
+                style={{ fontSize: 15, fontWeight: '600', color: theme.text.primary }}
               >
                 Text size
               </Text>
@@ -350,17 +484,19 @@ function SettingsInner() {
                       }}
                       style={{
                         paddingHorizontal: spacing.md,
-                        paddingVertical: spacing.xs,
+                        paddingVertical: spacing.xs + 2,
                         borderRadius: radii.pill,
-                        borderWidth: 0.5,
+                        borderWidth: active ? 1 : 0.5,
                         borderColor: active ? theme.brand.hero : theme.border.default,
                         backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                        minWidth: 56,
+                        alignItems: 'center',
                       }}
                     >
                       <Text
                         style={{
-                          fontSize: 12 + (s - 1) * 6,
-                          fontWeight: active ? '600' : '400',
+                          fontSize: 13,
+                          fontWeight: active ? '600' : '500',
                           color: active ? theme.brand.hero : theme.text.secondary,
                         }}
                       >
@@ -385,13 +521,20 @@ function SettingsInner() {
             >
               <View style={{ flex: 1, gap: 2 }}>
                 <Text
-                  style={{ fontSize: 15, fontWeight: '500', color: theme.text.primary }}
+                  style={{ fontSize: 15, fontWeight: '600', color: theme.text.primary }}
                 >
                   Speak text on tap
                 </Text>
-                <Text style={{ fontSize: 12, color: theme.text.tertiary }}>
-                  Reads job titles, pay, and descriptions aloud.
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Feather
+                    name="volume-2"
+                    size={11}
+                    color={theme.text.tertiary}
+                  />
+                  <Text style={{ fontSize: 12, color: theme.text.tertiary }}>
+                    Reads job titles, pay, and descriptions aloud.
+                  </Text>
+                </View>
               </View>
               <Switch
                 value={access.ttsEnabled}
@@ -407,11 +550,12 @@ function SettingsInner() {
         </Section>
 
         {/* Account */}
-        <Section title={t('settings.account').toUpperCase()}>
+        <Section icon="user" title={t('settings.account').toUpperCase()}>
           <View style={cardStyle(theme)}>
             <RowAction
               label={t('settings.email')}
               value={user?.email ?? ''}
+              chevron
               onPress={() =>
                 Alert.alert(
                   t('settings.email_change_title'),
@@ -421,14 +565,21 @@ function SettingsInner() {
             />
             <Divider color={theme.border.subtle} />
             <RowAction
+              icon="log-out"
               label={t('settings.sign_out')}
               tone="primary"
               onPress={confirmSignOut}
             />
-            <Divider color={theme.border.subtle} />
+          </View>
+          {/* Delete account is destructive + irreversible — give it its own
+              card with breathing room so it's harder to mistap right after
+              Sign out. */}
+          <View style={[cardStyle(theme), { marginTop: spacing.md }]}>
             <RowAction
+              icon="trash-2"
               label={t('settings.delete_account')}
               tone="danger"
+              chevron
               onPress={confirmDeleteAccount}
             />
           </View>
@@ -451,30 +602,96 @@ function SettingsInner() {
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+/**
+ * Small icon-prefixed amber label that sits above each settings card.
+ * The amber tone gives the screen its editorial feel — it's the same
+ * accent we use on the section "signage" elsewhere in the seeker tree.
+ */
+function SectionLabel({ icon, title }: { icon: FeatherName; title: string }) {
   const { theme } = useTheme();
   return (
-    <View style={{ gap: spacing.sm }}>
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+      }}
+    >
+      <Feather name={icon} size={12} color={theme.accent.amber} />
       <Text
         style={{
           fontSize: 11,
           fontWeight: '600',
           letterSpacing: 1.6,
-          color: theme.text.tertiary,
+          color: theme.accent.amber,
         }}
       >
         {title}
       </Text>
+    </View>
+  );
+}
+
+function Section({
+  icon,
+  title,
+  children,
+}: {
+  icon: FeatherName;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <SectionLabel icon={icon} title={title} />
       {children}
     </View>
   );
 }
 
+/**
+ * Below-card explanatory text with a tiny leading icon. Used for the
+ * little "Saved on this device", "Turning a category off…" footnotes.
+ */
+function Hint({
+  icon,
+  theme,
+  children,
+}: {
+  icon: FeatherName;
+  theme: ReturnType<typeof useTheme>['theme'];
+  children: React.ReactNode;
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 6,
+        marginTop: 4,
+        paddingHorizontal: 2,
+      }}
+    >
+      <Feather
+        name={icon}
+        size={11}
+        color={theme.text.tertiary}
+        style={{ marginTop: 3 }}
+      />
+      <Text style={{ flex: 1, fontSize: 11, color: theme.text.tertiary, lineHeight: 15 }}>
+        {children}
+      </Text>
+    </View>
+  );
+}
+
 function ThemeRow({
+  icon,
   label,
   active,
   onPress,
 }: {
+  icon: FeatherName;
   label: string;
   active: boolean;
   onPress: () => void;
@@ -482,36 +699,76 @@ function ThemeRow({
   const { theme } = useTheme();
   return (
     <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected: active }}
       onPress={onPress}
       style={({ pressed }) => ({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.md + 2,
+        backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
         opacity: pressed ? 0.6 : 1,
+        gap: spacing.md,
       })}
     >
+      <Feather
+        name={icon}
+        size={16}
+        color={active ? theme.brand.hero : theme.text.secondary}
+      />
       <Text
-        style={{ flex: 1, fontSize: 15, fontWeight: '500', color: theme.text.primary }}
+        style={{
+          flex: 1,
+          fontSize: 15,
+          fontWeight: active ? '600' : '500',
+          color: active ? theme.brand.hero : theme.text.primary,
+        }}
       >
         {label}
       </Text>
-      {active && (
-        <Text style={{ color: theme.brand.hero, fontSize: 18, fontWeight: '700' }}>✓</Text>
-      )}
+      {/* Always-visible radio indicator so the selected option is obvious
+          even when the row isn't tinted (e.g. on the seeker blue palette). */}
+      <View
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: 9,
+          borderWidth: 1.5,
+          borderColor: active ? theme.brand.hero : theme.border.default,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {active && (
+          <View
+            style={{
+              width: 9,
+              height: 9,
+              borderRadius: 5,
+              backgroundColor: theme.brand.hero,
+            }}
+          />
+        )}
+      </View>
     </Pressable>
   );
 }
 
 function RowAction({
+  icon,
   label,
   value,
   tone,
+  chevron,
   onPress,
 }: {
+  icon?: FeatherName;
   label: string;
   value?: string;
   tone?: 'primary' | 'danger';
+  /** Show a right-aligned chevron — use for rows that navigate. */
+  chevron?: boolean;
   onPress: () => void;
 }) {
   const { theme } = useTheme();
@@ -525,35 +782,57 @@ function RowAction({
     <Pressable
       onPress={onPress}
       style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.md + 2,
         opacity: pressed ? 0.6 : 1,
+        gap: spacing.sm,
       })}
     >
-      <Text
-        style={{
-          fontSize: 15,
-          fontWeight: tone === 'primary' || tone === 'danger' ? '600' : '500',
-          color: labelColor,
-        }}
-      >
-        {label}
-      </Text>
-      {value ? (
-        <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 2 }}>
-          {value}
+      {icon && (
+        <Feather name={icon} size={16} color={labelColor} />
+      )}
+      <View style={{ flex: 1 }}>
+        <Text
+          style={{
+            fontSize: 15,
+            fontWeight: tone === 'primary' || tone === 'danger' ? '600' : '500',
+            color: labelColor,
+          }}
+        >
+          {label}
         </Text>
-      ) : null}
+        {value ? (
+          <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 2 }}>
+            {value}
+          </Text>
+        ) : null}
+      </View>
+      {chevron && (
+        <Feather
+          name="chevron-right"
+          size={18}
+          color={tone === 'danger' ? theme.status.danger : theme.text.tertiary}
+        />
+      )}
     </Pressable>
   );
 }
 
+/**
+ * Per-category notification toggle. Leads with a tinted icon avatar so
+ * each row is parseable at a glance — the eye finds the category by
+ * the icon shape, not by re-reading the label.
+ */
 function PrefRow({
+  icon,
   label,
   hint,
   value,
   onChange,
 }: {
+  icon: FeatherName;
   label: string;
   hint: string;
   value: boolean;
@@ -567,10 +846,23 @@ function PrefRow({
         alignItems: 'center',
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.md,
+        gap: spacing.md,
       }}
     >
+      <View
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: radii.sm,
+          backgroundColor: theme.brand.heroSubtle,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Feather name={icon} size={16} color={theme.brand.hero} />
+      </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ fontSize: 14, fontWeight: '500', color: theme.text.primary }}>
+        <Text style={{ fontSize: 14, fontWeight: '600', color: theme.text.primary }}>
           {label}
         </Text>
         <Text style={{ fontSize: 11, color: theme.text.tertiary }}>{hint}</Text>

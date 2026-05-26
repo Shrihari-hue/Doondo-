@@ -353,7 +353,8 @@ async function main(): Promise<void> {
     );
     const big = validateReel({
       durationSeconds: 10,
-      base64Length: 9_000_000,
+      // Above MAX_REEL_BASE64_BYTES (56MB).
+      base64Length: 60_000_000,
       isDataUrl: true,
     });
     assert(

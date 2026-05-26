@@ -14,7 +14,8 @@
 set -u
 
 APP_ID="com.doondo.app"     # from app.json -> android.package
-OUT="$HOME/Desktop/doondo-crash.txt"
+# Save inside the project folder so Claude can read it directly.
+OUT="$(cd "$(dirname "$0")" && pwd)/doondo-crash.txt"
 
 # --- locate adb -------------------------------------------------------------
 ADB="$(command -v adb || true)"
@@ -34,19 +35,49 @@ echo "Using adb: $ADB"
 # --- wait for the device ----------------------------------------------------
 echo "Waiting for your phone (accept the 'Allow USB debugging' prompt if it appears)..."
 "$ADB" wait-for-device
-echo "Device connected:"
+echo "Device(s) connected:"
 "$ADB" devices
 
+# Multiple devices are attached (e.g. phone + emulator) → pick the real phone.
+# An emulator serial always starts with "emulator-", so anything else wins.
+DEVICES=$("$ADB" devices | awk 'NR>1 && $2=="device" {print $1}')
+PHONE=""
+for d in $DEVICES; do
+  case "$d" in emulator-*) ;; *) PHONE="$d"; break ;; esac
+done
+if [ -z "$PHONE" ]; then
+  echo "Couldn't find a real phone (only emulators are attached). Plug your phone in."
+  exit 1
+fi
+echo "Using device: $PHONE"
+
 # --- capture ----------------------------------------------------------------
-"$ADB" logcat -c    # clear old logs so the file only has this run
+# Wipe both the main and the dedicated crash buffer so this file only
+# contains what happens *this* run.
+"$ADB" -s "$PHONE" logcat -b all -c 2>/dev/null || "$ADB" -s "$PHONE" logcat -c
+
 echo
-echo ">>> NOW open the Doondo app on your phone and let it crash. <<<"
-echo "    Capturing for 25 seconds..."
+echo "======================================================================"
+echo " STEP 1:  Open the Doondo app on your phone now."
+echo " STEP 2:  Wait for it to crash / close."
+echo " STEP 3:  Come back here and press ENTER."
+echo "======================================================================"
+read -r _
+
+echo "Dumping crash log..."
 {
-  echo "==== Doondo crash capture $(date) ===="
-  "$ADB" logcat -d -t 1 >/dev/null 2>&1   # warm up
-  timeout 25 "$ADB" logcat AndroidRuntime:E ReactNative:V ReactNativeJS:V "*:E" \
-    2>/dev/null
+  echo "==== Doondo crash capture $(date) — device $PHONE ===="
+  echo
+  echo "--- crash buffer (Android keeps the most recent fatal crash here) ---"
+  "$ADB" -s "$PHONE" logcat -b crash -d 2>/dev/null
+  echo
+  echo "--- main buffer, errors + ReactNative + AndroidRuntime ---"
+  "$ADB" -s "$PHONE" logcat -d \
+      AndroidRuntime:V ReactNative:V ReactNativeJS:V \
+      DEBUG:V libc:V "*:E" 2>/dev/null
+  echo
+  echo "--- last 200 lines of the main buffer (everything) ---"
+  "$ADB" -s "$PHONE" logcat -d -t 200 2>/dev/null
 } > "$OUT"
 
 echo

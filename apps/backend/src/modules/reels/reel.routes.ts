@@ -20,7 +20,7 @@ const router = Router();
 const uploadSchema = z.object({
   body: z.object({
     /** Video as a base64 data URL. Coarse cap here; the service enforces the real bound. */
-    videoDataUrl: z.string().min(1).max(2_500_000),
+    videoDataUrl: z.string().min(1).max(60_000_000),
     mimeType: z.string().max(60).default('video/mp4'),
     durationSeconds: z.number().min(0).max(120),
     caption: z.string().trim().max(140).nullable().optional(),

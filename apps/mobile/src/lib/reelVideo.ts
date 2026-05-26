@@ -5,11 +5,12 @@
  * from the gallery. Both return the same base64 data URL the reel
  * upload endpoint expects.
  *
- * v1 mirrors `chatVideo`: no transcoding, the picked/recorded file is
- * sent as-is as a base64 data URL under a ~1.4MB ceiling (the bound the
- * JSON body parser is known to accept). The server's swappable storage
- * provider is where larger files / a real CDN land later — this client
- * path is the interim transport.
+ * v1 has no transcoding — the picked/recorded clip is sent as-is as a
+ * base64 data URL. The ceiling is ~56MB encoded (~40MB of raw video),
+ * matched on the server by `MAX_REEL_BASE64_BYTES` and a route-scoped
+ * body parser on `/api/v1/reels`. The swappable storage provider is
+ * where larger files / a real CDN land later — this client path is the
+ * interim transport.
  */
 
 import * as ImagePicker from 'expo-image-picker';
@@ -33,7 +34,12 @@ export interface ReelCaptureResult {
 export const REEL_MIN_SECONDS = 3;
 /** …and at most this long. */
 export const REEL_MAX_SECONDS = 30;
-const MAX_BASE64_BYTES = 1_400_000;
+// ~56MB base64 ≈ ~40MB of raw video. Phone clips at the camera quality
+// we capture (0.5) almost always fit; this is the upper bound before we
+// ask the worker to re-record or pick a smaller file. Keep in sync with
+// the server's MAX_REEL_BASE64_BYTES and the body-parser limit on
+// /api/v1/reels in apps/backend/src/server.ts.
+const MAX_BASE64_BYTES = 56_000_000;
 
 /** Turn a picked/recorded asset into the upload-ready result. Throws friendly errors. */
 async function processAsset(

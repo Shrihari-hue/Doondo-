@@ -30,7 +30,7 @@
         "NSCameraUsageDescription": "Doondo uses your camera for intro videos and verification.",
         "NSMicrophoneUsageDescription": "Doondo uses your microphone for video calls and intro videos.",
         "NSPhotoLibraryUsageDescription": "Doondo uses your photos to set your profile picture and resume.",
-        "NSContactsUsageDescription": "Doondo uses contacts so you can pick safety contacts."
+        "NSContactsUsageDescription": "Doondo uses contacts so you can find friends already on Doondo and pick safety contacts. Phone numbers never leave your device in plaintext."
       }
     },
     "android": {

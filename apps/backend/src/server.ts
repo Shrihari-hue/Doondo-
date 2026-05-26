@@ -69,6 +69,13 @@ export function buildApp(): BuiltApp {
     }),
   );
   app.use(compression());
+  // Hire-Reel uploads can be up to ~56MB base64 (~40MB of raw video),
+  // so /api/v1/reels gets its own larger JSON body parser BEFORE the
+  // global one. body-parser detects that req.body is already parsed and
+  // skips, so the route-scoped mount wins for reel uploads and the
+  // smaller global cap still protects every other endpoint.
+  app.use('/api/v1/reels', express.json({ limit: '60mb' }));
+  app.use('/api/v1/reels', express.urlencoded({ extended: true, limit: '60mb' }));
   // 2mb fits the base64-encoded profile photo (~350KB raw → ~470KB encoded
   // + JSON overhead) with comfortable headroom.
   // 4mb fits a compressed chat image (~1MB raw → ~1.4MB base64) plus

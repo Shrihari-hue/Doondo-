@@ -71,7 +71,14 @@ export function initI18n(initialLocale: SupportedLocale = 'en'): Promise<I18nIns
         lng: initialLocale,
         fallbackLng: 'en',
         interpolation: { escapeValue: false },
-        compatibilityJSON: 'v4',
+        // Hermes (our JS engine on device) ships a limited `Intl` that
+        // does NOT include `Intl.PluralRules`. i18next v4's plural
+        // handling requires it and surfaces a noisy `console.error` —
+        // misleading because the app keeps working via fallback. v3
+        // plural rules are built into i18next and need no Intl support,
+        // so this is the right call on RN/Hermes until we ship an
+        // Intl.PluralRules polyfill (`@formatjs/intl-pluralrules`).
+        compatibilityJSON: 'v3',
         returnNull: false,
       });
       i18nInstance = i18next;

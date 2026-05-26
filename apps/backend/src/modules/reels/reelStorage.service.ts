@@ -24,12 +24,14 @@ export const MIN_REEL_SECONDS = 3;
 /** …and at most this long. Matches the chat-video ceiling. */
 export const MAX_REEL_SECONDS = 30;
 /**
- * Base64 payload ceiling (~1.4MB) — the same bound the chat video and
- * audio attachments use, so it is known to pass the JSON body parser.
- * A short, low-quality clip fits comfortably; the `http` provider can
- * later accept larger files via multipart.
+ * Base64 payload ceiling (~56MB ≈ ~40MB of raw video). The reel route
+ * gets its own larger body-parser mount in server.ts so the global 4MB
+ * JSON limit stays in place for every other endpoint. Keep this value
+ * in sync with the client cap in apps/mobile/src/lib/reelVideo.ts and
+ * with the JSON body-parser limit on `/api/v1/reels`. The `http`
+ * provider can later accept much larger files via multipart.
  */
-export const MAX_REEL_BASE64_BYTES = 1_400_000;
+export const MAX_REEL_BASE64_BYTES = 56_000_000;
 
 export type ReelRejectReason = 'ok' | 'too_short' | 'too_long' | 'too_large' | 'bad_format';
 
