@@ -14,7 +14,13 @@
 import { Alert, Modal, Pressable, View } from 'react-native';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Text, Avatar } from '@/components';
+// Import siblings by direct path, NOT via `@/components`. The barrel
+// re-exports THIS file, so importing back through it creates a require
+// cycle (Metro warns about it; it can also yield undefined sibling
+// exports when the cycle resolves in an unlucky order). Direct paths
+// have zero runtime difference.
+import { Text } from './Text';
+import { Avatar } from './Avatar';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { haptic } from '@/lib/haptics';
