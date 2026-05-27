@@ -46,6 +46,36 @@ const schema = z.object({
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_VERIFY_SERVICE_SID: z.string().optional(),
 
+  // ─── Twilio WhatsApp (Messaging API) ──────────────────────────────────
+  // Reuses TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN above.
+  //
+  // TWILIO_WHATSAPP_FROM — the WhatsApp-enabled sender, "whatsapp:+E164".
+  //   Sandbox: whatsapp:+14155238886
+  //   Production: your approved WhatsApp Business sender.
+  //
+  // TWILIO_WHATSAPP_ENABLED — master switch. When false, sendTemplate /
+  //   sendText calls are no-ops that log + return. Lets you ship without
+  //   blowing $$ on accidental sends in CI / staging.
+  //
+  // TWILIO_WHATSAPP_WEBHOOK_PATH — the URL path Twilio will POST inbound
+  //   messages to (configured in the Twilio console). Defaults to the
+  //   v1 router path; override only if you mount it elsewhere.
+  TWILIO_WHATSAPP_FROM: z.string().optional(),
+  TWILIO_WHATSAPP_ENABLED: z
+    .union([z.literal('true'), z.literal('false')])
+    .default('false')
+    .transform((v) => v === 'true'),
+  TWILIO_WHATSAPP_WEBHOOK_PATH: z.string().default('/api/v1/whatsapp/webhook'),
+  /**
+   * Toggle Twilio's X-Twilio-Signature validation on inbound webhooks.
+   * Default true (always validate in prod). Turn off only when you're
+   * pointing the webhook at a tunnel (ngrok) without a stable URL.
+   */
+  TWILIO_WEBHOOK_VALIDATE: z
+    .union([z.literal('true'), z.literal('false')])
+    .default('true')
+    .transform((v) => v === 'true'),
+
   // MSG91 (https://msg91.com)
   MSG91_AUTH_KEY: z.string().optional(),
   MSG91_TEMPLATE_ID: z.string().optional(),

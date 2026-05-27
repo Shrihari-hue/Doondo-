@@ -17,6 +17,7 @@ export { FestivalBanner } from './FestivalBanner';
 export { PaymentConfirmationPanel } from './PaymentConfirmationPanel';
 export { ErrorPanel } from './ErrorPanel';
 export { AccountSwitcherSheet } from './AccountSwitcherSheet';
+export { AccountSwitcherPill } from './AccountSwitcherPill';
 export { LanguagePickerSheet } from './LanguagePickerSheet';
 export { LanguageToggle } from './LanguageToggle';
 export { CraftShowcase } from './CraftShowcase';

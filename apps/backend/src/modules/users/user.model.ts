@@ -261,6 +261,24 @@ export interface User {
    */
   phoneHash?: string | null;
   /**
+   * Other User records that represent the same physical person. Populated
+   * when a worker creates an employer account on the same email/phone
+   * (the "Add Employer" arrow on the seeker profile), or vice versa. The
+   * link is bidirectional: each side carries the other's _id.
+   *
+   * What this unlocks:
+   *   - Shared phone verification: OTP-proving a phone on one account
+   *     marks it proven on every linked account with the same phone.
+   *   - Cross-account anti-abuse: an employer record cannot apply to
+   *     its own jobs (we resolve "own" through this link).
+   *   - Unified audit/notification dedup: surfaces in Settings as "all
+   *     your accounts" and prevents duplicate push fan-outs.
+   *
+   * Empty (default []) for users who only have one account on Doondo —
+   * which is the vast majority.
+   */
+  linkedAccountIds: Schema.Types.ObjectId[];
+  /**
    * Preferred app language (en / hi / ta / te / kn). Drives in-chat
    * auto-translation — an incoming message is translated into the
    * recipient's `locale`. The mobile app syncs this whenever the worker
@@ -490,6 +508,14 @@ export interface PublicUser {
   phoneVerified: boolean;
   /** ISO timestamp when verification fully passed; null otherwise. */
   verifiedAt: string | null;
+  /**
+   * Ids of other User records that represent the same physical person —
+   * populated when the user holds a seeker AND an employer account on
+   * the same email/phone. Mobile uses this to (a) decorate the account
+   * switcher pill so the user sees "this is your linked account", and
+   * (b) suppress duplicate notifications across linked sessions.
+   */
+  linkedAccountIds: string[];
   // ─── Seeker profile (Phase 2) ───────────────────────────────────────────
   skills: string[];
   bio: string | null;
@@ -678,7 +704,12 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
       required: true,
       lowercase: true,
       trim: true,
-      unique: true,
+      // NOTE: NOT `unique: true` on the field — we deliberately allow one
+      // physical person to hold both a seeker AND an employer account
+      // under the same email (the "Add Employer" arrow on the seeker
+      // profile creates the second one). Uniqueness is enforced by the
+      // compound index on (email, role) declared at the end of this file,
+      // which lets the email collide across roles but not within a role.
       index: true,
       match: [/^[^@\s]+@[^@\s]+\.[^@\s]+$/, 'Invalid email'],
     },
@@ -712,6 +743,21 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
      * findFriends.service hashPhone() for the canonical formula.
      */
     phoneHash: { type: String, default: null, index: true },
+    /**
+     * Bidirectional links to other User records that represent the same
+     * physical person — one entry per linked account. Indexed so the
+     * reverse lookup ("which accounts link back to me?") is cheap when
+     * we propagate verification status, dedupe notifications, or block
+     * the employer-applies-to-own-job case.
+     *
+     * Empty for almost every user; only the dual-role human (worker who
+     * also signed up as an employer, or vice versa) carries any entries.
+     */
+    linkedAccountIds: {
+      type: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+      default: [],
+      index: true,
+    },
     /**
      * Preferred app language — drives in-chat auto-translation. Synced by
      * the mobile app whenever the worker changes the UI language.
@@ -933,6 +979,19 @@ userSchema.index({ 'location.geo': '2dsphere' });
 // role and ranges over lastLoginAt to find users who haven't returned.
 userSchema.index({ isActive: 1, role: 1, lastLoginAt: 1 });
 
+// Email is unique PER ROLE, not globally. A single human can hold both a
+// seeker and an employer account on the same email (and the same phone) —
+// they're disambiguated by `role` at login. This compound unique index
+// is the single source of truth for that rule; the bare `email` field
+// above has `index: true` (for fast lookups) but no field-level unique.
+//
+// Migration note: if a previous deploy had a `{ email: 1 }` unique index
+// on this collection, Mongoose's `autoIndex` will NOT drop it
+// automatically. Run `db.users.dropIndex('email_1')` once after deploy
+// so the old single-field unique index doesn't keep blocking the new
+// (email, role) combination. The compound index below then takes over.
+userSchema.index({ email: 1, role: 1 }, { unique: true });
+
 userSchema.method('toPublicJSON', function (
   this: UserDocument,
   opts?: { rating?: { avg: number; count: number } | null },
@@ -961,6 +1020,10 @@ userSchema.method('toPublicJSON', function (
     verificationStatus: this.verificationStatus ?? 'unverified',
     phoneVerified: Boolean(this.phoneVerifiedAt),
     verifiedAt: this.verifiedAt ? this.verifiedAt.toISOString() : null,
+    // Surfaced as string ids so the mobile client can correlate with the
+    // savedAccounts list (which keys by userId). Empty for the vast
+    // majority — only the dual-role human carries any entries.
+    linkedAccountIds: (this.linkedAccountIds ?? []).map((id) => id.toString()),
     skills: this.skills ?? [],
     bio: this.bio ?? null,
     experienceYears: this.experienceYears ?? null,

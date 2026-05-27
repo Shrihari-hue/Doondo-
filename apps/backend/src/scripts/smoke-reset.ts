@@ -141,6 +141,14 @@ async function runChecks(): Promise<void> {
 
   // ─── 9. New password works ───────────────────────────────────────────
   const newLogin = await authService.login({ email, password: newPassword });
+  // login() now returns LoginResult = AuthSuccess | LoginNeedsRoleChoice.
+  // This smoke script always sets up a single-account user, so the
+  // ambiguous branch must not trigger — narrow with an explicit guard.
+  if ('needsRoleChoice' in newLogin) {
+    throw new Error(
+      'FAIL: new-password login unexpectedly returned a role-choice envelope',
+    );
+  }
   assert(newLogin.user.email === email, 'new-password login returns user');
   console.log('✓ login with new password works');
 

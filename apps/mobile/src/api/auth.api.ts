@@ -26,6 +26,33 @@ export interface RegisterPayload {
 export interface LoginPayload {
   email: string;
   password: string;
+  /**
+   * Optional — required only when this email holds multiple accounts
+   * (one per role) on the server. The first login call goes out without
+   * `role`; if the server responds with `needsRoleChoice`, the UI shows
+   * a picker and re-calls login with the chosen role.
+   */
+  role?: UserRole;
+}
+
+/**
+ * Server response when login is ambiguous: the email has more than one
+ * account (e.g. a seeker AND an employer account on the same email) and
+ * we don't know which one the user means yet. The client renders a
+ * picker and re-submits with `role` set.
+ */
+export interface LoginNeedsRoleChoice {
+  needsRoleChoice: true;
+  availableRoles: UserRole[];
+}
+
+export type LoginResponse = AuthSuccess | LoginNeedsRoleChoice;
+
+/** Type guard for the disambiguation branch of LoginResponse. */
+export function isLoginRoleChoice(
+  res: LoginResponse,
+): res is LoginNeedsRoleChoice {
+  return (res as LoginNeedsRoleChoice).needsRoleChoice === true;
 }
 
 export interface ForgotPasswordResponse {
@@ -51,7 +78,7 @@ export const authApi = {
     }),
 
   login: (body: LoginPayload) =>
-    apiRequest<AuthSuccess>('/auth/login', {
+    apiRequest<LoginResponse>('/auth/login', {
       method: 'POST',
       body,
       auth: false,

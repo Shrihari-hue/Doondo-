@@ -54,6 +54,12 @@ export const loginSchema = z.object({
   body: z.object({
     email: emailSchema,
     password: z.string().min(1, 'Password is required'),
+    // Optional. Required only when the same email holds BOTH a seeker and
+    // an employer account on this server (the "Add Employer" arrow on the
+    // seeker profile allows that). Without role, the server returns a
+    // 200 envelope with `needsRoleChoice: true` and the available roles
+    // so the mobile client can show a picker, then re-submit with `role`.
+    role: z.enum(['seeker', 'employer']).optional(),
   }),
 });
 

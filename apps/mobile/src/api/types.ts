@@ -152,6 +152,15 @@ export interface PublicUser {
   phoneVerified: boolean;
   /** ISO timestamp when verification fully passed; null otherwise. */
   verifiedAt: string | null;
+  /**
+   * Ids of other accounts that represent the same physical person (e.g.
+   * the seeker and employer halves of the same human). Empty for users
+   * with only one account; populated bidirectionally by the backend at
+   * register-time when the same email/phone is reused for a new role.
+   * The mobile app reads this to label "linked" rows in the account
+   * switcher and to suppress duplicate cross-account notifications.
+   */
+  linkedAccountIds: string[];
   // Phase 2 seeker profile
   skills: string[];
   bio: string | null;

@@ -41,6 +41,7 @@ import reelsRouter from '@/modules/reels/reel.routes';
 import communityRouter from '@/modules/community/post.routes';
 import hiringRequestsRouter from '@/modules/hiringRequests/hiringRequest.routes';
 import accountActivityRouter from '@/modules/accountActivity/accountActivity.routes';
+import whatsappRouter from '@/modules/whatsapp/whatsapp.routes';
 import * as employerInterestController from '@/modules/employerInterest/employerInterest.controller';
 import {
   expressInterestSchema,
@@ -78,6 +79,8 @@ v1.use('/community', communityRouter);
 // Two-way discovery — the employer→worker outbound invite flow.
 v1.use('/hiring-requests', hiringRequestsRouter);
 v1.use('/accounts', accountActivityRouter);
+// WhatsApp (Twilio) — inbound webhook + admin send/inbox.
+v1.use('/whatsapp', whatsappRouter);
 
 // Earned-badges helper — employer-side card on ApplicantDetail uses this.
 v1.get('/seekers/:id/badges', requireAuth, coursesController.listSeekerBadges);

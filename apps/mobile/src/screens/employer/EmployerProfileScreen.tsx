@@ -22,9 +22,9 @@ import {
   Avatar,
   ThemeToggleCard,
   AccountSwitcherSheet,
+  AccountSwitcherPill,
 } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
-import { useOtherAccountsActivity } from '@/hooks/useOtherAccountsActivity';
 import { useAuthStore } from '@/stores/auth.store';
 import { meApi } from '@/api/me.api';
 import { pickProfilePhoto } from '@/lib/photo';
@@ -37,46 +37,19 @@ type Nav = NativeStackNavigationProp<AppStackParamList>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 export function EmployerProfileScreen() {
-  const { user, logout, savedAccounts, activeAccountId, switchAccount } =
-    useAuth();
-  // Activity waiting on the other account(s) — dot on the switcher pill.
-  const { totalOther: otherAccountActivity } = useOtherAccountsActivity();
+  const { user, logout, savedAccounts } = useAuth();
   const setStore = useAuthStore.setState;
   const navigation = useNavigation<Nav>();
   const t = useTranslate();
   const [photoError, setPhotoError] = useState<string | null>(null);
 
   /**
-   * Account switcher — mirrors the seeker profile pill. If the user only
-   * has the employer account on this device, the pill jumps to the
-   * "Add Seeker account" signup; otherwise it opens the sheet so they
-   * can switch back.
+   * The smart pill (AccountSwitcherPill) below handles every press +
+   * long-press case (quick-switch when there are exactly two accounts,
+   * sheet for 3+, AddAccount signup for the single-account case). We
+   * just own the sheet's visibility so the pill can ask us to open it.
    */
   const [switcherVisible, setSwitcherVisible] = useState(false);
-  const hasOtherAccount = savedAccounts.length > 1;
-  function onPressSwitcher() {
-    haptic('selection');
-    if (hasOtherAccount) {
-      setSwitcherVisible(true);
-    } else {
-      navigation.navigate('AddAccountSignup', { role: 'seeker' });
-    }
-  }
-  /**
-   * Quick-switch: with exactly two accounts, a long-press on the pill
-   * flips straight to the other one — no sheet. With 3+ accounts we
-   * fall back to the full switcher.
-   */
-  function onLongPressSwitcher() {
-    if (savedAccounts.length !== 2) {
-      onPressSwitcher();
-      return;
-    }
-    const other = savedAccounts.find((a) => a.userId !== activeAccountId);
-    if (!other) return;
-    haptic('selection');
-    void switchAccount(other.userId);
-  }
   function onAddFromSheet() {
     // Sheet's footer wording reads "Add another account" when more than
     // one is saved; here we send them into the role they DON'T have.
@@ -137,66 +110,19 @@ export function EmployerProfileScreen() {
           gap: spacing['2xl'],
         }}
       >
-        {/* ─── Top-left account switcher ───────────────────────────────
-            Same Instagram-style pill as the seeker profile. We render
-            it as the first row of the ScrollView (the employer screen
-            has no hero gradient to overlay onto). */}
+        {/* ─── Top-left account switcher (smart pill) ──────────────────
+            Same component as the seeker profile uses, but variant=light
+            because the employer profile has no gradient hero to sit on.
+            With exactly two accounts on device this collapses into a
+            one-tap quick-switch ("↺ Shree 👷"). */}
         <View style={{ flexDirection: 'row' }}>
-          <Pressable
-            onPress={onPressSwitcher}
-            onLongPress={onLongPressSwitcher}
-            delayLongPress={350}
-            accessibilityRole="button"
-            accessibilityLabel={t('employer.profile.switch_a11y')}
-            hitSlop={8}
-            style={({ pressed }) => ({
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              paddingLeft: 6,
-              paddingRight: 12,
-              paddingVertical: 5,
-              borderRadius: radii.pill,
-              backgroundColor: 'rgba(15, 23, 42, 0.06)',
-              opacity: pressed ? 0.65 : 1,
-              maxWidth: '70%',
-            })}
-          >
-            <View>
-              <Avatar
-                name={user.companyName ?? user.name}
-                photoUrl={user.photoUrl}
-                size={22}
-              />
-              {otherAccountActivity > 0 ? (
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: -2,
-                    right: -2,
-                    width: 10,
-                    height: 10,
-                    borderRadius: 5,
-                    backgroundColor: '#EF4444',
-                    borderWidth: 1.5,
-                    borderColor: '#FFFFFF',
-                  }}
-                />
-              ) : null}
-            </View>
-            <Text
-              style={{ fontSize: 13, fontWeight: '600' }}
-              numberOfLines={1}
-            >
-              {user.companyName ?? user.name}
-            </Text>
-            <Text
-              style={{ fontSize: 11, fontWeight: '700', marginTop: 1 }}
-              allowFontScaling={false}
-            >
-              ▾
-            </Text>
-          </Pressable>
+          <AccountSwitcherPill
+            variant="light"
+            onAddAccount={() =>
+              navigation.navigate('AddAccountSignup', { role: 'seeker' })
+            }
+            onOpenSheet={() => setSwitcherVisible(true)}
+          />
         </View>
 
         {/* Identity */}

@@ -25,7 +25,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { radii, spacing } from '@doondo/tokens';
 import { Screen, Text, Button, TextField, FormError } from '@/components';
-import { authApi } from '@/api/auth.api';
+import { authApi, isLoginRoleChoice } from '@/api/auth.api';
 import { ApiError } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/theme/useTheme';
@@ -59,12 +59,14 @@ export function AddAccountSignupScreen() {
 
   const [mode, setMode] = useState<Mode>('signup');
 
-  // Prefill from the active account where it makes sense. We DON'T
-  // prefill email — the new account needs a distinct email address per
-  // backend rules, so prefilling it would set the user up to hit
-  // AUTH_EMAIL_TAKEN on submit.
+  // Prefill from the active account — including email and phone. Backend
+  // now indexes uniqueness on (email, role) instead of (email) alone, so
+  // a seeker can create an employer account on the SAME email + phone
+  // without colliding with their existing record. AUTH_EMAIL_TAKEN now
+  // only fires when there's already an account with both this email AND
+  // this role (i.e. true duplicate within a role).
   const [name, setName] = useState(user?.name ?? '');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(user?.email ?? '');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState(user?.phone ?? '');
   const [submitting, setSubmitting] = useState(false);
@@ -160,7 +162,26 @@ export function AddAccountSignupScreen() {
 
     setSubmitting(true);
     try {
-      const result = await authApi.login({ email: email.trim(), password });
+      // The add-account login is implicitly targeting the OTHER role from
+      // the user's current account. That's almost always right: if I'm a
+      // seeker adding an employer, my employer account on this email is
+      // what I want to log into. Passing `role` up front also avoids the
+      // needsRoleChoice branch entirely in the common case. The current
+      // user's role is filtered out below.
+      const targetRole: UserRole = user?.role === 'employer' ? 'seeker' : 'employer';
+      const result = await authApi.login({
+        email: email.trim(),
+        password,
+        role: targetRole,
+      });
+      // If the server still came back ambiguous (e.g. somehow the user is
+      // signing into a third role we didn't anticipate), bail out with a
+      // clear error — we don't render a picker on this screen because the
+      // common case is a 2-role human and `targetRole` already covers it.
+      if (isLoginRoleChoice(result)) {
+        setFormError(t('auth.add_account_signup.err_invalid_credentials'));
+        return;
+      }
       // Same as signup: addAccount keeps the current account on file and
       // switches the active session to the one we just signed into.
       await addAccount(result);

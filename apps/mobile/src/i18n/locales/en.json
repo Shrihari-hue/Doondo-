@@ -1481,7 +1481,15 @@
       "err_password_required": "Password is required",
       "err_invalid_credentials": "Email or password is incorrect.",
       "err_rate_limited": "Too many sign-in attempts. Try again in a minute.",
-      "err_generic": "Something went wrong. Please try again."
+      "err_generic": "Something went wrong. Please try again.",
+      "role_picker_eyebrow": "ONE EMAIL, TWO ACCOUNTS",
+      "role_picker_title": "Which account?",
+      "role_picker_subtitle": "You have both a job seeker and an employer account on this email. Pick which one you want to sign in to.",
+      "role_picker_option_seeker": "Job seeker",
+      "role_picker_option_seeker_subtitle": "Find work, apply to jobs, build your profile",
+      "role_picker_option_employer": "Employer",
+      "role_picker_option_employer_subtitle": "Post jobs, review applicants, hire workers",
+      "role_picker_cancel": "Back"
     },
     "forgot": {
       "eyebrow": "RESET PASSWORD",
@@ -1613,7 +1621,7 @@
       "name_helper_employer": "This is what workers will see on your job posts.",
       "email_label": "Email",
       "email_placeholder": "employer@example.com",
-      "email_helper": "Must be different from your current account's email.",
+      "email_helper": "We've prefilled the email and phone from your current account — you can keep them as-is or use different ones.",
       "password_label": "Password",
       "password_placeholder": "8+ chars, mix letters and numbers",
       "phone_label": "Phone",
@@ -1631,7 +1639,7 @@
       "err_password_mix": "Mix letters and numbers",
       "err_phone_required": "We'll use this to reset your password if you forget it",
       "err_phone_invalid": "Enter a valid phone number",
-      "err_email_taken": "An account with this email already exists — use a different email for this employer account",
+      "err_email_taken": "You already have an employer account on this email. Switch to it from your profile instead.",
       "err_rate_limited": "Too many attempts. Try again in a minute.",
       "err_generic": "Something went wrong. Please try again.",
       "login_eyebrow": "SIGN IN TO ANOTHER ACCOUNT",
@@ -2755,5 +2763,9 @@
     "remove_cancel": "Cancel",
     "remove_confirm": "Remove",
     "updates_a11y": "{{count}} updates waiting"
+  },
+  "account_pill": {
+    "switch_to": "Switch to {{name}}",
+    "open_switcher": "Open account switcher"
   }
 }

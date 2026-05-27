@@ -39,6 +39,7 @@ import {
   Button,
   Avatar,
   AccountSwitcherSheet,
+  AccountSwitcherPill,
   LanguageToggle,
   CraftShowcase,
 } from '@/components';
@@ -55,7 +56,6 @@ import { useTranslate } from '@/i18n/useTranslate';
 import { ProfileCompletionMeter } from './ProfileCompletionMeter';
 import { computeCompleteness } from '@/lib/profileCompleteness';
 import { useUnratedApplications } from '@/hooks/useRatings';
-import { useOtherAccountsActivity } from '@/hooks/useOtherAccountsActivity';
 import { pickProfilePhoto } from '@/lib/photo';
 import { haptic } from '@/lib/haptics';
 import { prettifySkill } from '@/lib/trades';
@@ -66,11 +66,7 @@ type Nav = NativeStackNavigationProp<AppStackParamList>;
 
 export function ProfileScreen() {
   const { theme } = useTheme();
-  const { user, logout, savedAccounts, activeAccountId, switchAccount } =
-    useAuth();
-  // Activity waiting on the worker's other account(s) — shows as a dot
-  // on the switcher pill so a switch isn't "blind".
-  const { totalOther: otherAccountActivity } = useOtherAccountsActivity();
+  const { user, logout } = useAuth();
   const setStore = useAuthStore.setState;
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
@@ -78,40 +74,13 @@ export function ProfileScreen() {
   const [photoError, setPhotoError] = useState<string | null>(null);
 
   /**
-   * Account switcher state. The Instagram-style top-left pill shows the
-   * active account name + a chevron. Tap behavior:
-   *   - Has another saved account (e.g. employer)  → open the switcher sheet
-   *   - Only one account on device                 → jump straight to the
-   *                                                  "Add Employer" signup
-   *
-   * The decision is made on tap so we always reflect the latest store
-   * state (a fresh signup could have added an account since mount).
+   * The account-switcher PILL itself lives in the new AccountSwitcherPill
+   * component below. It decides between quick-switch, opening the sheet,
+   * and the "Add Employer" signup based on how many accounts are on
+   * device. We only own this sheet's visibility so the pill can ask
+   * us to open it when there are 3+ accounts.
    */
   const [switcherVisible, setSwitcherVisible] = useState(false);
-  const hasOtherAccount = savedAccounts.length > 1;
-  function onPressSwitcher() {
-    haptic('selection');
-    if (hasOtherAccount) {
-      setSwitcherVisible(true);
-    } else {
-      navigation.navigate('AddAccountSignup', { role: 'employer' });
-    }
-  }
-  /**
-   * Quick-switch: with exactly two accounts, a long-press on the pill
-   * flips straight to the other one — no sheet. With 3+ accounts there's
-   * no single "other", so we fall back to opening the full switcher.
-   */
-  function onLongPressSwitcher() {
-    if (savedAccounts.length !== 2) {
-      onPressSwitcher();
-      return;
-    }
-    const other = savedAccounts.find((a) => a.userId !== activeAccountId);
-    if (!other) return;
-    haptic('selection');
-    void switchAccount(other.userId);
-  }
   function onAddEmployerFromSheet() {
     navigation.navigate('AddAccountSignup', { role: 'employer' });
   }
@@ -229,78 +198,25 @@ export function ProfileScreen() {
           }}
         >
           {/* ─── Top-left account switcher ───────────────────────────────
-              Instagram-style pill: "Shrinidhi ▾". Tap opens the switcher
-              sheet if another account is saved, otherwise jumps straight
-              into the "Add Employer account" signup.
-
+              Smart pill. Three modes:
+                · 1 account on device  → "Shree ▾" → tap = Add Employer
+                · 2 accounts (typical) → "↺ Acme Corp 🏢" → tap = QUICK
+                  SWITCH (no sheet). Long-press still opens the sheet.
+                · 3+ accounts          → "Shree ▾" → tap opens the sheet.
               Anchored absolutely so the centered avatar layout below it
               doesn't have to be reshaped. */}
-          <Pressable
-            onPress={onPressSwitcher}
-            onLongPress={onLongPressSwitcher}
-            delayLongPress={350}
-            accessibilityRole="button"
-            accessibilityLabel={t('profile_screen.switch_account_a11y')}
-            hitSlop={8}
-            style={({ pressed }) => ({
+          <AccountSwitcherPill
+            variant="onDark"
+            style={{
               position: 'absolute',
               top: insets.top + spacing.sm,
               left: spacing.lg,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              paddingLeft: 6,
-              paddingRight: 12,
-              paddingVertical: 5,
-              borderRadius: radii.pill,
-              backgroundColor: 'rgba(255,255,255,0.18)',
-              borderWidth: 0.5,
-              borderColor: 'rgba(255,255,255,0.32)',
-              opacity: pressed ? 0.75 : 1,
-              maxWidth: '70%',
-            })}
-          >
-            <View>
-              <Avatar name={user.name} photoUrl={user.photoUrl} size={22} />
-              {otherAccountActivity > 0 ? (
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: -2,
-                    right: -2,
-                    width: 10,
-                    height: 10,
-                    borderRadius: 5,
-                    backgroundColor: '#EF4444',
-                    borderWidth: 1.5,
-                    borderColor: '#FFFFFF',
-                  }}
-                />
-              ) : null}
-            </View>
-            <Text
-              style={{
-                color: '#FFFFFF',
-                fontSize: 13,
-                fontWeight: '600',
-                letterSpacing: -0.1,
-              }}
-              numberOfLines={1}
-            >
-              {user.name}
-            </Text>
-            <Text
-              style={{
-                color: '#FFFFFF',
-                fontSize: 11,
-                fontWeight: '700',
-                marginTop: 1,
-              }}
-              allowFontScaling={false}
-            >
-              ▾
-            </Text>
-          </Pressable>
+            }}
+            onAddAccount={() =>
+              navigation.navigate('AddAccountSignup', { role: 'employer' })
+            }
+            onOpenSheet={() => setSwitcherVisible(true)}
+          />
 
           {/* Top-right language toggle — mirrors the account switcher
               pill on the left. `onDark` so the globe button reads on the

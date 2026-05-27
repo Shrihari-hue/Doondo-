@@ -265,6 +265,13 @@ export type AppStackParamList = {
    */
   LocationPicker: undefined;
   /**
+   * Modal: admin-only WhatsApp support inbox. Lists inbound message
+   * threads from Doondo's WhatsApp Business number, lets staff send
+   * freeform replies inside the 24-hour window. Backend enforces the
+   * admin role; the screen also hides itself for non-admins.
+   */
+  WhatsAppInbox: undefined;
+  /**
    * Modal: add a second account (Instagram-style switcher target).
    * Lives in AppStack because the user is already authenticated when
    * they open it — auth.addAccount() pushes the new account into

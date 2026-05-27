@@ -58,12 +58,34 @@ export async function confirmPhoneVerification(
 
   // Persist the phone the user just proved. We canonicalise here too so
   // it always lands in the same E.164-ish form regardless of input shape.
-  user.phone = canonicalisePhone(phone);
-  user.phoneVerifiedAt = new Date();
+  const canonicalPhone = canonicalisePhone(phone);
+  const verifiedAt = new Date();
+  user.phone = canonicalPhone;
+  user.phoneVerifiedAt = verifiedAt;
   if (user.verificationStatus === 'unverified') {
     user.verificationStatus = 'pending';
   }
   await user.save();
+
+  // Propagate to linked sibling accounts that share THIS phone — same
+  // human, same phone, the OTP they would otherwise re-do is redundant.
+  // We don't touch sibling `verificationStatus` because the full flow
+  // (selfie / GSTIN) is still role-specific; only the phone step is
+  // safely transferable. updateMany scope is narrow: only siblings that
+  // are linked AND share the phone AND haven't already been proven.
+  if (user.linkedAccountIds && user.linkedAccountIds.length > 0) {
+    await UserModel.updateMany(
+      {
+        _id: { $in: user.linkedAccountIds },
+        phone: canonicalPhone,
+        phoneVerifiedAt: null,
+      },
+      {
+        $set: { phoneVerifiedAt: verifiedAt },
+      },
+    );
+  }
+
   return user.toPublicJSON();
 }
 

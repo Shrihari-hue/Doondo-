@@ -46,7 +46,11 @@ export type ErrorCode =
   | 'VERIFICATION_PHONE_REQUIRED'
   | 'VERIFICATION_SELFIE_REQUIRED'
   | 'VERIFICATION_GSTIN_REQUIRED'
-  | 'VERIFICATION_ALREADY_VERIFIED';
+  | 'VERIFICATION_ALREADY_VERIFIED'
+  // WhatsApp (Twilio)
+  | 'WHATSAPP_DISABLED'
+  | 'WHATSAPP_INVALID_SIGNATURE'
+  | 'WHATSAPP_SEND_FAILED';
 
 export interface AppErrorOptions {
   code: ErrorCode;
@@ -234,5 +238,24 @@ export const errors = {
       code: 'VERIFICATION_ALREADY_VERIFIED',
       message: 'This account is already verified.',
       status: 409,
+    }),
+  // ─── WhatsApp (Twilio) ────────────────────────────────────────────────
+  whatsappDisabled: () =>
+    new AppError({
+      code: 'WHATSAPP_DISABLED',
+      message: 'WhatsApp messaging is not enabled on this deployment.',
+      status: 503,
+    }),
+  whatsappInvalidSignature: () =>
+    new AppError({
+      code: 'WHATSAPP_INVALID_SIGNATURE',
+      message: 'Webhook signature did not validate.',
+      status: 401,
+    }),
+  whatsappSendFailed: (message = 'Could not deliver the WhatsApp message.') =>
+    new AppError({
+      code: 'WHATSAPP_SEND_FAILED',
+      message,
+      status: 502,
     }),
 };
