@@ -33,21 +33,40 @@ export function LoginScreen() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   /**
-   * When the email is associated with more than one account (a seeker
-   * AND an employer signup on the same email), the server's first reply
-   * is a "needsRoleChoice" envelope listing the roles to pick from. We
-   * stash them here so the form re-renders into a role picker; tapping
-   * a role re-submits login with `role` filled in.
+   * Which side the user is signing in to — explicitly chosen via the
+   * segmented control at the top of the form. Default 'seeker' because
+   * job-seekers are the dominant audience by a wide margin; the toggle
+   * is a single tap away for employers.
+   *
+   * This is the SAME `role` the server's loginSchema accepts. Passing it
+   * up front means the "ambiguous email → pick a role" branch of the
+   * server response almost never fires for the typical user (they've
+   * already told us which side they meant), and incorrect-role attempts
+   * fail closed as plain 'invalid credentials' rather than leaking that
+   * a different role for that email exists.
+   */
+  const [selectedRole, setSelectedRole] = useState<UserRole>('seeker');
+
+  /**
+   * Fallback safety net: if the user signed in WITHOUT a role somehow
+   * (e.g. autofill / password manager bypassing our toggle in a weird
+   * way) and the server still says the email is ambiguous, we surface
+   * the inline role picker. With the upfront toggle this should be a
+   * very rare path.
    */
   const [roleChoices, setRoleChoices] = useState<UserRole[] | null>(null);
 
   async function performLogin(role?: UserRole) {
     setSubmitting(true);
     try {
+      // `role` is set when the inline picker (server-driven disambiguation)
+      // chose for us; otherwise we fall back to the explicit toggle at the
+      // top of the form. Either way the server gets a definite role.
+      const effectiveRole = role ?? selectedRole;
       const result = await authApi.login({
         email: email.trim(),
         password,
-        role,
+        role: effectiveRole,
       });
       if (isLoginRoleChoice(result)) {
         // Server says this email has multiple accounts — show the picker
@@ -121,12 +140,16 @@ export function LoginScreen() {
             <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
               {roleChoices
                 ? t('auth.login.role_picker_eyebrow')
-                : t('auth.login.eyebrow')}
+                : selectedRole === 'employer'
+                  ? t('auth.login.eyebrow_employer')
+                  : t('auth.login.eyebrow_seeker')}
             </Text>
             <Text variant="titleLarge" weight="medium">
               {roleChoices
                 ? t('auth.login.role_picker_title')
-                : t('auth.login.title')}
+                : selectedRole === 'employer'
+                  ? t('auth.login.title_employer')
+                  : t('auth.login.title_seeker')}
             </Text>
             {roleChoices && (
               <Text variant="footnote" tone="secondary" style={{ marginTop: spacing.xs }}>
@@ -134,6 +157,23 @@ export function LoginScreen() {
               </Text>
             )}
           </View>
+
+          {/* Role toggle — explicit upfront choice of which side the user
+              is signing in to. Hidden during the inline role-picker
+              fallback (the picker IS the choice in that case). */}
+          {!roleChoices && (
+            <RoleToggle
+              value={selectedRole}
+              onChange={(next) => {
+                if (submitting) return;
+                haptic('selection');
+                setSelectedRole(next);
+                // Clear any prior "invalid credentials" — likely caused by
+                // attempting the wrong role on a single-role email.
+                setFormError(null);
+              }}
+            />
+          )}
 
           <FormError message={formError} />
 
@@ -232,7 +272,13 @@ export function LoginScreen() {
 
               <View style={{ gap: spacing.md }}>
                 <Button
-                  label={submitting ? t('auth.login.cta_signing_in') : t('auth.login.cta_signin')}
+                  label={
+                    submitting
+                      ? t('auth.login.cta_signing_in')
+                      : selectedRole === 'employer'
+                        ? t('auth.login.cta_signin_employer')
+                        : t('auth.login.cta_signin_seeker')
+                  }
                   onPress={onSubmit}
                   disabled={submitting}
                 />
@@ -273,4 +319,98 @@ function mapValidation(
     if (key === 'email' || key === 'password') out[key] = i.message;
   }
   return out;
+}
+
+// ─── RoleToggle ─────────────────────────────────────────────────────────────
+//
+// Segmented control that asks the user which side of Doondo they're
+// signing in to. Two pills, side by side, with a sliding selected state.
+// Kept file-local because the styling is tightly tuned to the dark
+// login screen — if a second screen ever needs the same control we can
+// promote it to /components.
+//
+// A11y: each pill is its own button with role+selected state so VoiceOver
+// reads "Job seeker, selected, button" or "Employer, not selected, button".
+
+interface RoleToggleProps {
+  value: UserRole;
+  onChange: (next: UserRole) => void;
+}
+
+function RoleToggle({ value, onChange }: RoleToggleProps) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        padding: 4,
+        borderRadius: radii.pill,
+        backgroundColor: theme.bg.muted,
+        borderWidth: 0.5,
+        borderColor: theme.border.subtle,
+        gap: 4,
+      }}
+      accessibilityRole="tablist"
+    >
+      <RoleSegment
+        label={t('auth.login.role_toggle_seeker')}
+        icon="👷"
+        active={value === 'seeker'}
+        onPress={() => onChange('seeker')}
+      />
+      <RoleSegment
+        label={t('auth.login.role_toggle_employer')}
+        icon="🏢"
+        active={value === 'employer'}
+        onPress={() => onChange('employer')}
+      />
+    </View>
+  );
+}
+
+interface RoleSegmentProps {
+  label: string;
+  icon: string;
+  active: boolean;
+  onPress: () => void;
+}
+
+function RoleSegment({ label, icon, active, onPress }: RoleSegmentProps) {
+  const { theme } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={label}
+      style={({ pressed }) => ({
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: radii.pill,
+        backgroundColor: active ? theme.brand.hero : 'transparent',
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      <Text style={{ fontSize: 14 }} allowFontScaling={false}>
+        {icon}
+      </Text>
+      <Text
+        style={{
+          fontSize: 13,
+          fontWeight: '600',
+          color: active ? '#FFFFFF' : theme.text.secondary,
+          letterSpacing: -0.1,
+        }}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
 }
