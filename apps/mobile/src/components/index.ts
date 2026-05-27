@@ -11,6 +11,7 @@ export { Avatar } from './Avatar';
 export { ThemeToggleCard } from './ThemeToggleCard';
 export { EmptyState } from './EmptyState';
 export { DoondoMark, DoondoLockup } from './DoondoLogo';
+export { EmployerHomeIllustration } from './EmployerHomeIllustration';
 export { Stars } from './Stars';
 export { NotificationsBell } from './NotificationsBell';
 export { FestivalBanner } from './FestivalBanner';

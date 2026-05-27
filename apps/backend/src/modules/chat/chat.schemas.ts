@@ -59,6 +59,13 @@ const attachmentSchema = z
     width: z.number().int().min(1).max(20_000).nullable().optional(),
     height: z.number().int().min(1).max(20_000).nullable().optional(),
     durationSeconds: z.number().min(0).max(600).nullable().optional(),
+    /**
+     * Sparse audio-level samples (0..1) captured while recording a
+     * voice note — drives the playback waveform. Length capped at the
+     * client's MAX_WAVEFORM_SAMPLES (64) plus a small safety margin so
+     * a future bump doesn't break the schema right away.
+     */
+    waveform: z.array(z.number().min(0).max(1)).max(128).nullable().optional(),
   })
   .nullable()
   .optional();

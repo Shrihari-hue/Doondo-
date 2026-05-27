@@ -282,6 +282,16 @@ export type AppStackParamList = {
    * entry point.
    */
   AddAccountSignup: { role?: UserRole } | undefined;
+  /**
+   * Password-reset screens are ALSO registered in the AppStack (not just
+   * AuthStack) so a signed-in user on AddAccountSignup who hits the
+   * AUTH_EMAIL_TAKEN error can recover the other account without losing
+   * their current session first. Same param shapes as their AuthStack
+   * counterparts.
+   */
+  ForgotPassword: undefined;
+  ForgotPasswordCode: { phone: string; expiresAt: string };
+  ResetPassword: { phone: string; resetToken: string };
 };
 
 declare global {

@@ -72,6 +72,9 @@ import { AdvanceScreen } from '@/screens/seeker/AdvanceScreen';
 import { InsuranceScreen } from '@/screens/seeker/InsuranceScreen';
 import { JobSwipeScreen } from '@/screens/seeker/JobSwipeScreen';
 import { AddAccountSignupScreen } from '@/screens/auth/AddAccountSignupScreen';
+import { ForgotPasswordScreen } from '@/screens/auth/ForgotPasswordScreen';
+import { ForgotPasswordCodeScreen } from '@/screens/auth/ForgotPasswordCodeScreen';
+import { ResetPasswordScreen } from '@/screens/auth/ResetPasswordScreen';
 import { WhatsAppInboxScreen } from '@/screens/admin/WhatsAppInboxScreen';
 import { JobApplicantsScreen } from '@/screens/employer/JobApplicantsScreen';
 import { ApplicantDetailScreen } from '@/screens/employer/ApplicantDetailScreen';
@@ -407,6 +410,19 @@ export function AppNavigator() {
         component={AddAccountSignupScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
+      {/* Password-reset screens registered in the AppStack too — needed so
+          a SIGNED-IN user on AddAccountSignup who hits AUTH_EMAIL_TAKEN
+          can tap "Forgot password" and recover the other account without
+          having to log out first. After a successful reset the backend
+          revokes every refresh token for the affected user(s), so the
+          API client's next call force-logs them out and they land back
+          on the AuthStack to sign in fresh. */}
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen
+        name="ForgotPasswordCode"
+        component={ForgotPasswordCodeScreen}
+      />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <Stack.Screen
         name="WhatsAppInbox"
         component={WhatsAppInboxScreen}

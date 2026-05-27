@@ -30,6 +30,14 @@ export interface VoiceRecordingResult {
   mimeType: string;
   sizeBytes: number;
   durationSeconds: number;
+  /**
+   * Sparse audio level samples captured during recording, each in
+   * 0..1 (normalised RMS-ish). Used to render a real waveform on the
+   * voice-message bubble instead of a flat progress bar. Length is
+   * capped at ~64 — the renderer downsamples or pads as needed.
+   * `null` when metering wasn't available on this device.
+   */
+  waveform?: number[] | null;
 }
 
 /** Max recording duration. */
@@ -65,7 +73,7 @@ function delay(ms: number): Promise<void> {
 }
 
 const RECORDING_OPTIONS = {
-  isMeteringEnabled: false,
+  isMeteringEnabled: true,
   // In expo-audio v1.x, `extension`, `sampleRate`, `numberOfChannels` and
   // `bitRate` are TOP-LEVEL keys on RecordingOptions. Nesting them under
   // `android` / `ios` (as this file used to) means the native side never
@@ -132,6 +140,53 @@ interface RecorderInstance {
   prepareToRecordAsync?: (options?: typeof RECORDING_OPTIONS) => Promise<void>;
   record: () => Promise<void> | void;
   stop: () => Promise<void>;
+  /**
+   * expo-audio v1.x recorders extend SharedObject and emit
+   * `recordingStatusUpdate` events that carry the live metering reading
+   * when isMeteringEnabled is on. We use `unknown` for the payload here
+   * and parse it defensively in the listener — the shape varies a touch
+   * between platforms and we don't want a missing field to crash the
+   * record path.
+   */
+  addListener?: (
+    event: 'recordingStatusUpdate',
+    listener: (status: unknown) => void,
+  ) => { remove: () => void } | (() => void) | void;
+  /** Optional in some builds — preferred way to read level out-of-band. */
+  getStatus?: () => unknown;
+}
+
+/**
+ * Normalise a metering value (typically dBFS, range ~ -160..0) into a
+ * 0..1 level suitable for driving a bar height. Treats -50 dB as the
+ * noise floor and 0 dB as full scale — anything quieter than the floor
+ * clips to 0.
+ */
+function dbToLevel(db: number): number {
+  if (!Number.isFinite(db)) return 0;
+  // Some platforms (web, expo-audio sampling) report a 0..1 amplitude
+  // directly instead of dB. If the value is in [0,1.5], assume linear.
+  if (db >= 0 && db <= 1.5) return Math.min(1, Math.max(0, db));
+  const floor = -50;
+  if (db <= floor) return 0;
+  if (db >= 0) return 1;
+  return (db - floor) / -floor; // (-50 → 0), (0 → 1)
+}
+
+/**
+ * Pull a metering reading out of a status payload, robust to the shape
+ * differences across expo-audio versions / platforms.
+ */
+function readMeteringFromStatus(status: unknown): number | null {
+  if (!status || typeof status !== 'object') return null;
+  const s = status as Record<string, unknown>;
+  const candidates = [s.metering, s.meter, s.level, s.dB, s.db];
+  for (const c of candidates) {
+    if (typeof c === 'number' && Number.isFinite(c)) {
+      return dbToLevel(c);
+    }
+  }
+  return null;
 }
 
 async function requestPermission(): Promise<{ granted: boolean }> {
@@ -230,12 +285,51 @@ async function readRecordingBase64(
 }
 
 /**
+ * Maximum number of waveform samples we keep for a recording. ~64 looks
+ * great for the typical chat-bubble width and keeps the attachment
+ * payload tiny (< 1KB serialised).
+ */
+const MAX_WAVEFORM_SAMPLES = 64;
+
+type LevelListener = (level: number) => void;
+
+/**
  * VoiceRecorder — start, stop, cancel. Holds the live recorder reference
  * internally so the caller just toggles state.
+ *
+ * While recording it also:
+ *   - emits live level updates (0..1) to any subscribed listener so the
+ *     UI can render a meter / waveform pulse
+ *   - captures a sparse array of level samples that get attached to the
+ *     resulting voice message for a real playback waveform
  */
 export class VoiceRecorder {
   private recorder: RecorderInstance | null = null;
   private startedAt = 0;
+  private statusSubscription: { remove: () => void } | null = null;
+  private listeners = new Set<LevelListener>();
+  private samples: number[] = [];
+  /** Most recent level — used for both the live meter and waveform capture. */
+  private currentLevel = 0;
+  /** setInterval that drains currentLevel into the waveform array. */
+  private waveformTimer: ReturnType<typeof setInterval> | null = null;
+
+  /** Subscribe to live level updates (0..1). Returns an unsubscribe. */
+  onLevel(listener: LevelListener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  private emitLevel(level: number): void {
+    this.currentLevel = level;
+    for (const l of this.listeners) {
+      try {
+        l(level);
+      } catch {
+        /* one bad listener should not break the others */
+      }
+    }
+  }
 
   /** Throws if permission is denied. */
   async start(): Promise<void> {
@@ -248,7 +342,54 @@ export class VoiceRecorder {
     const recorder = await createRecorder();
     this.recorder = recorder;
     this.startedAt = Date.now();
+    this.samples = [];
+    this.currentLevel = 0;
+
+    // Subscribe to metering updates so the UI can show a live meter and
+    // we can build a per-message waveform for playback. The native side
+    // emits these at roughly every 100ms when metering is on.
+    if (typeof recorder.addListener === 'function') {
+      try {
+        const sub = recorder.addListener('recordingStatusUpdate', (status) => {
+          const level = readMeteringFromStatus(status);
+          if (level != null) this.emitLevel(level);
+        });
+        if (sub && typeof (sub as { remove?: unknown }).remove === 'function') {
+          this.statusSubscription = sub as { remove: () => void };
+        } else if (typeof sub === 'function') {
+          this.statusSubscription = { remove: sub as () => void };
+        }
+      } catch {
+        /* metering subscribe is best-effort — recording still works without it */
+      }
+    }
+
+    // Down-sample the live level into the waveform array at a steady
+    // cadence so the resulting array is proportional to recording
+    // duration and capped at MAX_WAVEFORM_SAMPLES. We rotate older
+    // samples once the cap is hit so we always show the *most recent*
+    // signal shape (better than truncating).
+    this.waveformTimer = setInterval(() => {
+      this.samples.push(this.currentLevel);
+      if (this.samples.length > MAX_WAVEFORM_SAMPLES) {
+        // Smoothly downsample by averaging neighbours into half-length
+        // rather than dropping every other (which loses peaks).
+        const collapsed: number[] = [];
+        for (let i = 0; i < this.samples.length; i += 2) {
+          const a = this.samples[i] ?? 0;
+          const b = this.samples[i + 1] ?? a;
+          collapsed.push((a + b) / 2);
+        }
+        this.samples = collapsed;
+      }
+    }, 100);
+
     await recorder.record();
+  }
+
+  /** Latest captured waveform — useful for previewing before send. */
+  getWaveform(): number[] {
+    return [...this.samples];
   }
 
   /**
@@ -267,6 +408,19 @@ export class VoiceRecorder {
     if (!this.recorder) throw new Error('No recording in progress');
     const recorder = this.recorder;
     this.recorder = null;
+    if (this.waveformTimer) {
+      clearInterval(this.waveformTimer);
+      this.waveformTimer = null;
+    }
+    if (this.statusSubscription) {
+      try {
+        this.statusSubscription.remove();
+      } catch {
+        /* best-effort */
+      }
+      this.statusSubscription = null;
+    }
+    this.listeners.clear();
 
     // Make sure the native encoder has had time to commit at least a
     // few frames before we stop, otherwise Android's MediaRecorder
@@ -319,11 +473,18 @@ export class VoiceRecorder {
     // Best-effort cleanup so we don't leave a temp file around.
     safeDeleteFile(uri);
 
+    // Snapshot the captured waveform — non-empty means metering worked
+    // on this device. The bubble renderer falls back to a synthesized
+    // waveform when this is empty.
+    const capturedWaveform = this.samples.length > 0 ? [...this.samples] : null;
+    this.samples = [];
+
     return {
       dataUrl: `data:audio/m4a;base64,${base64}`,
       mimeType: 'audio/m4a',
       sizeBytes,
       durationSeconds,
+      waveform: capturedWaveform,
     };
   }
 
@@ -338,6 +499,22 @@ export class VoiceRecorder {
     if (elapsedMs < MIN_RECORD_BEFORE_STOP_MS) {
       await delay(MIN_RECORD_BEFORE_STOP_MS - elapsedMs);
     }
+    // Tear down the metering subscription + waveform timer cleanly so
+    // we don't leak listeners on a cancelled recording.
+    if (this.waveformTimer) {
+      clearInterval(this.waveformTimer);
+      this.waveformTimer = null;
+    }
+    if (this.statusSubscription) {
+      try {
+        this.statusSubscription.remove();
+      } catch {
+        /* best-effort */
+      }
+      this.statusSubscription = null;
+    }
+    this.listeners.clear();
+    this.samples = [];
     await safeStopRecorder(recorder);
     if (recorder.uri) {
       safeDeleteFile(recorder.uri);

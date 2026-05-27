@@ -508,6 +508,15 @@ export interface MessageAttachment {
   width?: number | null;
   height?: number | null;
   durationSeconds?: number | null;
+  /**
+   * Sparse audio-level samples (0..1) captured while a voice note was
+   * recorded. Drives the playback waveform on the message bubble. Up to
+   * ~64 entries; absent on attachments produced by older clients (or
+   * when metering wasn't available on the recording device — the
+   * renderer falls back to a synthesized waveform in that case).
+   * Only set on voice attachments.
+   */
+  waveform?: number[] | null;
 }
 
 export interface PublicConversation {

@@ -42,6 +42,12 @@ export interface MessageAttachment {
   height?: number | null;
   /** Voice / video duration in seconds. */
   durationSeconds?: number | null;
+  /**
+   * Sparse audio-level samples (0..1) captured during recording — drives
+   * the playback waveform on the voice bubble. Up to ~64 entries; null
+   * on messages from clients that didn't capture metering.
+   */
+  waveform?: number[] | null;
 }
 
 /**
@@ -144,6 +150,7 @@ const attachmentSchema = new Schema<MessageAttachment>(
     width: { type: Number, default: null, min: 0 },
     height: { type: Number, default: null, min: 0 },
     durationSeconds: { type: Number, default: null, min: 0 },
+    waveform: { type: [Number], default: null },
   },
   { _id: false },
 );

@@ -37,8 +37,16 @@ import type { UserRole } from '@/api/types';
 type Nav = NativeStackNavigationProp<AppStackParamList, 'AddAccountSignup'>;
 type Route = RouteProp<AppStackParamList, 'AddAccountSignup'>;
 
-/** signup = create new account · login = sign into an existing one. */
-type Mode = 'signup' | 'login';
+/**
+ * signup   — create a brand-new account
+ * login    — sign into an account the user already owns
+ * recovery — server told us an account with this (email, role) already
+ *            exists. The user almost certainly forgot they made it.
+ *            Recovery offers two ways forward: "Sign in to that
+ *            account" (flips to login mode) and "Forgot password?"
+ *            (deep-links to the password-reset flow).
+ */
+type Mode = 'signup' | 'login' | 'recovery';
 
 interface FieldErrors {
   name?: string;
@@ -128,9 +136,14 @@ export function AddAccountSignupScreen() {
       haptic('error');
       if (err instanceof ApiError) {
         if (err.code === 'AUTH_EMAIL_TAKEN') {
-          setFieldErrors({
-            email: t('auth.add_account_signup.err_email_taken'),
-          });
+          // The (email, role) combination already exists. Instead of
+          // dead-ending the user on a static error string, flip into the
+          // recovery sub-state — it offers them two clear next steps:
+          // sign into the existing account, or reset its password.
+          setMode('recovery');
+          setFormError(null);
+          setFieldErrors({});
+          return;
         } else if (err.code === 'RATE_LIMITED') {
           setFormError(t('auth.add_account_signup.err_rate_limited'));
         } else if (err.validationIssues) {
@@ -208,7 +221,32 @@ export function AddAccountSignupScreen() {
   }
 
   const isLogin = mode === 'login';
+  const isRecovery = mode === 'recovery';
   const onSubmit = isLogin ? onLogin : onSignup;
+
+  /**
+   * From the recovery panel, flipping into login mode preserves the
+   * email the user typed and the password (in case they remembered it
+   * after all). Password is the common case for "wait actually I do
+   * know it"; we don't clear it.
+   */
+  function recoverViaSignIn() {
+    haptic('selection');
+    setMode('login');
+    setFormError(null);
+    setFieldErrors({});
+  }
+
+  /**
+   * From the recovery panel (or the login mode footer), navigate to the
+   * password-reset stack. We prefill `phone` on the ForgotPassword
+   * screen via param when it accepts one; today it doesn't, so the user
+   * types the phone again. A future iteration can pass it through.
+   */
+  function recoverViaForgotPassword() {
+    haptic('selection');
+    navigation.navigate('ForgotPassword');
+  }
 
   return (
     <Screen>
@@ -227,30 +265,87 @@ export function AddAccountSignupScreen() {
         >
           <View style={{ gap: spacing.xs }}>
             <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              {isLogin
-                ? t('auth.add_account_signup.login_eyebrow')
-                : isEmployer
-                  ? t('auth.add_account_signup.eyebrow_employer')
-                  : t('auth.add_account_signup.eyebrow_default')}
+              {isRecovery
+                ? t('auth.add_account_signup.recovery_eyebrow')
+                : isLogin
+                  ? t('auth.add_account_signup.login_eyebrow')
+                  : isEmployer
+                    ? t('auth.add_account_signup.eyebrow_employer')
+                    : t('auth.add_account_signup.eyebrow_default')}
             </Text>
             <Text variant="titleLarge" weight="medium">
-              {isLogin
-                ? t('auth.add_account_signup.login_title')
-                : isEmployer
-                  ? t('auth.add_account_signup.title_employer')
-                  : t('auth.add_account_signup.title_default')}
+              {isRecovery
+                ? isEmployer
+                  ? t('auth.add_account_signup.recovery_title_employer')
+                  : t('auth.add_account_signup.recovery_title_default')
+                : isLogin
+                  ? t('auth.add_account_signup.login_title')
+                  : isEmployer
+                    ? t('auth.add_account_signup.title_employer')
+                    : t('auth.add_account_signup.title_default')}
             </Text>
             <Text variant="footnote" tone="secondary" style={{ marginTop: spacing.xs }}>
-              {isLogin
-                ? t('auth.add_account_signup.login_subtitle')
-                : user?.role === 'seeker'
-                  ? t('auth.add_account_signup.subtitle_seeker')
-                  : t('auth.add_account_signup.subtitle_default')}
+              {isRecovery
+                ? t('auth.add_account_signup.recovery_subtitle', {
+                    email: email.trim(),
+                  })
+                : isLogin
+                  ? t('auth.add_account_signup.login_subtitle')
+                  : user?.role === 'seeker'
+                    ? t('auth.add_account_signup.subtitle_seeker')
+                    : t('auth.add_account_signup.subtitle_default')}
             </Text>
           </View>
 
+          {/* ─── Recovery panel ───────────────────────────────────────
+              Shown only after the server rejected signup with
+              AUTH_EMAIL_TAKEN. Replaces the form with two clear
+              actions so the user is never stuck on a static error. */}
+          {isRecovery && (
+            <View
+              style={{
+                padding: spacing.lg,
+                borderRadius: radii.lg,
+                backgroundColor: theme.brand.heroSubtle,
+                borderWidth: 0.5,
+                borderColor: theme.brand.heroBorder,
+                gap: spacing.md,
+              }}
+            >
+              <Text
+                style={{ fontSize: 14, fontWeight: '600', color: theme.brand.hero }}
+              >
+                {t('auth.add_account_signup.recovery_card_title')}
+              </Text>
+              <Text style={{ fontSize: 13, color: theme.text.secondary }}>
+                {t('auth.add_account_signup.recovery_card_body')}
+              </Text>
+              <Button
+                label={
+                  isEmployer
+                    ? t('auth.add_account_signup.recovery_signin_employer')
+                    : t('auth.add_account_signup.recovery_signin_default')
+                }
+                onPress={recoverViaSignIn}
+              />
+              <Button
+                label={t('auth.add_account_signup.recovery_forgot')}
+                variant="ghost"
+                onPress={recoverViaForgotPassword}
+              />
+              <Button
+                label={t('auth.add_account_signup.recovery_back')}
+                variant="ghost"
+                onPress={() => {
+                  haptic('selection');
+                  setMode('signup');
+                }}
+              />
+            </View>
+          )}
+
           {/* Context banner — only when creating a new account. */}
-          {!isLogin && (
+          {!isLogin && !isRecovery && (
             <View
               style={{
                 padding: spacing.md,
@@ -276,9 +371,9 @@ export function AddAccountSignupScreen() {
             </View>
           )}
 
-          <FormError message={formError} />
+          {!isRecovery && <FormError message={formError} />}
 
-          <View style={{ gap: spacing.lg }}>
+          {!isRecovery && <View style={{ gap: spacing.lg }}>
             {/* Name + phone are only needed when creating a new account.
                 In login mode the existing account already has them. */}
             {!isLogin && (
@@ -350,9 +445,9 @@ export function AddAccountSignupScreen() {
                 error={fieldErrors.phone ?? null}
               />
             )}
-          </View>
+          </View>}
 
-          <View style={{ gap: spacing.md }}>
+          {!isRecovery && <View style={{ gap: spacing.md }}>
             <Button
               label={
                 submitting
@@ -368,17 +463,29 @@ export function AddAccountSignupScreen() {
               onPress={onSubmit}
               disabled={submitting}
             />
+            {/* Forgot-password link — visible only in login mode. The
+                user is trying to sign into an account they already
+                own; if they don't remember the password they should
+                have a one-tap path to recovery. */}
+            {isLogin && (
+              <Button
+                label={t('auth.add_account_signup.cta_forgot')}
+                variant="ghost"
+                onPress={recoverViaForgotPassword}
+                disabled={submitting}
+              />
+            )}
             <Button
               label={t('auth.add_account_signup.cta_cancel')}
               variant="ghost"
               onPress={() => navigation.goBack()}
               disabled={submitting}
             />
-          </View>
+          </View>}
 
           {/* Mode toggle — switch between creating a new account and
               signing into one the worker already owns. */}
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.xs }}>
+          {!isRecovery && <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.xs }}>
             <Text variant="footnote" tone="secondary">
               {isLogin
                 ? t('auth.add_account_signup.no_account_q')
@@ -394,7 +501,7 @@ export function AddAccountSignupScreen() {
                 ? t('auth.add_account_signup.no_account_cta')
                 : t('auth.add_account_signup.have_account_cta')}
             </Text>
-          </View>
+          </View>}
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
