@@ -2627,7 +2627,10 @@
     "feed_card_title": "रील्स में प्रतिभा खोजें",
     "feed_card_subtitle": "कर्मचारियों के परिचय वीडियो स्वाइप करें",
     "menu_label": "मेरा परिचय रील",
-    "menu_subtitle": "नियोक्ताओं के लिए एक छोटा वीडियो रिकॉर्ड करें"
+    "menu_subtitle": "नियोक्ताओं के लिए एक छोटा वीडियो रिकॉर्ड करें",
+    "video_unavailable_title": "वीडियो उपलब्ध नहीं",
+    "video_unavailable_body": "यह रील अभी लोड नहीं हो सकी।",
+    "video_loading": "रील लोड हो रही है…"
   },
   "smart_resume": {
     "card_title": "स्मार्ट रिज़्यूमे",

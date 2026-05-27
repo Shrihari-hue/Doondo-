@@ -15,7 +15,12 @@ import { Types, type PipelineStage } from 'mongoose';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { ReelModel, type PublicReel } from './reel.model';
-import { storeReelVideo, validateReel, type ReelRejectReason } from './reelStorage.service';
+import {
+  removeReelVideo,
+  storeReelVideo,
+  validateReel,
+  type ReelRejectReason,
+} from './reelStorage.service';
 
 function reelRejection(reason: ReelRejectReason): AppError {
   return new AppError({
@@ -90,6 +95,9 @@ export async function getMyReel(seekerId: string): Promise<PublicReel | null> {
 /** Remove the worker's reel. A no-op when there is nothing to remove. */
 export async function deleteReel(seekerId: string): Promise<void> {
   await ReelModel.deleteOne({ seekerId: new Types.ObjectId(seekerId) });
+  // Best-effort — the disk-backed mock provider reaps the file. External
+  // CDN providers no-op and own retention themselves.
+  await removeReelVideo(seekerId);
 }
 
 /** A given worker's active reel — for their public profile. */

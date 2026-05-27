@@ -343,7 +343,15 @@ function ConversationScreenInner() {
     }
     try {
       const result = await r.stopAndSend();
-      // Ignore ultra-short clips (<1s) — usually accidental.
+      // `null` = accidental tap or empty file. `stopAndSend` already
+      // swallowed any native "stop failed" exception, so we just bail
+      // quietly here — no alert, no haptic-error.
+      if (!result) {
+        haptic('light');
+        return;
+      }
+      // Belt-and-braces: drop sub-1s clips too. The lib already filters
+      // sub-250ms, but a 0.4s clip is still rarely intentional.
       if (result.durationSeconds < 1) {
         haptic('light');
         return;

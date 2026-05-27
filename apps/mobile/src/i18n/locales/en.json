@@ -2650,7 +2650,10 @@
     "feed_card_title": "Discover talent in reels",
     "feed_card_subtitle": "Swipe through worker intro videos",
     "menu_label": "My intro reel",
-    "menu_subtitle": "Record a short video for employers"
+    "menu_subtitle": "Record a short video for employers",
+    "video_unavailable_title": "Video unavailable",
+    "video_unavailable_body": "This reel couldn't be loaded right now.",
+    "video_loading": "Loading reel…"
   },
   "smart_resume": {
     "card_title": "Smart Resume",

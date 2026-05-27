@@ -28,6 +28,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
+import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
 
 import { spacing, radii } from '@doondo/tokens';
@@ -57,6 +58,14 @@ function ReelCard({
     p.muted = false;
   });
 
+  // Track the player's load status so we can distinguish "still buffering"
+  // from "URL is dead" — both look identical without this signal.
+  const { status } = useEvent(player, 'statusChange', {
+    status: player.status,
+  });
+  const isLoading = status === 'loading' || status === 'idle';
+  const hasError = status === 'error';
+
   useEffect(() => {
     try {
       if (isActive) player.play();
@@ -71,12 +80,87 @@ function ReelCard({
 
   return (
     <View style={{ height, width: '100%', backgroundColor: '#000000' }}>
-      <VideoView
-        player={player}
-        style={{ flex: 1 }}
-        contentFit="cover"
-        nativeControls={false}
-      />
+      {/* Poster underlay — visible until the first video frame paints,
+          and stays visible if the source fails to load. */}
+      {reel.thumbnailUrl ? (
+        <Image
+          source={{ uri: reel.thumbnailUrl }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+          }}
+          resizeMode="cover"
+        />
+      ) : null}
+
+      {hasError ? null : (
+        <VideoView
+          player={player}
+          style={{ flex: 1 }}
+          contentFit="cover"
+          nativeControls={false}
+        />
+      )}
+
+      {/* Loading spinner — only while the player is actually fetching,
+          not after it has settled into a usable state. */}
+      {isLoading && !hasError ? (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          pointerEvents="none"
+        >
+          <ActivityIndicator color="#FFFFFF" />
+        </View>
+      ) : null}
+
+      {/* Friendly placeholder when the URL is dead (mock provider,
+          deleted upstream, network failure). Otherwise the user just
+          sees a black rectangle and assumes the app is broken. */}
+      {hasError ? (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: spacing.xl,
+            gap: spacing.xs,
+          }}
+          pointerEvents="none"
+        >
+          <Text style={{ fontSize: 40 }}>🎬</Text>
+          <Text
+            variant="bodyLarge"
+            weight="medium"
+            style={{ color: '#FFFFFF', textAlign: 'center' }}
+          >
+            {t('reels.video_unavailable_title')}
+          </Text>
+          <Text
+            variant="footnote"
+            style={{
+              color: 'rgba(255,255,255,0.7)',
+              textAlign: 'center',
+            }}
+          >
+            {t('reels.video_unavailable_body')}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Worker overlay */}
       <View

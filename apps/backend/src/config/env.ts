@@ -254,6 +254,14 @@ const schema = z.object({
   REEL_UPLOAD_URL: z.string().url().optional(),
   /** Optional bearer token sent with the upload request. */
   REEL_UPLOAD_TOKEN: z.string().optional(),
+  /**
+   * Disk directory the mock reel provider writes uploaded videos to.
+   * The API serves it statically at `${PUBLIC_BASE_URL}/media/reels`
+   * so URLs returned by the mock provider are actually playable. Path
+   * is resolved relative to the backend `cwd`. Only used when
+   * REEL_STORAGE_PROVIDER=mock.
+   */
+  REEL_STORAGE_DIR: z.string().default('storage/reels'),
 
   // ─── File storage — skill-proof documents (certificates, licences) ────
   /**

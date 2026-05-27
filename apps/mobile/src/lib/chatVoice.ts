@@ -35,6 +35,35 @@ export interface VoiceRecordingResult {
 /** Max recording duration. */
 export const VOICE_MAX_SECONDS = 60;
 
+/**
+ * Minimum time the native MediaRecorder needs between `record()` and
+ * `stop()` before the AAC encoder has actually committed any frames.
+ *
+ * If we stop earlier than this, Android throws:
+ *   java.lang.RuntimeException: stop failed
+ * which used to bubble up to the chat thread as the
+ * "Couldn't send voice" alert the moment a user lifted their finger
+ * a fraction of a second after pressing.
+ *
+ * Empirically ~250ms is enough on every device we've tested; we use
+ * 400ms for a comfortable safety margin (still imperceptible — a tap
+ * that brief is an accident anyway, and gets dropped by the
+ * `< MIN_USEFUL_MS` check below).
+ */
+const MIN_RECORD_BEFORE_STOP_MS = 400;
+
+/**
+ * Below this elapsed-time threshold we treat the recording as an
+ * accidental tap — no alert, no send, just a quiet drop. Otherwise the
+ * UX is "I brushed the mic button → modal popup".
+ */
+const MIN_USEFUL_MS = 250;
+
+/** Sleep helper. */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 const RECORDING_OPTIONS = {
   isMeteringEnabled: false,
   // In expo-audio v1.x, `extension`, `sampleRate`, `numberOfChannels` and
@@ -160,6 +189,47 @@ function safeDeleteFile(uri: string): void {
 }
 
 /**
+ * Try to stop the native recorder, swallowing the Android
+ * `RuntimeException: stop failed` (and the iOS equivalent) so a flaky
+ * stop never turns into a user-facing alert.
+ *
+ * The recorder STILL flushes whatever it captured to `recorder.uri`
+ * even when stop throws — that's how MediaRecorder behaves on Android.
+ * Callers can read the file afterwards and decide whether it's usable.
+ */
+async function safeStopRecorder(recorder: RecorderInstance): Promise<void> {
+  try {
+    await recorder.stop();
+  } catch {
+    /* best-effort — see comment above */
+  }
+}
+
+/**
+ * Read the recorded file as base64, returning `null` if the file is
+ * missing, empty, or unreadable. Used to salvage a recording after a
+ * "stop failed" — the file is usually still on disk even when stop
+ * threw, so we check and use it instead of dropping the recording.
+ */
+async function readRecordingBase64(
+  uri: string,
+): Promise<{ base64: string; sizeBytes: number } | null> {
+  try {
+    const file = new File(uri);
+    if (!file.exists) return null;
+    const base64 = await file.base64();
+    if (!base64 || base64.length < 64) {
+      // Anything this tiny is silence / header-only — not worth sending.
+      return null;
+    }
+    const sizeBytes = file.size || Math.ceil(base64.length * 0.75);
+    return { base64, sizeBytes };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * VoiceRecorder — start, stop, cancel. Holds the live recorder reference
  * internally so the caller just toggles state.
  */
@@ -183,21 +253,43 @@ export class VoiceRecorder {
 
   /**
    * Stop and read the file, returning a ready-to-send attachment.
-   * Throws if no recording is in progress or the file is empty.
+   *
+   * Returns `null` when the recording was an accidental tap (sub-250ms)
+   * or produced no audible content — callers should treat `null` as
+   * "silently do nothing" rather than as an error.
+   *
+   * Throws ONLY on programmer error (no recording in progress) or on a
+   * real size-budget violation. Native `stop failed` exceptions are
+   * caught and recovered from — Android still flushes the captured
+   * frames to disk in that case, so we read the file anyway.
    */
-  async stopAndSend(): Promise<VoiceRecordingResult> {
+  async stopAndSend(): Promise<VoiceRecordingResult | null> {
     if (!this.recorder) throw new Error('No recording in progress');
     const recorder = this.recorder;
     this.recorder = null;
 
-    await recorder.stop();
-    const uri = recorder.uri;
-    if (!uri) throw new Error('Recorder produced no file');
+    // Make sure the native encoder has had time to commit at least a
+    // few frames before we stop, otherwise Android's MediaRecorder
+    // raises `RuntimeException: stop failed`. Imperceptible to the user
+    // (it's only enforced when they release the button almost
+    // immediately after pressing it).
+    const elapsedMs = Date.now() - this.startedAt;
+    if (elapsedMs < MIN_RECORD_BEFORE_STOP_MS) {
+      await delay(MIN_RECORD_BEFORE_STOP_MS - elapsedMs);
+    }
 
-    const durationSeconds = Math.max(
-      1,
-      Math.round((Date.now() - this.startedAt) / 1000),
-    );
+    // Stop natively — swallow `stop failed`; we read the URI ourselves.
+    await safeStopRecorder(recorder);
+
+    const uri = recorder.uri;
+    const totalElapsedMs = Date.now() - this.startedAt;
+
+    // Sub-250ms releases are accidental brushes against the mic
+    // button — drop them silently without alerting.
+    if (totalElapsedMs < MIN_USEFUL_MS || !uri) {
+      if (uri) safeDeleteFile(uri);
+      return null;
+    }
 
     // Read the file as base64 and pack into a data URL the bubble can play.
     //
@@ -206,16 +298,23 @@ export class VoiceRecorder {
     // `getInfoAsync` and `deleteAsync` exports are now deprecation stubs that
     // THROW at runtime (the "Couldn't send voice" alert), so this uses the
     // `File` class instead.
-    const file = new File(uri);
-    const base64 = await file.base64();
+    const read = await readRecordingBase64(uri);
+    if (!read) {
+      // File missing / empty — usually means the native side rejected
+      // the stop AND failed to flush anything. Treat as a silent
+      // accidental tap rather than a hard error.
+      safeDeleteFile(uri);
+      return null;
+    }
 
-    // `File.size` is a synchronous property in bytes; it is 0 when the file
-    // cannot be read, in which case we fall back to a base64-length estimate.
-    const sizeBytes = file.size || Math.ceil(base64.length * 0.75);
+    const { base64, sizeBytes } = read;
 
     if (base64.length > 1_400_000) {
+      safeDeleteFile(uri);
       throw new Error('Voice note too long. Try a shorter clip.');
     }
+
+    const durationSeconds = Math.max(1, Math.round(totalElapsedMs / 1000));
 
     // Best-effort cleanup so we don't leave a temp file around.
     safeDeleteFile(uri);
@@ -233,13 +332,15 @@ export class VoiceRecorder {
     if (!this.recorder) return;
     const recorder = this.recorder;
     this.recorder = null;
-    try {
-      await recorder.stop();
-      if (recorder.uri) {
-        safeDeleteFile(recorder.uri);
-      }
-    } catch {
-      /* best-effort */
+    // Same minimum-duration guard so the cancel path doesn't itself
+    // trigger a native `stop failed` log spam.
+    const elapsedMs = Date.now() - this.startedAt;
+    if (elapsedMs < MIN_RECORD_BEFORE_STOP_MS) {
+      await delay(MIN_RECORD_BEFORE_STOP_MS - elapsedMs);
+    }
+    await safeStopRecorder(recorder);
+    if (recorder.uri) {
+      safeDeleteFile(recorder.uri);
     }
   }
 

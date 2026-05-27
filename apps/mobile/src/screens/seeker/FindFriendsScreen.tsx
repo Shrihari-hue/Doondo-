@@ -15,6 +15,7 @@ import { Alert, Pressable, ScrollView, View, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Contacts from 'expo-contacts';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Avatar, EmptyState, LoadingSpinner } from '@/components';
@@ -56,29 +57,6 @@ function Inner() {
 
   async function scan() {
     setState({ kind: 'loading' });
-    // Defer the require to runtime — Metro can't follow `new Function`,
-    // so the bundle succeeds even when expo-contacts isn't installed.
-    interface ContactsModule {
-      requestPermissionsAsync: () => Promise<{ status: string }>;
-      getContactsAsync: (opts: { fields: string[]; pageSize?: number }) => Promise<{
-        data: Array<{ phoneNumbers?: Array<{ number?: string }> }>;
-      }>;
-      Fields: { PhoneNumbers: string };
-    }
-    let Contacts: ContactsModule | null = null;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval
-      const dynReq = new Function('m', 'return require(m)') as (
-        m: string,
-      ) => unknown;
-      Contacts = dynReq('expo-contacts') as ContactsModule;
-    } catch {
-      setState({
-        kind: 'unsupported',
-        message: t('find_friends.unsupported_module'),
-      });
-      return;
-    }
 
     try {
       const perm = await Contacts.requestPermissionsAsync();

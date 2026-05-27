@@ -81,6 +81,12 @@
       "expo-audio",
       "expo-sqlite",
       [
+        "expo-contacts",
+        {
+          "contactsPermission": "Doondo uses contacts so you can find friends already on Doondo and pick safety contacts. Phone numbers never leave your device in plaintext."
+        }
+      ],
+      [
         "expo-speech-recognition",
         {
           "microphonePermission": "Doondo uses your microphone for voice job search.",

@@ -5,6 +5,8 @@
 
 import express, { type Express, type Request, type Response } from 'express';
 import http from 'node:http';
+import path from 'node:path';
+import fs from 'node:fs';
 import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
@@ -84,6 +86,36 @@ export function buildApp(): BuiltApp {
   app.use(express.json({ limit: '4mb' }));
   app.use(express.urlencoded({ extended: true, limit: '4mb' }));
   app.use(generalLimiter);
+
+  // ─── Static media — Hire Reels mock provider ────────────────────────────
+  // The mock reel-storage provider writes uploads to REEL_STORAGE_DIR;
+  // serving the same directory here makes those URLs actually playable
+  // on a fresh checkout (no external CDN required). Helmet sets a strict
+  // CORP by default which would block <video> from another origin — relax
+  // just this mount so the mobile app can fetch the bytes. mkdirSync
+  // keeps the static handler happy when no reels have been uploaded yet.
+  if (env.REEL_STORAGE_PROVIDER === 'mock') {
+    const reelDir = path.resolve(process.cwd(), env.REEL_STORAGE_DIR);
+    fs.mkdirSync(reelDir, { recursive: true });
+    app.use(
+      '/media/reels',
+      (_req, res, next) => {
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        next();
+      },
+      express.static(reelDir, {
+        fallthrough: false,
+        index: false,
+        maxAge: '5m',
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith('.mp4')) res.type('video/mp4');
+          else if (filePath.endsWith('.mov')) res.type('video/quicktime');
+          else if (filePath.endsWith('.webm')) res.type('video/webm');
+        },
+      }),
+    );
+    logger.info({ reelDir }, 'serving Hire Reels media from local disk');
+  }
 
   // ─── Health ─────────────────────────────────────────────────────────────
   app.get('/healthz', (req: Request, res: Response) => {

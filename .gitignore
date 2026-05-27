@@ -66,3 +66,9 @@ coverage/
 .cache/
 tmp/
 temp/
+
+# Hire Reels — mock storage provider writes uploaded videos here on a
+# fresh checkout (see REEL_STORAGE_DIR; default storage/reels). Bytes are
+# user-generated runtime data, never source.
+apps/backend/storage/
+storage/reels/

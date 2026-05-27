@@ -16,10 +16,18 @@
  */
 
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
 
 import { spacing, radii } from '@doondo/tokens';
@@ -64,6 +72,14 @@ function RecordReelScreenInner() {
   const player = useVideoPlayer(source, (p) => {
     p.loop = false;
   });
+
+  // Track player load state. A failed source (dead mock URL, network
+  // dropped, etc.) should show a placeholder instead of a black box.
+  const { status: playerStatus } = useEvent(player, 'statusChange', {
+    status: player.status,
+  });
+  const videoLoading = playerStatus === 'loading' || playerStatus === 'idle';
+  const videoErrored = playerStatus === 'error';
 
   const uploadMutation = useMutation({
     mutationFn: () => {
@@ -120,18 +136,93 @@ function RecordReelScreenInner() {
 
   function VideoBox() {
     if (!source) return null;
+    // Prefer the saved reel's poster; a freshly-captured clip has no
+    // thumbnail yet (the provider produces those on upload).
+    const poster = !captured && reel?.thumbnailUrl ? reel.thumbnailUrl : null;
     return (
-      <VideoView
-        player={player}
+      <View
         style={{
           width: '100%',
           height: 320,
           borderRadius: radii.lg,
           backgroundColor: '#000000',
+          overflow: 'hidden',
         }}
-        contentFit="contain"
-        nativeControls
-      />
+      >
+        {poster ? (
+          <Image
+            source={{ uri: poster }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
+            resizeMode="cover"
+          />
+        ) : null}
+
+        {videoErrored ? null : (
+          <VideoView
+            player={player}
+            style={{ width: '100%', height: '100%' }}
+            contentFit="contain"
+            nativeControls
+          />
+        )}
+
+        {videoLoading && !videoErrored ? (
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            pointerEvents="none"
+          >
+            <ActivityIndicator color="#FFFFFF" />
+          </View>
+        ) : null}
+
+        {videoErrored ? (
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: spacing.lg,
+              gap: spacing.xs,
+            }}
+          >
+            <Text style={{ fontSize: 32 }}>🎬</Text>
+            <Text
+              variant="bodyLarge"
+              weight="medium"
+              style={{ color: '#FFFFFF', textAlign: 'center' }}
+            >
+              {t('reels.video_unavailable_title')}
+            </Text>
+            <Text
+              variant="footnote"
+              style={{
+                color: 'rgba(255,255,255,0.7)',
+                textAlign: 'center',
+              }}
+            >
+              {t('reels.video_unavailable_body')}
+            </Text>
+          </View>
+        ) : null}
+      </View>
     );
   }
 

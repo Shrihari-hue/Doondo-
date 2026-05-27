@@ -7,14 +7,19 @@
  *
  * Provider pattern (same shape as transcription.service): a swappable
  * provider so a fresh checkout works with no media host at all — the
- * `mock` provider returns a deterministic placeholder URL — and a
- * production deploy flips one env var (`REEL_STORAGE_PROVIDER=http`) to
- * push the clip to whatever uploader/CDN it runs. Callers never see the
- * difference; `Reel.videoUrl` just holds whatever the provider returns.
+ * `mock` provider writes the clip to a local directory the API serves
+ * statically (so the URL it returns is actually playable) — and a
+ * production deploy flips one env var (`REEL_STORAGE_PROVIDER=http`)
+ * to push the clip to whatever uploader/CDN it runs. Callers never see
+ * the difference; `Reel.videoUrl` just holds whatever the provider
+ * returns.
  *
  * `validateReel` is pure and synchronous — it is unit-tested in the
  * offline bootcheck.
  */
+
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 
 import { env } from '@/config/env';
 import { logger } from '@/lib/logger';
@@ -77,24 +82,94 @@ export interface ReelStorageResult {
 
 interface ReelStorageProvider {
   store(input: ReelUploadInput): Promise<ReelStorageResult>;
+  /**
+   * Best-effort cleanup when a worker removes their reel. Providers that
+   * own the bytes (the mock disk store) reap the file; providers that
+   * just forward to an external CDN can no-op — the CDN owns retention.
+   */
+  remove?(seekerId: string): Promise<void>;
 }
 
 // ─── Mock provider ──────────────────────────────────────────────────────────
-// Returns a deterministic placeholder URL so the whole record → store →
-// play flow is wired and testable on a fresh checkout. The URL is not a
-// real playable file; a production deploy sets REEL_STORAGE_PROVIDER=http.
+// Writes the decoded video to a local directory the API serves statically,
+// so on a fresh checkout (no CDN configured) the full record → store →
+// play loop actually works. One file per worker — re-recording overwrites,
+// matching the upsert semantics on the Reel row. Production deploys flip
+// REEL_STORAGE_PROVIDER=http to push to a real CDN instead.
 
 class MockReelStorageProvider implements ReelStorageProvider {
+  /** Where files land on disk — defaults under the backend cwd. */
+  private readonly dir: string;
+  /** Public base URL bytes are served from (matches the static mount). */
+  private readonly publicBase: string;
+
+  constructor() {
+    this.dir = path.resolve(process.cwd(), env.REEL_STORAGE_DIR);
+    // Trim trailing slash so URL joins stay clean.
+    const base = env.PUBLIC_BASE_URL.replace(/\/+$/, '');
+    this.publicBase = `${base}/media/reels`;
+  }
+
+  /** Where a given seeker's reel lives on disk. */
+  filePathFor(seekerId: string, ext = 'mp4'): string {
+    return path.join(this.dir, `${seekerId}.${ext}`);
+  }
+
   async store(input: ReelUploadInput): Promise<ReelStorageResult> {
+    const match = input.dataUrl.match(/^data:([a-z0-9.+/-]+);base64,(.+)$/i);
+    if (!match) throw new Error('Reel video is not a base64 data URL.');
+    const declaredType = (input.mimeType || match[1] || 'video/mp4').toLowerCase();
+    // Keep extensions tight — the player handles mp4/mov/webm. Unknown
+    // types fall back to .mp4; the mime is what the player keys off of
+    // when the static file server is properly configured (express.static
+    // sets Content-Type from the file extension, which is why we map).
+    const ext = declaredType.includes('quicktime')
+      ? 'mov'
+      : declaredType.includes('webm')
+        ? 'webm'
+        : 'mp4';
+
+    const buffer = Buffer.from(match[2]!, 'base64');
+
+    await fs.mkdir(this.dir, { recursive: true });
+    // A worker only has one reel — clear any older file with a different
+    // extension so we don't leave orphans behind a re-record.
+    await this.removeAllVariants(input.seekerId);
+
+    const filePath = this.filePathFor(input.seekerId, ext);
+    await fs.writeFile(filePath, buffer);
+
+    const videoUrl = `${this.publicBase}/${input.seekerId}.${ext}`;
     logger.info(
-      { seekerId: input.seekerId, videoBytes: input.dataUrl.length },
-      'reel storage: using mock provider',
+      {
+        seekerId: input.seekerId,
+        bytes: buffer.length,
+        path: filePath,
+        videoUrl,
+      },
+      'reel storage: mock provider wrote file to disk',
     );
+
     return {
-      videoUrl: `https://reels.doondo.app/mock/${input.seekerId}.mp4`,
+      videoUrl,
       thumbnailUrl: null,
       provider: 'mock',
     };
+  }
+
+  async remove(seekerId: string): Promise<void> {
+    await this.removeAllVariants(seekerId);
+  }
+
+  /** Delete every known extension for this seeker — cheap and idempotent. */
+  private async removeAllVariants(seekerId: string): Promise<void> {
+    await Promise.all(
+      ['mp4', 'mov', 'webm'].map((ext) =>
+        fs.rm(this.filePathFor(seekerId, ext), { force: true }).catch(() => {
+          /* swallow — already gone */
+        }),
+      ),
+    );
   }
 }
 
@@ -173,6 +248,23 @@ export async function storeReelVideo(
   input: ReelUploadInput,
 ): Promise<ReelStorageResult> {
   return pickProvider().store(input);
+}
+
+/**
+ * Best-effort cleanup hook — called when a worker removes their reel.
+ * Providers that own the bytes (the mock disk store) reap the file;
+ * external CDNs no-op and own retention themselves.
+ */
+export async function removeReelVideo(seekerId: string): Promise<void> {
+  const provider = pickProvider();
+  if (!provider.remove) return;
+  try {
+    await provider.remove(seekerId);
+  } catch (err) {
+    // Don't fail the user-visible delete just because cleanup hiccuped —
+    // the Reel row is already gone; the file is at worst orphaned.
+    logger.warn({ seekerId, err }, 'reel storage: remove() failed');
+  }
 }
 
 /** Test helper — swap in a fake provider. */
