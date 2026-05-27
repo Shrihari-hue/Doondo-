@@ -201,6 +201,12 @@ export async function statusCallback(
  *
  * In dev (TWILIO_WEBHOOK_VALIDATE=false) we skip the check so a tunnel
  * (ngrok) URL works without faffing.
+ *
+ * NOTE: Twilio webhook signatures are HMAC'd with the AccountSid's
+ * AuthToken specifically — API Keys cannot be used here. So even if the
+ * rest of the app authenticates Twilio API calls via TWILIO_API_KEY_SID +
+ * SECRET, you must still set TWILIO_AUTH_TOKEN if you want to validate
+ * inbound webhooks.
  */
 function ensureSignature(req: Request): boolean {
   if (!env.TWILIO_WEBHOOK_VALIDATE) return true;

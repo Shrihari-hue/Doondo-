@@ -54,30 +54,45 @@ export function toWhatsAppAddress(input: string): string {
 
 // ─── Config gate ───────────────────────────────────────────────────────
 
-function assertConfigured(): {
+interface TwilioAuth {
   accountSid: string;
-  authToken: string;
-  from: string;
-} {
+  /** Basic-auth username — Account SID if using auth token, API key SID otherwise. */
+  user: string;
+  /** Basic-auth password — auth token or API key secret. */
+  pass: string;
+}
+
+function assertConfigured(): TwilioAuth & { from: string } {
   if (!env.TWILIO_WHATSAPP_ENABLED) throw errors.whatsappDisabled();
-  if (
-    !env.TWILIO_ACCOUNT_SID ||
-    !env.TWILIO_AUTH_TOKEN ||
-    !env.TWILIO_WHATSAPP_FROM
-  ) {
+  if (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_WHATSAPP_FROM) {
     throw new Error(
-      'WhatsApp is enabled but not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_WHATSAPP_FROM.',
+      'WhatsApp is enabled but not configured. Set TWILIO_ACCOUNT_SID and TWILIO_WHATSAPP_FROM.',
+    );
+  }
+  // Prefer API key auth; fall back to AccountSid + AuthToken.
+  let user: string;
+  let pass: string;
+  if (env.TWILIO_API_KEY_SID && env.TWILIO_API_KEY_SECRET) {
+    user = env.TWILIO_API_KEY_SID;
+    pass = env.TWILIO_API_KEY_SECRET;
+  } else if (env.TWILIO_AUTH_TOKEN) {
+    user = env.TWILIO_ACCOUNT_SID;
+    pass = env.TWILIO_AUTH_TOKEN;
+  } else {
+    throw new Error(
+      'WhatsApp auth not configured. Set TWILIO_API_KEY_SID + TWILIO_API_KEY_SECRET, or TWILIO_AUTH_TOKEN.',
     );
   }
   return {
     accountSid: env.TWILIO_ACCOUNT_SID,
-    authToken: env.TWILIO_AUTH_TOKEN,
+    user,
+    pass,
     from: toWhatsAppAddress(env.TWILIO_WHATSAPP_FROM),
   };
 }
 
-function authHeaders(accountSid: string, authToken: string): Record<string, string> {
-  const credential = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+function authHeaders(user: string, pass: string): Record<string, string> {
+  const credential = Buffer.from(`${user}:${pass}`).toString('base64');
   return {
     Authorization: `Basic ${credential}`,
     'Content-Type': 'application/x-www-form-urlencoded',
@@ -107,7 +122,7 @@ export interface SendTemplateArgs {
 export async function sendTemplate(
   args: SendTemplateArgs,
 ): Promise<WhatsAppMessageDoc> {
-  const { accountSid, authToken, from } = assertConfigured();
+  const { accountSid, user, pass, from } = assertConfigured();
   const to = toWhatsAppAddress(args.to);
 
   const body = new URLSearchParams({
@@ -125,7 +140,7 @@ export async function sendTemplate(
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: authHeaders(accountSid, authToken),
+    headers: authHeaders(user, pass),
     body,
   });
 
@@ -169,7 +184,7 @@ export interface SendTextArgs {
 }
 
 export async function sendText(args: SendTextArgs): Promise<WhatsAppMessageDoc> {
-  const { accountSid, authToken, from } = assertConfigured();
+  const { accountSid, user, pass, from } = assertConfigured();
   const to = toWhatsAppAddress(args.to);
 
   if (!args.body.trim() && (args.mediaUrls?.length ?? 0) === 0) {
@@ -186,7 +201,7 @@ export async function sendText(args: SendTextArgs): Promise<WhatsAppMessageDoc> 
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: authHeaders(accountSid, authToken),
+    headers: authHeaders(user, pass),
     body,
   });
 

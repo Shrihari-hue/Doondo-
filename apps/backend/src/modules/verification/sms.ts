@@ -182,12 +182,26 @@ const msg91Sender: RawSender = async (phone, code) => {
 class TwilioVerifyProvider implements OtpProvider {
   private headers: Record<string, string>;
 
+  /**
+   * Auth can be either:
+   *   { kind: 'token', authToken }   — legacy Account SID + Auth Token
+   *   { kind: 'apiKey', sid, secret } — API Key SID + secret (recommended)
+   *
+   * Twilio accepts either as HTTP Basic; we just pick the right username
+   * for the credential.
+   */
   constructor(
     private accountSid: string,
-    authToken: string,
+    auth:
+      | { kind: 'token'; authToken: string }
+      | { kind: 'apiKey'; sid: string; secret: string },
     private serviceSid: string,
   ) {
-    const credential = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+    const [user, pass] =
+      auth.kind === 'apiKey'
+        ? [auth.sid, auth.secret]
+        : [accountSid, auth.authToken];
+    const credential = Buffer.from(`${user}:${pass}`).toString('base64');
     this.headers = {
       Authorization: `Basic ${credential}`,
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -204,35 +218,79 @@ class TwilioVerifyProvider implements OtpProvider {
         { status: res.status, body: text, phone },
         'Twilio Verify send failed',
       );
+      // Twilio always returns JSON with `code` + `message`. Parse it instead
+      // of substring-matching the raw body so we surface the exact code in
+      // the logs and never confuse e.g. "21608" appearing inside an error
+      // about a different code.
+      const parsed = parseTwilioError(text);
+      const code = parsed?.code;
+      const detail = parsed?.message;
+
       // 429 → too many sends in the rolling window
       if (res.status === 429) throw errors.rateLimited('SMS rate limit reached.');
 
       // Map Twilio's documented error codes to user-actionable messages.
-      // Codes are stable per https://www.twilio.com/docs/api/errors.
-      // 21608 — "phone number unverified" (trial-account guardrail)
-      if (text.includes('21608')) {
-        throw errors.rateLimited(
-          'This number isn\'t verified on the SMS provider yet. Verify it in the Twilio console first, or upgrade the trial account.',
+      // Reference: https://www.twilio.com/docs/api/errors.
+      switch (code) {
+        // ─── Trial-account guardrails ──────────────────────────────────
+        // 21608 — Messages API: "phone number unverified" (trial accounts
+        //         can only SMS Verified Caller IDs).
+        // 60330 — Verify API equivalent of the trial-account block.
+        // 60600 / 60601 — Verify Service / sub-resource is misconfigured
+        //         or the trial account can't reach this country/channel.
+        case 21608:
+        case 60330:
+        case 60600:
+        case 60601:
+          throw errors.rateLimited(
+            "This number isn't on the SMS provider's allow-list. On a Twilio trial account, only numbers added under Phone Numbers → Verified Caller IDs receive SMS. Upgrade the account or add this number to that list.",
+          );
+        // ─── Format / validity ─────────────────────────────────────────
+        case 60200:
+          throw errors.validation(
+            null,
+            "That phone number isn't valid. Check the country code.",
+          );
+        // 60203 — max send attempts (Verify-side throttle)
+        case 60203:
+          throw errors.rateLimited(
+            'Too many code requests for this number. Try again in a few minutes.',
+          );
+        // 60410 — landline / unreachable carrier
+        case 60410:
+          throw errors.validation(
+            null,
+            "We can't deliver SMS to this number. Try a mobile number instead.",
+          );
+        // 60005 — Verify destination not allowed (geo permissions / DLT
+        //         registration missing in India).
+        case 60005:
+          throw errors.rateLimited(
+            "SMS to this country isn't enabled on the provider. Check geographic permissions (and DLT registration for India) in the Twilio console.",
+          );
+        // 20003 — auth credentials wrong (this should never happen at
+        //         runtime but if it does, surface it clearly).
+        case 20003:
+          throw new Error(
+            'Twilio authentication failed. TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN are wrong.',
+          );
+      }
+
+      // HTTP-level signals when we couldn't parse the code.
+      if (res.status === 401 || res.status === 403) {
+        throw new Error(
+          `Twilio rejected the request (${res.status}). Check TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN in .env.`,
         );
       }
-      // 60200 — invalid phone format
-      if (text.includes('60200')) {
-        throw errors.validation(null, 'That phone number isn\'t valid. Check the country code.');
-      }
-      // 60203 — max send attempts (Verify-side throttle)
-      if (text.includes('60203')) {
-        throw errors.rateLimited(
-          'Too many code requests for this number. Try again in a few minutes.',
+      if (res.status === 404) {
+        throw new Error(
+          `Twilio Verify Service not found (${res.status}). Check TWILIO_VERIFY_SERVICE_SID in .env.`,
         );
       }
-      // 60410 — landline / unreachable carrier
-      if (text.includes('60410')) {
-        throw errors.validation(
-          null,
-          'We can\'t deliver SMS to this number. Try a mobile number instead.',
-        );
-      }
-      throw new Error(`Twilio Verify send failed (${res.status})`);
+
+      throw new Error(
+        `Twilio Verify send failed (${res.status})${code ? ` code=${code}` : ''}${detail ? `: ${detail}` : ''}`,
+      );
     }
   }
 
@@ -279,18 +337,31 @@ export function getOtpProvider(): OtpProvider {
 
   switch (env.SMS_PROVIDER) {
     case 'twilio': {
-      if (
-        !env.TWILIO_ACCOUNT_SID ||
-        !env.TWILIO_AUTH_TOKEN ||
-        !env.TWILIO_VERIFY_SERVICE_SID
-      ) {
+      if (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_VERIFY_SERVICE_SID) {
         throw new Error(
-          'Twilio Verify not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_VERIFY_SERVICE_SID.',
+          'Twilio Verify not configured. Set TWILIO_ACCOUNT_SID and TWILIO_VERIFY_SERVICE_SID.',
+        );
+      }
+      // Prefer API key auth when present (scopeable + rotatable).
+      // Fall back to AccountSid + AuthToken for backwards compatibility.
+      const auth =
+        env.TWILIO_API_KEY_SID && env.TWILIO_API_KEY_SECRET
+          ? ({
+              kind: 'apiKey',
+              sid: env.TWILIO_API_KEY_SID,
+              secret: env.TWILIO_API_KEY_SECRET,
+            } as const)
+          : env.TWILIO_AUTH_TOKEN
+            ? ({ kind: 'token', authToken: env.TWILIO_AUTH_TOKEN } as const)
+            : null;
+      if (!auth) {
+        throw new Error(
+          'Twilio Verify auth not configured. Set TWILIO_API_KEY_SID + TWILIO_API_KEY_SECRET, or TWILIO_AUTH_TOKEN.',
         );
       }
       cached = new TwilioVerifyProvider(
         env.TWILIO_ACCOUNT_SID,
-        env.TWILIO_AUTH_TOKEN,
+        auth,
         env.TWILIO_VERIFY_SERVICE_SID,
       );
       break;
@@ -319,4 +390,24 @@ export function getOtpProvider(): OtpProvider {
  */
 export function __setOtpProviderForTests(p: OtpProvider | null): void {
   cached = p;
+}
+
+/**
+ * Twilio's REST API returns errors as JSON:
+ *   { "code": 21608, "message": "…", "more_info": "…", "status": 400 }
+ * Parsing this gives us a stable diagnostic in the logs instead of
+ * substring-matching the raw body (which could miss the code if Twilio's
+ * message formatting changes).
+ */
+function parseTwilioError(
+  rawBody: string,
+): { code: number; message: string } | null {
+  if (!rawBody) return null;
+  try {
+    const parsed = JSON.parse(rawBody) as { code?: number; message?: string };
+    if (typeof parsed.code !== 'number') return null;
+    return { code: parsed.code, message: parsed.message ?? '' };
+  } catch {
+    return null;
+  }
 }

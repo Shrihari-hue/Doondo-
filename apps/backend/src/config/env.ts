@@ -42,8 +42,14 @@ const schema = z.object({
   SMS_PROVIDER: z.enum(['console', 'twilio', 'msg91']).default('console'),
 
   // Twilio Verify (https://www.twilio.com/docs/verify)
+  // Auth: either AccountSid + AuthToken (legacy) OR ApiKeySid + ApiKeySecret
+  // (recommended — scopeable and rotatable). When both are configured the
+  // API key wins. The Account SID is still required either way because
+  // Twilio's URL paths include it.
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_API_KEY_SID: z.string().optional(),
+  TWILIO_API_KEY_SECRET: z.string().optional(),
   TWILIO_VERIFY_SERVICE_SID: z.string().optional(),
 
   // ─── Twilio WhatsApp (Messaging API) ──────────────────────────────────
