@@ -59,3 +59,38 @@ export function setManualCoords(coords: { lat: number; lng: number }): Coords {
 export function clearCachedCoords(): void {
   cached = null;
 }
+
+/**
+ * Reverse-geocode coordinates to a city name. Used so that hitting
+ * "Detect Location" populates `user.location.city` without forcing the
+ * user to type their city manually — this matters for regional Festival
+ * Mode matching (Pongal in Tamil Nadu, Onam in Kerala), which is dead
+ * code when `city` is null.
+ *
+ * Falls back across `city → subregion → region` because expo-location's
+ * results vary by device and locale: some report `city` as the
+ * municipality, others only fill `subregion` (district) or `region`
+ * (state). Any of those is good enough for the festival matcher, which
+ * uses two-way substring matching against both city and state keywords.
+ *
+ * Returns null on permission denial, network failure, or empty results.
+ */
+export async function reverseGeocodeCity(
+  lat: number,
+  lng: number,
+): Promise<string | null> {
+  try {
+    const results = await Location.reverseGeocodeAsync({
+      latitude: lat,
+      longitude: lng,
+    });
+    const first = results?.[0];
+    if (!first) return null;
+    const candidate = first.city ?? first.subregion ?? first.region ?? null;
+    if (!candidate) return null;
+    const trimmed = candidate.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  } catch {
+    return null;
+  }
+}

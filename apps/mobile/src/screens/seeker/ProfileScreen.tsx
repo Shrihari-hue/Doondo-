@@ -114,6 +114,20 @@ export function ProfileScreen() {
   const unrated = unratedQuery.data?.unrated ?? [];
   const pendingRatingsCount = unrated.length;
 
+  // Does anything render between the hero and the stats strip? The strip's
+  // `marginTop: -spacing['2xl']` pull-up only makes sense when it's
+  // directly under the hero. If a banner or streak chip is in the way the
+  // pull-up clips that element's bottom row (e.g. the streak chips lose
+  // their "day" / "start today" caption — see #profile-screen-overlap-bug).
+  const hasStreaks = Boolean(
+    user &&
+      ((user.streaks?.apply?.totalDays ?? 0) > 0 ||
+        (user.streaks?.course?.totalDays ?? 0) > 0 ||
+        (user.streaks?.shift?.totalDays ?? 0) > 0),
+  );
+  const hasOverlayAboveStats =
+    profileCompletion < 50 || pendingRatingsCount > 0 || hasStreaks;
+
   const photoMutation = useMutation({
     mutationFn: (dataUrl: string) => meApi.updateProfile({ photoUrl: dataUrl }),
     onSuccess: ({ user: updated }) => {
@@ -624,14 +638,19 @@ export function ProfileScreen() {
         )}
 
         {/* ─── Stats strip ─────────────────────────────────────────────
-            Only overlaps the hero with a negative top margin when the
-            pending-ratings banner ISN'T showing. When the banner is
-            there, IT's the element that overlaps; the stats strip then
-            stacks below it normally. */}
+            Only overlaps the hero with a negative top margin when NOTHING
+            sits between it and the hero. The photo banner, the pending-
+            ratings banner, and the streak strip each "claim" the pull-up
+            slot when they render; if the stats strip also pulled up it
+            would clip whichever element is above (this was eating the
+            streak chips' caption row — "day" / "start today" — when any
+            streak had activity). When something IS above, the stats strip
+            stacks below it normally; the element above retains the
+            visual link to the hero. */}
         <View
           style={{
             paddingHorizontal: spacing.xl,
-            marginTop: pendingRatingsCount > 0 ? 0 : -spacing['2xl'],
+            marginTop: hasOverlayAboveStats ? 0 : -spacing['2xl'],
           }}
         >
           <View

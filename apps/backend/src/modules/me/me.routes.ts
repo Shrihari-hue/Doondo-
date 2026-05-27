@@ -9,6 +9,7 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
+import { sendOk, sendErr } from '@/lib/respond';
 import * as controller from './me.controller';
 import walletRouter from '@/modules/wallet/wallet.routes';
 import alertsRouter from '@/modules/alerts/alert.routes';
@@ -67,7 +68,7 @@ router.get('/hired-nearby', requireAuth, async (req, res, next) => {
       callerId: req.user!.id,
       limit,
     });
-    res.json({ ok: true, data: { entries }, requestId: req.id });
+    sendOk(res, { entries });
   } catch (err) {
     next(err);
   }
@@ -87,7 +88,7 @@ router.get('/notification-prefs', requireAuth, async (req, res, next) => {
     const u = await UserModel.findById(req.user!.id).select('notificationPrefs').lean();
     const prefs =
       (u as { notificationPrefs?: Record<string, boolean> } | null)?.notificationPrefs ?? {};
-    res.json({
+    sendOk(res, {
       prefs: {
         jobs: prefs.jobs ?? true,
         applications: prefs.applications ?? true,
@@ -111,27 +112,23 @@ router.get('/trust-circle', requireAuth, async (req, res, next) => {
     const u = await UserModel.findById(req.user!.id)
       .select('trustCircle isPeerResponder shareShiftsWithCircle')
       .lean();
-    res.json({
-      ok: true,
-      data: {
-        trustCircle: ((u as { trustCircle?: unknown[] } | null)?.trustCircle ?? []).map(
-          (c) => {
-            const contact = c as { name: string; phone: string; relationship?: string | null };
-            return {
-              name: contact.name,
-              phone: contact.phone,
-              relationship: contact.relationship ?? null,
-            };
-          },
-        ),
-        isPeerResponder: Boolean(
-          (u as { isPeerResponder?: boolean } | null)?.isPeerResponder,
-        ),
-        shareShiftsWithCircle: Boolean(
-          (u as { shareShiftsWithCircle?: boolean } | null)?.shareShiftsWithCircle,
-        ),
-      },
-      requestId: req.id,
+    sendOk(res, {
+      trustCircle: ((u as { trustCircle?: unknown[] } | null)?.trustCircle ?? []).map(
+        (c) => {
+          const contact = c as { name: string; phone: string; relationship?: string | null };
+          return {
+            name: contact.name,
+            phone: contact.phone,
+            relationship: contact.relationship ?? null,
+          };
+        },
+      ),
+      isPeerResponder: Boolean(
+        (u as { isPeerResponder?: boolean } | null)?.isPeerResponder,
+      ),
+      shareShiftsWithCircle: Boolean(
+        (u as { shareShiftsWithCircle?: boolean } | null)?.shareShiftsWithCircle,
+      ),
     });
   } catch (err) {
     next(err);
@@ -165,15 +162,11 @@ router.put('/trust-circle', requireAuth, async (req, res, next) => {
     )
       .select('trustCircle isPeerResponder')
       .lean();
-    res.json({
-      ok: true,
-      data: {
-        trustCircle: cleaned,
-        isPeerResponder: Boolean(
-          (updated as { isPeerResponder?: boolean } | null)?.isPeerResponder,
-        ),
-      },
-      requestId: req.id,
+    sendOk(res, {
+      trustCircle: cleaned,
+      isPeerResponder: Boolean(
+        (updated as { isPeerResponder?: boolean } | null)?.isPeerResponder,
+      ),
     });
   } catch (err) {
     next(err);
@@ -184,7 +177,7 @@ router.post('/peer-responder', requireAuth, async (req, res, next) => {
   try {
     const body = (req.body ?? {}) as { enabled?: unknown };
     if (typeof body.enabled !== 'boolean') {
-      res.status(400).json({ ok: false, error: { code: 'VALIDATION_FAILED', message: '`enabled` must be a boolean.' } });
+      sendErr(res, 400, 'VALIDATION_FAILED', '`enabled` must be a boolean.');
       return;
     }
     const { UserModel } = await import('@/modules/users/user.model');
@@ -192,7 +185,7 @@ router.post('/peer-responder', requireAuth, async (req, res, next) => {
       { _id: req.user!.id },
       { $set: { isPeerResponder: body.enabled } },
     );
-    res.json({ ok: true, data: { isPeerResponder: body.enabled }, requestId: req.id });
+    sendOk(res, { isPeerResponder: body.enabled });
   } catch (err) {
     next(err);
   }
@@ -203,7 +196,7 @@ router.post('/share-shifts', requireAuth, async (req, res, next) => {
   try {
     const body = (req.body ?? {}) as { enabled?: unknown };
     if (typeof body.enabled !== 'boolean') {
-      res.status(400).json({ ok: false, error: { code: 'VALIDATION_FAILED', message: '`enabled` must be a boolean.' } });
+      sendErr(res, 400, 'VALIDATION_FAILED', '`enabled` must be a boolean.');
       return;
     }
     const { UserModel } = await import('@/modules/users/user.model');
@@ -211,11 +204,7 @@ router.post('/share-shifts', requireAuth, async (req, res, next) => {
       { _id: req.user!.id },
       { $set: { shareShiftsWithCircle: body.enabled } },
     );
-    res.json({
-      ok: true,
-      data: { shareShiftsWithCircle: body.enabled },
-      requestId: req.id,
-    });
+    sendOk(res, { shareShiftsWithCircle: body.enabled });
   } catch (err) {
     next(err);
   }
@@ -254,11 +243,7 @@ router.get('/constitution', requireAuth, async (req, res, next) => {
     const { UserModel } = await import('@/modules/users/user.model');
     const u = await UserModel.findById(req.user!.id).select('constitution').lean();
     const c = (u as { constitution?: unknown } | null)?.constitution ?? {};
-    res.json({
-      ok: true,
-      data: { constitution: cleanConstitution(c) },
-      requestId: req.id,
-    });
+    sendOk(res, { constitution: cleanConstitution(c) });
   } catch (err) {
     next(err);
   }
@@ -272,7 +257,7 @@ router.put('/constitution', requireAuth, async (req, res, next) => {
       { _id: req.user!.id },
       { $set: { constitution } },
     );
-    res.json({ ok: true, data: { constitution }, requestId: req.id });
+    sendOk(res, { constitution });
   } catch (err) {
     next(err);
   }
@@ -287,12 +272,12 @@ router.post('/notification-prefs', requireAuth, async (req, res, next) => {
       if (typeof body[k] === 'boolean') update[`notificationPrefs.${k}`] = body[k] as boolean;
     }
     if (Object.keys(update).length === 0) {
-      res.status(400).json({ error: 'No valid prefs supplied.' });
+      sendErr(res, 400, 'VALIDATION_FAILED', 'No valid prefs supplied.');
       return;
     }
     const { UserModel } = await import('@/modules/users/user.model');
     await UserModel.updateOne({ _id: req.user!.id }, { $set: update });
-    res.json({ ok: true });
+    sendOk(res, { ok: true });
   } catch (err) {
     next(err);
   }
@@ -306,7 +291,7 @@ router.post('/find-friends', requireAuth, async (req, res, next) => {
       ? body.phoneHashes.filter((h): h is string => typeof h === 'string' && /^[a-f0-9]{64}$/i.test(h))
       : [];
     const friends = await findFriendsService.findByHashes(req.user!.id, hashes);
-    res.json({ friends });
+    sendOk(res, { friends });
   } catch (err) {
     next(err);
   }
@@ -320,7 +305,7 @@ router.get(
   async (req, res, next) => {
     try {
       const suggestions = await skillSuggestionsService.suggestForSeeker(req.user!.id);
-      res.json({ suggestions });
+      sendOk(res, { suggestions });
     } catch (err) {
       next(err);
     }
@@ -336,7 +321,7 @@ router.get(
   async (req, res, next) => {
     try {
       const summary = await profileViewService.summarize(req.user!.id);
-      res.json(summary);
+      sendOk(res, summary);
     } catch (err) {
       next(err);
     }
@@ -354,7 +339,7 @@ router.get(
     try {
       const { getPulseForSeeker } = await import('./pulse.service');
       const pulse = await getPulseForSeeker(req.user!.id);
-      res.json({ ok: true, data: pulse, requestId: req.id });
+      sendOk(res, pulse);
     } catch (err) {
       next(err);
     }
@@ -372,7 +357,7 @@ router.get(
     try {
       const { getSkillPassportForSeeker } = await import('./skillPassport.service');
       const passport = await getSkillPassportForSeeker(req.user!.id);
-      res.json({ ok: true, data: passport, requestId: req.id });
+      sendOk(res, passport);
     } catch (err) {
       next(err);
     }
@@ -399,27 +384,23 @@ router.post('/profile/extract-from-photo', requireAuth, async (req, res, next) =
       typeof body.imageDataUrl !== 'string' ||
       !body.imageDataUrl.startsWith('data:image/')
     ) {
-      res.status(400).json({
-        ok: false,
-        error: {
-          code: 'VALIDATION_FAILED',
-          message: 'imageDataUrl must be a base64 image data URL.',
-        },
-        requestId: req.id,
-      });
+      sendErr(
+        res,
+        400,
+        'VALIDATION_FAILED',
+        'imageDataUrl must be a base64 image data URL.',
+      );
       return;
     }
     // Cap the inbound image size — the mobile compresses to ~700KB so
     // anything larger is suspicious and would bloat the vision call.
     if (body.imageDataUrl.length > 1_300_000) {
-      res.status(413).json({
-        ok: false,
-        error: {
-          code: 'VALIDATION_FAILED',
-          message: 'Image is too large. Compress further on the device.',
-        },
-        requestId: req.id,
-      });
+      sendErr(
+        res,
+        413,
+        'VALIDATION_FAILED',
+        'Image is too large. Compress further on the device.',
+      );
       return;
     }
     const { extractProfileFromPhoto } = await import(
@@ -429,7 +410,7 @@ router.post('/profile/extract-from-photo', requireAuth, async (req, res, next) =
       imageDataUrl: body.imageDataUrl,
       locale: typeof body.locale === 'string' ? body.locale : undefined,
     });
-    res.json({ ok: true, data: { extracted }, requestId: req.id });
+    sendOk(res, { extracted });
   } catch (err) {
     next(err);
   }

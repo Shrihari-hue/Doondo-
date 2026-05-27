@@ -31,7 +31,7 @@ import { useTheme } from '@/theme/useTheme';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuth } from '@/hooks/useAuth';
 import { meApi } from '@/api/me.api';
-import { getCurrentCoords } from '@/lib/location';
+import { getCurrentCoords, reverseGeocodeCity } from '@/lib/location';
 import { haptic } from '@/lib/haptics';
 import { pickSkillDoc, type SkillDocSource } from '@/lib/skillDocPicker';
 import {
@@ -376,6 +376,7 @@ function LocationForm({ user }: { user: PublicUser }) {
       // Falling back to a sensible "no GPS yet" point keeps the flow
       // unblocked — the user can refine later.
       let c = coords;
+      let resolvedCity = city.trim();
       if (!c) {
         const detected = await getCurrentCoords();
         if (detected) {
@@ -388,8 +389,17 @@ function LocationForm({ user }: { user: PublicUser }) {
           setCoords(c);
         }
       }
+      // If we have GPS but no city typed, reverse-geocode so regional
+      // Festival Mode (Pongal/Onam) can still match this user.
+      if (!resolvedCity && c) {
+        const detectedCity = await reverseGeocodeCity(c.lat, c.lng);
+        if (detectedCity) {
+          resolvedCity = detectedCity;
+          setCity(detectedCity);
+        }
+      }
       return meApi.updateLocation({
-        city: city.trim(),
+        city: resolvedCity,
         area: area.trim() || null,
         pincode: pincode.trim() || null,
         lat: c.lat,
@@ -410,13 +420,20 @@ function LocationForm({ user }: { user: PublicUser }) {
   async function detect() {
     setDetecting(true);
     const c = await getCurrentCoords();
-    setDetecting(false);
     if (c) {
       setCoords({ lat: c.lat, lng: c.lng });
+      // Pre-fill city from reverse-geocode when the user hasn't typed
+      // one yet. Keeps regional Festival Mode (Pongal/Onam) reachable
+      // for users who only ever hit "Detect" and never edit the field.
+      if (!city.trim()) {
+        const detectedCity = await reverseGeocodeCity(c.lat, c.lng);
+        if (detectedCity) setCity(detectedCity);
+      }
       haptic('selection');
     } else {
       setError(t('edit_profile.location.error_detect_default'));
     }
+    setDetecting(false);
   }
 
   return (
@@ -1218,6 +1235,7 @@ function BusinessLocationForm({ user }: { user: PublicUser }) {
   const mutation = useMutation({
     mutationFn: async () => {
       let c = coords;
+      let resolvedCity = city.trim();
       if (!c) {
         const detected = await getCurrentCoords();
         c = detected
@@ -1225,8 +1243,18 @@ function BusinessLocationForm({ user }: { user: PublicUser }) {
           : { lat: 12.9716, lng: 77.5946 };
         setCoords(c);
       }
+      // Pre-fill city from reverse-geocode if the employer hasn't typed
+      // one — mirrors the seeker form so business locations also carry
+      // a usable city string downstream.
+      if (!resolvedCity && c) {
+        const detectedCity = await reverseGeocodeCity(c.lat, c.lng);
+        if (detectedCity) {
+          resolvedCity = detectedCity;
+          setCity(detectedCity);
+        }
+      }
       return meApi.updateEmployerLocation({
-        city: city.trim(),
+        city: resolvedCity,
         area: area.trim() || null,
         pincode: pincode.trim() || null,
         lat: c.lat,
@@ -1247,13 +1275,20 @@ function BusinessLocationForm({ user }: { user: PublicUser }) {
   async function detect() {
     setDetecting(true);
     const c = await getCurrentCoords();
-    setDetecting(false);
     if (c) {
       setCoords({ lat: c.lat, lng: c.lng });
+      // Pre-fill city from reverse-geocode when the user hasn't typed
+      // one yet. Keeps regional Festival Mode (Pongal/Onam) reachable
+      // for users who only ever hit "Detect" and never edit the field.
+      if (!city.trim()) {
+        const detectedCity = await reverseGeocodeCity(c.lat, c.lng);
+        if (detectedCity) setCity(detectedCity);
+      }
       haptic('selection');
     } else {
       setError(t('edit_profile.location.error_detect_default'));
     }
+    setDetecting(false);
   }
 
   return (
