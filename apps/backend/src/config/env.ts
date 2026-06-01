@@ -138,6 +138,15 @@ const schema = z.object({
    */
   ANTHROPIC_VISION_MODEL: z.string().default('claude-sonnet-4-6'),
   /**
+   * Server-side Google Maps key for the Distance Matrix API (real
+   * travel-time estimates between an employer and nearby workers). Leave
+   * empty to fall back to a straight-line distance estimate — the feature
+   * degrades gracefully and never hard-depends on the key. Use a key with
+   * the Distance Matrix API enabled and server/IP restriction (not the
+   * Android Maps SDK key in app.json, which is client-restricted).
+   */
+  GOOGLE_MAPS_KEY: z.string().default(''),
+  /**
    * Cron for the interview-reminder sweep. Default every 15 min on the
    * quarter-hour — cheap (small indexed query) and gives any rescheduled
    * interview at most a 15-minute reminder lag.

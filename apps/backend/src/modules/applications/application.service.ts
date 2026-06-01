@@ -34,6 +34,8 @@ import {
   sendOfferMadePush,
   sendOfferResolvedPush,
   sendWorkerOnTheWayPush,
+  sendBackfillPush,
+  sendOfferCounteredPush,
 } from '@/lib/push';
 import { JobModel, type PublicJob } from '@/modules/jobs/job.model';
 import {
@@ -84,6 +86,14 @@ export async function apply(input: ApplyInput): Promise<PublicApplication> {
   const job = await JobModel.findById(input.jobId);
   if (!job) throw errors.jobNotFound();
   if (job.status !== 'active') throw errors.jobNotOpen();
+
+  // Block guard: an employer who blocked this worker doesn't receive their
+  // applications. Fail closed but quietly — a generic forbidden, not a
+  // "you're blocked" message that would invite arguing.
+  const { isBlocked } = await import('@/modules/moderation/moderation.service');
+  if (await isBlocked(job.employerId.toString(), input.seekerId)) {
+    throw errors.forbidden('This application could not be submitted.');
+  }
 
   // Snapshot teamSize from the seeker's profile when they're applying as
   // a team. Stored on the Application itself so the employer's card
@@ -383,7 +393,65 @@ export async function confirmShift(
     declinedAt: input.coming ? null : now,
   };
   await app.save();
+
+  // No-show backfill: a decline opens the slot, so auto-offer it to the
+  // next candidate in this job's pipeline and tell the employer. Fire-and-
+  // forget — the decline itself is already recorded.
+  if (!input.coming) {
+    void autoBackfill(app).catch((err) =>
+      logger.warn({ err, applicationId: app.id }, 'auto-backfill failed'),
+    );
+  }
+
   return app.toPublicJSON();
+}
+
+/**
+ * Pick the next pipeline candidate for a job whose hired worker just
+ * declined, extend them an offer, and notify the employer. Preference
+ * order: shortlisted → viewed → pending, then earliest applied. Skips
+ * anyone already hired, closed, or sitting on a pending offer.
+ */
+async function autoBackfill(declined: {
+  _id: unknown;
+  jobId: unknown;
+  employerId: unknown;
+  seekerId: unknown;
+}): Promise<void> {
+  const jobId = declined.jobId as Types.ObjectId;
+  const employerId = (declined.employerId as Types.ObjectId).toString();
+
+  const candidates = await ApplicationModel.find({
+    jobId,
+    _id: { $ne: declined._id },
+    status: { $in: ['shortlisted', 'viewed', 'pending'] },
+    $or: [{ offer: null }, { 'offer.outcome': { $ne: 'pending' } }],
+  }).lean();
+  if (candidates.length === 0) return;
+
+  const rank: Record<string, number> = { shortlisted: 0, viewed: 1, pending: 2 };
+  candidates.sort((a, b) => {
+    const r = (rank[a.status] ?? 9) - (rank[b.status] ?? 9);
+    if (r !== 0) return r;
+    return new Date(a.appliedAt).getTime() - new Date(b.appliedAt).getTime();
+  });
+  const next = candidates[0];
+  if (!next) return;
+
+  const nextAppId = (next._id as unknown as Types.ObjectId).toString();
+  // Default backfill window: 12 hours to respond.
+  await makeOffer({ employerId, applicationId: nextAppId, ttlHours: 12 });
+
+  const [declinedUser, nextUser] = await Promise.all([
+    UserModel.findById(declined.seekerId as Types.ObjectId).select('name').lean(),
+    UserModel.findById(next.seekerId as unknown as Types.ObjectId).select('name').lean(),
+  ]);
+  void sendBackfillPush({
+    recipientId: employerId,
+    applicationId: nextAppId,
+    declinedName: (declinedUser as { name?: string } | null)?.name,
+    nextName: (nextUser as { name?: string } | null)?.name,
+  }).catch(() => undefined);
 }
 
 export interface MarkOnTheWayInput {
@@ -453,11 +521,33 @@ export async function markOnTheWay(
   return app.toPublicJSON();
 }
 
+/**
+ * Worker acknowledges the job's pre-shift checklist ("bring tools, wear
+ * uniform, know the address"). Records the moment so the employer sees the
+ * worker has read and accepted the prep — an early no-show-risk signal.
+ */
+export async function acknowledgeChecklist(
+  seekerId: string,
+  applicationId: string,
+): Promise<PublicApplication> {
+  const app = await ApplicationModel.findById(applicationId);
+  if (!app) throw errors.applicationNotFound();
+  if (!(app.seekerId as unknown as Types.ObjectId).equals(new Types.ObjectId(seekerId))) {
+    throw errors.forbidden();
+  }
+  if (app.status !== 'hired') throw errors.conflict('Acknowledge once you are hired.');
+  app.prepAcknowledgedAt = new Date();
+  await app.save();
+  return app.toPublicJSON();
+}
+
 export interface MakeOfferInput {
   employerId: string;
   applicationId: string;
   /** Hours until the offer lapses. */
   ttlHours: number;
+  /** Wage to offer (paise). Defaults to the job's posted pay. */
+  wageAmount?: number;
 }
 
 /**
@@ -486,12 +576,21 @@ export async function makeOffer(
     throw errors.conflict('An offer is already pending with this candidate.');
   }
 
+  // Default the offered wage to the job's posted pay unless overridden.
+  let wageAmount = input.wageAmount ?? null;
+  if (wageAmount == null) {
+    const job = await JobModel.findById(app.jobId).select('pay').lean();
+    wageAmount = (job as { pay?: { amount?: number } } | null)?.pay?.amount ?? null;
+  }
+
   const now = new Date();
   app.offer = {
     madeAt: now,
     expiresAt: new Date(now.getTime() + input.ttlHours * 60 * 60 * 1000),
     respondedAt: null,
     outcome: 'pending',
+    wageAmount,
+    counterWageAmount: null,
   };
   await app.save();
 
@@ -507,14 +606,16 @@ export async function makeOffer(
 export interface RespondToOfferInput {
   seekerId: string;
   applicationId: string;
-  /** true = accept (→ hired), false = decline. */
-  accept: boolean;
+  /** accept → hired · decline → closed · counter → propose a new wage. */
+  action: 'accept' | 'decline' | 'counter';
+  /** Required when action === 'counter': the worker's wage (paise). */
+  counterAmount?: number;
 }
 
 /**
- * Worker accepts or declines a pending offer. Accepting transitions the
- * application to `hired`; declining frees the slot so the employer can
- * move on. A lapsed (expired) offer can no longer be accepted.
+ * Worker responds to a pending offer: accept (→ hired), decline (frees the
+ * slot), or counter with a different wage (ball goes back to the employer).
+ * A lapsed offer can no longer be acted on.
  */
 export async function respondToOffer(
   input: RespondToOfferInput,
@@ -532,7 +633,6 @@ export async function respondToOffer(
     throw errors.conflict('No pending offer to respond to.');
   }
   if (app.offer.expiresAt.getTime() <= Date.now()) {
-    // Lapsed between the worker opening the screen and tapping — settle it.
     app.offer.outcome = 'expired';
     await app.save();
     throw errors.conflict('This offer has expired.');
@@ -540,26 +640,86 @@ export async function respondToOffer(
 
   const now = new Date();
   const employerId = (app.employerId as unknown as Types.ObjectId).toString();
+  const appId = (app._id as Types.ObjectId).toString();
+
+  // ── Counter: record the worker's wage and hand it back to the employer ──
+  if (input.action === 'counter') {
+    if (!input.counterAmount || input.counterAmount <= 0) {
+      throw errors.validation({ counterAmount: input.counterAmount }, 'A counter wage is required.');
+    }
+    app.offer.respondedAt = now;
+    app.offer.outcome = 'countered';
+    app.offer.counterWageAmount = Math.round(input.counterAmount);
+    await app.save();
+    void sendOfferCounteredPush({
+      recipientId: employerId,
+      applicationId: appId,
+      amountPaise: app.offer.counterWageAmount,
+    }).catch(() => undefined);
+    return app.toPublicJSON();
+  }
+
   app.offer.respondedAt = now;
-  app.offer.outcome = input.accept ? 'accepted' : 'declined';
+  app.offer.outcome = input.action === 'accept' ? 'accepted' : 'declined';
   await app.save();
 
   void sendOfferResolvedPush({
     recipientId: employerId,
-    applicationId: (app._id as Types.ObjectId).toString(),
-    outcome: input.accept ? 'accepted' : 'declined',
+    applicationId: appId,
+    outcome: input.action === 'accept' ? 'accepted' : 'declined',
   }).catch(() => undefined);
 
-  if (!input.accept) {
+  if (input.action !== 'accept') {
     return app.toPublicJSON();
   }
 
-  // Accepting an offer hires the worker — route it through the canonical
-  // employer hire path so every hire side-effect fires exactly as it does
-  // for a manual hire (job → filled, wallet credit, hired-nearby fan-out,
-  // Trust Circle ping, chat unlock, hire-celebration push). Only
-  // `shortlisted → hired` is permitted, so step a pending/viewed offer up
-  // to shortlisted first. Authorised as the employer whose offer this is.
+  // Accept → hire via the canonical path (fires every hire side-effect).
+  if (app.status === 'pending' || app.status === 'viewed') {
+    await transitionByEmployer(employerId, input.applicationId, 'shortlisted');
+  }
+  return transitionByEmployer(employerId, input.applicationId, 'hired');
+}
+
+export interface RespondToCounterInput {
+  employerId: string;
+  applicationId: string;
+  /** true = accept the worker's counter wage (→ hired) · false = decline. */
+  accept: boolean;
+}
+
+/**
+ * Employer responds to a worker's wage counter: accept it (the agreed wage
+ * becomes the countered amount and the worker is hired) or decline. To
+ * re-counter, the employer simply makes a fresh offer at a new wage.
+ */
+export async function respondToCounter(
+  input: RespondToCounterInput,
+): Promise<PublicApplication> {
+  const app = await ApplicationModel.findById(input.applicationId);
+  if (!app) throw errors.applicationNotFound();
+  if (
+    !(app.employerId as unknown as Types.ObjectId).equals(
+      new Types.ObjectId(input.employerId),
+    )
+  ) {
+    throw errors.forbidden();
+  }
+  if (!app.offer || app.offer.outcome !== 'countered') {
+    throw errors.conflict('No counter-offer to respond to.');
+  }
+
+  const employerId = (app.employerId as unknown as Types.ObjectId).toString();
+  if (!input.accept) {
+    app.offer.outcome = 'declined';
+    await app.save();
+    return app.toPublicJSON();
+  }
+
+  // Accept the counter: the agreed wage is the worker's counter, then hire.
+  app.offer.wageAmount = app.offer.counterWageAmount ?? app.offer.wageAmount;
+  app.offer.outcome = 'accepted';
+  await app.save();
+
   if (app.status === 'pending' || app.status === 'viewed') {
     await transitionByEmployer(employerId, input.applicationId, 'shortlisted');
   }

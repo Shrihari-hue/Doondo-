@@ -44,6 +44,7 @@ import {
 import { contactApi } from '@/api/contact.api';
 import { pastApplicantsApi, type PastApplicant } from '@/api/pastApplicants.api';
 import { trustedWorkersApi, type TrustedWorker } from '@/api/trustedWorkers.api';
+import { travelTimeApi } from '@/api/travelTime.api';
 import { ApiError } from '@/api/errors';
 import { prettifySkill, tradeEmoji } from '@/lib/trades';
 import { WorkersMapView } from './workers-map/WorkersMapView';
@@ -146,6 +147,35 @@ export function AvailableWorkersScreen() {
     staleTime: 5 * 60_000,
   });
   const trustedWorkers = trustedQuery.data?.workers ?? [];
+
+  // Real driving ETA from the employer to each listed worker. Drives both
+  // the "~X min drive" label and the list order (travel time beats
+  // crow-flies distance). Degrades to a straight-line estimate server-side.
+  const availabilityKey = availabilities.map((a) => a.seekerId).join(',');
+  const travelQuery = useQuery({
+    queryKey: ['travel-times', coords?.lat, coords?.lng, availabilityKey],
+    queryFn: () =>
+      travelTimeApi.batch(
+        { lat: coords!.lat, lng: coords!.lng },
+        availabilities.slice(0, 50).map((a) => ({
+          id: a.seekerId,
+          lat: a.location.coordinates[1],
+          lng: a.location.coordinates[0],
+        })),
+      ),
+    enabled: coords !== null && availabilities.length > 0,
+    staleTime: 5 * 60_000,
+  });
+  const travelMap = new Map(
+    (travelQuery.data?.results ?? []).map((r) => [r.id, r]),
+  );
+  // Sort by travel time when we have it, falling back to straight-line.
+  const sortedAvailabilities = [...availabilities].sort((a, b) => {
+    const ta = travelMap.get(a.seekerId)?.minutes ?? Infinity;
+    const tb = travelMap.get(b.seekerId)?.minutes ?? Infinity;
+    if (ta !== tb) return ta - tb;
+    return a.distanceMeters - b.distanceMeters;
+  });
 
   // Open the send-hiring-request flow for a worker.
   const onHire = (worker: NearbyAvailability) => {
@@ -274,7 +304,7 @@ export function AvailableWorkersScreen() {
           />
         ) : (
           <FlatList
-            data={availabilities}
+            data={sortedAvailabilities}
             keyExtractor={(a) => a.id}
             contentContainerStyle={{
               paddingHorizontal: spacing.xl,
@@ -314,6 +344,8 @@ export function AvailableWorkersScreen() {
                 onCall={() => callMutation.mutate(item.seeker.id)}
                 onHire={() => onHire(item)}
                 calling={callMutation.isPending}
+                travelMinutes={travelMap.get(item.seekerId)?.minutes}
+                travelEstimated={travelMap.get(item.seekerId)?.estimated}
                 t={t}
               />
             )}
@@ -534,12 +566,17 @@ function AvailabilityRow({
   onCall,
   onHire,
   calling,
+  travelMinutes,
+  travelEstimated,
   t,
 }: {
   item: NearbyAvailability;
   onCall: () => void;
   onHire: () => void;
   calling: boolean;
+  /** Driving ETA in minutes, when computed. */
+  travelMinutes?: number;
+  travelEstimated?: boolean;
   t: TFn;
 }) {
   const { theme } = useTheme();
@@ -551,6 +588,12 @@ function AvailabilityRow({
     item.distanceMeters < 1000
       ? t('employer.available_workers.meters_short', { n: item.distanceMeters })
       : t('employer.available_workers.kilometers_short', { n: (item.distanceMeters / 1000).toFixed(1) });
+  const travelLabel =
+    travelMinutes != null
+      ? travelEstimated
+        ? t('employer.available_workers.drive_est', { n: travelMinutes })
+        : t('employer.available_workers.drive', { n: travelMinutes })
+      : null;
 
   return (
     <View
@@ -588,7 +631,7 @@ function AvailabilityRow({
             {item.seeker.isVerified ? '  ✓' : ''}
           </Text>
           <Text style={{ fontSize: 12, color: theme.text.tertiary }} numberOfLines={1}>
-            {distanceLabel} · {minutesLeft > 0 ? t('employer.available_workers.minutes_left', { n: minutesLeft }) : t('employer.available_workers.expiring')}
+            {travelLabel ? `${travelLabel} · ` : ''}{distanceLabel} · {minutesLeft > 0 ? t('employer.available_workers.minutes_left', { n: minutesLeft }) : t('employer.available_workers.expiring')}
             {item.location.area ? ` · ${item.location.area}` : ''}
           </Text>
           {item.seeker.rating ? (

@@ -207,6 +207,13 @@ export const applicationsApi = {
       { method: 'POST', body: { coming } },
     ),
 
+  /** Worker: acknowledge the job's pre-shift checklist. */
+  ackChecklist: (applicationId: string) =>
+    apiRequest<{ application: PublicApplication }>(
+      `/applications/${applicationId}/ack-checklist`,
+      { method: 'POST' },
+    ),
+
   /** Worker: raise "I'm on my way" with current coords (for an ETA estimate). */
   markOnTheWay: (applicationId: string, lat: number, lng: number) =>
     apiRequest<{ application: PublicApplication }>(
@@ -221,10 +228,21 @@ export const applicationsApi = {
       { method: 'POST', body: { ttlHours } },
     ),
 
-  /** Worker: accept (true) or decline (false) a pending offer. */
-  respondToOffer: (applicationId: string, accept: boolean) =>
+  /** Worker: respond to a pending offer — accept, decline, or counter the wage. */
+  respondToOffer: (
+    applicationId: string,
+    action: 'accept' | 'decline' | 'counter',
+    counterAmount?: number,
+  ) =>
     apiRequest<{ application: PublicApplication }>(
       `/applications/${applicationId}/offer-response`,
+      { method: 'POST', body: { action, ...(counterAmount ? { counterAmount } : {}) } },
+    ),
+
+  /** Employer: accept (true) or decline (false) the worker's wage counter. */
+  respondToCounter: (applicationId: string, accept: boolean) =>
+    apiRequest<{ application: PublicApplication }>(
+      `/applications/${applicationId}/offer-counter-response`,
       { method: 'POST', body: { accept } },
     ),
 

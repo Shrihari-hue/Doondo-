@@ -91,6 +91,7 @@ async function main(): Promise<void> {
       import('@/modules/crew/crew.service'),
       import('@/modules/applications/shiftConfirmation.service'),
       import('@/modules/applications/offerExpiry.service'),
+      import('@/modules/travelTime/travelTime.service'),
       import('@/lib/transactionalSms'),
     ]);
   });

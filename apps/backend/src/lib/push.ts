@@ -496,6 +496,87 @@ export async function sendOfferResolvedPush(input: {
   );
 }
 
+/**
+ * Crew-first shift — push to a saved crew member when an employer they've
+ * worked for posts a shift with a head-start window. First dibs before it
+ * goes public.
+ */
+export async function sendCrewShiftPush(input: {
+  recipientId: string;
+  jobId: string;
+  jobTitle?: string;
+  employerName?: string;
+}): Promise<void> {
+  const who = input.employerName ?? 'An employer you know';
+  const title = 'First dibs on a shift';
+  const body = input.jobTitle
+    ? `${who} posted "${input.jobTitle}" — you get it before it goes public.`
+    : `${who} posted a shift — you get first dibs before it goes public.`;
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'crew_shift',
+    title,
+    body,
+    deeplink: { screen: 'JobDetail', params: { jobId: input.jobId } },
+  });
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'jobs',
+      data: {
+        type: 'crew:shift',
+        deeplink: { screen: 'JobDetail', params: { jobId: input.jobId } },
+        jobId: input.jobId,
+      },
+    })),
+  );
+}
+
+/**
+ * Shift backfilled — push to the employer when a hired worker declines and
+ * we've auto-offered the slot to the next candidate. Turns a no-show
+ * scramble into a heads-up that a replacement is already in motion.
+ */
+export async function sendBackfillPush(input: {
+  recipientId: string;
+  applicationId: string;
+  declinedName?: string;
+  nextName?: string;
+}): Promise<void> {
+  const who = input.declinedName ?? 'A hired worker';
+  const next = input.nextName ?? 'the next candidate';
+  const title = 'Shift backfill in motion';
+  const body = `${who} can't make it — we've offered the shift to ${next}.`;
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'shift_backfilled',
+    title,
+    body,
+    deeplink: { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } },
+  });
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'applications',
+      data: {
+        type: 'shift:backfilled',
+        deeplink: { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } },
+        applicationId: input.applicationId,
+      },
+    })),
+  );
+}
+
 /** Worker on the way — push to the employer when the worker sets off. */
 export async function sendWorkerOnTheWayPush(input: {
   recipientId: string;
@@ -524,6 +605,40 @@ export async function sendWorkerOnTheWayPush(input: {
       channelId: 'applications',
       data: {
         type: 'worker:on_the_way',
+        deeplink: { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } },
+        applicationId: input.applicationId,
+      },
+    })),
+  );
+}
+
+/** Offer countered — push to the employer when the worker proposes a wage. */
+export async function sendOfferCounteredPush(input: {
+  recipientId: string;
+  applicationId: string;
+  amountPaise: number;
+}): Promise<void> {
+  const rupees = Math.round(input.amountPaise / 100).toLocaleString('en-IN');
+  const title = 'Wage counter-offer';
+  const body = `Your candidate wants ₹${rupees}. Tap to accept or re-offer.`;
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'offer_countered',
+    title,
+    body,
+    deeplink: { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } },
+  });
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'applications',
+      data: {
+        type: 'offer:countered',
         deeplink: { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
       },

@@ -91,6 +91,13 @@ const LAUNCHERS: {
     subtitle: 'Hiring requests you’ve sent, and how workers responded.',
     route: 'SentHiringRequests',
   },
+  {
+    tone: 'purple',
+    glyph: '👥',
+    title: 'My crew',
+    subtitle: 'Import workers you already know from your contacts and save them for one-tap re-hire.',
+    route: 'Workforce',
+  },
 ];
 
 // ─── Status pill palette ─────────────────────────────────────────────────────

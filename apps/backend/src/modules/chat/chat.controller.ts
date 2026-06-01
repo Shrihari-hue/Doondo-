@@ -42,6 +42,28 @@ export async function ensureFromApplication(
   }
 }
 
+/** Employer bulk-messages everyone at a stage on a job. */
+export async function bulkMessage(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const body = req.body as { jobId?: string; stage?: string; message?: string };
+    const stage = body.stage === 'active' ? 'active' : 'shortlisted';
+    const result = await chatService.bulkMessageForJob(
+      req.user.id,
+      body.jobId ?? '',
+      stage,
+      body.message ?? '',
+    );
+    ok(req, res, 200, result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function detail(
   req: Request,
   res: Response,

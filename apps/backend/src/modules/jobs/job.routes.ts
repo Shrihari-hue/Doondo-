@@ -90,6 +90,13 @@ router.patch(
   controller.updateJob,
 );
 router.post(
+  '/:id/repost',
+  requireAuth,
+  requireRole('employer'),
+  validate(jobIdParamsSchema),
+  controller.repostJob,
+);
+router.post(
   '/:id/pause',
   requireAuth,
   requireRole('employer'),

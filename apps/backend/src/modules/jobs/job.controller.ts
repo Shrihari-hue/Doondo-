@@ -129,6 +129,21 @@ export async function createJob(
   }
 }
 
+/** Re-post a previous job as a fresh, active posting. */
+export async function repostJob(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const job = await jobService.repostJob(req.user.id, req.params.id!);
+    ok(req, res, 201, { job });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function updateJob(
   req: Request,
   res: Response,

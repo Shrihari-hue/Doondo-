@@ -31,6 +31,9 @@ import { workerNotesApi } from '@/api/workerNotes.api';
 import { skillTestsApi } from '@/api/skillTests.api';
 import { arrivalLikelihoodApi, type ArrivalBand } from '@/api/arrivalLikelihood.api';
 import { workProofApi } from '@/api/workProof.api';
+import { moderationApi, type ReportReason } from '@/api/moderation.api';
+import { incidentsApi } from '@/api/incidents.api';
+import { pickChatImage } from '@/lib/chatImage';
 import { UpiPaymentPanel } from './UpiPaymentPanel';
 import { ApiError } from '@/api/errors';
 import { haptic } from '@/lib/haptics';
@@ -335,6 +338,11 @@ export function ApplicantDetailScreen() {
           <WorkerNoteCard workerId={applicant.seeker.id} />
         ) : null}
 
+        {/* Private, timestamped incident log for this worker. */}
+        {applicant.seeker?.id ? (
+          <IncidentLogCard workerId={applicant.seeker.id} applicationId={applicant.id} />
+        ) : null}
+
         {/* Next-shift scheduling + night-before confirmation status. */}
         {applicant.status === 'hired' ? (
           <EmployerShiftCard applicant={applicant} />
@@ -572,6 +580,14 @@ export function ApplicantDetailScreen() {
 
         {/* Actions */}
         <ActionPanel applicant={applicant} onAction={(t) => transition.mutate(t)} pending={transition.isPending} />
+
+        {/* Block / report — low-emphasis safety actions at the bottom. */}
+        {applicant.seeker?.id ? (
+          <ModerationActions
+            workerId={applicant.seeker.id}
+            workerName={applicant.seeker.name ?? ''}
+          />
+        ) : null}
       </ScrollView>
     </Screen>
   );
@@ -765,18 +781,42 @@ function OfferCard({ applicant }: { applicant: ApplicantEntry }) {
     }
   }
 
+  async function respondCounter(accept: boolean) {
+    if (busy) return;
+    setBusy(true);
+    haptic('selection');
+    try {
+      await applicationsApi.respondToCounter(applicant.id, accept);
+      haptic(accept ? 'success' : 'warning');
+      await queryClient.invalidateQueries({
+        queryKey: ['applicants', 'detail', applicant.id],
+      });
+    } catch {
+      haptic('error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const counterRupees =
+    offer.counterWageAmount != null
+      ? Math.round(offer.counterWageAmount / 100).toLocaleString('en-IN')
+      : '';
+
   const statusLine =
     offer.status === 'pending'
       ? t('employer.offer.pending', {
           when: offer.expiresAt ? expiresInLabel(offer.expiresAt) : '',
         })
-      : offer.status === 'accepted'
-        ? t('employer.offer.accepted')
-        : offer.status === 'declined'
-          ? t('employer.offer.declined')
-          : offer.status === 'expired'
-            ? t('employer.offer.expired')
-            : null;
+      : offer.status === 'countered'
+        ? t('employer.offer.countered', { wage: counterRupees })
+        : offer.status === 'accepted'
+          ? t('employer.offer.accepted')
+          : offer.status === 'declined'
+            ? t('employer.offer.declined')
+            : offer.status === 'expired'
+              ? t('employer.offer.expired')
+              : null;
   const tone =
     offer.status === 'accepted'
       ? 'success'
@@ -804,7 +844,21 @@ function OfferCard({ applicant }: { applicant: ApplicantEntry }) {
             {statusLine}
           </Text>
         ) : null}
-        {applicant.status !== 'hired' && canOffer ? (
+        {offer.status === 'countered' && applicant.status !== 'hired' ? (
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Button
+              label={t('employer.offer.accept_counter', { wage: counterRupees })}
+              onPress={() => void respondCounter(true)}
+              disabled={busy}
+            />
+            <Button
+              label={t('employer.offer.decline_counter')}
+              variant="secondary"
+              onPress={() => void respondCounter(false)}
+              disabled={busy}
+            />
+          </View>
+        ) : applicant.status !== 'hired' && canOffer ? (
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             <Button
               label={t('employer.offer.make_24h')}
@@ -913,6 +967,195 @@ function SkillCheckBadge({ seekerId, testId }: { seekerId: string; testId: strin
         />
       </View>
     </Card>
+  );
+}
+
+// ─── Incident log ──────────────────────────────────────────────────────────
+
+/**
+ * Private, timestamped incident log for a worker — "arrived 40 min late",
+ * "broke a plate". Append-only, employer-only, with an optional photo.
+ * Builds an honest reliability history without the heat of a star rating.
+ */
+function IncidentLogCard({
+  workerId,
+  applicationId,
+}: {
+  workerId: string;
+  applicationId: string;
+}) {
+  const t = useTranslate();
+  const queryClient = useQueryClient();
+  const [note, setNote] = useState('');
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const query = useQuery({
+    queryKey: ['incidents', workerId],
+    queryFn: () => incidentsApi.list(workerId),
+  });
+  const incidents = query.data?.incidents ?? [];
+
+  async function attachPhoto() {
+    try {
+      const img = await pickChatImage({ source: 'camera' });
+      if (img) setPhoto(img.dataUrl);
+    } catch {
+      /* cancelled / unavailable */
+    }
+  }
+
+  async function logIt() {
+    const text = note.trim();
+    if (busy || !text) return;
+    setBusy(true);
+    try {
+      await incidentsApi.log({
+        workerId,
+        applicationId,
+        note: text,
+        ...(photo ? { photoDataUrl: photo } : {}),
+      });
+      haptic('success');
+      setNote('');
+      setPhoto(null);
+      await queryClient.invalidateQueries({ queryKey: ['incidents', workerId] });
+    } catch {
+      haptic('error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <View style={{ gap: spacing.sm }}>
+        <Text variant="footnote" weight="medium" tone="secondary" style={{ letterSpacing: 1.0 }}>
+          {t('employer.incident.label')}
+        </Text>
+
+        {incidents.length > 0 ? (
+          <View style={{ gap: spacing.xs }}>
+            {incidents.slice(0, 5).map((inc) => (
+              <View key={inc.id} style={{ gap: 2 }}>
+                <Text variant="footnote">
+                  {inc.photoUrl ? '📷 ' : ''}
+                  {inc.note}
+                </Text>
+                <Text variant="caption" tone="tertiary">
+                  {new Date(inc.createdAt).toLocaleString('en-IN')}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text variant="footnote" tone="tertiary">
+            {t('employer.incident.empty')}
+          </Text>
+        )}
+
+        <TextField
+          value={note}
+          onChangeText={setNote}
+          placeholder={t('employer.incident.placeholder')}
+          multiline
+          numberOfLines={2}
+        />
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          <Button
+            label={photo ? t('employer.incident.photo_added') : t('employer.incident.add_photo')}
+            variant="secondary"
+            onPress={() => void attachPhoto()}
+            disabled={busy}
+          />
+          <Button
+            label={busy ? t('employer.incident.logging') : t('employer.incident.log')}
+            onPress={() => void logIt()}
+            disabled={busy || !note.trim()}
+          />
+        </View>
+      </View>
+    </Card>
+  );
+}
+
+// ─── Block / report ────────────────────────────────────────────────────────
+
+/**
+ * Low-emphasis safety actions: block a worker from re-applying, or report
+ * a fake/scam/abusive profile to the trust-and-safety queue. Confirmation-
+ * gated so neither fires by accident.
+ */
+function ModerationActions({ workerId, workerName }: { workerId: string; workerName: string }) {
+  const t = useTranslate();
+  const navigation = useNavigation<Nav>();
+  const [busy, setBusy] = useState(false);
+
+  function confirmBlock() {
+    Alert.alert(
+      t('employer.moderation.block_title', { name: workerName || t('employer.applicant_detail.applicant_fallback') }),
+      t('employer.moderation.block_body'),
+      [
+        { text: t('employer.moderation.cancel'), style: 'cancel' },
+        {
+          text: t('employer.moderation.block'),
+          style: 'destructive',
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await moderationApi.block(workerId);
+              haptic('success');
+              navigation.goBack();
+            } catch {
+              haptic('error');
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  function confirmReport() {
+    const reasons: Array<{ key: ReportReason; labelKey: string }> = [
+      { key: 'fake_profile', labelKey: 'employer.moderation.reason_fake' },
+      { key: 'scam', labelKey: 'employer.moderation.reason_scam' },
+      { key: 'abusive', labelKey: 'employer.moderation.reason_abusive' },
+    ];
+    Alert.alert(t('employer.moderation.report_title'), t('employer.moderation.report_body'), [
+      ...reasons.map((r) => ({
+        text: t(r.labelKey),
+        onPress: async () => {
+          setBusy(true);
+          try {
+            await moderationApi.report(workerId, r.key);
+            haptic('success');
+            Alert.alert(t('employer.moderation.report_done'));
+          } catch {
+            haptic('error');
+          } finally {
+            setBusy(false);
+          }
+        },
+      })),
+      { text: t('employer.moderation.cancel'), style: 'cancel' as const },
+    ]);
+  }
+
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.xl, paddingVertical: spacing.md }}>
+      <Pressable onPress={confirmReport} disabled={busy} hitSlop={8}>
+        <Text variant="footnote" tone="tertiary">
+          {t('employer.moderation.report')}
+        </Text>
+      </Pressable>
+      <Pressable onPress={confirmBlock} disabled={busy} hitSlop={8}>
+        <Text variant="footnote" tone="danger">
+          {t('employer.moderation.block')}
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -1030,6 +1273,28 @@ function EmployerShiftCard({ applicant }: { applicant: ApplicantEntry }) {
   const t = useTranslate();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
+  const [endorsed, setEndorsed] = useState(false);
+
+  // Post-shift one-tap endorsement: endorse the worker's top skill for this
+  // job. Reuses the existing endorse API; the fuller controls live below.
+  const endorseSkill = applicant.job?.skills?.[0] ?? applicant.seeker?.skills?.[0] ?? null;
+  async function endorse() {
+    if (busy || !endorseSkill || !applicant.seeker?.id) return;
+    setBusy(true);
+    haptic('selection');
+    try {
+      await endorsementsApi.endorse(applicant.seeker.id, {
+        trade: endorseSkill,
+        applicationId: applicant.id,
+      });
+      haptic('success');
+      setEndorsed(true);
+    } catch {
+      haptic('error');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const whenLabel = applicant.nextShiftAt
     ? new Date(applicant.nextShiftAt).toLocaleString('en-IN', {
@@ -1113,6 +1378,18 @@ function EmployerShiftCard({ applicant }: { applicant: ApplicantEntry }) {
           </Text>
         ) : null}
 
+        {(applicant.job?.prepChecklist?.length ?? 0) > 0 ? (
+          <Text
+            variant="footnote"
+            weight="medium"
+            tone={applicant.prepAcknowledgedAt ? 'success' : 'tertiary'}
+          >
+            {applicant.prepAcknowledgedAt
+              ? t('employer.shift_schedule.checklist_ack')
+              : t('employer.shift_schedule.checklist_pending')}
+          </Text>
+        ) : null}
+
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           <Button
             label={t('employer.shift_schedule.tomorrow_morning')}
@@ -1127,6 +1404,22 @@ function EmployerShiftCard({ applicant }: { applicant: ApplicantEntry }) {
             disabled={busy}
           />
         </View>
+
+        {/* Post-shift one-tap endorsement of the worker's top skill. */}
+        {endorseSkill ? (
+          endorsed ? (
+            <Text variant="footnote" tone="success" weight="medium">
+              {t('employer.shift_schedule.endorsed', { skill: prettifySkill(endorseSkill) })}
+            </Text>
+          ) : (
+            <Button
+              label={t('employer.shift_schedule.endorse', { skill: prettifySkill(endorseSkill) })}
+              variant="secondary"
+              onPress={() => void endorse()}
+              disabled={busy}
+            />
+          )
+        ) : null}
       </View>
     </Card>
   );

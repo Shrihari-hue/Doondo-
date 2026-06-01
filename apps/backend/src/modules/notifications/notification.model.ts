@@ -43,7 +43,10 @@ export const NOTIFICATION_KINDS = [
   'offer_made',           // employer extended a time-boxed offer to a worker
   'offer_resolved',       // worker accepted/declined an offer (to employer)
   'offer_expired',        // a pending offer lapsed (to employer)
+  'offer_countered',      // worker countered the wage (to employer)
   'worker_on_the_way',    // hired worker tapped "I'm on my way" (to employer)
+  'crew_shift',           // an employer you've worked for posted a crew-first shift
+  'shift_backfilled',     // a worker declined; we auto-offered the next candidate
   'streak_milestone',     // crossed an apply/course/shift streak threshold (3/7/14/30)
   'referral_bonus',       // someone you referred got hired; your bonus is credited
   'hired_nearby',         // a worker near you got hired — social proof feed signal

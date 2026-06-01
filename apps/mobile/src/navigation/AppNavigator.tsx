@@ -51,6 +51,7 @@ import { LocationPickerScreen } from '@/screens/seeker/LocationPickerScreen';
 import { JobAlertsScreen } from '@/screens/seeker/JobAlertsScreen';
 import { JobAlertFormScreen } from '@/screens/seeker/JobAlertFormScreen';
 import { AvailableWorkersScreen } from '@/screens/employer/AvailableWorkersScreen';
+import { WorkforceScreen } from '@/screens/employer/WorkforceScreen';
 import { SendHiringRequestScreen } from '@/screens/employer/SendHiringRequestScreen';
 import { SentHiringRequestsScreen } from '@/screens/employer/SentHiringRequestsScreen';
 import { InterestedWorkersScreen } from '@/screens/employer/InterestedWorkersScreen';
@@ -303,6 +304,11 @@ export function AppNavigator() {
       <Stack.Screen
         name="AvailableWorkers"
         component={AvailableWorkersScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Workforce"
+        component={WorkforceScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen

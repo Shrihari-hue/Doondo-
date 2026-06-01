@@ -112,6 +112,13 @@ export function PostJobScreen() {
   const [skillDraft, setSkillDraft] = useState('');
   const [requiredSkillTestId, setRequiredSkillTestId] = useState<string | null>(null);
   const [headcount, setHeadcount] = useState('1');
+  /** Crew-first head-start in hours; 0 = post publicly right away. */
+  const [crewFirstHours, setCrewFirstHours] = useState(0);
+  /** Recurring weekly shift + the weekdays it repeats on (0=Sun…6=Sat). */
+  const [recurring, setRecurring] = useState(false);
+  const [recurDays, setRecurDays] = useState<number[]>([]);
+  const [prepItems, setPrepItems] = useState<string[]>([]);
+  const [prepDraft, setPrepDraft] = useState('');
   const [urgent, setUrgent] = useState(false);
   const [workMode, setWorkMode] = useState<WorkMode>('onsite');
   // Reverse Interview — the employer's answers to standard worker
@@ -210,6 +217,11 @@ export function PostJobScreen() {
         skills,
         requiredSkillTestId: requiredSkillTestId ?? null,
         headcount: Math.max(1, Number(headcount) || 1),
+        crewFirstHours: crewFirstHours > 0 ? crewFirstHours : undefined,
+        recurring: recurring || undefined,
+        schedule:
+          recurring && recurDays.length > 0 ? { days: [...recurDays].sort() } : undefined,
+        prepChecklist: prepItems.length > 0 ? prepItems : undefined,
         urgent,
         workMode,
         audioDescriptionUrl: audio?.dataUrl ?? null,
@@ -530,6 +542,129 @@ export function PostJobScreen() {
               placeholder="1"
               helper={t('employer.post_job.field_headcount_hint')}
             />
+          </View>
+
+          {/* Offer to my crew first */}
+          <View style={{ gap: spacing.sm }}>
+            <Text
+              variant="footnote"
+              weight="medium"
+              tone="secondary"
+              style={{ letterSpacing: 1.0 }}
+            >
+              {t('employer.post_job.section_crew_first')}
+            </Text>
+            <Text variant="footnote" tone="tertiary">
+              {t('employer.post_job.crew_first_hint')}
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+              {[
+                { h: 0, key: 'crew_first_off' },
+                { h: 2, key: 'crew_first_2h' },
+                { h: 6, key: 'crew_first_6h' },
+                { h: 24, key: 'crew_first_24h' },
+              ].map((opt) => (
+                <Pressable key={opt.h} onPress={() => setCrewFirstHours(opt.h)}>
+                  <Pill
+                    label={t(`employer.post_job.${opt.key}`)}
+                    tone={crewFirstHours === opt.h ? 'hero' : 'neutral'}
+                  />
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {/* Recurring weekly shift */}
+          <View style={{ gap: spacing.sm }}>
+            <Text
+              variant="footnote"
+              weight="medium"
+              tone="secondary"
+              style={{ letterSpacing: 1.0 }}
+            >
+              {t('employer.post_job.section_recurring')}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: spacing.xs }}>
+              <Pressable onPress={() => setRecurring(false)}>
+                <Pill
+                  label={t('employer.post_job.recurring_off')}
+                  tone={!recurring ? 'hero' : 'neutral'}
+                />
+              </Pressable>
+              <Pressable onPress={() => setRecurring(true)}>
+                <Pill
+                  label={t('employer.post_job.recurring_on')}
+                  tone={recurring ? 'hero' : 'neutral'}
+                />
+              </Pressable>
+            </View>
+            {recurring ? (
+              <>
+                <Text variant="footnote" tone="tertiary">
+                  {t('employer.post_job.recurring_hint')}
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+                  {DRAFT_DAY_LABELS.map((label, idx) => {
+                    const on = recurDays.includes(idx);
+                    return (
+                      <Pressable
+                        key={idx}
+                        onPress={() =>
+                          setRecurDays((prev) =>
+                            prev.includes(idx)
+                              ? prev.filter((d) => d !== idx)
+                              : [...prev, idx],
+                          )
+                        }
+                      >
+                        <Pill label={label} tone={on ? 'hero' : 'neutral'} />
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            ) : null}
+          </View>
+
+          {/* Pre-shift checklist */}
+          <View style={{ gap: spacing.sm }}>
+            <Text
+              variant="footnote"
+              weight="medium"
+              tone="secondary"
+              style={{ letterSpacing: 1.0 }}
+            >
+              {t('employer.post_job.section_checklist')}
+            </Text>
+            <Text variant="footnote" tone="tertiary">
+              {t('employer.post_job.checklist_hint')}
+            </Text>
+            <TextField
+              label={t('employer.post_job.field_checklist_item')}
+              value={prepDraft}
+              onChangeText={setPrepDraft}
+              placeholder={t('employer.post_job.field_checklist_ph')}
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                const v = prepDraft.trim();
+                if (v && prepItems.length < 10 && !prepItems.includes(v)) {
+                  setPrepItems((prev) => [...prev, v]);
+                }
+                setPrepDraft('');
+              }}
+            />
+            {prepItems.length > 0 && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+                {prepItems.map((item) => (
+                  <Pressable
+                    key={item}
+                    onPress={() => setPrepItems((prev) => prev.filter((i) => i !== item))}
+                  >
+                    <Pill label={`✓ ${item}  ×`} tone="neutral" />
+                  </Pressable>
+                ))}
+              </View>
+            )}
           </View>
 
           {/* Skills */}

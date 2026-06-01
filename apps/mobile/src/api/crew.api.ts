@@ -33,4 +33,11 @@ export const crewApi = {
 
   remove: (workerId: string) =>
     apiRequest<{ removed: boolean }>(`/crew/${workerId}`, { method: 'DELETE' }),
+
+  /** Fire a direct offer to a crew member for one of your active jobs. */
+  rehire: (workerId: string, jobId: string) =>
+    apiRequest<{ application: { id: string } }>(`/crew/${workerId}/rehire`, {
+      method: 'POST',
+      body: { jobId },
+    }),
 };

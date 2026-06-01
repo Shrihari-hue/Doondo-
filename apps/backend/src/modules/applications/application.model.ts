@@ -159,6 +159,8 @@ export interface Application {
    * Null when no specific shift has been scheduled yet.
    */
   nextShiftAt?: Date | null;
+  /** When the worker acknowledged the job's pre-shift checklist. */
+  prepAcknowledgedAt?: Date | null;
   /**
    * Night-before shift confirmation. The cron prompts the worker the
    * evening before `nextShiftAt` (`promptedAt`); the worker taps coming
@@ -184,7 +186,11 @@ export interface Application {
     madeAt: Date;
     expiresAt: Date;
     respondedAt?: Date | null;
-    outcome: 'pending' | 'accepted' | 'declined' | 'expired';
+    outcome: 'pending' | 'accepted' | 'declined' | 'expired' | 'countered';
+    /** Wage the offer was made at (paise). Defaults to the job's pay. */
+    wageAmount?: number | null;
+    /** Worker's counter wage (paise) when outcome === 'countered'. */
+    counterWageAmount?: number | null;
   } | null;
   /**
    * "On my way" status the worker raises on shift day. Worker-initiated
@@ -264,6 +270,8 @@ export interface PublicApplication {
   interview: PublicInterview | null;
   /** Concrete start time of the next shift (ISO), or null if none set. */
   nextShiftAt: string | null;
+  /** ISO time the worker acknowledged the pre-shift checklist, or null. */
+  prepAcknowledgedAt: string | null;
   /**
    * Night-before confirmation state, collapsed for the UI:
    *   'none'      — no shift scheduled, or too early to have prompted
@@ -274,9 +282,13 @@ export interface PublicApplication {
   shiftConfirmation: 'none' | 'awaiting' | 'confirmed' | 'declined';
   /** Time-boxed offer state for the UI. */
   offer: {
-    status: 'none' | 'pending' | 'accepted' | 'declined' | 'expired';
+    status: 'none' | 'pending' | 'accepted' | 'declined' | 'expired' | 'countered';
     /** ISO expiry of a pending offer, else null. */
     expiresAt: string | null;
+    /** Wage the offer is at (paise), or null. */
+    wageAmount: number | null;
+    /** Worker's counter wage (paise) when countered, else null. */
+    counterWageAmount: number | null;
   };
   /** "On my way" status, or null when not en route. */
   onTheWay: {
@@ -378,6 +390,7 @@ const applicationSchema = new Schema<Application, ApplicationModel, ApplicationM
       default: null,
     },
     nextShiftAt: { type: Date, default: null },
+    prepAcknowledgedAt: { type: Date, default: null },
     shiftConfirmation: {
       type: new Schema(
         {
@@ -397,9 +410,11 @@ const applicationSchema = new Schema<Application, ApplicationModel, ApplicationM
           respondedAt: { type: Date, default: null },
           outcome: {
             type: String,
-            enum: ['pending', 'accepted', 'declined', 'expired'],
+            enum: ['pending', 'accepted', 'declined', 'expired', 'countered'],
             default: 'pending',
           },
+          wageAmount: { type: Number, default: null },
+          counterWageAmount: { type: Number, default: null },
         },
         { _id: false },
       ),
@@ -516,6 +531,7 @@ applicationSchema.method('toPublicJSON', function (
         }
       : null,
     nextShiftAt: this.nextShiftAt ? this.nextShiftAt.toISOString() : null,
+    prepAcknowledgedAt: this.prepAcknowledgedAt ? this.prepAcknowledgedAt.toISOString() : null,
     shiftConfirmation:
       !this.shiftConfirmation || !this.nextShiftAt
         ? 'none'
@@ -530,11 +546,13 @@ applicationSchema.method('toPublicJSON', function (
       ? {
           status: this.offer.outcome,
           expiresAt:
-            this.offer.outcome === 'pending'
+            this.offer.outcome === 'pending' || this.offer.outcome === 'countered'
               ? this.offer.expiresAt.toISOString()
               : null,
+          wageAmount: this.offer.wageAmount ?? null,
+          counterWageAmount: this.offer.counterWageAmount ?? null,
         }
-      : { status: 'none', expiresAt: null },
+      : { status: 'none', expiresAt: null, wageAmount: null, counterWageAmount: null },
     onTheWay: this.onTheWay
       ? {
           active: true,

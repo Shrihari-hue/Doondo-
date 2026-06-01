@@ -19,7 +19,8 @@
 import { Types, type PipelineStage } from 'mongoose';
 import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import { sendNewJobPush } from '@/lib/push';
+import { sendNewJobPush, sendCrewShiftPush } from '@/lib/push';
+import { CrewMemberModel } from '@/modules/crew/crew.model';
 import { emitToUser } from '@/sockets/bus';
 import { matchJobToAlerts } from '@/modules/alerts/alert.service';
 import { UserModel } from '@/modules/users/user.model';
@@ -48,7 +49,12 @@ export async function findNearby(query: NearbyQuery): Promise<{
   jobs: NearbyHit[];
   hasMore: boolean;
 }> {
-  const baseMatch: Record<string, unknown> = { status: 'active' };
+  const baseMatch: Record<string, unknown> = {
+    status: 'active',
+    // Hide jobs still inside their crew-first head-start window from the
+    // public feed. `$not: {$gt: now}` matches null/absent + past timestamps.
+    crewHeadStartUntil: { $not: { $gt: new Date() } },
+  };
   if (query.type) baseMatch.type = query.type;
   if (query.workMode) baseMatch.workMode = query.workMode;
   if (query.safeForWomenOnly) baseMatch.safeForWomen = true;
@@ -137,7 +143,12 @@ export async function findNearby(query: NearbyQuery): Promise<{
 export async function findFirstMatch(query: PreviewQuery): Promise<{
   jobs: NearbyHit[];
 }> {
-  const baseMatch: Record<string, unknown> = { status: 'active' };
+  const baseMatch: Record<string, unknown> = {
+    status: 'active',
+    // Hide jobs still inside their crew-first head-start window from the
+    // public feed. `$not: {$gt: now}` matches null/absent + past timestamps.
+    crewHeadStartUntil: { $not: { $gt: new Date() } },
+  };
   if (query.jobType) baseMatch.type = query.jobType;
 
   // Trade filter is a soft bias rather than a hard filter — we want
@@ -239,6 +250,7 @@ export async function findToday(query: TodayQuery): Promise<{
   const baseMatch: Record<string, unknown> = {
     status: 'active',
     $or: [{ urgent: true }, { createdAt: { $gte: oneDayAgo } }],
+    crewHeadStartUntil: { $not: { $gt: new Date() } },
   };
   if (query.type) baseMatch.type = query.type;
   if (query.q) {
@@ -276,6 +288,7 @@ export async function findThisWeek(query: ThisWeekQuery): Promise<{
   const baseMatch: Record<string, unknown> = {
     status: 'active',
     createdAt: { $gte: sevenDaysAgo },
+    crewHeadStartUntil: { $not: { $gt: new Date() } },
     type: query.type
       ? query.type
       : { $in: ['gig', 'shift', 'contract'] },
@@ -538,6 +551,12 @@ export async function createJob(
         ? input.requiredSkillTestId
         : null,
     headcount: input.headcount ?? 1,
+    recurring: input.recurring ?? false,
+    prepChecklist: input.prepChecklist ?? [],
+    crewHeadStartUntil:
+      input.crewFirstHours && input.crewFirstHours > 0
+        ? new Date(Date.now() + input.crewFirstHours * 60 * 60 * 1000)
+        : null,
     workMode: input.workMode ?? 'onsite',
     schedule: input.schedule ?? null,
     status: 'active',
@@ -554,21 +573,112 @@ export async function createJob(
 
   const publicJob = job.toPublicJSON();
 
-  // Fan out a "new job near you" push to nearby seekers — fire-and-forget
-  // so a slow notification round never blocks the create response.
-  void notifySeekersOfNewJob(publicJob).catch((err) => {
-    logger.warn({ err, jobId: job.id }, 'new-job notification fan-out failed');
-  });
+  if (job.crewHeadStartUntil) {
+    // Crew-first: the job is hidden from public feeds during the window, so
+    // we DON'T fan out to nearby seekers / job alerts yet — that would
+    // defeat the head-start. Instead, push only to the employer's saved
+    // crew, who get first dibs.
+    void fanOutToCrew(employerId, publicJob).catch((err) => {
+      logger.warn({ err, jobId: job.id }, 'crew-first fan-out failed');
+    });
+  } else {
+    // Fan out a "new job near you" push to nearby seekers — fire-and-forget
+    // so a slow notification round never blocks the create response.
+    void notifySeekersOfNewJob(publicJob).catch((err) => {
+      logger.warn({ err, jobId: job.id }, 'new-job notification fan-out failed');
+    });
 
-  // Match this job against every seeker's saved Job Alerts. Targeted
-  // pushes to people who specifically asked to hear about this kind of
-  // role — separate from the proximity-based fan-out above so a seeker
-  // can opt into more granular alerts beyond just "nearby + my type".
-  void matchJobToAlerts(publicJob).catch((err) => {
-    logger.warn({ err, jobId: job.id }, 'job alert matching failed');
-  });
+    // Match this job against every seeker's saved Job Alerts. Targeted
+    // pushes to people who specifically asked to hear about this kind of
+    // role — separate from the proximity-based fan-out above so a seeker
+    // can opt into more granular alerts beyond just "nearby + my type".
+    void matchJobToAlerts(publicJob).catch((err) => {
+      logger.warn({ err, jobId: job.id }, 'job alert matching failed');
+    });
+  }
 
   return publicJob;
+}
+
+/**
+ * Re-post a previous job as a fresh, active posting — "same as last
+ * Friday" without refilling the form. Copies the substantive fields and
+ * runs the normal createJob path (so notifications/alerts fire). A fresh
+ * post starts public (crew-first head-start is not carried over).
+ */
+export async function repostJob(
+  employerId: string,
+  jobId: string,
+): Promise<PublicJob> {
+  const job = await JobModel.findById(jobId);
+  if (!job) throw errors.jobNotFound();
+  if (job.employerId.toString() !== employerId) throw errors.forbidden();
+
+  const body: CreateJobBody = {
+    title: job.title,
+    description: job.description,
+    type: job.type,
+    pay: {
+      amount: job.pay.amount,
+      amountMax: job.pay.amountMax ?? null,
+      period: job.pay.period,
+      currency: job.pay.currency ?? 'INR',
+    },
+    location: {
+      address: job.location.address,
+      city: job.location.city,
+      area: job.location.area ?? null,
+      pincode: job.location.pincode ?? null,
+      lat: job.location.geo.coordinates[1],
+      lng: job.location.geo.coordinates[0],
+    },
+    skills: [...(job.skills ?? [])],
+    requiredSkillTestId: job.requiredSkillTestId ?? null,
+    headcount: job.headcount ?? 1,
+    recurring: job.recurring ?? false,
+    prepChecklist: [...(job.prepChecklist ?? [])],
+    workMode: job.workMode ?? 'onsite',
+    schedule: job.schedule
+      ? {
+          days: job.schedule.days ?? undefined,
+          startTime: job.schedule.startTime ?? null,
+          endTime: job.schedule.endTime ?? null,
+          hoursPerDay: job.schedule.hoursPerDay ?? null,
+        }
+      : null,
+    urgent: Boolean(job.urgent),
+    workplaceAnswers: job.workplaceAnswers ?? null,
+    womenSafety: job.womenSafety ?? null,
+  };
+
+  return createJob(employerId, body);
+}
+
+/**
+ * Push a crew-first job to every worker in the employer's saved crew.
+ * Best-effort, one push per crew member. Runs only during the head-start
+ * window (public fan-out is suppressed meanwhile).
+ */
+async function fanOutToCrew(employerId: string, job: PublicJob): Promise<void> {
+  const [members, employer] = await Promise.all([
+    CrewMemberModel.find({ employerId: new Types.ObjectId(employerId) })
+      .select('workerId')
+      .lean(),
+    UserModel.findById(employerId).select('companyName name').lean(),
+  ]);
+  if (members.length === 0) return;
+  const employerName =
+    (employer as { companyName?: string | null; name?: string } | null)?.companyName ??
+    (employer as { name?: string } | null)?.name ??
+    undefined;
+  for (const m of members) {
+    void sendCrewShiftPush({
+      recipientId: (m.workerId as Types.ObjectId).toString(),
+      jobId: job.id,
+      jobTitle: job.title,
+      employerName,
+    });
+  }
 }
 
 /**
@@ -779,6 +889,12 @@ export function formatRawJob(r: Record<string, unknown>): PublicJob {
     skills: (r.skills as string[]) ?? [],
     requiredSkillTestId: (r.requiredSkillTestId as string | null | undefined) ?? null,
     headcount: (r.headcount as number | undefined) ?? 1,
+    crewHeadStartUntil: (() => {
+      const v = r.crewHeadStartUntil as Date | string | null | undefined;
+      return v ? new Date(v).toISOString() : null;
+    })(),
+    recurring: Boolean(r.recurring),
+    prepChecklist: (r.prepChecklist as string[] | undefined) ?? [],
     workMode: (r.workMode as PublicJob['workMode']) ?? 'onsite',
     schedule: (r.schedule as PublicJob['schedule']) ?? null,
     status: r.status as PublicJob['status'],

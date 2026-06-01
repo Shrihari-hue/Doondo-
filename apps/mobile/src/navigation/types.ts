@@ -206,6 +206,8 @@ export type AppStackParamList = {
     | undefined;
   /** Modal: employers see seekers broadcasting "available now" nearby. */
   AvailableWorkers: undefined;
+  /** Modal: employer's saved crew + import-from-contacts. */
+  Workforce: undefined;
   /**
    * Modal: employer picks one of their active jobs + an optional note to
    * invite a specific worker (the outbound half of two-way discovery).

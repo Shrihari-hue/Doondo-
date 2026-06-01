@@ -26,7 +26,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, LoadingSpinner, EmptyState, PaymentConfirmationPanel, ErrorPanel, HireCelebration, HireShareCardPoster } from '@/components';
+import { Screen, Text, LoadingSpinner, EmptyState, PaymentConfirmationPanel, ErrorPanel, HireCelebration, HireShareCardPoster, TextField } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
 import { workProofApi } from '@/api/workProof.api';
@@ -432,6 +432,11 @@ function MyApplicationsInner() {
                 {/* Photo proof of completed work — only when hired. */}
                 {item.status === 'hired' ? (
                   <WorkProofCard applicationId={item.id} />
+                ) : null}
+
+                {/* Pre-shift checklist — when hired and the job has one. */}
+                {item.status === 'hired' && (item.job?.prepChecklist?.length ?? 0) > 0 ? (
+                  <PrepChecklistCard application={item} />
                 ) : null}
 
                 {/* Interview card — shown whenever there's a scheduled
@@ -1246,6 +1251,100 @@ function InterviewCard({
  * the doc.
  */
 /**
+ * Pre-shift checklist card. Shows the employer's checklist items; the
+ * worker ticks them all and taps "I'm ready", which records the
+ * acknowledgement so the employer knows they're prepared.
+ */
+function PrepChecklistCard({ application }: { application: PublicApplication }) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  const queryClient = useQueryClient();
+  const items = application.job?.prepChecklist ?? [];
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const acknowledged = !!application.prepAcknowledgedAt;
+  const allChecked = items.every((i) => checked.has(i));
+
+  async function acknowledge() {
+    if (busy || !allChecked) return;
+    setBusy(true);
+    haptic('selection');
+    try {
+      await applicationsApi.ackChecklist(application.id);
+      haptic('success');
+      await queryClient.invalidateQueries({ queryKey: ['applications', 'me'] });
+    } catch {
+      haptic('error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View
+      style={{
+        marginTop: spacing.sm,
+        padding: spacing.md,
+        borderRadius: radii.lg,
+        borderWidth: 0.5,
+        borderColor: theme.border.default,
+        backgroundColor: theme.bg.surface,
+        gap: spacing.sm,
+      }}
+    >
+      <Text variant="footnote" weight="semibold" tone="secondary" style={{ letterSpacing: 0.6 }}>
+        {t('prep_checklist.title')}
+      </Text>
+      {acknowledged ? (
+        <Text variant="body" weight="medium" tone="success">
+          {t('prep_checklist.ready')}
+        </Text>
+      ) : (
+        <>
+          {items.map((item) => {
+            const on = checked.has(item);
+            return (
+              <Pressable
+                key={item}
+                onPress={() =>
+                  setChecked((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(item)) next.delete(item);
+                    else next.add(item);
+                    return next;
+                  })
+                }
+                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
+              >
+                <Text style={{ fontSize: 18 }}>{on ? '☑' : '☐'}</Text>
+                <Text variant="body" style={{ flex: 1 }}>
+                  {item}
+                </Text>
+              </Pressable>
+            );
+          })}
+          <Pressable
+            onPress={() => void acknowledge()}
+            disabled={busy || !allChecked}
+            style={{
+              paddingVertical: 10,
+              borderRadius: radii.pill,
+              backgroundColor: theme.brand.hero,
+              alignItems: 'center',
+              opacity: busy || !allChecked ? 0.5 : 1,
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+              {t('prep_checklist.ready_cta')}
+            </Text>
+          </Pressable>
+        </>
+      )}
+    </View>
+  );
+}
+
+/**
  * Photo-proof card on a hired-application row. The worker snaps a photo
  * of the finished job; the employer approves it before paying. Shows the
  * current state and lets the worker (re)submit until it's approved.
@@ -1341,6 +1440,13 @@ function OfferResponseCard({ application }: { application: PublicApplication }) 
   const t = useTranslate();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
+  const [countering, setCountering] = useState(false);
+  const [counterRupees, setCounterRupees] = useState('');
+
+  const offeredRupees =
+    application.offer.wageAmount != null
+      ? Math.round(application.offer.wageAmount / 100).toLocaleString('en-IN')
+      : null;
 
   const expiresAt = application.offer.expiresAt;
   const whenLabel = expiresAt
@@ -1354,13 +1460,13 @@ function OfferResponseCard({ application }: { application: PublicApplication }) 
       })()
     : '';
 
-  async function respond(accept: boolean) {
+  async function respond(action: 'accept' | 'decline' | 'counter', counterAmount?: number) {
     if (busy) return;
     setBusy(true);
     haptic('selection');
     try {
-      await applicationsApi.respondToOffer(application.id, accept);
-      haptic(accept ? 'success' : 'warning');
+      await applicationsApi.respondToOffer(application.id, action, counterAmount);
+      haptic(action === 'decline' ? 'warning' : 'success');
       await queryClient.invalidateQueries({ queryKey: ['applications', 'me'] });
     } catch {
       haptic('error');
@@ -1382,45 +1488,103 @@ function OfferResponseCard({ application }: { application: PublicApplication }) 
       }}
     >
       <Text variant="bodyLarge" weight="semibold">
-        {t('offer_response.title')}
+        {offeredRupees
+          ? t('offer_response.title_wage', { wage: offeredRupees })
+          : t('offer_response.title')}
       </Text>
       <Text variant="footnote" tone="secondary">
         {whenLabel}
       </Text>
-      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-        <Pressable
-          onPress={() => void respond(true)}
-          disabled={busy}
-          style={{
-            flex: 1,
-            paddingVertical: 10,
-            borderRadius: radii.pill,
-            backgroundColor: '#10B981',
-            alignItems: 'center',
-            opacity: busy ? 0.6 : 1,
-          }}
-        >
-          <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
-            {t('offer_response.accept')}
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => void respond(false)}
-          disabled={busy}
-          style={{
-            paddingHorizontal: spacing.lg,
-            paddingVertical: 10,
-            borderRadius: radii.pill,
-            borderWidth: 0.5,
-            borderColor: theme.border.default,
-            alignItems: 'center',
-          }}
-        >
-          <Text style={{ color: theme.text.secondary, fontWeight: '600', fontSize: 13 }}>
-            {t('offer_response.decline')}
-          </Text>
-        </Pressable>
-      </View>
+
+      {countering ? (
+        <View style={{ gap: spacing.sm }}>
+          <TextField
+            value={counterRupees}
+            onChangeText={(v) => setCounterRupees(v.replace(/[^0-9]/g, ''))}
+            placeholder={t('offer_response.counter_placeholder')}
+            keyboardType="number-pad"
+          />
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Pressable
+              onPress={() =>
+                counterRupees ? void respond('counter', Number(counterRupees) * 100) : undefined
+              }
+              disabled={busy || !counterRupees}
+              style={{
+                flex: 1,
+                paddingVertical: 10,
+                borderRadius: radii.pill,
+                backgroundColor: theme.brand.hero,
+                alignItems: 'center',
+                opacity: busy || !counterRupees ? 0.6 : 1,
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+                {t('offer_response.counter_send')}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setCountering(false)}
+              style={{ paddingHorizontal: spacing.lg, paddingVertical: 10, alignItems: 'center' }}
+            >
+              <Text style={{ color: theme.text.secondary, fontWeight: '600', fontSize: 13 }}>
+                {t('offer_response.counter_cancel')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          <Pressable
+            onPress={() => void respond('accept')}
+            disabled={busy}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: radii.pill,
+              backgroundColor: '#10B981',
+              alignItems: 'center',
+              opacity: busy ? 0.6 : 1,
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+              {t('offer_response.accept')}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setCountering(true)}
+            disabled={busy}
+            style={{
+              paddingHorizontal: spacing.lg,
+              paddingVertical: 10,
+              borderRadius: radii.pill,
+              borderWidth: 0.5,
+              borderColor: theme.brand.hero,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: theme.brand.hero, fontWeight: '700', fontSize: 13 }}>
+              {t('offer_response.counter')}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => void respond('decline')}
+            disabled={busy}
+            style={{
+              paddingHorizontal: spacing.lg,
+              paddingVertical: 10,
+              borderRadius: radii.pill,
+              borderWidth: 0.5,
+              borderColor: theme.border.default,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: theme.text.secondary, fontWeight: '600', fontSize: 13 }}>
+              {t('offer_response.decline')}
+            </Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }

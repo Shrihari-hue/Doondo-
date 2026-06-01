@@ -115,6 +115,24 @@ export async function confirmShift(
   }
 }
 
+/** Worker acknowledges the job's pre-shift checklist. */
+export async function acknowledgeChecklist(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const application = await applicationService.acknowledgeChecklist(
+      req.user.id,
+      req.params.id!,
+    );
+    ok(req, res, 200, { application });
+  } catch (err) {
+    next(err);
+  }
+}
+
 /** Employer extends a time-boxed offer. Body: { ttlHours }. */
 export async function makeOffer(
   req: Request,
@@ -165,8 +183,32 @@ export async function markOnTheWay(
   }
 }
 
-/** Worker accepts or declines a pending offer. Body: { accept }. */
+/** Worker responds to an offer. Body: { action: accept|decline|counter, counterAmount? }. */
 export async function respondToOffer(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const body = req.body as { action?: unknown; counterAmount?: unknown };
+    if (body.action !== 'accept' && body.action !== 'decline' && body.action !== 'counter') {
+      throw errors.validation({ action: body.action }, 'action must be accept | decline | counter.');
+    }
+    const application = await applicationService.respondToOffer({
+      seekerId: req.user.id,
+      applicationId: req.params.id!,
+      action: body.action,
+      counterAmount: body.action === 'counter' ? Number(body.counterAmount) : undefined,
+    });
+    ok(req, res, 200, { application });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Employer responds to a worker's wage counter. Body: { accept }. */
+export async function respondToCounter(
   req: Request,
   res: Response,
   next: NextFunction,
@@ -177,8 +219,8 @@ export async function respondToOffer(
     if (typeof accept !== 'boolean') {
       throw errors.validation({ accept }, 'accept must be a boolean.');
     }
-    const application = await applicationService.respondToOffer({
-      seekerId: req.user.id,
+    const application = await applicationService.respondToCounter({
+      employerId: req.user.id,
       applicationId: req.params.id!,
       accept,
     });

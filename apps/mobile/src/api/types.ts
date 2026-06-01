@@ -446,6 +446,12 @@ export interface PublicJob {
   requiredSkillTestId: string | null;
   /** How many people to hire. 1 unless the post is bulk. */
   headcount: number;
+  /** ISO time the post stays crew-only until, or null if public. */
+  crewHeadStartUntil: string | null;
+  /** True when this is a standing weekly shift. */
+  recurring: boolean;
+  /** Pre-shift checklist items the worker acknowledges. */
+  prepChecklist: string[];
   /** Where the role is performed — defaults to onsite. */
   workMode: WorkMode;
   schedule: {
@@ -728,6 +734,8 @@ export interface PublicApplication {
   interview: PublicInterview | null;
   /** Concrete start time of the next shift (ISO), or null if none set. */
   nextShiftAt: string | null;
+  /** ISO time the worker acknowledged the pre-shift checklist, or null. */
+  prepAcknowledgedAt: string | null;
   /**
    * Night-before confirmation state:
    *   'none' (nothing to show) · 'awaiting' (prompted, no reply) ·
@@ -736,8 +744,12 @@ export interface PublicApplication {
   shiftConfirmation: 'none' | 'awaiting' | 'confirmed' | 'declined';
   /** Time-boxed offer state. */
   offer: {
-    status: 'none' | 'pending' | 'accepted' | 'declined' | 'expired';
+    status: 'none' | 'pending' | 'accepted' | 'declined' | 'expired' | 'countered';
     expiresAt: string | null;
+    /** Offered wage (paise), or null. */
+    wageAmount: number | null;
+    /** Worker's counter wage (paise) when countered, else null. */
+    counterWageAmount: number | null;
   };
   /** "On my way" en-route status (worker-initiated, ETA estimate). */
   onTheWay: {

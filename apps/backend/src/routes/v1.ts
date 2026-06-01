@@ -46,6 +46,12 @@ import arrivalLikelihoodRouter from '@/modules/arrivalLikelihood/arrivalLikeliho
 import workProofRouter from '@/modules/workProof/workProof.routes';
 import trustedWorkersRouter from '@/modules/trustedWorkers/trustedWorkers.routes';
 import crewRouter from '@/modules/crew/crew.routes';
+import travelTimeRouter from '@/modules/travelTime/travelTime.routes';
+import rosterRouter from '@/modules/roster/roster.routes';
+import timesheetRouter from '@/modules/timesheet/timesheet.routes';
+import { blocksRouter, reportsRouter } from '@/modules/moderation/moderation.routes';
+import incidentsRouter from '@/modules/incidents/incident.routes';
+import churnRouter from '@/modules/churn/churn.routes';
 import reelsRouter from '@/modules/reels/reel.routes';
 import communityRouter from '@/modules/community/post.routes';
 import hiringRequestsRouter from '@/modules/hiringRequests/hiringRequest.routes';
@@ -99,6 +105,19 @@ v1.use('/work-proof', workProofRouter);
 v1.use('/trusted-workers', trustedWorkersRouter);
 // My crew — saved workers + import-from-contacts.
 v1.use('/crew', crewRouter);
+// Travel-time — real driving ETA to workers (Distance Matrix + fallback).
+v1.use('/travel-times', travelTimeRouter);
+// Weekly roster — recurring shifts + who's filling each.
+v1.use('/roster', rosterRouter);
+// Timesheet — per-worker monthly worked hours from shift check-ins.
+v1.use('/timesheet', timesheetRouter);
+// Moderation — employer block list + user reports.
+v1.use('/blocks', blocksRouter);
+v1.use('/reports', reportsRouter);
+// In-shift incident log — private employer notes about a worker.
+v1.use('/incidents', incidentsRouter);
+// Crew churn early-warning — regulars who've gone quiet.
+v1.use('/churn-risks', churnRouter);
 // Hire Reels — worker intro videos + the employer discovery feed.
 v1.use('/reels', reelsRouter);
 // Community — the worker feed: posts, likes, comments, reposts.

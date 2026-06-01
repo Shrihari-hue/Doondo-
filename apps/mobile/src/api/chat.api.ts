@@ -20,6 +20,13 @@ export const chatApi = {
   listMine: () =>
     apiRequest<{ conversations: PublicConversation[] }>(`/conversations`),
 
+  /** Employer: message everyone at a stage on a job in one action. */
+  bulkMessage: (jobId: string, stage: 'shortlisted' | 'active', message: string) =>
+    apiRequest<{ sent: number }>(`/conversations/bulk`, {
+      method: 'POST',
+      body: { jobId, stage, message },
+    }),
+
   detail: (conversationId: string) =>
     apiRequest<{ conversation: PublicConversation }>(
       `/conversations/${conversationId}`,

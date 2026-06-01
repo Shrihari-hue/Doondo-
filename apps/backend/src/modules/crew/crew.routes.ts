@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { Types } from 'mongoose';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
-import { listCrew, importContacts, removeFromCrew } from './crew.service';
+import { listCrew, importContacts, removeFromCrew, rehireCrewMember } from './crew.service';
 
 const router = Router();
 
@@ -58,6 +58,41 @@ router.post(
       const body = req.body as { contacts: Array<{ name: string; phone: string }> };
       const result = await importContacts(req.user!.id, body.contacts);
       res.json({ ok: true, data: result, requestId: req.id });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+const rehireSchema = z.object({
+  params: z.object({
+    workerId: z.string().refine((v) => Types.ObjectId.isValid(v), {
+      message: 'Invalid worker id',
+    }),
+  }),
+  body: z.object({
+    jobId: z.string().refine((v) => Types.ObjectId.isValid(v), {
+      message: 'Invalid job id',
+    }),
+    ttlHours: z.number().int().min(1).max(168).optional(),
+  }),
+});
+
+router.post(
+  '/:workerId/rehire',
+  requireAuth,
+  requireRole('employer'),
+  validate(rehireSchema),
+  async (req, res, next) => {
+    try {
+      const body = req.body as { jobId: string; ttlHours?: number };
+      const application = await rehireCrewMember(
+        req.user!.id,
+        req.params.workerId!,
+        body.jobId,
+        body.ttlHours,
+      );
+      res.json({ ok: true, data: { application }, requestId: req.id });
     } catch (err) {
       next(err);
     }

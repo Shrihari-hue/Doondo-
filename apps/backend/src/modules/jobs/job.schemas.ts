@@ -173,6 +173,15 @@ export const createJobSchema = z.object({
       requiredSkillTestId: z.string().trim().min(1).max(60).nullable().optional(),
       /** How many people to hire. Defaults to 1. */
       headcount: z.number().int().min(1).max(100).optional(),
+      /**
+       * Offer-to-my-crew-first: hours to keep the post crew-only before it
+       * goes public. Omit / 0 = public immediately.
+       */
+      crewFirstHours: z.number().int().min(0).max(72).optional(),
+      /** Standing weekly shift — repeats on schedule.days. */
+      recurring: z.boolean().optional(),
+      /** Pre-shift checklist items the worker acknowledges. */
+      prepChecklist: z.array(z.string().trim().min(1).max(80)).max(10).optional(),
       schedule: scheduleSchema,
       /** Time-sensitive posting. Defaults to false. */
       urgent: z.boolean().default(false),

@@ -201,6 +201,10 @@ export const jobsApi = {
   create: (body: CreateJobPayload) =>
     apiRequest<{ job: PublicJob }>(`/jobs`, { method: 'POST', body }),
 
+  /** Re-post a previous job as a fresh, active posting. */
+  repost: (jobId: string) =>
+    apiRequest<{ job: PublicJob }>(`/jobs/${jobId}/repost`, { method: 'POST' }),
+
   update: (jobId: string, body: Partial<CreateJobPayload>) =>
     apiRequest<{ job: PublicJob }>(`/jobs/${jobId}`, { method: 'PATCH', body }),
 
@@ -249,6 +253,12 @@ export interface CreateJobPayload {
   requiredSkillTestId?: string | null;
   /** How many people to hire. Defaults to 1. */
   headcount?: number;
+  /** Offer-to-crew-first: hours to keep the post crew-only. 0/omit = public. */
+  crewFirstHours?: number;
+  /** Standing weekly shift — repeats on schedule.days. */
+  recurring?: boolean;
+  /** Pre-shift checklist items the worker acknowledges. */
+  prepChecklist?: string[];
   schedule?: {
     days?: number[];
     startTime?: string | null;

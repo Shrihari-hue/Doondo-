@@ -206,6 +206,15 @@ function PostCard({ job, t }: { job: PublicJob; t: TFn }) {
     onError: () => haptic('error'),
   });
 
+  const repost = useMutation({
+    mutationFn: () => jobsApi.repost(job.id),
+    onSuccess: () => {
+      haptic('success');
+      void queryClient.invalidateQueries({ queryKey: ['jobs', 'mine'] });
+    },
+    onError: () => haptic('error'),
+  });
+
   const open = job.status === 'active' || job.status === 'paused';
 
   const goToApplicants = () => {
@@ -338,6 +347,18 @@ function PostCard({ job, t }: { job: PublicJob; t: TFn }) {
               label={t('employer.posts.action_close')}
               tone="danger"
               onPress={() => transition.mutate('expired')}
+            />
+          </View>
+        )}
+
+        {/* Re-post — for closed / filled jobs: "same as last time". */}
+        {!open && (
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <ActionButton
+              glyph="↻"
+              label={t('employer.posts.action_repost')}
+              tone="success"
+              onPress={() => repost.mutate()}
             />
           </View>
         )}

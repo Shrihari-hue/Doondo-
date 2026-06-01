@@ -131,6 +131,24 @@ export interface Job {
    * first hire.
    */
   headcount: number;
+  /**
+   * Offer-to-my-crew-first: while this is a future timestamp, the job is
+   * hidden from the public nearby feeds and only the employer's saved crew
+   * (who got an immediate push) can see/apply. Once it passes, the job
+   * goes public. Null = posted publicly from the start.
+   */
+  crewHeadStartUntil?: Date | null;
+  /**
+   * Recurring shift: the job repeats on the weekdays in `schedule.days`
+   * every week (a standing slot) rather than being a one-off. Drives the
+   * weekly roster. Default false.
+   */
+  recurring: boolean;
+  /**
+   * Pre-shift checklist items the worker acknowledges before the shift
+   * ("bring tools", "wear uniform", "know the address"). Empty = none.
+   */
+  prepChecklist: string[];
   schedule?: Schedule | null;
   status: JobStatus;
   /**
@@ -217,6 +235,12 @@ export interface PublicJob {
   requiredSkillTestId: string | null;
   /** How many people to hire. 1 unless the post is bulk. */
   headcount: number;
+  /** ISO time until which the post is crew-only, or null if public. */
+  crewHeadStartUntil: string | null;
+  /** True when this is a standing weekly shift (repeats on schedule.days). */
+  recurring: boolean;
+  /** Pre-shift checklist items the worker acknowledges. Empty = none. */
+  prepChecklist: string[];
   schedule: Schedule | null;
   status: JobStatus;
   /** True if the employer has marked this posting as time-sensitive. */
@@ -341,6 +365,9 @@ const jobSchema = new Schema<Job, JobModelType, JobMethods>(
     skills: { type: [String], default: [], index: true },
     requiredSkillTestId: { type: String, default: null, trim: true, maxlength: 60 },
     headcount: { type: Number, default: 1, min: 1, max: 100 },
+    crewHeadStartUntil: { type: Date, default: null, index: true },
+    recurring: { type: Boolean, default: false, index: true },
+    prepChecklist: { type: [String], default: [] },
     workMode: {
       type: String,
       enum: WORK_MODES,
@@ -410,6 +437,9 @@ jobSchema.method('toPublicJSON', function (this: JobDocument): PublicJob {
     skills: this.skills,
     requiredSkillTestId: this.requiredSkillTestId ?? null,
     headcount: this.headcount ?? 1,
+    crewHeadStartUntil: this.crewHeadStartUntil ? this.crewHeadStartUntil.toISOString() : null,
+    recurring: Boolean(this.recurring),
+    prepChecklist: [...(this.prepChecklist ?? [])],
     workMode: this.workMode ?? 'onsite',
     schedule: this.schedule ?? null,
     status: this.status,

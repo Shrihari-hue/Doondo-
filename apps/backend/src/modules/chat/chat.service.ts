@@ -22,6 +22,7 @@ import { emitToUser } from '@/sockets/bus';
 import { sendChatMessagePush } from '@/lib/push';
 import { UserModel } from '@/modules/users/user.model';
 import { ApplicationModel } from '@/modules/applications/application.model';
+import { JobModel } from '@/modules/jobs/job.model';
 import {
   ConversationModel,
   type ConversationDocument,
@@ -712,4 +713,66 @@ function isDuplicateKey(err: unknown): boolean {
     'code' in err &&
     (err as { code: unknown }).code === 11000
   );
+}
+
+export type BulkMessageStage = 'shortlisted' | 'active';
+
+/**
+ * Bulk-message everyone at a given stage on one of the employer's jobs —
+ * "interviews tomorrow 10–12, reply to confirm" to all shortlisted, in one
+ * action. For each matching applicant we ensure a conversation exists
+ * (employer + seeker + job) and post the message through the normal
+ * `sendMessage` path, so each lands as a real, translatable chat message
+ * the worker can reply to. Per-recipient failures are swallowed so one bad
+ * row doesn't abort the batch.
+ *
+ * `stage`:
+ *   'shortlisted' — only shortlisted applicants.
+ *   'active'      — everyone still in play (pending/viewed/shortlisted/hired).
+ */
+export async function bulkMessageForJob(
+  employerId: string,
+  jobId: string,
+  stage: BulkMessageStage,
+  message: string,
+): Promise<{ sent: number }> {
+  const body = (message ?? '').trim();
+  if (!body) throw errors.validation({ message }, 'Message is required.');
+
+  const job = await JobModel.findById(jobId).select('employerId').lean();
+  if (!job) throw errors.jobNotFound();
+  if ((job.employerId as unknown as Types.ObjectId).toString() !== employerId) {
+    throw errors.forbidden();
+  }
+
+  const statuses =
+    stage === 'shortlisted'
+      ? ['shortlisted']
+      : ['pending', 'viewed', 'shortlisted', 'hired'];
+  const apps = await ApplicationModel.find({
+    jobId: new Types.ObjectId(jobId),
+    status: { $in: statuses },
+  })
+    .select('seekerId')
+    .lean();
+
+  let sent = 0;
+  for (const a of apps) {
+    try {
+      const conv = await getOrCreateForApplication({
+        employerId: new Types.ObjectId(employerId),
+        seekerId: a.seekerId as unknown as Types.ObjectId,
+        jobId: new Types.ObjectId(jobId),
+      });
+      await sendMessage(employerId, conv.id, { body });
+      sent += 1;
+    } catch (err) {
+      logger.warn(
+        { err, jobId, seekerId: (a.seekerId as unknown as Types.ObjectId).toString() },
+        'bulk message: per-recipient send failed',
+      );
+    }
+  }
+  logger.info({ employerId, jobId, stage, sent }, 'bulk message sent');
+  return { sent };
 }

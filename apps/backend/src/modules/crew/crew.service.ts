@@ -9,7 +9,11 @@
  */
 
 import { Types } from 'mongoose';
+import { errors } from '@/lib/errors';
 import { UserModel } from '@/modules/users/user.model';
+import { JobModel } from '@/modules/jobs/job.model';
+import { ApplicationModel } from '@/modules/applications/application.model';
+import { makeOffer } from '@/modules/applications/application.service';
 import { CrewMemberModel } from './crew.model';
 
 export interface CrewWorker {
@@ -125,6 +129,52 @@ export async function importContacts(
   }
 
   return { added, notOnDoondo };
+}
+
+/**
+ * One-tap re-hire: extend a direct, time-boxed offer to a crew member for
+ * one of the employer's active jobs. We ensure an Application links the
+ * worker to the job (creating a shortlisted one on the employer's behalf
+ * if the worker never applied), then route through the standard offer
+ * flow — so accepting hires them exactly like any other offer.
+ */
+export async function rehireCrewMember(
+  employerId: string,
+  workerId: string,
+  jobId: string,
+  ttlHours = 24,
+) {
+  const job = await JobModel.findById(jobId).select('employerId status').lean();
+  if (!job) throw errors.jobNotFound();
+  if ((job.employerId as unknown as Types.ObjectId).toString() !== employerId) {
+    throw errors.forbidden();
+  }
+  if ((job as { status?: string }).status !== 'active') {
+    throw errors.conflict('That job is not active.');
+  }
+
+  // Find or create the (worker, job) application. The compound unique index
+  // on (seekerId, jobId) makes this safe; a fresh row starts shortlisted so
+  // the offer can attach immediately.
+  const app = await ApplicationModel.findOneAndUpdate(
+    { seekerId: new Types.ObjectId(workerId), jobId: new Types.ObjectId(jobId) },
+    {
+      $setOnInsert: {
+        employerId: new Types.ObjectId(employerId),
+        status: 'shortlisted',
+        expressedAsInterest: false,
+        appliedAt: new Date(),
+        shortlistedAt: new Date(),
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  );
+
+  return makeOffer({
+    employerId,
+    applicationId: (app._id as Types.ObjectId).toString(),
+    ttlHours,
+  });
 }
 
 export async function removeFromCrew(

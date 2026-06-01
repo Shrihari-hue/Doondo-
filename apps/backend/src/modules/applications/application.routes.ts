@@ -179,6 +179,15 @@ router.post(
   controller.confirmShift,
 );
 
+// Pre-shift checklist acknowledgement (worker).
+router.post(
+  '/:id/ack-checklist',
+  requireAuth,
+  requireRole('seeker'),
+  validate(applicationIdParamsSchema),
+  controller.acknowledgeChecklist,
+);
+
 // "On my way" — worker raises an en-route status with an ETA estimate.
 router.post(
   '/:id/on-the-way',
@@ -203,6 +212,13 @@ router.post(
   requireRole('seeker'),
   validate(applicationIdParamsSchema),
   controller.respondToOffer,
+);
+router.post(
+  '/:id/offer-counter-response',
+  requireAuth,
+  requireRole('employer'),
+  validate(applicationIdParamsSchema),
+  controller.respondToCounter,
 );
 
 export default router;
