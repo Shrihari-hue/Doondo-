@@ -29,6 +29,8 @@ import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, LoadingSpinner, EmptyState, PaymentConfirmationPanel, ErrorPanel, HireCelebration, HireShareCardPoster } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
+import { workProofApi } from '@/api/workProof.api';
+import { pickChatImage } from '@/lib/chatImage';
 import { sosApi } from '@/api/sos.api';
 import { shiftCheckInApi } from '@/api/shiftCheckIn.api';
 import { captureShiftSelfie } from '@/lib/selfie';
@@ -400,6 +402,11 @@ function MyApplicationsInner() {
                   <StatusPill t={t} status={item.status} />
                 </View>
 
+                {/* Time-boxed offer awaiting the worker's response. */}
+                {item.offer?.status === 'pending' ? (
+                  <OfferResponseCard application={item} />
+                ) : null}
+
                 {/* Payment confirmation — only when hired. */}
                 {item.status === 'hired' ? (
                   <PaymentConfirmationPanel
@@ -414,6 +421,17 @@ function MyApplicationsInner() {
                     whether to show "Check in" or "Check out" next. */}
                 {item.status === 'hired' ? (
                   <ShiftCheckInCard applicationId={item.id} />
+                ) : null}
+
+                {/* Night-before confirmation — only when hired and the
+                    employer has set a concrete next-shift time. */}
+                {item.status === 'hired' && item.nextShiftAt ? (
+                  <ShiftConfirmCard application={item} />
+                ) : null}
+
+                {/* Photo proof of completed work — only when hired. */}
+                {item.status === 'hired' ? (
+                  <WorkProofCard applicationId={item.id} />
                 ) : null}
 
                 {/* Interview card — shown whenever there's a scheduled
@@ -1227,6 +1245,338 @@ function InterviewCard({
  * Errors are surfaced inline so the seeker can retry without re-reading
  * the doc.
  */
+/**
+ * Photo-proof card on a hired-application row. The worker snaps a photo
+ * of the finished job; the employer approves it before paying. Shows the
+ * current state and lets the worker (re)submit until it's approved.
+ */
+function WorkProofCard({ applicationId }: { applicationId: string }) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+
+  const query = useQuery({
+    queryKey: ['work-proof', applicationId],
+    queryFn: () => workProofApi.get(applicationId),
+    staleTime: 30_000,
+  });
+  const status = query.data?.status ?? 'none';
+
+  async function submit() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const img = await pickChatImage({ source: 'camera' });
+      if (!img) return;
+      await workProofApi.submit(applicationId, img.dataUrl);
+      haptic('success');
+      await queryClient.invalidateQueries({ queryKey: ['work-proof', applicationId] });
+    } catch {
+      haptic('error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const canSubmit = status === 'none' || status === 'rejected';
+  const statusLine =
+    status === 'submitted'
+      ? t('work_proof.submitted')
+      : status === 'approved'
+        ? t('work_proof.approved')
+        : status === 'rejected'
+          ? t('work_proof.rejected')
+          : t('work_proof.prompt');
+  const tone =
+    status === 'approved' ? 'success' : status === 'rejected' ? 'warning' : 'secondary';
+
+  return (
+    <View
+      style={{
+        marginTop: spacing.sm,
+        padding: spacing.md,
+        borderRadius: radii.lg,
+        borderWidth: 0.5,
+        borderColor: theme.border.default,
+        backgroundColor: theme.bg.surface,
+        gap: spacing.sm,
+      }}
+    >
+      <Text variant="footnote" weight="semibold" tone="secondary" style={{ letterSpacing: 0.6 }}>
+        {t('work_proof.title')}
+      </Text>
+      <Text variant="footnote" tone={tone}>
+        {statusLine}
+      </Text>
+      {canSubmit ? (
+        <Pressable
+          onPress={() => void submit()}
+          disabled={busy}
+          style={{
+            paddingVertical: 10,
+            borderRadius: radii.pill,
+            backgroundColor: theme.brand.hero,
+            alignItems: 'center',
+            opacity: busy ? 0.6 : 1,
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+            {busy ? t('work_proof.sending') : t('work_proof.cta')}
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * Offer-response card. When an employer has extended a time-boxed offer,
+ * the worker sees the countdown and accepts (→ hired) or declines right
+ * here. Accepting late is impossible — the server rejects an expired
+ * offer — so the countdown is honest urgency, not decoration.
+ */
+function OfferResponseCard({ application }: { application: PublicApplication }) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+
+  const expiresAt = application.offer.expiresAt;
+  const whenLabel = expiresAt
+    ? (() => {
+        const ms = new Date(expiresAt).getTime() - Date.now();
+        if (ms <= 0) return t('offer_response.expiring');
+        const h = Math.floor(ms / 3_600_000);
+        return h >= 1
+          ? t('offer_response.expires_h', { h })
+          : t('offer_response.expires_m', { m: Math.max(1, Math.round(ms / 60_000)) });
+      })()
+    : '';
+
+  async function respond(accept: boolean) {
+    if (busy) return;
+    setBusy(true);
+    haptic('selection');
+    try {
+      await applicationsApi.respondToOffer(application.id, accept);
+      haptic(accept ? 'success' : 'warning');
+      await queryClient.invalidateQueries({ queryKey: ['applications', 'me'] });
+    } catch {
+      haptic('error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View
+      style={{
+        marginTop: spacing.sm,
+        padding: spacing.md,
+        borderRadius: radii.lg,
+        borderWidth: 0.5,
+        borderColor: theme.brand.hero,
+        backgroundColor: theme.brand.heroSubtle,
+        gap: spacing.sm,
+      }}
+    >
+      <Text variant="bodyLarge" weight="semibold">
+        {t('offer_response.title')}
+      </Text>
+      <Text variant="footnote" tone="secondary">
+        {whenLabel}
+      </Text>
+      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+        <Pressable
+          onPress={() => void respond(true)}
+          disabled={busy}
+          style={{
+            flex: 1,
+            paddingVertical: 10,
+            borderRadius: radii.pill,
+            backgroundColor: '#10B981',
+            alignItems: 'center',
+            opacity: busy ? 0.6 : 1,
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+            {t('offer_response.accept')}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => void respond(false)}
+          disabled={busy}
+          style={{
+            paddingHorizontal: spacing.lg,
+            paddingVertical: 10,
+            borderRadius: radii.pill,
+            borderWidth: 0.5,
+            borderColor: theme.border.default,
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ color: theme.text.secondary, fontWeight: '600', fontSize: 13 }}>
+            {t('offer_response.decline')}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Night-before shift confirmation card on a hired-application row. Shows
+ * the scheduled shift time and — until the worker answers — a one-tap
+ * "I'll be there" / "Can't make it". Answering early is the whole point:
+ * a decline becomes a managed gap the employer can backfill, not a
+ * surprise no-show.
+ */
+function ShiftConfirmCard({ application }: { application: PublicApplication }) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const state = application.shiftConfirmation;
+
+  const whenLabel = application.nextShiftAt
+    ? new Date(application.nextShiftAt).toLocaleString('en-IN', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+    : '';
+
+  async function reply(coming: boolean) {
+    if (busy) return;
+    setBusy(true);
+    haptic('selection');
+    try {
+      await applicationsApi.confirmShift(application.id, coming);
+      haptic(coming ? 'success' : 'warning');
+      await queryClient.invalidateQueries({ queryKey: ['applications', 'me'] });
+    } catch {
+      haptic('error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onMyWay() {
+    if (busy) return;
+    setBusy(true);
+    haptic('selection');
+    try {
+      const coords = await getCurrentCoords();
+      await applicationsApi.markOnTheWay(
+        application.id,
+        coords?.lat ?? 0,
+        coords?.lng ?? 0,
+      );
+      haptic('success');
+      await queryClient.invalidateQueries({ queryKey: ['applications', 'me'] });
+    } catch {
+      haptic('error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View
+      style={{
+        marginTop: spacing.sm,
+        padding: spacing.md,
+        borderRadius: radii.lg,
+        borderWidth: 0.5,
+        borderColor: theme.border.default,
+        backgroundColor: theme.bg.surface,
+        gap: spacing.sm,
+      }}
+    >
+      <Text variant="footnote" weight="semibold" tone="secondary" style={{ letterSpacing: 0.6 }}>
+        {t('shift_confirm.title', { when: whenLabel })}
+      </Text>
+
+      {state === 'confirmed' ? (
+        <Text variant="body" tone="success" weight="medium">
+          {t('shift_confirm.confirmed')}
+        </Text>
+      ) : state === 'declined' ? (
+        <Text variant="body" tone="warning" weight="medium">
+          {t('shift_confirm.declined')}
+        </Text>
+      ) : (
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          <Pressable
+            onPress={() => void reply(true)}
+            disabled={busy}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: radii.pill,
+              backgroundColor: '#10B981',
+              alignItems: 'center',
+              opacity: busy ? 0.6 : 1,
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+              {t('shift_confirm.coming')}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => void reply(false)}
+            disabled={busy}
+            style={{
+              paddingHorizontal: spacing.lg,
+              paddingVertical: 10,
+              borderRadius: radii.pill,
+              borderWidth: 0.5,
+              borderColor: theme.border.default,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: theme.text.secondary, fontWeight: '600', fontSize: 13 }}>
+              {t('shift_confirm.cant')}
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* "On my way" — available once the worker isn't declining. */}
+      {state !== 'declined' ? (
+        application.onTheWay.active ? (
+          <Text variant="footnote" tone="success" weight="medium">
+            {application.onTheWay.etaMinutes != null
+              ? t('shift_confirm.on_the_way_eta', { eta: application.onTheWay.etaMinutes })
+              : t('shift_confirm.on_the_way')}
+          </Text>
+        ) : (
+          <Pressable
+            onPress={() => void onMyWay()}
+            disabled={busy}
+            style={{
+              paddingVertical: 10,
+              borderRadius: radii.pill,
+              borderWidth: 0.5,
+              borderColor: theme.brand.hero,
+              alignItems: 'center',
+              opacity: busy ? 0.6 : 1,
+            }}
+          >
+            <Text style={{ color: theme.brand.hero, fontWeight: '700', fontSize: 13 }}>
+              {t('shift_confirm.im_on_my_way')}
+            </Text>
+          </Pressable>
+        )
+      ) : null}
+    </View>
+  );
+}
+
 function ShiftCheckInCard({ applicationId }: { applicationId: string }) {
   const { theme } = useTheme();
   const t = useTranslate();

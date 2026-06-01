@@ -25,6 +25,19 @@ export interface PaymentIntent {
   createdAt: string;
 }
 
+/** A GST-friendly payment receipt for a settled payment. */
+export interface PaymentReceipt {
+  receiptNo: string;
+  issuedAt: string;
+  payer: { name: string; gstin: string | null; location: string | null };
+  payee: { name: string; upiVpa: string };
+  amountPaise: number;
+  currency: string;
+  method: string;
+  reference: string;
+  disclaimer: string;
+}
+
 export const paymentsApi = {
   create: (input: {
     seekerId: string;
@@ -47,4 +60,7 @@ export const paymentsApi = {
       body: {},
     }),
   mine: () => apiRequest<{ intents: PaymentIntent[] }>('/payments/mine'),
+  /** Fetch the GST-friendly receipt for a paid payment. */
+  receipt: (id: string) =>
+    apiRequest<{ receipt: PaymentReceipt }>(`/payments/${id}/receipt`),
 };

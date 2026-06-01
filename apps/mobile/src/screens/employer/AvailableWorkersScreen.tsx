@@ -42,6 +42,8 @@ import {
   type NearbyAvailability,
 } from '@/api/availability.api';
 import { contactApi } from '@/api/contact.api';
+import { pastApplicantsApi, type PastApplicant } from '@/api/pastApplicants.api';
+import { trustedWorkersApi, type TrustedWorker } from '@/api/trustedWorkers.api';
 import { ApiError } from '@/api/errors';
 import { prettifySkill, tradeEmoji } from '@/lib/trades';
 import { WorkersMapView } from './workers-map/WorkersMapView';
@@ -121,6 +123,29 @@ export function AvailableWorkersScreen() {
   });
 
   const availabilities = query.data?.availabilities ?? [];
+
+  // Re-tap: prior applicants who are broadcasting availability nearby now.
+  const pastQuery = useQuery({
+    queryKey: ['past-applicants', coords?.lat, coords?.lng],
+    queryFn: () =>
+      pastApplicantsApi.list({
+        lat: coords!.lat,
+        lng: coords!.lng,
+        radius: SEARCH_RADIUS_M,
+        limit: 10,
+      }),
+    enabled: coords !== null,
+    staleTime: 60_000,
+  });
+  const pastApplicants = pastQuery.data?.workers ?? [];
+
+  // Local social proof: workers other employers in this city rated highly.
+  const trustedQuery = useQuery({
+    queryKey: ['trusted-workers'],
+    queryFn: () => trustedWorkersApi.list(8),
+    staleTime: 5 * 60_000,
+  });
+  const trustedWorkers = trustedQuery.data?.workers ?? [];
 
   // Open the send-hiring-request flow for a worker.
   const onHire = (worker: NearbyAvailability) => {
@@ -263,6 +288,26 @@ export function AvailableWorkersScreen() {
                 tintColor={theme.brand.hero}
               />
             }
+            ListHeaderComponent={
+              pastApplicants.length > 0 || trustedWorkers.length > 0 ? (
+                <View>
+                  {pastApplicants.length > 0 ? (
+                    <PastApplicantsStrip
+                      items={pastApplicants}
+                      onCall={(id) => callMutation.mutate(id)}
+                      t={t}
+                    />
+                  ) : null}
+                  {trustedWorkers.length > 0 ? (
+                    <TrustedWorkersStrip
+                      items={trustedWorkers}
+                      onCall={(id) => callMutation.mutate(id)}
+                      t={t}
+                    />
+                  ) : null}
+                </View>
+              ) : null
+            }
             renderItem={({ item }) => (
               <AvailabilityRow
                 item={item}
@@ -276,6 +321,142 @@ export function AvailableWorkersScreen() {
         )}
       </View>
     </Screen>
+  );
+}
+
+// ─── Re-tap past applicants strip ─────────────────────────────────────────────
+
+/**
+ * A highlighted strip above the live-workers list: people who applied to
+ * this employer before and are broadcasting availability nearby again.
+ * Warm leads — already wanted to work here once — so they earn a spot at
+ * the top with one-tap call.
+ */
+function PastApplicantsStrip({
+  items,
+  onCall,
+  t,
+}: {
+  items: PastApplicant[];
+  onCall: (seekerId: string) => void;
+  t: TFn;
+}) {
+  const { theme } = useTheme();
+  return (
+    <View
+      style={{
+        marginBottom: spacing.md,
+        padding: spacing.md,
+        borderRadius: radii.lg,
+        borderWidth: 0.5,
+        borderColor: theme.border.default,
+        backgroundColor: theme.bg.surface,
+        gap: spacing.sm,
+      }}
+    >
+      <Text variant="footnote" weight="semibold" tone="secondary" style={{ letterSpacing: 0.8 }}>
+        {t('employer.past_applicants.heading', { n: items.length })}
+      </Text>
+      {items.slice(0, 5).map((w) => (
+        <View
+          key={w.seeker.id}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
+        >
+          <Avatar name={w.seeker.name} photoUrl={w.seeker.photoUrl} size={36} />
+          <View style={{ flex: 1 }}>
+            <Text variant="body" weight="medium" numberOfLines={1}>
+              {w.seeker.name}
+            </Text>
+            <Text variant="caption" tone="tertiary" numberOfLines={1}>
+              {w.lastApplied.jobTitle
+                ? t('employer.past_applicants.applied_for', { title: w.lastApplied.jobTitle })
+                : t('employer.past_applicants.applied_before')}
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => onCall(w.seeker.id)}
+            accessibilityRole="button"
+            style={{
+              paddingHorizontal: spacing.md,
+              paddingVertical: 6,
+              borderRadius: radii.pill,
+              backgroundColor: '#10B981',
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>
+              {t('employer.past_applicants.call')}
+            </Text>
+          </Pressable>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/**
+ * Local social-proof strip: workers other employers in this city rated
+ * highly. A peer recommendation beats a cold result, so they get a spot
+ * near the top with the count of employers who vouched for them.
+ */
+function TrustedWorkersStrip({
+  items,
+  onCall,
+  t,
+}: {
+  items: TrustedWorker[];
+  onCall: (seekerId: string) => void;
+  t: TFn;
+}) {
+  const { theme } = useTheme();
+  return (
+    <View
+      style={{
+        marginBottom: spacing.md,
+        padding: spacing.md,
+        borderRadius: radii.lg,
+        borderWidth: 0.5,
+        borderColor: theme.border.default,
+        backgroundColor: theme.bg.surface,
+        gap: spacing.sm,
+      }}
+    >
+      <Text variant="footnote" weight="semibold" tone="secondary" style={{ letterSpacing: 0.8 }}>
+        {t('employer.trusted_workers.heading')}
+      </Text>
+      {items.slice(0, 5).map((w) => (
+        <View
+          key={w.seeker.id}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
+        >
+          <Avatar name={w.seeker.name} photoUrl={w.seeker.photoUrl} size={36} />
+          <View style={{ flex: 1 }}>
+            <Text variant="body" weight="medium" numberOfLines={1}>
+              {w.seeker.name}
+            </Text>
+            <Text variant="caption" tone="tertiary" numberOfLines={1}>
+              {t('employer.trusted_workers.rated_by', {
+                avg: w.avgScore,
+                n: w.employerCount,
+              })}
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => onCall(w.seeker.id)}
+            accessibilityRole="button"
+            style={{
+              paddingHorizontal: spacing.md,
+              paddingVertical: 6,
+              borderRadius: radii.pill,
+              backgroundColor: '#10B981',
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>
+              {t('employer.trusted_workers.call')}
+            </Text>
+          </Pressable>
+        </View>
+      ))}
+    </View>
   );
 }
 

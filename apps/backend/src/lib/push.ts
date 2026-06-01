@@ -377,6 +377,193 @@ export async function sendInterviewReminderPush(input: {
 }
 
 /**
+ * Night-before "confirm you're coming tomorrow" push sent to a hired
+ * worker. A tap lands them on their application where one button confirms
+ * (or declines) the shift — catching a no-show the evening before instead
+ * of at the gate. Idempotency lives on the application's
+ * `shiftConfirmation.promptedAt`, set by the sweep before it pushes.
+ */
+export async function sendShiftConfirmationPush(input: {
+  recipientId: string;
+  jobTitle?: string;
+  /** Human shift time, e.g. "tomorrow 8:00 AM". */
+  whenLabel: string;
+  applicationId: string;
+}): Promise<void> {
+  const title = 'Confirm tomorrow’s shift';
+  const headline = input.jobTitle
+    ? `${input.jobTitle} — ${input.whenLabel}`
+    : `Your shift is ${input.whenLabel}`;
+  const body = `${headline}. Tap to confirm you’re coming.`;
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'shift_confirmation',
+    title,
+    body,
+    deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'applications',
+      data: {
+        type: 'shift:confirmation',
+        deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
+        applicationId: input.applicationId,
+      },
+    })),
+  );
+}
+
+/**
+ * Offer made — push to a worker who's just received a time-boxed offer.
+ * Lands them on the application where they can accept or decline before
+ * the deadline.
+ */
+export async function sendOfferMadePush(input: {
+  recipientId: string;
+  applicationId: string;
+  expiresAt: Date;
+}): Promise<void> {
+  const title = 'You’ve got an offer!';
+  const body = 'An employer wants to hire you. Tap to accept before it expires.';
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'offer_made',
+    title,
+    body,
+    deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
+  });
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'applications',
+      data: {
+        type: 'offer:made',
+        deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
+        applicationId: input.applicationId,
+      },
+    })),
+  );
+}
+
+/** Offer resolved — push to the employer when a worker accepts/declines. */
+export async function sendOfferResolvedPush(input: {
+  recipientId: string;
+  applicationId: string;
+  outcome: 'accepted' | 'declined';
+}): Promise<void> {
+  const accepted = input.outcome === 'accepted';
+  const title = accepted ? 'Offer accepted ✓' : 'Offer declined';
+  const body = accepted
+    ? 'Your candidate accepted — they’re hired.'
+    : 'Your candidate declined. Time to line up someone else.';
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'offer_resolved',
+    title,
+    body,
+    deeplink: { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } },
+  });
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'applications',
+      data: {
+        type: 'offer:resolved',
+        deeplink: { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } },
+        applicationId: input.applicationId,
+      },
+    })),
+  );
+}
+
+/** Worker on the way — push to the employer when the worker sets off. */
+export async function sendWorkerOnTheWayPush(input: {
+  recipientId: string;
+  applicationId: string;
+  etaMinutes: number;
+  workerName?: string;
+}): Promise<void> {
+  const who = input.workerName ?? 'Your worker';
+  const title = 'On the way';
+  const body = `${who} is on the way — about ${input.etaMinutes} min out.`;
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'worker_on_the_way',
+    title,
+    body,
+    deeplink: { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } },
+  });
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'applications',
+      data: {
+        type: 'worker:on_the_way',
+        deeplink: { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } },
+        applicationId: input.applicationId,
+      },
+    })),
+  );
+}
+
+/** Offer expired — push to the employer when a pending offer lapses. */
+export async function sendOfferExpiredPush(input: {
+  recipientId: string;
+  applicationId: string;
+}): Promise<void> {
+  const title = 'Offer expired';
+  const body = 'Your offer lapsed with no reply. Tap to offer someone else.';
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'offer_expired',
+    title,
+    body,
+    deeplink: { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } },
+  });
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'applications',
+      data: {
+        type: 'offer:expired',
+        deeplink: { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } },
+        applicationId: input.applicationId,
+      },
+    })),
+  );
+}
+
+/**
  * Push + in-app row sent to a seeker whose application has been
  * rejected AND for whom we've computed a skill gap. Replaces the
  * generic rejection push so the seeker lands on a forward step

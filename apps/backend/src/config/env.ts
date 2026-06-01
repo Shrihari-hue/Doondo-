@@ -151,6 +151,30 @@ const schema = z.object({
    */
   INTERVIEW_REMINDER_LEAD_MINUTES: z.coerce.number().int().positive().default(60),
 
+  // ─── Night-before shift confirmation sweep ────────────────────────────
+  /**
+   * Cron for the shift-confirmation sweep. Default 13:30 UTC = 19:00 IST —
+   * the evening before, when a worker is home and can actually answer
+   * "are you coming tomorrow?". Runs hourly-ish would be noisy; once each
+   * evening is enough because the lead window below is a full day wide.
+   */
+  SHIFT_CONFIRM_CRON: z.string().default('30 13 * * *'),
+  /**
+   * How many hours ahead of a shift to prompt for confirmation. Default
+   * 18 — broad enough that an evening sweep catches every next-morning and
+   * next-afternoon shift, while a shift two days out still waits its turn.
+   */
+  SHIFT_CONFIRM_LEAD_HOURS: z.coerce.number().int().positive().default(18),
+
+  // ─── Offer expiry sweep ───────────────────────────────────────────────
+  /**
+   * Cron for the auto-expiring-offer sweep. Default every 15 minutes so a
+   * lapsed offer is settled (and the employer nudged to move on) within a
+   * quarter-hour of its deadline — same cheap cadence as interview
+   * reminders.
+   */
+  OFFER_EXPIRY_CRON: z.string().default('*/15 * * * *'),
+
   // ─── Dormant-user re-engagement sweep ─────────────────────────────────
   /**
    * Cron for the re-engagement sweep. Default 03:00 UTC = 08:30 IST —

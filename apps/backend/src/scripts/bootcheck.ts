@@ -79,6 +79,19 @@ async function main(): Promise<void> {
       import('@/modules/reels/reelStorage.service'),
       import('@/modules/reels/reel.service'),
       import('@/lib/push'),
+      // Employer features build (1 Jun 2026)
+      import('@/modules/postDraft/postDraft.parser'),
+      import('@/modules/postDraft/postDraft.service'),
+      import('@/modules/pastApplicants/pastApplicants.service'),
+      import('@/modules/laborBudget/laborBudget.service'),
+      import('@/modules/employerResponse/employerResponse.service'),
+      import('@/modules/arrivalLikelihood/arrivalLikelihood.service'),
+      import('@/modules/workProof/workProof.service'),
+      import('@/modules/trustedWorkers/trustedWorkers.service'),
+      import('@/modules/crew/crew.service'),
+      import('@/modules/applications/shiftConfirmation.service'),
+      import('@/modules/applications/offerExpiry.service'),
+      import('@/lib/transactionalSms'),
     ]);
   });
   await check('all new models register', async () => {
@@ -91,12 +104,18 @@ async function main(): Promise<void> {
       import('@/modules/chat/message.model'),
       import('@/modules/jobs/job.model'),
       import('@/modules/reels/reel.model'),
+      // Employer features build (1 Jun 2026)
+      import('@/modules/workerNotes/workerNote.model'),
+      import('@/modules/laborBudget/laborBudget.model'),
+      import('@/modules/employerResponse/employerResponse.model'),
+      import('@/modules/workProof/workProof.model'),
+      import('@/modules/crew/crew.model'),
     ]);
   });
 
   // ─── 2. Cron expressions valid ───────────────────────────────────────
   console.log('\nscheduler:');
-  await check('all 4 cron expressions are valid', async () => {
+  await check('all cron expressions are valid', async () => {
     // `validate` is a named export on node-cron — reach it off the
     // namespace directly, no default-interop juggling needed.
     const cron = await import('node-cron');
@@ -106,6 +125,8 @@ async function main(): Promise<void> {
       ['GHOST_SWEEP_CRON', env.GHOST_SWEEP_CRON],
       ['INTERVIEW_REMINDER_CRON', env.INTERVIEW_REMINDER_CRON],
       ['REENGAGEMENT_CRON', env.REENGAGEMENT_CRON],
+      ['SHIFT_CONFIRM_CRON', env.SHIFT_CONFIRM_CRON],
+      ['OFFER_EXPIRY_CRON', env.OFFER_EXPIRY_CRON],
     ] as const) {
       assert(cron.validate(expr), `${name} is not a valid cron expression: "${expr}"`);
     }
@@ -134,6 +155,32 @@ async function main(): Promise<void> {
     const ranked = rankCoursesForGap(['customer_service'], null);
     assert(Array.isArray(ranked), 'not an array');
     assert(ranked.length > 0, 'expected at least one ranked course');
+  });
+  await check('postDraft.parseJobDraft extracts trade/wage/headcount', async () => {
+    const { parseJobDraft } = await import('@/modules/postDraft/postDraft.parser');
+    const { draft } = parseJobDraft('2 dishwashers, Friday night, ₹600');
+    assert(draft.title === 'Dishwasher', `title: ${draft.title}`);
+    assert(draft.wageAmount === 600, `wage: ${draft.wageAmount}`);
+    assert(draft.headcount === 2, `headcount: ${draft.headcount}`);
+    assert(draft.scheduleDays?.includes(5) === true, `days: ${draft.scheduleDays}`);
+    // Romanised + period-after-number: "driver monthly 18000" → ₹18000/month,
+    // and "monthly" must NOT be misread as Monday.
+    const d2 = parseJobDraft('driver monthly 18000').draft;
+    assert(d2.wageAmount === 18000, `wage2: ${d2.wageAmount}`);
+    assert(d2.wagePeriod === 'month', `period2: ${d2.wagePeriod}`);
+    assert(!d2.scheduleDays, `monthly should not match a day: ${d2.scheduleDays}`);
+  });
+  await check('employerResponse.isWithinQuietHours handles midnight wrap', async () => {
+    const { isWithinQuietHours } = await import(
+      '@/modules/employerResponse/employerResponse.service'
+    );
+    // Window 21:00–07:00 IST wraps midnight. 02:00 IST = 20:30 UTC prior day.
+    const wrap = { quietHoursEnabled: true, quietStartHour: 21, quietEndHour: 7 };
+    assert(isWithinQuietHours(wrap, new Date('2026-05-20T20:30:00Z')), 'expected inside (02:00 IST)');
+    assert(!isWithinQuietHours(wrap, new Date('2026-05-20T06:30:00Z')), 'expected outside (12:00 IST)');
+    // Disabled → never inside. start===end → empty window, never inside.
+    assert(!isWithinQuietHours({ quietHoursEnabled: false, quietStartHour: 21, quietEndHour: 7 }, new Date()), 'disabled should be false');
+    assert(!isWithinQuietHours({ quietHoursEnabled: true, quietStartHour: 9, quietEndHour: 9 }, new Date()), 'equal hours should be false');
   });
   await check('profileExtract (mock provider) returns a profile', async () => {
     const { extractProfileFromPhoto } = await import(

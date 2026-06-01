@@ -142,6 +142,12 @@ interface NearbyInput {
   trade?: string;
   type?: string;
   limit: number;
+  /**
+   * Optional allow-list of seeker ids. When present, only beacons from
+   * these seekers are considered — used by "Re-tap past applicants" to
+   * intersect live beacons with the employer's prior applicant pool.
+   */
+  seekerIds?: string[];
 }
 
 export async function findNearby(input: NearbyInput): Promise<NearbyAvailability[]> {
@@ -156,6 +162,14 @@ export async function findNearby(input: NearbyInput): Promise<NearbyAvailability
   };
   if (input.trade) baseMatch.tradesAvailable = input.trade;
   if (input.type) baseMatch.jobTypes = input.type;
+  if (input.seekerIds) {
+    // An empty allow-list means "no candidates" — short-circuit rather
+    // than running a geo query that can only return nothing.
+    if (input.seekerIds.length === 0) return [];
+    baseMatch.seekerId = {
+      $in: input.seekerIds.map((id) => new Types.ObjectId(id)),
+    };
+  }
 
   const pipeline: PipelineStage[] = [
     {

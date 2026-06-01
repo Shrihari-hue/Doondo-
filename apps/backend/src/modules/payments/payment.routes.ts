@@ -200,4 +200,79 @@ router.get('/mine', requireAuth, async (req, res, next) => {
   }
 });
 
+/**
+ * GET /payments/:id/receipt — a clean, GST-friendly payment receipt for a
+ * settled payment. Small employers have never had a paper trail for the
+ * cash/UPI wages they pay; this is the per-transaction record they can
+ * keep for their books.
+ *
+ * Either party on the payment can pull their own receipt. The receipt is
+ * only available once the payment is `paid` — there is nothing to receipt
+ * before money has moved. The payer block carries the employer's company
+ * name and GSTIN (when on file) so the document is usable as a books
+ * entry; it is explicitly a payment record, not a tax invoice.
+ *
+ * Uses the standard `{ ok, data, requestId }` envelope so the mobile
+ * `apiRequest` unwraps it like every other call.
+ */
+router.get('/:id/receipt', requireAuth, async (req, res, next) => {
+  try {
+    if (!Types.ObjectId.isValid(req.params.id ?? '')) {
+      res.status(400).json({ error: 'Invalid payment id' });
+      return;
+    }
+    const uid = new Types.ObjectId(req.user!.id);
+    const p = await PaymentIntentModel.findOne({
+      _id: req.params.id,
+      $or: [{ employerId: uid }, { seekerId: uid }],
+    }).lean();
+    if (!p) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+    if (p.status !== 'paid' || !p.paidAt) {
+      res.status(400).json({ error: 'Receipt is available once the payment is marked paid.' });
+      return;
+    }
+
+    const [employer, seeker] = await Promise.all([
+      UserModel.findById(p.employerId).select('name companyName gstin employerLocation').lean(),
+      UserModel.findById(p.seekerId).select('name').lean(),
+    ]);
+
+    const employerLoc = (employer as { employerLocation?: { city?: string; area?: string } | null } | null)
+      ?.employerLocation ?? null;
+    const cityLine = employerLoc
+      ? [employerLoc.area, employerLoc.city].filter(Boolean).join(', ')
+      : null;
+
+    const receipt = {
+      receiptNo: p.ref,
+      issuedAt: p.paidAt.toISOString(),
+      payer: {
+        name:
+          (employer as { companyName?: string | null; name?: string } | null)?.companyName ||
+          (employer as { name?: string } | null)?.name ||
+          'Employer',
+        gstin: (employer as { gstin?: string | null } | null)?.gstin ?? null,
+        location: cityLine,
+      },
+      payee: {
+        name: (seeker as { name?: string } | null)?.name ?? 'Worker',
+        upiVpa: p.seekerVpa,
+      },
+      amountPaise: p.amountPaise,
+      currency: p.currency,
+      method: 'UPI',
+      reference: p.ref,
+      /** Plain-language line so the document isn't mistaken for a tax invoice. */
+      disclaimer: 'This is a payment record, not a tax invoice.',
+    };
+
+    res.json({ ok: true, data: { receipt }, requestId: req.id });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

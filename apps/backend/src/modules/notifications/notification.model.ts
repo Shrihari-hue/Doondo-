@@ -39,6 +39,11 @@ export const NOTIFICATION_KINDS = [
   'doondo_score_changed', // your Doondo Score went up (or down) materially
   'sos_alert',            // a Trust Circle contact or nearby peer triggered SOS
   'shift_checkin',        // you (or your worker) checked in/out of a shift
+  'shift_confirmation',   // night-before "confirm you're coming tomorrow" prompt
+  'offer_made',           // employer extended a time-boxed offer to a worker
+  'offer_resolved',       // worker accepted/declined an offer (to employer)
+  'offer_expired',        // a pending offer lapsed (to employer)
+  'worker_on_the_way',    // hired worker tapped "I'm on my way" (to employer)
   'streak_milestone',     // crossed an apply/course/shift streak threshold (3/7/14/30)
   'referral_bonus',       // someone you referred got hired; your bonus is credited
   'hired_nearby',         // a worker near you got hired — social proof feed signal

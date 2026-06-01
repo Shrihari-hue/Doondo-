@@ -162,4 +162,47 @@ router.post(
   controller.confirmPayment,
 );
 
+// Night-before shift confirmation.
+// Employer sets/moves the next shift time; worker confirms or declines.
+router.put(
+  '/:id/next-shift',
+  requireAuth,
+  requireRole('employer'),
+  validate(applicationIdParamsSchema),
+  controller.setNextShift,
+);
+router.post(
+  '/:id/confirm-shift',
+  requireAuth,
+  requireRole('seeker'),
+  validate(applicationIdParamsSchema),
+  controller.confirmShift,
+);
+
+// "On my way" — worker raises an en-route status with an ETA estimate.
+router.post(
+  '/:id/on-the-way',
+  requireAuth,
+  requireRole('seeker'),
+  validate(applicationIdParamsSchema),
+  controller.markOnTheWay,
+);
+
+// Auto-expiring offers.
+// Employer makes a time-boxed offer; worker accepts/declines.
+router.post(
+  '/:id/offer',
+  requireAuth,
+  requireRole('employer'),
+  validate(applicationIdParamsSchema),
+  controller.makeOffer,
+);
+router.post(
+  '/:id/offer-response',
+  requireAuth,
+  requireRole('seeker'),
+  validate(applicationIdParamsSchema),
+  controller.respondToOffer,
+);
+
 export default router;

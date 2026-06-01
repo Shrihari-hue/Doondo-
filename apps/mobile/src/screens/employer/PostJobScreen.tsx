@@ -19,12 +19,13 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, TextField, Button, FormError, Pill } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { jobsApi, type CreateJobPayload } from '@/api/jobs.api';
+import { skillTestsApi } from '@/api/skillTests.api';
 import { getCurrentCoords } from '@/lib/location';
 import { haptic } from '@/lib/haptics';
 import { useAuth } from '@/hooks/useAuth';
@@ -47,6 +48,11 @@ import type {
   WorkMode,
   WorkplaceAnswers,
 } from '@/api/types';
+import { VoicePostButton } from './VoicePostButton';
+import type { JobDraft } from '@/api/postDraft.api';
+
+/** Day index (0 = Sun … 6 = Sat) → short label for the description note. */
+const DRAFT_DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'PostJob'>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
@@ -104,6 +110,8 @@ export function PostJobScreen() {
   const [detecting, setDetecting] = useState(false);
   const [skills, setSkills] = useState<string[]>([]);
   const [skillDraft, setSkillDraft] = useState('');
+  const [requiredSkillTestId, setRequiredSkillTestId] = useState<string | null>(null);
+  const [headcount, setHeadcount] = useState('1');
   const [urgent, setUrgent] = useState(false);
   const [workMode, setWorkMode] = useState<WorkMode>('onsite');
   // Reverse Interview — the employer's answers to standard worker
@@ -125,6 +133,54 @@ export function PostJobScreen() {
     harassmentPolicy: false,
   });
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Pre-fill the form from a spoken draft. We only ever *set* the fields
+   * the voice draft is confident about and never clear anything the
+   * employer already typed — voice is an accelerator, not an overwrite.
+   * Fields the form has no dedicated input for (headcount, exact days /
+   * start time) are folded into the description as a plain note so the
+   * detail isn't lost; the employer can edit it before publishing.
+   */
+  const applyDraft = (draft: JobDraft) => {
+    if (draft.title) setTitle(draft.title);
+    if (draft.jobType) setType(draft.jobType);
+    if (draft.wageAmount !== undefined) setAmount(String(draft.wageAmount));
+    if (draft.wagePeriod) setPeriod(draft.wagePeriod);
+    if (draft.urgent) setUrgent(true);
+    if (draft.trade) {
+      // Seed the skills with the recognised trade, without duplicating.
+      setSkills((prev) =>
+        prev.includes(draft.trade!) ? prev : [...prev, draft.trade!],
+      );
+    }
+
+    if (draft.headcount && draft.headcount >= 1) {
+      setHeadcount(String(draft.headcount));
+    }
+
+    const notes: string[] = [];
+    if (draft.scheduleDays && draft.scheduleDays.length > 0) {
+      const days = draft.scheduleDays.map((d) => DRAFT_DAY_LABELS[d]).join(', ');
+      notes.push(t('employer.voice_post.note_days', { days }));
+    }
+    if (draft.startTime) {
+      notes.push(t('employer.voice_post.note_start', { time: draft.startTime }));
+    }
+    if (notes.length > 0) {
+      const note = notes.join(' ');
+      setDescription((prev) => (prev.trim() ? `${prev.trim()}\n${note}` : note));
+    }
+
+    haptic('success');
+  };
+
+  // Available self-qualifying skill checks the employer can attach.
+  const skillTestsQuery = useQuery({
+    queryKey: ['skill-tests'],
+    queryFn: () => skillTestsApi.list(),
+    staleTime: 5 * 60_000,
+  });
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -152,6 +208,8 @@ export function PostJobScreen() {
           lng: c.lng,
         },
         skills,
+        requiredSkillTestId: requiredSkillTestId ?? null,
+        headcount: Math.max(1, Number(headcount) || 1),
         urgent,
         workMode,
         audioDescriptionUrl: audio?.dataUrl ?? null,
@@ -253,6 +311,10 @@ export function PostJobScreen() {
           </View>
 
           <FormError message={error} />
+
+          {/* Speak the job — pre-fills the fields below. Hides itself on
+              builds with no speech-recognition module. */}
+          <VoicePostButton onDraft={applyDraft} />
 
           {/* Basics */}
           <View style={{ gap: spacing.lg }}>
@@ -458,6 +520,18 @@ export function PostJobScreen() {
             />
           </View>
 
+          {/* How many to hire */}
+          <View style={{ gap: spacing.sm }}>
+            <TextField
+              label={t('employer.post_job.field_headcount')}
+              value={headcount}
+              onChangeText={(v) => setHeadcount(v.replace(/[^0-9]/g, ''))}
+              keyboardType="number-pad"
+              placeholder="1"
+              helper={t('employer.post_job.field_headcount_hint')}
+            />
+          </View>
+
           {/* Skills */}
           <View style={{ gap: spacing.sm }}>
             <Text
@@ -486,6 +560,47 @@ export function PostJobScreen() {
               </View>
             )}
           </View>
+
+          {/* Self-qualifying skill check — attach a short quiz applicants
+             can take to qualify; the employer sees who passed. Optional. */}
+          {(skillTestsQuery.data?.tests.length ?? 0) > 0 && (
+            <View style={{ gap: spacing.sm }}>
+              <Text
+                variant="footnote"
+                weight="medium"
+                tone="secondary"
+                style={{ letterSpacing: 1.0 }}
+              >
+                {t('employer.post_job.section_skill_check')}
+              </Text>
+              <Text variant="footnote" tone="tertiary">
+                {t('employer.post_job.skill_check_hint')}
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+                <Pressable onPress={() => setRequiredSkillTestId(null)}>
+                  <Pill
+                    label={t('employer.post_job.skill_check_none')}
+                    tone={requiredSkillTestId === null ? 'hero' : 'neutral'}
+                  />
+                </Pressable>
+                {skillTestsQuery.data!.tests.map((test) => (
+                  <Pressable
+                    key={test.id}
+                    onPress={() =>
+                      setRequiredSkillTestId(
+                        requiredSkillTestId === test.id ? null : test.id,
+                      )
+                    }
+                  >
+                    <Pill
+                      label={`${test.emoji} ${test.title}`}
+                      tone={requiredSkillTestId === test.id ? 'hero' : 'neutral'}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
 
           {/* Work mode — Onsite (default) / Hybrid / Remote. Most Doondo
              jobs are onsite, but white-collar roles need this option. */}

@@ -191,6 +191,43 @@ export const applicationsApi = {
       { method: 'POST' },
     ),
 
+  // ─── Night-before shift confirmation ───────────────────────────────────────
+
+  /** Employer: set / move the hired worker's next shift start (ISO). */
+  setNextShift: (applicationId: string, startAt: string) =>
+    apiRequest<{ application: PublicApplication }>(
+      `/applications/${applicationId}/next-shift`,
+      { method: 'PUT', body: { startAt } },
+    ),
+
+  /** Worker: confirm (coming=true) or decline (false) the next shift. */
+  confirmShift: (applicationId: string, coming: boolean) =>
+    apiRequest<{ application: PublicApplication }>(
+      `/applications/${applicationId}/confirm-shift`,
+      { method: 'POST', body: { coming } },
+    ),
+
+  /** Worker: raise "I'm on my way" with current coords (for an ETA estimate). */
+  markOnTheWay: (applicationId: string, lat: number, lng: number) =>
+    apiRequest<{ application: PublicApplication }>(
+      `/applications/${applicationId}/on-the-way`,
+      { method: 'POST', body: { lat, lng } },
+    ),
+
+  /** Employer: extend a time-boxed offer (ttlHours until it lapses). */
+  makeOffer: (applicationId: string, ttlHours: number) =>
+    apiRequest<{ application: PublicApplication }>(
+      `/applications/${applicationId}/offer`,
+      { method: 'POST', body: { ttlHours } },
+    ),
+
+  /** Worker: accept (true) or decline (false) a pending offer. */
+  respondToOffer: (applicationId: string, accept: boolean) =>
+    apiRequest<{ application: PublicApplication }>(
+      `/applications/${applicationId}/offer-response`,
+      { method: 'POST', body: { accept } },
+    ),
+
   // ─── Interview scheduling ──────────────────────────────────────────────────
 
   /**

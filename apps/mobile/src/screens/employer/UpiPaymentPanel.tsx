@@ -12,7 +12,7 @@
  *      This credits the worker's wallet ledger.
  */
 import { useState } from 'react';
-import { Alert, Linking, Pressable, TextInput, View } from 'react-native';
+import { Alert, Linking, Pressable, Share, TextInput, View } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { spacing, radii } from '@doondo/tokens';
@@ -43,6 +43,9 @@ export function UpiPaymentPanel({
     suggestedAmountPaise ? String(Math.round(suggestedAmountPaise / 100)) : '',
   );
   const [intent, setIntent] = useState<PaymentIntent | null>(null);
+  /** Last settled payment id — drives the "Share receipt" affordance. */
+  const [paidId, setPaidId] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
 
   const createMut = useMutation({
     mutationFn: () =>
@@ -77,14 +80,44 @@ export function UpiPaymentPanel({
 
   const markPaidMut = useMutation({
     mutationFn: (id: string) => paymentsApi.markPaid(id),
-    onSuccess: () => {
+    onSuccess: (data) => {
       haptic('success');
+      setPaidId(data.intent.id);
       setIntent(null);
       setAmountRupees('');
       void queryClient.invalidateQueries({ queryKey: ['payments', 'mine'] });
       Alert.alert(t('employer.upi.marked_paid_title'), t('employer.upi.marked_paid_body'));
     },
   });
+
+  /**
+   * Pull the GST-friendly receipt for a settled payment and hand it to the
+   * OS share sheet as plain text — the employer can save it to their books,
+   * WhatsApp it to themselves, or forward it to the worker.
+   */
+  const shareReceipt = async (id: string) => {
+    setSharing(true);
+    try {
+      const { receipt } = await paymentsApi.receipt(id);
+      const lines = [
+        t('employer.upi.receipt_heading'),
+        `${t('employer.upi.receipt_no')}: ${receipt.receiptNo}`,
+        `${t('employer.upi.receipt_date')}: ${new Date(receipt.issuedAt).toLocaleString('en-IN')}`,
+        `${t('employer.upi.receipt_from')}: ${receipt.payer.name}${receipt.payer.gstin ? ` (GSTIN ${receipt.payer.gstin})` : ''}`,
+        `${t('employer.upi.receipt_to')}: ${receipt.payee.name} · ${receipt.payee.upiVpa}`,
+        `${t('employer.upi.receipt_amount')}: ${formatINR(receipt.amountPaise)}`,
+        `${t('employer.upi.receipt_method')}: ${receipt.method}`,
+        '',
+        receipt.disclaimer,
+      ];
+      await Share.share({ message: lines.join('\n') });
+    } catch {
+      haptic('error');
+      Alert.alert(t('employer.upi.receipt_fail'));
+    } finally {
+      setSharing(false);
+    }
+  };
 
   return (
     <View
@@ -177,6 +210,25 @@ export function UpiPaymentPanel({
             </Pressable>
           </View>
         </View>
+      )}
+
+      {paidId && (
+        <Pressable
+          onPress={() => void shareReceipt(paidId)}
+          disabled={sharing}
+          style={{
+            paddingVertical: 8,
+            borderRadius: radii.pill,
+            borderWidth: 0.5,
+            borderColor: theme.border.default,
+            alignItems: 'center',
+            opacity: sharing ? 0.6 : 1,
+          }}
+        >
+          <Text style={{ color: theme.text.primary, fontWeight: '700', fontSize: 13 }}>
+            {sharing ? t('employer.upi.receipt_sharing') : t('employer.upi.receipt_share')}
+          </Text>
+        </Pressable>
       )}
     </View>
   );

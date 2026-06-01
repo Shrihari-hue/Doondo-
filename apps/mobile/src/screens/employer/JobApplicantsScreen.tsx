@@ -5,13 +5,14 @@
  * cross-job tab; this scoping is just a filter.
  */
 
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, View, Switch } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 
 import { spacing } from '@doondo/tokens';
-import { Screen, Text, SkeletonCard, EmptyState } from '@/components';
+import { Screen, Text, SkeletonCard, EmptyState, Card } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { applicationsApi } from '@/api/applications.api';
@@ -27,12 +28,17 @@ export function JobApplicantsScreen() {
   const { theme } = useTheme();
   const t = useTranslate();
 
+  const [blind, setBlind] = useState(false);
+
   const query = useQuery({
     queryKey: ['applicants', 'job', route.params.jobId],
     queryFn: () => applicationsApi.listForJob(route.params.jobId, { limit: 100 }),
   });
 
   const applicants = query.data?.applications ?? [];
+  const hasPending = applicants.some((a) => a.status === 'pending');
+  const headcount = applicants[0]?.job?.headcount ?? 1;
+  const hiredCount = applicants.filter((a) => a.status === 'hired').length;
 
   return (
     <Screen>
@@ -70,6 +76,15 @@ export function JobApplicantsScreen() {
               {t('employer.applicants.per_job_total', { n: applicants.length })}
             </Text>
           )}
+          {headcount > 1 && (
+            <Text
+              variant="footnote"
+              weight="medium"
+              tone={hiredCount >= headcount ? 'success' : 'hero'}
+            >
+              {t('employer.applicants.fill', { hired: hiredCount, headcount })}
+            </Text>
+          )}
         </View>
 
         {query.isLoading ? (
@@ -97,9 +112,44 @@ export function JobApplicantsScreen() {
           />
         ) : (
           <View style={{ gap: spacing.md }}>
-            {applicants.map((a) => (
-              <ApplicantCard key={a.id} applicant={a} />
-            ))}
+            {hasPending && (
+              <Card>
+                <Pressable
+                  onPress={() => setBlind((v) => !v)}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: blind }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
+                >
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text variant="body" weight="medium">
+                      {t('employer.blind_review.toggle_title')}
+                    </Text>
+                    <Text variant="footnote" tone="secondary">
+                      {t('employer.blind_review.toggle_hint')}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={blind}
+                    onValueChange={setBlind}
+                    trackColor={{ true: theme.brand.hero, false: theme.border.strong }}
+                  />
+                </Pressable>
+              </Card>
+            )}
+            {(() => {
+              let maskedSeq = 0;
+              return applicants.map((a) => {
+                const idx = a.status === 'pending' ? ++maskedSeq : undefined;
+                return (
+                  <ApplicantCard
+                    key={a.id}
+                    applicant={a}
+                    blind={blind}
+                    blindIndex={idx}
+                  />
+                );
+              });
+            })()}
           </View>
         )}
       </ScrollView>

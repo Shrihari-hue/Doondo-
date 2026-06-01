@@ -27,6 +27,10 @@ import { contactApi } from '@/api/contact.api';
 import { coursesApi } from '@/api/courses.api';
 import { endorsementsApi } from '@/api/endorsements.api';
 import { profileViewsApi } from '@/api/profileViews.api';
+import { workerNotesApi } from '@/api/workerNotes.api';
+import { skillTestsApi } from '@/api/skillTests.api';
+import { arrivalLikelihoodApi, type ArrivalBand } from '@/api/arrivalLikelihood.api';
+import { workProofApi } from '@/api/workProof.api';
 import { UpiPaymentPanel } from './UpiPaymentPanel';
 import { ApiError } from '@/api/errors';
 import { haptic } from '@/lib/haptics';
@@ -321,6 +325,39 @@ export function ApplicantDetailScreen() {
           <CallSeekerButton seekerId={applicant.seeker.id} />
         ) : null}
 
+        {/* Time-boxed offer — make one, or see its status. */}
+        {applicant.status !== 'rejected' && applicant.status !== 'withdrawn' ? (
+          <OfferCard applicant={applicant} />
+        ) : null}
+
+        {/* Private, employer-only note about this worker. */}
+        {applicant.seeker?.id ? (
+          <WorkerNoteCard workerId={applicant.seeker.id} />
+        ) : null}
+
+        {/* Next-shift scheduling + night-before confirmation status. */}
+        {applicant.status === 'hired' ? (
+          <EmployerShiftCard applicant={applicant} />
+        ) : null}
+
+        {/* Photo proof of completed work — review + approve. */}
+        {applicant.status === 'hired' ? (
+          <WorkProofReviewCard applicationId={applicant.id} />
+        ) : null}
+
+        {/* Self-qualifying skill check result, when this job requires one. */}
+        {applicant.seeker?.id && applicant.job?.requiredSkillTestId ? (
+          <SkillCheckBadge
+            seekerId={applicant.seeker.id}
+            testId={applicant.job.requiredSkillTestId}
+          />
+        ) : null}
+
+        {/* Will-they-show-up score — for applicants still in play. */}
+        {applicant.status !== 'rejected' && applicant.status !== 'withdrawn' ? (
+          <ArrivalLikelihoodCard applicationId={applicant.id} />
+        ) : null}
+
         {/* Job context */}
         {applicant.job && (
           <Card>
@@ -606,6 +643,492 @@ function CallSeekerButton({ seekerId }: { seekerId: string }) {
           : t('employer.applicant_detail.call_worker')}
       </Text>
     </Pressable>
+  );
+}
+
+// ─── Private worker note ───────────────────────────────────────────────────
+
+/**
+ * A private, employer-only note about this worker — "great with
+ * customers, bring back for weekends" / "late twice." Never shown to the
+ * worker, never affects their score. Loads the saved note, lets the
+ * employer edit + save, and shows when it was last updated. Self-managed
+ * (own query + mutation) so the host screen only has to drop it in.
+ */
+function WorkerNoteCard({ workerId }: { workerId: string }) {
+  const t = useTranslate();
+  const [text, setText] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  const query = useQuery({
+    queryKey: ['worker-note', workerId],
+    queryFn: () => workerNotesApi.get(workerId),
+  });
+
+  // Seed the editor once the saved note loads (only while the employer
+  // hasn't started typing, so a refetch never clobbers an in-progress edit).
+  useEffect(() => {
+    if (query.data && !dirty) {
+      setText(query.data.note);
+      setSavedAt(query.data.updatedAt);
+    }
+  }, [query.data, dirty]);
+
+  const mutation = useMutation({
+    mutationFn: () => workerNotesApi.save(workerId, text.trim()),
+    onSuccess: (data) => {
+      haptic('success');
+      setDirty(false);
+      setSavedAt(data.updatedAt);
+    },
+    onError: () => haptic('error'),
+  });
+
+  return (
+    <Card>
+      <View style={{ gap: spacing.sm }}>
+        <Text
+          variant="footnote"
+          weight="medium"
+          tone="secondary"
+          style={{ letterSpacing: 1.0 }}
+        >
+          {t('employer.worker_note.label')}
+        </Text>
+        <TextField
+          value={text}
+          onChangeText={(v) => {
+            setText(v);
+            setDirty(true);
+          }}
+          placeholder={t('employer.worker_note.placeholder')}
+          helper={t('employer.worker_note.private_hint')}
+          multiline
+          numberOfLines={3}
+        />
+        <Button
+          label={
+            mutation.isPending
+              ? t('employer.worker_note.saving')
+              : dirty
+                ? t('employer.worker_note.save')
+                : savedAt
+                  ? t('employer.worker_note.saved')
+                  : t('employer.worker_note.save')
+          }
+          variant="secondary"
+          onPress={() => mutation.mutate()}
+          disabled={mutation.isPending || !dirty}
+        />
+      </View>
+    </Card>
+  );
+}
+
+// ─── Auto-expiring offer ───────────────────────────────────────────────────
+
+/** "expires in 5h" / "expires in 30m" from an ISO deadline. */
+function expiresInLabel(iso: string): string {
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return 'expiring';
+  const h = Math.floor(ms / 3_600_000);
+  if (h >= 1) return `expires in ${h}h`;
+  return `expires in ${Math.max(1, Math.round(ms / 60_000))}m`;
+}
+
+/**
+ * Employer offer control. When no offer is out, shows quick "Offer · 24h /
+ * 48h" buttons; once pending, shows the countdown; once resolved, shows
+ * the outcome. The expiry itself is handled server-side by the sweep.
+ */
+function OfferCard({ applicant }: { applicant: ApplicantEntry }) {
+  const t = useTranslate();
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const offer = applicant.offer;
+
+  async function makeOffer(ttlHours: number) {
+    if (busy) return;
+    setBusy(true);
+    haptic('selection');
+    try {
+      await applicationsApi.makeOffer(applicant.id, ttlHours);
+      haptic('success');
+      await queryClient.invalidateQueries({
+        queryKey: ['applicants', 'detail', applicant.id],
+      });
+    } catch {
+      haptic('error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const statusLine =
+    offer.status === 'pending'
+      ? t('employer.offer.pending', {
+          when: offer.expiresAt ? expiresInLabel(offer.expiresAt) : '',
+        })
+      : offer.status === 'accepted'
+        ? t('employer.offer.accepted')
+        : offer.status === 'declined'
+          ? t('employer.offer.declined')
+          : offer.status === 'expired'
+            ? t('employer.offer.expired')
+            : null;
+  const tone =
+    offer.status === 'accepted'
+      ? 'success'
+      : offer.status === 'declined' || offer.status === 'expired'
+        ? 'warning'
+        : 'secondary';
+
+  // Once hired there's nothing to offer; only show the (accepted) status.
+  const canOffer =
+    offer.status === 'none' || offer.status === 'declined' || offer.status === 'expired';
+
+  return (
+    <Card>
+      <View style={{ gap: spacing.sm }}>
+        <Text
+          variant="footnote"
+          weight="medium"
+          tone="secondary"
+          style={{ letterSpacing: 1.0 }}
+        >
+          {t('employer.offer.label')}
+        </Text>
+        {statusLine ? (
+          <Text variant="bodyLarge" weight="medium" tone={tone}>
+            {statusLine}
+          </Text>
+        ) : null}
+        {applicant.status !== 'hired' && canOffer ? (
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Button
+              label={t('employer.offer.make_24h')}
+              onPress={() => void makeOffer(24)}
+              disabled={busy}
+            />
+            <Button
+              label={t('employer.offer.make_48h')}
+              variant="secondary"
+              onPress={() => void makeOffer(48)}
+              disabled={busy}
+            />
+          </View>
+        ) : null}
+      </View>
+    </Card>
+  );
+}
+
+// ─── Arrival likelihood ────────────────────────────────────────────────────
+
+/**
+ * "Will they show up?" card. Pulls the heuristic arrival-likelihood score
+ * for this applicant and shows the band + the transparent factors behind
+ * it (distance, shift time, rating). Helps the employer line up backfill
+ * when the odds are poorer — never hides anyone.
+ */
+function ArrivalLikelihoodCard({ applicationId }: { applicationId: string }) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  const query = useQuery({
+    queryKey: ['arrival-likelihood', applicationId],
+    queryFn: () => arrivalLikelihoodApi.get(applicationId),
+  });
+  if (query.isLoading || query.isError || !query.data) return null;
+
+  const { band, score, factors } = query.data;
+  const bandTone: Record<ArrivalBand, 'success' | 'warning' | 'danger'> = {
+    high: 'success',
+    medium: 'warning',
+    low: 'danger',
+  };
+  const tone = bandTone[band];
+
+  return (
+    <Card>
+      <View style={{ gap: spacing.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <Text
+            variant="footnote"
+            weight="medium"
+            tone="secondary"
+            style={{ letterSpacing: 1.0, flex: 1 }}
+          >
+            {t('employer.arrival.label')}
+          </Text>
+          <Pill label={t(`employer.arrival.band_${band}`)} tone={tone === 'danger' ? 'warning' : tone} />
+        </View>
+        <Text variant="footnote" tone="tertiary">
+          {t('employer.arrival.score', { score })}
+        </Text>
+        <View style={{ gap: 2 }}>
+          {factors.map((f, i) => (
+            <Text key={i} variant="footnote" tone="secondary">
+              {f.effect > 0 ? '↑' : f.effect < 0 ? '↓' : '•'} {f.label}
+            </Text>
+          ))}
+        </View>
+      </View>
+    </Card>
+  );
+}
+
+// ─── Self-qualifying skill check ───────────────────────────────────────────
+
+/**
+ * Shows whether this applicant passed the skill check the employer
+ * attached to the job. Reads the worker's passed-test slugs (the same
+ * endpoint the seeker profile uses) and checks membership — no new
+ * backend needed. Lets the employer make the first cut on a demonstrated
+ * skill, not just a claimed one.
+ */
+function SkillCheckBadge({ seekerId, testId }: { seekerId: string; testId: string }) {
+  const t = useTranslate();
+  const query = useQuery({
+    queryKey: ['passed-tests', seekerId],
+    queryFn: () => skillTestsApi.passedForSeeker(seekerId),
+  });
+  if (query.isLoading || query.isError) return null;
+  const passed = query.data?.passedTestIds.includes(testId) ?? false;
+  return (
+    <Card>
+      <View style={{ gap: spacing.xs }}>
+        <Text
+          variant="footnote"
+          weight="medium"
+          tone="secondary"
+          style={{ letterSpacing: 1.0 }}
+        >
+          {t('employer.skill_check.label')}
+        </Text>
+        <Pill
+          label={passed ? t('employer.skill_check.passed') : t('employer.skill_check.not_passed')}
+          tone={passed ? 'success' : 'neutral'}
+          leading={passed ? '✓' : undefined}
+        />
+      </View>
+    </Card>
+  );
+}
+
+// ─── Work proof review ─────────────────────────────────────────────────────
+
+/**
+ * Employer's review of the worker's completed-work photo. Shows the photo
+ * once submitted with Approve / Reject; the worker can resubmit after a
+ * rejection. Sits alongside the pay flow as the quality gate before money
+ * moves.
+ */
+function WorkProofReviewCard({ applicationId }: { applicationId: string }) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+
+  const query = useQuery({
+    queryKey: ['work-proof', applicationId],
+    queryFn: () => workProofApi.get(applicationId),
+  });
+  const proof = query.data;
+  if (query.isLoading || !proof) return null;
+  if (proof.status === 'none') {
+    return (
+      <Card>
+        <View style={{ gap: spacing.xs }}>
+          <Text variant="footnote" weight="medium" tone="secondary" style={{ letterSpacing: 1.0 }}>
+            {t('employer.work_proof.label')}
+          </Text>
+          <Text variant="footnote" tone="tertiary">
+            {t('employer.work_proof.awaiting')}
+          </Text>
+        </View>
+      </Card>
+    );
+  }
+
+  async function review(approve: boolean) {
+    if (busy) return;
+    setBusy(true);
+    haptic('selection');
+    try {
+      await workProofApi.review(applicationId, approve);
+      haptic(approve ? 'success' : 'warning');
+      await queryClient.invalidateQueries({ queryKey: ['work-proof', applicationId] });
+    } catch {
+      haptic('error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <View style={{ gap: spacing.sm }}>
+        <Text variant="footnote" weight="medium" tone="secondary" style={{ letterSpacing: 1.0 }}>
+          {t('employer.work_proof.label')}
+        </Text>
+        {proof.photoUrl ? (
+          <Image
+            source={{ uri: proof.photoUrl }}
+            style={{ width: '100%', height: 200, borderRadius: radii.md }}
+            resizeMode="cover"
+          />
+        ) : null}
+        {proof.status === 'approved' ? (
+          <Text variant="body" weight="medium" tone="success">
+            {t('employer.work_proof.approved')}
+          </Text>
+        ) : proof.status === 'rejected' ? (
+          <Text variant="body" weight="medium" tone="warning">
+            {t('employer.work_proof.rejected')}
+          </Text>
+        ) : (
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Button
+              label={t('employer.work_proof.approve')}
+              onPress={() => void review(true)}
+              disabled={busy}
+            />
+            <Button
+              label={t('employer.work_proof.reject')}
+              variant="secondary"
+              onPress={() => void review(false)}
+              disabled={busy}
+            />
+          </View>
+        )}
+      </View>
+    </Card>
+  );
+}
+
+// ─── Next shift + confirmation ─────────────────────────────────────────────
+
+/** Build a Date for a given hour, tomorrow (or today if still ahead). */
+function nextShiftDate(hour: number): Date {
+  const d = new Date();
+  d.setHours(hour, 0, 0, 0);
+  if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+  return d;
+}
+
+/**
+ * Employer card for a hired worker: schedule the next shift with one tap
+ * and see the night-before confirmation status. Quick-set buttons avoid a
+ * date-picker — the common case is "tomorrow morning / evening". Once a
+ * shift is set, the worker is pinged the evening before; this card then
+ * shows whether they've confirmed, declined, or not yet replied (the cue
+ * to line up backfill).
+ */
+function EmployerShiftCard({ applicant }: { applicant: ApplicantEntry }) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+
+  const whenLabel = applicant.nextShiftAt
+    ? new Date(applicant.nextShiftAt).toLocaleString('en-IN', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+    : null;
+
+  async function setShift(hour: number) {
+    if (busy) return;
+    setBusy(true);
+    haptic('selection');
+    try {
+      await applicationsApi.setNextShift(applicant.id, nextShiftDate(hour).toISOString());
+      haptic('success');
+      await queryClient.invalidateQueries({
+        queryKey: ['applicants', 'detail', applicant.id],
+      });
+    } catch {
+      haptic('error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const status = applicant.shiftConfirmation;
+  const statusLine =
+    status === 'confirmed'
+      ? t('employer.shift_schedule.status_confirmed')
+      : status === 'declined'
+        ? t('employer.shift_schedule.status_declined')
+        : status === 'awaiting'
+          ? t('employer.shift_schedule.status_awaiting')
+          : null;
+  const statusTone: 'success' | 'warning' | 'danger' | 'secondary' =
+    status === 'confirmed'
+      ? 'success'
+      : status === 'declined'
+        ? 'danger'
+        : status === 'awaiting'
+          ? 'warning'
+          : 'secondary';
+
+  return (
+    <Card>
+      <View style={{ gap: spacing.sm }}>
+        <Text
+          variant="footnote"
+          weight="medium"
+          tone="secondary"
+          style={{ letterSpacing: 1.0 }}
+        >
+          {t('employer.shift_schedule.label')}
+        </Text>
+
+        {whenLabel ? (
+          <Text variant="bodyLarge" weight="medium">
+            {whenLabel}
+          </Text>
+        ) : (
+          <Text variant="footnote" tone="tertiary">
+            {t('employer.shift_schedule.none')}
+          </Text>
+        )}
+
+        {statusLine ? (
+          <Text variant="footnote" tone={statusTone} weight="medium">
+            {statusLine}
+          </Text>
+        ) : null}
+
+        {applicant.onTheWay.active ? (
+          <Text variant="footnote" tone="success" weight="medium">
+            {applicant.onTheWay.etaMinutes != null
+              ? t('employer.shift_schedule.on_the_way_eta', { eta: applicant.onTheWay.etaMinutes })
+              : t('employer.shift_schedule.on_the_way')}
+          </Text>
+        ) : null}
+
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          <Button
+            label={t('employer.shift_schedule.tomorrow_morning')}
+            variant="secondary"
+            onPress={() => void setShift(8)}
+            disabled={busy}
+          />
+          <Button
+            label={t('employer.shift_schedule.tomorrow_evening')}
+            variant="secondary"
+            onPress={() => void setShift(18)}
+            disabled={busy}
+          />
+        </View>
+      </View>
+    </Card>
   );
 }
 

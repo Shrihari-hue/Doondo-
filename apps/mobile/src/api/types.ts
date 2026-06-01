@@ -442,6 +442,10 @@ export interface PublicJob {
     coordinates: [number, number]; // [lng, lat]
   };
   skills: string[];
+  /** Slug of an attached self-qualifying skill check, or null. */
+  requiredSkillTestId: string | null;
+  /** How many people to hire. 1 unless the post is bulk. */
+  headcount: number;
   /** Where the role is performed — defaults to onsite. */
   workMode: WorkMode;
   schedule: {
@@ -722,6 +726,25 @@ export interface PublicApplication {
   flaggedAsGhostedAt: string | null;
   /** Latest interview if scheduled, null otherwise. */
   interview: PublicInterview | null;
+  /** Concrete start time of the next shift (ISO), or null if none set. */
+  nextShiftAt: string | null;
+  /**
+   * Night-before confirmation state:
+   *   'none' (nothing to show) · 'awaiting' (prompted, no reply) ·
+   *   'confirmed' · 'declined'.
+   */
+  shiftConfirmation: 'none' | 'awaiting' | 'confirmed' | 'declined';
+  /** Time-boxed offer state. */
+  offer: {
+    status: 'none' | 'pending' | 'accepted' | 'declined' | 'expired';
+    expiresAt: string | null;
+  };
+  /** "On my way" en-route status (worker-initiated, ETA estimate). */
+  onTheWay: {
+    active: boolean;
+    etaMinutes: number | null;
+    startedAt: string | null;
+  };
   /**
    * Snapshot of the worker's Smart Resume tailored to this job, captured
    * at apply time. Null when the worker applied without tailoring.

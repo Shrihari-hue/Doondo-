@@ -37,6 +37,15 @@ import { UserModel } from '@/modules/users/user.model';
 import mentorsRouter from '@/modules/mentors/mentor.routes';
 import paymentsRouter from '@/modules/payments/payment.routes';
 import voiceAgentRouter from '@/modules/voiceAgent/voiceAgent.routes';
+import postDraftRouter from '@/modules/postDraft/postDraft.routes';
+import workerNotesRouter from '@/modules/workerNotes/workerNote.routes';
+import pastApplicantsRouter from '@/modules/pastApplicants/pastApplicants.routes';
+import laborBudgetRouter from '@/modules/laborBudget/laborBudget.routes';
+import employerResponseRouter from '@/modules/employerResponse/employerResponse.routes';
+import arrivalLikelihoodRouter from '@/modules/arrivalLikelihood/arrivalLikelihood.routes';
+import workProofRouter from '@/modules/workProof/workProof.routes';
+import trustedWorkersRouter from '@/modules/trustedWorkers/trustedWorkers.routes';
+import crewRouter from '@/modules/crew/crew.routes';
 import reelsRouter from '@/modules/reels/reel.routes';
 import communityRouter from '@/modules/community/post.routes';
 import hiringRequestsRouter from '@/modules/hiringRequests/hiringRequest.routes';
@@ -72,6 +81,24 @@ v1.use('/mentors', mentorsRouter);
 v1.use('/payments', paymentsRouter);
 // Voice job-search agent — speak a search, hear results, apply by voice.
 v1.use('/voice-agent', voiceAgentRouter);
+// Voice Command Posting — employer speaks a job, gets a draft to confirm.
+v1.use('/post-draft', postDraftRouter);
+// Private worker notes — employer-only annotations on a worker.
+v1.use('/worker-notes', workerNotesRouter);
+// Re-tap past applicants — prior applicants who are free nearby again.
+v1.use('/past-applicants', pastApplicantsRouter);
+// Labor budget tracker — wage budget + live spend-to-date.
+v1.use('/labor-budget', laborBudgetRouter);
+// Response SLA & quiet hours — employer reachability window.
+v1.use('/employer-response', employerResponseRouter);
+// Arrival-likelihood — will-they-show-up score for an applicant.
+v1.use('/arrival-likelihood', arrivalLikelihoodRouter);
+// Photo proof of work — worker submits, employer approves.
+v1.use('/work-proof', workProofRouter);
+// Workers your trusted (local) employers rated highly.
+v1.use('/trusted-workers', trustedWorkersRouter);
+// My crew — saved workers + import-from-contacts.
+v1.use('/crew', crewRouter);
 // Hire Reels — worker intro videos + the employer discovery feed.
 v1.use('/reels', reelsRouter);
 // Community — the worker feed: posts, likes, comments, reposts.

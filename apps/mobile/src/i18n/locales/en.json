@@ -1720,8 +1720,129 @@
     "ticker_live": "LIVE"
   },
   "employer": {
+    "trusted_workers": {
+      "heading": "Rated highly by other employers near you",
+      "rated_by": "★{{avg}} · rated by {{n}} local employers",
+      "call": "Call"
+    },
+    "past_applicants": {
+      "heading": "{{n}} applied to you before — free nearby now",
+      "applied_for": "Applied for {{title}}",
+      "applied_before": "Applied to you before",
+      "call": "Call"
+    },
+    "work_proof": {
+      "label": "WORK PHOTO",
+      "awaiting": "Waiting for the worker to send a photo of the finished job.",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approved": "Approved ✓",
+      "rejected": "Rejected — worker can resubmit"
+    },
+    "offer": {
+      "label": "OFFER",
+      "pending": "Offer sent — {{when}}",
+      "accepted": "Offer accepted ✓",
+      "declined": "Candidate declined",
+      "expired": "Offer expired — no reply",
+      "make_24h": "Offer · 24h",
+      "make_48h": "Offer · 48h"
+    },
+    "arrival": {
+      "label": "WILL THEY SHOW UP?",
+      "band_high": "Likely",
+      "band_medium": "Maybe",
+      "band_low": "Risky",
+      "score": "Arrival score {{score}}/100"
+    },
+    "skill_check": {
+      "label": "SKILL CHECK",
+      "passed": "Passed the skill check",
+      "not_passed": "Hasn't passed yet"
+    },
+    "response_settings": {
+      "title": "Quiet hours",
+      "hint": "We won't flag you for slow replies during these hours",
+      "sms_title": "SMS new-applicant alerts",
+      "sms_hint": "Get a text when someone applies — even with the app closed",
+      "from": "FROM",
+      "to": "TO",
+      "auto_reply_label": "Auto-reply (optional)",
+      "auto_reply_ph": "e.g. Thanks! I'll reply in the morning.",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "labor_budget": {
+      "label": "LABOR BUDGET",
+      "spent_of": "{{spent}} of {{cap}} this {{period}}",
+      "spent_this_month": "Paid out this month: {{spent}}",
+      "remaining": "{{remaining}} left",
+      "over": "Over budget — heads up",
+      "period_week": "Week",
+      "period_month": "Month",
+      "amount_label": "Budget amount (₹)",
+      "set": "Set a budget",
+      "edit": "Edit budget",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel"
+    },
+    "shift_schedule": {
+      "label": "NEXT SHIFT",
+      "none": "No shift scheduled yet",
+      "status_confirmed": "Worker confirmed ✓",
+      "status_declined": "Worker can't make it — line up a backfill",
+      "status_awaiting": "Waiting for confirmation",
+      "tomorrow_morning": "Tomorrow 8 AM",
+      "tomorrow_evening": "Tomorrow 6 PM",
+      "on_the_way": "Worker is on the way",
+      "on_the_way_eta": "On the way · ~{{eta}} min away"
+    },
+    "blind_review": {
+      "toggle_title": "Blind first-pass",
+      "toggle_hint": "Hide photos & names while you shortlist on skills",
+      "candidate_n": "Candidate {{n}}"
+    },
+    "worker_note": {
+      "label": "PRIVATE NOTE",
+      "placeholder": "e.g. Great with customers, bring back for weekends",
+      "private_hint": "Only you can see this. Never shown to the worker.",
+      "save": "Save note",
+      "saving": "Saving…",
+      "saved": "Saved ✓"
+    },
+    "voice_post": {
+      "title": "Speak your job",
+      "hint": "Tap and say it — e.g. \"2 dishwashers, Friday night, ₹600\"",
+      "listening": "Listening… tap to stop",
+      "thinking": "Got it — filling the form…",
+      "failed": "Didn't catch that. Try again or type below.",
+      "mic_label": "Speak the job post",
+      "note_headcount": "Need {{count}} people.",
+      "note_days": "Days: {{days}}.",
+      "note_start": "Starts {{time}}."
+    },
     "back": "← Back",
     "retry": "Retry",
+    "crew": {
+      "title": "My crew",
+      "import_cta": "Import workers from contacts",
+      "importing": "Importing…",
+      "remove": "Remove",
+      "empty_eyebrow": "BUILD YOUR CREW",
+      "empty_title": "No crew yet",
+      "empty_body": "Import your contacts to add workers you already know — they'll be one tap away for your next job.",
+      "no_contacts_title": "Contacts unavailable",
+      "no_contacts_body": "Contact import isn't available on this device.",
+      "permission_title": "Permission needed",
+      "permission_body": "Allow contacts access to find workers you already know.",
+      "import_done_title": "{{n}} added to your crew",
+      "import_done_body": "{{invite}} of your contacts aren't on Doondo yet.",
+      "import_fail": "Couldn't import contacts. Try again.",
+      "invite": "Invite them",
+      "later": "Later",
+      "invite_message": "I'm hiring on Doondo — join and I'll add you to my crew: https://doondo.app"
+    },
     "workforce": {
       "eyebrow": "WORKFORCE",
       "title": "Your team.",
@@ -1750,6 +1871,7 @@
       "title": "People who want this.",
       "per_job_title": "Applicants",
       "per_job_total": "{{n}} total",
+      "fill": "{{hired}} of {{headcount}} hired",
       "filter_all": "All",
       "filter_pending": "New",
       "filter_viewed": "Viewed",
@@ -1773,6 +1895,16 @@
     },
     "upi": {
       "title": "💸 Pay via UPI",
+      "receipt_share": "Share receipt",
+      "receipt_sharing": "Preparing…",
+      "receipt_fail": "Couldn't load the receipt. Try again.",
+      "receipt_heading": "DOONDO PAYMENT RECEIPT",
+      "receipt_no": "Receipt no",
+      "receipt_date": "Date",
+      "receipt_from": "From",
+      "receipt_to": "To",
+      "receipt_amount": "Amount",
+      "receipt_method": "Method",
       "amount_placeholder": "Amount",
       "cta_open": "Open UPI app",
       "no_upi_title": "No UPI app found",
@@ -2004,6 +2136,11 @@
       "field_pincode": "Pincode (optional)",
       "field_pincode_ph": "560038",
       "section_skills": "SKILLS NEEDED",
+      "field_headcount": "How many people?",
+      "field_headcount_hint": "Post once to hire several — the pipeline tracks how many you've hired.",
+      "section_skill_check": "SELF-QUALIFYING CHECK",
+      "skill_check_hint": "Attach a short quiz applicants can take to qualify — you'll see who passed.",
+      "skill_check_none": "No check",
       "field_skill": "Add skill",
       "field_skill_ph": "driving, customer service",
       "section_work_mode": "WORK MODE",
@@ -2132,6 +2269,33 @@
     "reviews_one": "{{count}} review",
     "reviews_other": "{{count}} reviews",
     "heads_up": "HEADS UP"
+  },
+  "work_proof": {
+    "title": "Proof of work",
+    "prompt": "Snap a photo of the finished job for your employer to approve.",
+    "submitted": "Photo sent — waiting for approval",
+    "approved": "Approved by employer ✓",
+    "rejected": "Not approved — please submit a new photo",
+    "cta": "Take work photo",
+    "sending": "Sending…"
+  },
+  "offer_response": {
+    "title": "You've got an offer!",
+    "expires_h": "Expires in {{h}}h — respond now",
+    "expires_m": "Expires in {{m}} min — respond now",
+    "expiring": "Expiring now",
+    "accept": "Accept & get hired",
+    "decline": "Decline"
+  },
+  "shift_confirm": {
+    "title": "Your shift · {{when}}",
+    "confirmed": "Confirmed — see you there ✓",
+    "declined": "You told them you can't make it",
+    "coming": "I'll be there",
+    "cant": "Can't make it",
+    "im_on_my_way": "I'm on my way",
+    "on_the_way": "You're marked on the way",
+    "on_the_way_eta": "On the way · ~{{eta}} min"
   },
   "shift_card": {
     "on_shift_at": "On shift · checked in at {{time}}",

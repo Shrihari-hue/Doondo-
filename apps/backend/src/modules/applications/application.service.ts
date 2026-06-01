@@ -31,6 +31,9 @@ import {
   sendInterviewPush,
   sendSkillGapPush,
   sendTrustCircleHirePush,
+  sendOfferMadePush,
+  sendOfferResolvedPush,
+  sendWorkerOnTheWayPush,
 } from '@/lib/push';
 import { JobModel, type PublicJob } from '@/modules/jobs/job.model';
 import {
@@ -204,6 +207,29 @@ export async function apply(input: ApplyInput): Promise<PublicApplication> {
       }
     })();
 
+    // New-applicant SMS alert — only for employers who opted in. Indian
+    // local employers often live in SMS, not app notifications, so this is
+    // their reliable channel. Fire-and-forget; SMS is best-effort and must
+    // never block or fail the application.
+    void (async () => {
+      try {
+        const { wantsSmsApplicantAlerts } = await import(
+          '@/modules/employerResponse/employerResponse.service'
+        );
+        if (!(await wantsSmsApplicantAlerts(job.employerId.toString()))) return;
+        const employer = await UserModel.findById(job.employerId).select('phone').lean();
+        const phone = (employer as { phone?: string | null } | null)?.phone;
+        if (!phone) return;
+        const { sendTransactionalSms } = await import('@/lib/transactionalSms');
+        await sendTransactionalSms({
+          phone,
+          message: `Doondo: New applicant for "${job.title}". Open the app to review.`,
+        });
+      } catch (err) {
+        logger.warn({ err, jobId: input.jobId }, 'new-applicant SMS alert failed');
+      }
+    })();
+
     return app.toPublicJSON();
   } catch (err) {
     if (isDuplicateKey(err)) throw errors.applicationAlreadyExists();
@@ -280,6 +306,264 @@ export async function confirmPayment(
   app.paymentConfirmation = next;
   await app.save();
   return app.toPublicJSON();
+}
+
+export interface SetNextShiftInput {
+  employerId: string;
+  applicationId: string;
+  /** ISO datetime of the shift start. */
+  startAt: string;
+}
+
+/**
+ * Employer sets (or moves) the concrete start time of a hired worker's
+ * next shift. Setting it arms the night-before confirmation ping; moving
+ * it resets the confirmation cycle so the worker is asked afresh for the
+ * new time.
+ */
+export async function setNextShift(
+  input: SetNextShiftInput,
+): Promise<PublicApplication> {
+  const app = await ApplicationModel.findById(input.applicationId);
+  if (!app) throw errors.applicationNotFound();
+  if (
+    !(app.employerId as unknown as Types.ObjectId).equals(
+      new Types.ObjectId(input.employerId),
+    )
+  ) {
+    throw errors.forbidden();
+  }
+  if (app.status !== 'hired') {
+    throw errors.conflict('Can only schedule a shift for a hired worker.');
+  }
+  const when = new Date(input.startAt);
+  if (Number.isNaN(when.getTime())) {
+    throw errors.validation({ startAt: input.startAt }, 'startAt must be a valid date.');
+  }
+  if (when.getTime() < Date.now() - 60_000) {
+    throw errors.validation({ startAt: input.startAt }, 'Shift time must be in the future.');
+  }
+  app.nextShiftAt = when;
+  app.shiftConfirmation = { promptedAt: null, confirmedAt: null, declinedAt: null };
+  await app.save();
+  return app.toPublicJSON();
+}
+
+export interface ConfirmShiftInput {
+  seekerId: string;
+  applicationId: string;
+  /** true = "I'm coming", false = "I can't make it". */
+  coming: boolean;
+}
+
+/**
+ * Worker confirms (or declines) their next shift in response to the
+ * night-before ping. Recording a decline early is the whole point — it
+ * turns a silent no-show into a managed gap the employer can backfill.
+ */
+export async function confirmShift(
+  input: ConfirmShiftInput,
+): Promise<PublicApplication> {
+  const app = await ApplicationModel.findById(input.applicationId);
+  if (!app) throw errors.applicationNotFound();
+  if (
+    !(app.seekerId as unknown as Types.ObjectId).equals(
+      new Types.ObjectId(input.seekerId),
+    )
+  ) {
+    throw errors.forbidden();
+  }
+  if (app.status !== 'hired') throw errors.conflict('No shift to confirm.');
+  if (!app.nextShiftAt) throw errors.conflict('No shift has been scheduled yet.');
+
+  const now = new Date();
+  app.shiftConfirmation = {
+    promptedAt: app.shiftConfirmation?.promptedAt ?? now,
+    confirmedAt: input.coming ? now : null,
+    declinedAt: input.coming ? null : now,
+  };
+  await app.save();
+  return app.toPublicJSON();
+}
+
+export interface MarkOnTheWayInput {
+  seekerId: string;
+  applicationId: string;
+  /** The worker's current coordinates when they tapped "on my way". */
+  lat: number;
+  lng: number;
+}
+
+/** Haversine distance in km between two [lng,lat] points. */
+function distanceKm(a: [number, number], b: [number, number]): number {
+  const R = 6371;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b[1] - a[1]);
+  const dLng = toRad(b[0] - a[0]);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+/**
+ * Worker raises "I'm on my way". We estimate an ETA from their current
+ * position to the job at a nominal local-travel speed — a foreground,
+ * worker-initiated signal, NOT a live background feed. The employer gets
+ * a heads-up push and the en-route status on the applicant card.
+ */
+export async function markOnTheWay(
+  input: MarkOnTheWayInput,
+): Promise<PublicApplication> {
+  const app = await ApplicationModel.findById(input.applicationId);
+  if (!app) throw errors.applicationNotFound();
+  if (
+    !(app.seekerId as unknown as Types.ObjectId).equals(
+      new Types.ObjectId(input.seekerId),
+    )
+  ) {
+    throw errors.forbidden();
+  }
+  if (app.status !== 'hired') throw errors.conflict('You can set this once hired.');
+
+  // Estimate ETA from the job location, when we have it. ~18 km/h is a
+  // reasonable blended speed for short urban trips (walk/auto/bike).
+  const job = await JobModel.findById(app.jobId).select('location title').lean();
+  const jobCoords = (job as { location?: { geo?: { coordinates?: [number, number] } } } | null)
+    ?.location?.geo?.coordinates;
+  // (0,0) is the mobile's "location unavailable" sentinel — don't treat it
+  // as a real position (it would yield a nonsense cross-globe ETA). Fall
+  // back to the default estimate instead.
+  const hasCoords = jobCoords && !(input.lat === 0 && input.lng === 0);
+  let etaMinutes = 15;
+  if (hasCoords) {
+    const km = distanceKm([input.lng, input.lat], jobCoords!);
+    etaMinutes = Math.max(1, Math.min(600, Math.round((km / 18) * 60)));
+  }
+
+  app.onTheWay = { startedAt: new Date(), etaMinutes };
+  await app.save();
+
+  void sendWorkerOnTheWayPush({
+    recipientId: app.employerId.toString(),
+    applicationId: (app._id as Types.ObjectId).toString(),
+    etaMinutes,
+  }).catch(() => undefined);
+
+  return app.toPublicJSON();
+}
+
+export interface MakeOfferInput {
+  employerId: string;
+  applicationId: string;
+  /** Hours until the offer lapses. */
+  ttlHours: number;
+}
+
+/**
+ * Employer extends a time-boxed offer to a candidate. The offer carries a
+ * deadline; the worker accepts (→ hired) or declines, and the expiry
+ * sweep lapses it if neither happens. Re-offering replaces a prior
+ * lapsed/declined offer with a fresh window.
+ */
+export async function makeOffer(
+  input: MakeOfferInput,
+): Promise<PublicApplication> {
+  const app = await ApplicationModel.findById(input.applicationId);
+  if (!app) throw errors.applicationNotFound();
+  if (
+    !(app.employerId as unknown as Types.ObjectId).equals(
+      new Types.ObjectId(input.employerId),
+    )
+  ) {
+    throw errors.forbidden();
+  }
+  if (app.status === 'hired') throw errors.conflict('This worker is already hired.');
+  if (app.status === 'rejected' || app.status === 'withdrawn') {
+    throw errors.conflict('Cannot offer — this application is closed.');
+  }
+  if (app.offer && app.offer.outcome === 'pending') {
+    throw errors.conflict('An offer is already pending with this candidate.');
+  }
+
+  const now = new Date();
+  app.offer = {
+    madeAt: now,
+    expiresAt: new Date(now.getTime() + input.ttlHours * 60 * 60 * 1000),
+    respondedAt: null,
+    outcome: 'pending',
+  };
+  await app.save();
+
+  void sendOfferMadePush({
+    recipientId: app.seekerId.toString(),
+    applicationId: (app._id as Types.ObjectId).toString(),
+    expiresAt: app.offer.expiresAt,
+  }).catch(() => undefined);
+
+  return app.toPublicJSON();
+}
+
+export interface RespondToOfferInput {
+  seekerId: string;
+  applicationId: string;
+  /** true = accept (→ hired), false = decline. */
+  accept: boolean;
+}
+
+/**
+ * Worker accepts or declines a pending offer. Accepting transitions the
+ * application to `hired`; declining frees the slot so the employer can
+ * move on. A lapsed (expired) offer can no longer be accepted.
+ */
+export async function respondToOffer(
+  input: RespondToOfferInput,
+): Promise<PublicApplication> {
+  const app = await ApplicationModel.findById(input.applicationId);
+  if (!app) throw errors.applicationNotFound();
+  if (
+    !(app.seekerId as unknown as Types.ObjectId).equals(
+      new Types.ObjectId(input.seekerId),
+    )
+  ) {
+    throw errors.forbidden();
+  }
+  if (!app.offer || app.offer.outcome !== 'pending') {
+    throw errors.conflict('No pending offer to respond to.');
+  }
+  if (app.offer.expiresAt.getTime() <= Date.now()) {
+    // Lapsed between the worker opening the screen and tapping — settle it.
+    app.offer.outcome = 'expired';
+    await app.save();
+    throw errors.conflict('This offer has expired.');
+  }
+
+  const now = new Date();
+  const employerId = (app.employerId as unknown as Types.ObjectId).toString();
+  app.offer.respondedAt = now;
+  app.offer.outcome = input.accept ? 'accepted' : 'declined';
+  await app.save();
+
+  void sendOfferResolvedPush({
+    recipientId: employerId,
+    applicationId: (app._id as Types.ObjectId).toString(),
+    outcome: input.accept ? 'accepted' : 'declined',
+  }).catch(() => undefined);
+
+  if (!input.accept) {
+    return app.toPublicJSON();
+  }
+
+  // Accepting an offer hires the worker — route it through the canonical
+  // employer hire path so every hire side-effect fires exactly as it does
+  // for a manual hire (job → filled, wallet credit, hired-nearby fan-out,
+  // Trust Circle ping, chat unlock, hire-celebration push). Only
+  // `shortlisted → hired` is permitted, so step a pending/viewed offer up
+  // to shortlisted first. Authorised as the employer whose offer this is.
+  if (app.status === 'pending' || app.status === 'viewed') {
+    await transitionByEmployer(employerId, input.applicationId, 'shortlisted');
+  }
+  return transitionByEmployer(employerId, input.applicationId, 'hired');
 }
 
 // ─── Mass-apply ─────────────────────────────────────────────────────────────

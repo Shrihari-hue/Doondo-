@@ -169,6 +169,10 @@ export const createJobSchema = z.object({
       pay: paySchema,
       location: locationSchema,
       skills: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+      /** Optional self-qualifying skill check — a SkillTest slug. */
+      requiredSkillTestId: z.string().trim().min(1).max(60).nullable().optional(),
+      /** How many people to hire. Defaults to 1. */
+      headcount: z.number().int().min(1).max(100).optional(),
       schedule: scheduleSchema,
       /** Time-sensitive posting. Defaults to false. */
       urgent: z.boolean().default(false),

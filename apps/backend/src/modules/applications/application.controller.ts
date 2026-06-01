@@ -65,6 +65,130 @@ export async function confirmPayment(
 }
 
 /**
+ * Employer sets / moves a hired worker's next shift time. Arms the
+ * night-before confirmation ping.
+ */
+export async function setNextShift(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const startAt = (req.body as { startAt?: string })?.startAt;
+    if (!startAt) {
+      throw errors.validation({ startAt }, 'startAt is required.');
+    }
+    const application = await applicationService.setNextShift({
+      employerId: req.user.id,
+      applicationId: req.params.id!,
+      startAt,
+    });
+    ok(req, res, 200, { application });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Worker confirms or declines their next shift (night-before ping reply).
+ */
+export async function confirmShift(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const coming = (req.body as { coming?: unknown })?.coming;
+    if (typeof coming !== 'boolean') {
+      throw errors.validation({ coming }, 'coming must be a boolean.');
+    }
+    const application = await applicationService.confirmShift({
+      seekerId: req.user.id,
+      applicationId: req.params.id!,
+      coming,
+    });
+    ok(req, res, 200, { application });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Employer extends a time-boxed offer. Body: { ttlHours }. */
+export async function makeOffer(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const ttlRaw = (req.body as { ttlHours?: unknown })?.ttlHours;
+    const ttlHours = Number(ttlRaw);
+    if (!Number.isFinite(ttlHours) || ttlHours < 1 || ttlHours > 168) {
+      throw errors.validation({ ttlHours: ttlRaw }, 'ttlHours must be 1–168.');
+    }
+    const application = await applicationService.makeOffer({
+      employerId: req.user.id,
+      applicationId: req.params.id!,
+      ttlHours,
+    });
+    ok(req, res, 200, { application });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Worker raises "I'm on my way". Body: { lat, lng }. */
+export async function markOnTheWay(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const body = req.body as { lat?: unknown; lng?: unknown };
+    const lat = Number(body.lat);
+    const lng = Number(body.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      throw errors.validation({ lat: body.lat, lng: body.lng }, 'Valid lat/lng required.');
+    }
+    const application = await applicationService.markOnTheWay({
+      seekerId: req.user.id,
+      applicationId: req.params.id!,
+      lat,
+      lng,
+    });
+    ok(req, res, 200, { application });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Worker accepts or declines a pending offer. Body: { accept }. */
+export async function respondToOffer(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const accept = (req.body as { accept?: unknown })?.accept;
+    if (typeof accept !== 'boolean') {
+      throw errors.validation({ accept }, 'accept must be a boolean.');
+    }
+    const application = await applicationService.respondToOffer({
+      seekerId: req.user.id,
+      applicationId: req.params.id!,
+      accept,
+    });
+    ok(req, res, 200, { application });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
  * One-tap "I'm interested" — the Today-mode lightweight equivalent of
  * Apply. Same underlying record but flagged so employers can show
  * these in a different lane (typically by phoning the worker rather

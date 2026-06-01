@@ -154,6 +154,50 @@ export interface Application {
   /** Latest interview attached to this application, if any. */
   interview?: Interview | null;
   /**
+   * Concrete start time of the worker's next shift, set by the employer
+   * on a hired application. Anchors the night-before confirmation ping.
+   * Null when no specific shift has been scheduled yet.
+   */
+  nextShiftAt?: Date | null;
+  /**
+   * Night-before shift confirmation. The cron prompts the worker the
+   * evening before `nextShiftAt` (`promptedAt`); the worker taps coming
+   * (`confirmedAt`) or can't make it (`declinedAt`). A prompt with no
+   * reply by shift time reads as unconfirmed, which is the employer's
+   * cue to line up backfill before a silent no-show.
+   *
+   * Null = no shift scheduled / not yet prompted.
+   */
+  shiftConfirmation?: {
+    promptedAt?: Date | null;
+    confirmedAt?: Date | null;
+    declinedAt?: Date | null;
+  } | null;
+  /**
+   * A time-boxed offer the employer extended to this candidate. The worker
+   * accepts (→ hired) or declines; if neither happens by `expiresAt`, the
+   * expiry sweep marks it `expired` and nudges the employer to move on.
+   * `outcome` is the lifecycle: pending → accepted | declined | expired.
+   * Null when no offer has been made.
+   */
+  offer?: {
+    madeAt: Date;
+    expiresAt: Date;
+    respondedAt?: Date | null;
+    outcome: 'pending' | 'accepted' | 'declined' | 'expired';
+  } | null;
+  /**
+   * "On my way" status the worker raises on shift day. Worker-initiated
+   * (a foreground tap), not background tracking — `etaMinutes` is a
+   * distance-based estimate from where they were when they tapped. Lets
+   * the employer see the worker is en route without a delivery-style live
+   * feed. Null until the worker taps.
+   */
+  onTheWay?: {
+    startedAt: Date;
+    etaMinutes: number;
+  } | null;
+  /**
    * Snapshot of the worker's Smart Resume tailored to THIS job, copied
    * from their saved TailoredResume at apply time. Null when the worker
    * applied without tailoring their resume first.
@@ -218,6 +262,28 @@ export interface PublicApplication {
   flaggedAsGhostedAt: string | null;
   /** Latest interview, if scheduled. Surfaces in both employer + seeker views. */
   interview: PublicInterview | null;
+  /** Concrete start time of the next shift (ISO), or null if none set. */
+  nextShiftAt: string | null;
+  /**
+   * Night-before confirmation state, collapsed for the UI:
+   *   'none'      — no shift scheduled, or too early to have prompted
+   *   'awaiting'  — prompted, worker hasn't replied (employer: line up backfill)
+   *   'confirmed' — worker confirmed they're coming
+   *   'declined'  — worker said they can't make it
+   */
+  shiftConfirmation: 'none' | 'awaiting' | 'confirmed' | 'declined';
+  /** Time-boxed offer state for the UI. */
+  offer: {
+    status: 'none' | 'pending' | 'accepted' | 'declined' | 'expired';
+    /** ISO expiry of a pending offer, else null. */
+    expiresAt: string | null;
+  };
+  /** "On my way" status, or null when not en route. */
+  onTheWay: {
+    active: boolean;
+    etaMinutes: number | null;
+    startedAt: string | null;
+  };
   /** Job-tuned Smart Resume snapshot — shown on the employer's applicant view. */
   tailoredResume: ApplicationTailoredResume | null;
   /** Hydrated by the service when listing for the seeker. */
@@ -311,6 +377,44 @@ const applicationSchema = new Schema<Application, ApplicationModel, ApplicationM
       ),
       default: null,
     },
+    nextShiftAt: { type: Date, default: null },
+    shiftConfirmation: {
+      type: new Schema(
+        {
+          promptedAt: { type: Date, default: null },
+          confirmedAt: { type: Date, default: null },
+          declinedAt: { type: Date, default: null },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
+    offer: {
+      type: new Schema(
+        {
+          madeAt: { type: Date, required: true },
+          expiresAt: { type: Date, required: true },
+          respondedAt: { type: Date, default: null },
+          outcome: {
+            type: String,
+            enum: ['pending', 'accepted', 'declined', 'expired'],
+            default: 'pending',
+          },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
+    onTheWay: {
+      type: new Schema(
+        {
+          startedAt: { type: Date, required: true },
+          etaMinutes: { type: Number, required: true, min: 0, max: 600 },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
     tailoredResume: {
       type: new Schema<ApplicationTailoredResume>(
         {
@@ -346,6 +450,10 @@ applicationSchema.index({ seekerId: 1, jobId: 1 }, { unique: true });
 applicationSchema.index({ seekerId: 1, createdAt: -1 });
 // Phase 3 query: "all applicants for an employer's jobs".
 applicationSchema.index({ employerId: 1, status: 1, createdAt: -1 });
+// Night-before confirmation sweep: "hired apps with a shift coming up".
+applicationSchema.index({ status: 1, nextShiftAt: 1 });
+// Offer expiry sweep: "pending offers past their deadline".
+applicationSchema.index({ 'offer.outcome': 1, 'offer.expiresAt': 1 });
 
 applicationSchema.method('toPublicJSON', function (
   this: ApplicationDocument,
@@ -407,6 +515,33 @@ applicationSchema.method('toPublicJSON', function (
             : null,
         }
       : null,
+    nextShiftAt: this.nextShiftAt ? this.nextShiftAt.toISOString() : null,
+    shiftConfirmation:
+      !this.shiftConfirmation || !this.nextShiftAt
+        ? 'none'
+        : this.shiftConfirmation.confirmedAt
+          ? 'confirmed'
+          : this.shiftConfirmation.declinedAt
+            ? 'declined'
+            : this.shiftConfirmation.promptedAt
+              ? 'awaiting'
+              : 'none',
+    offer: this.offer
+      ? {
+          status: this.offer.outcome,
+          expiresAt:
+            this.offer.outcome === 'pending'
+              ? this.offer.expiresAt.toISOString()
+              : null,
+        }
+      : { status: 'none', expiresAt: null },
+    onTheWay: this.onTheWay
+      ? {
+          active: true,
+          etaMinutes: this.onTheWay.etaMinutes,
+          startedAt: this.onTheWay.startedAt.toISOString(),
+        }
+      : { active: false, etaMinutes: null, startedAt: null },
     tailoredResume: this.tailoredResume
       ? {
           summary: this.tailoredResume.summary,

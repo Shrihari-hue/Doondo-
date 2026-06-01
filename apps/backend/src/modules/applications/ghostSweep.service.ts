@@ -30,6 +30,7 @@ import { env } from '@/config/env';
 import { ApplicationModel } from './application.model';
 import { JobModel } from '@/modules/jobs/job.model';
 import { UserModel } from '@/modules/users/user.model';
+import { employersInQuietHours } from '@/modules/employerResponse/employerResponse.service';
 
 export interface GhostSweepSummary {
   /** Total applications considered (i.e. fetched in this run). */
@@ -53,13 +54,26 @@ export async function runGhostSweep(): Promise<GhostSweepSummary> {
   const slaHours = env.GHOST_SLA_HOURS;
   const cutoff = new Date(Date.now() - slaHours * 60 * 60 * 1000);
 
-  const candidates = await ApplicationModel.find({
+  const allCandidates = await ApplicationModel.find({
     status: 'pending',
     appliedAt: { $lte: cutoff },
     flaggedAsGhostedAt: null,
   })
     .limit(BATCH_LIMIT)
     .lean();
+
+  // Spare any employer who is currently inside their declared quiet hours
+  // — the anti-ghost engine shouldn't flag someone at 2am. These rows are
+  // simply left for a later sweep (they stay unflagged), so accountability
+  // resumes the moment the employer's quiet window closes.
+  const now = new Date();
+  const quiet = await employersInQuietHours(
+    [...new Set(allCandidates.map((c) => c.employerId.toString()))],
+    now,
+  );
+  const candidates = allCandidates.filter(
+    (c) => !quiet.has(c.employerId.toString()),
+  );
 
   const summary: GhostSweepSummary = {
     considered: candidates.length,
@@ -98,7 +112,6 @@ export async function runGhostSweep(): Promise<GhostSweepSummary> {
   );
 
   // Flag in one shot so a partial failure can't leave a half-flagged batch.
-  const now = new Date();
   const ids = candidates.map((c) => c._id);
   const writeResult = await ApplicationModel.updateMany(
     { _id: { $in: ids }, flaggedAsGhostedAt: null },

@@ -27,6 +27,8 @@ import { logger } from '@/lib/logger';
 import { runMorningDigest } from '@/modules/notifications/digest.service';
 import { runGhostSweep } from '@/modules/applications/ghostSweep.service';
 import { runInterviewReminderSweep } from '@/modules/applications/interviewReminders.service';
+import { runShiftConfirmationSweep } from '@/modules/applications/shiftConfirmation.service';
+import { runOfferExpirySweep } from '@/modules/applications/offerExpiry.service';
 import { runReengagementSweep } from '@/modules/notifications/reengagement.service';
 
 let registered: ScheduledTask[] = [];
@@ -55,6 +57,8 @@ export function bootScheduler(): void {
   const digestValid = cron.validate(env.DIGEST_CRON);
   const ghostValid = cron.validate(env.GHOST_SWEEP_CRON);
   const reminderValid = cron.validate(env.INTERVIEW_REMINDER_CRON);
+  const shiftConfirmValid = cron.validate(env.SHIFT_CONFIRM_CRON);
+  const offerExpiryValid = cron.validate(env.OFFER_EXPIRY_CRON);
   const reengagementValid = cron.validate(env.REENGAGEMENT_CRON);
   if (!digestValid) {
     logger.error(
@@ -72,6 +76,18 @@ export function bootScheduler(): void {
     logger.error(
       { cron: env.INTERVIEW_REMINDER_CRON },
       'INTERVIEW_REMINDER_CRON is not a valid cron expression — reminders disabled',
+    );
+  }
+  if (!shiftConfirmValid) {
+    logger.error(
+      { cron: env.SHIFT_CONFIRM_CRON },
+      'SHIFT_CONFIRM_CRON is not a valid cron expression — shift confirmation disabled',
+    );
+  }
+  if (!offerExpiryValid) {
+    logger.error(
+      { cron: env.OFFER_EXPIRY_CRON },
+      'OFFER_EXPIRY_CRON is not a valid cron expression — offer expiry disabled',
     );
   }
   if (!reengagementValid) {
@@ -139,6 +155,46 @@ export function bootScheduler(): void {
       },
       'scheduler: interview reminder sweep registered',
     );
+  }
+
+  // ─── Night-before shift confirmation sweep ─────────────────────────────
+  if (shiftConfirmValid) {
+    const shiftConfirmTask = cron.schedule(
+      env.SHIFT_CONFIRM_CRON,
+      () => {
+        runShiftConfirmationSweep().catch((err) => {
+          logger.error({ err }, 'shift confirmation sweep run failed');
+        });
+      },
+      {
+        timezone: 'UTC',
+      },
+    );
+    registered.push(shiftConfirmTask);
+    logger.info(
+      {
+        cron: env.SHIFT_CONFIRM_CRON,
+        leadHours: env.SHIFT_CONFIRM_LEAD_HOURS,
+      },
+      'scheduler: shift confirmation sweep registered',
+    );
+  }
+
+  // ─── Offer expiry sweep ────────────────────────────────────────────────
+  if (offerExpiryValid) {
+    const offerExpiryTask = cron.schedule(
+      env.OFFER_EXPIRY_CRON,
+      () => {
+        runOfferExpirySweep().catch((err) => {
+          logger.error({ err }, 'offer expiry sweep run failed');
+        });
+      },
+      {
+        timezone: 'UTC',
+      },
+    );
+    registered.push(offerExpiryTask);
+    logger.info({ cron: env.OFFER_EXPIRY_CRON }, 'scheduler: offer expiry sweep registered');
   }
 
   // ─── Dormant-user re-engagement sweep ──────────────────────────────────

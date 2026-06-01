@@ -25,6 +25,7 @@ import { matchJobToAlerts } from '@/modules/alerts/alert.service';
 import { UserModel } from '@/modules/users/user.model';
 import { JobModel, type JobStatus, type PublicJob } from './job.model';
 import { computeWomenSafety, type WomenSafety } from './womenSafety';
+import { findSkillTest } from '@/modules/skillTests/skillTests.catalogue';
 import type {
   CreateJobBody,
   NearbyQuery,
@@ -530,6 +531,13 @@ export async function createJob(
       },
     },
     skills: input.skills ?? [],
+    // Only persist a skill-check slug that maps to a real test; an unknown
+    // slug is dropped to null rather than storing a dead reference.
+    requiredSkillTestId:
+      input.requiredSkillTestId && findSkillTest(input.requiredSkillTestId)
+        ? input.requiredSkillTestId
+        : null,
+    headcount: input.headcount ?? 1,
     workMode: input.workMode ?? 'onsite',
     schedule: input.schedule ?? null,
     status: 'active',
@@ -769,6 +777,8 @@ export function formatRawJob(r: Record<string, unknown>): PublicJob {
       coordinates: loc.geo.coordinates,
     },
     skills: (r.skills as string[]) ?? [],
+    requiredSkillTestId: (r.requiredSkillTestId as string | null | undefined) ?? null,
+    headcount: (r.headcount as number | undefined) ?? 1,
     workMode: (r.workMode as PublicJob['workMode']) ?? 'onsite',
     schedule: (r.schedule as PublicJob['schedule']) ?? null,
     status: r.status as PublicJob['status'],

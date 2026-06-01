@@ -119,6 +119,18 @@ export interface Job {
   skills: string[];
   /** Where the role is performed. Defaults to 'onsite'. */
   workMode: WorkMode;
+  /**
+   * Optional self-qualifying skill check: the slug of a SkillTest the
+   * employer attached to this post. Applicants can take it to qualify, and
+   * the employer sees who passed. Null when no check is required.
+   */
+  requiredSkillTestId?: string | null;
+  /**
+   * How many people to hire for this post. Default 1. When > 1 the
+   * pipeline tracks fill ("3 of 5 hired") instead of closing on the
+   * first hire.
+   */
+  headcount: number;
   schedule?: Schedule | null;
   status: JobStatus;
   /**
@@ -201,6 +213,10 @@ export interface PublicJob {
   skills: string[];
   /** Onsite (default), hybrid, or remote. */
   workMode: WorkMode;
+  /** Slug of an attached self-qualifying skill check, or null. */
+  requiredSkillTestId: string | null;
+  /** How many people to hire. 1 unless the post is bulk. */
+  headcount: number;
   schedule: Schedule | null;
   status: JobStatus;
   /** True if the employer has marked this posting as time-sensitive. */
@@ -323,6 +339,8 @@ const jobSchema = new Schema<Job, JobModelType, JobMethods>(
     pay: { type: paySchema, required: true },
     location: { type: locationSchema, required: true },
     skills: { type: [String], default: [], index: true },
+    requiredSkillTestId: { type: String, default: null, trim: true, maxlength: 60 },
+    headcount: { type: Number, default: 1, min: 1, max: 100 },
     workMode: {
       type: String,
       enum: WORK_MODES,
@@ -390,6 +408,8 @@ jobSchema.method('toPublicJSON', function (this: JobDocument): PublicJob {
       coordinates: this.location.geo.coordinates,
     },
     skills: this.skills,
+    requiredSkillTestId: this.requiredSkillTestId ?? null,
+    headcount: this.headcount ?? 1,
     workMode: this.workMode ?? 'onsite',
     schedule: this.schedule ?? null,
     status: this.status,

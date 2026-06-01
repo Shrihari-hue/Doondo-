@@ -22,11 +22,32 @@ interface Props {
   applicant: ApplicantEntry;
   /** Show the job title above the seeker (used in cross-job list). */
   showJobTitle?: boolean;
+  /**
+   * Blind first-pass review. When true AND the applicant is still
+   * unreviewed (pending), the photo and name are masked so the first cut
+   * is made on skills + score, not on appearance or name. The mask lifts
+   * the moment the employer advances the candidate (shortlists, etc.) —
+   * once you've chosen to look closer, the identity is shown.
+   */
+  blind?: boolean;
+  /** 1-based position among masked candidates → "Candidate 3". */
+  blindIndex?: number;
 }
 
-export function ApplicantCard({ applicant, showJobTitle = false }: Props) {
+export function ApplicantCard({
+  applicant,
+  showJobTitle = false,
+  blind = false,
+  blindIndex,
+}: Props) {
   const navigation = useNavigation<Nav>();
   const t = useTranslate();
+
+  // Mask only while the candidate is still in the first-pass (pending).
+  const masked = blind && applicant.status === 'pending';
+  const displayName = masked
+    ? t('employer.blind_review.candidate_n', { n: blindIndex ?? 1 })
+    : (applicant.seeker?.name ?? t('employer.applicant_card.anon'));
 
   return (
     <Pressable
@@ -44,8 +65,8 @@ export function ApplicantCard({ applicant, showJobTitle = false }: Props) {
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
             <Avatar
-              name={applicant.seeker?.name ?? t('employer.applicant_card.fallback_name')}
-              photoUrl={applicant.seeker?.photoUrl ?? null}
+              name={masked ? '·' : (applicant.seeker?.name ?? t('employer.applicant_card.fallback_name'))}
+              photoUrl={masked ? null : (applicant.seeker?.photoUrl ?? null)}
               size={48}
               premium={applicant.seeker?.isVerified}
             />
@@ -57,7 +78,7 @@ export function ApplicantCard({ applicant, showJobTitle = false }: Props) {
                   numberOfLines={1}
                   style={{ flexShrink: 1 }}
                 >
-                  {applicant.seeker?.name ?? t('employer.applicant_card.anon')}
+                  {displayName}
                 </Text>
                 {applicant.seeker?.isVerified && (
                   <Pill label={t('employer.applicant_card.verified')} tone="premium" leading="★" />
@@ -71,9 +92,9 @@ export function ApplicantCard({ applicant, showJobTitle = false }: Props) {
                 ) : null}
               </View>
               <Text variant="footnote" tone="secondary" numberOfLines={1}>
-                {applicant.seeker?.location?.area ?? applicant.seeker?.location?.city ?? '—'}
-                {' · '}
-                {timeSince(applicant.timeline.appliedAt, t)}
+                {masked
+                  ? timeSince(applicant.timeline.appliedAt, t)
+                  : `${applicant.seeker?.location?.area ?? applicant.seeker?.location?.city ?? '—'} · ${timeSince(applicant.timeline.appliedAt, t)}`}
               </Text>
             </View>
             <StatusPill status={applicant.status} t={t} />

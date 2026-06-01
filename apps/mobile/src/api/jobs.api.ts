@@ -245,6 +245,10 @@ export interface CreateJobPayload {
     lng: number;
   };
   skills?: string[];
+  /** Optional self-qualifying skill check — a SkillTest slug. */
+  requiredSkillTestId?: string | null;
+  /** How many people to hire. Defaults to 1. */
+  headcount?: number;
   schedule?: {
     days?: number[];
     startTime?: string | null;
