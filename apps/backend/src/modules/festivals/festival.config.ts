@@ -63,7 +63,10 @@ export const FESTIVALS: FestivalConfig[] = [
       'vellore',
       'erode',
     ],
-    windows: [{ start: '2026-01-12', end: '2026-01-17' }],
+    windows: [
+      { start: '2026-01-12', end: '2026-01-17' },
+      { start: '2027-01-12', end: '2027-01-17' },
+    ],
   },
   {
     id: 'eid',
@@ -73,7 +76,10 @@ export const FESTIVALS: FestivalConfig[] = [
     accentSoft: '#DDF0EA',
     trades: ['cook', 'kitchen_helper', 'tailor', 'decorator', 'cleaner', 'shop_assistant'],
     regions: [], // national
-    windows: [{ start: '2026-03-18', end: '2026-03-22' }],
+    windows: [
+      { start: '2026-03-18', end: '2026-03-22' },
+      { start: '2027-03-08', end: '2027-03-12' },
+    ],
   },
   {
     id: 'onam',
@@ -93,7 +99,10 @@ export const FESTIVALS: FestivalConfig[] = [
       'palakkad',
       'alappuzha',
     ],
-    windows: [{ start: '2026-08-23', end: '2026-08-29' }],
+    windows: [
+      { start: '2026-08-23', end: '2026-08-29' },
+      { start: '2027-09-08', end: '2027-09-14' },
+    ],
   },
   {
     id: 'diwali',
@@ -103,7 +112,10 @@ export const FESTIVALS: FestivalConfig[] = [
     accentSoft: '#FBE6DA',
     trades: ['decorator', 'cleaner', 'security_guard', 'helper', 'shop_assistant', 'electrician'],
     regions: [], // national
-    windows: [{ start: '2026-11-05', end: '2026-11-11' }],
+    windows: [
+      { start: '2026-11-05', end: '2026-11-11' },
+      { start: '2027-10-28', end: '2027-11-02' },
+    ],
   },
   {
     id: 'christmas',
@@ -113,6 +125,9 @@ export const FESTIVALS: FestivalConfig[] = [
     accentSoft: '#F6DEDB',
     trades: ['cook', 'baker', 'decorator', 'cleaner', 'security_guard', 'shop_assistant'],
     regions: [], // national
-    windows: [{ start: '2026-12-19', end: '2026-12-26' }],
+    windows: [
+      { start: '2026-12-19', end: '2026-12-26' },
+      { start: '2027-12-19', end: '2027-12-26' },
+    ],
   },
 ];

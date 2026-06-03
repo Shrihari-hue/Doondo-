@@ -31,6 +31,7 @@ import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { SeekerHomeScreen } from '@/screens/seeker/SeekerHomeScreen';
 import { JobsScreen } from '@/screens/seeker/JobsScreen';
+import { MyJobScreen } from '@/screens/seeker/MyJobScreen';
 import { CommunityScreen } from '@/screens/seeker/CommunityScreen';
 import { EarningsScreen } from '@/screens/seeker/EarningsScreen';
 import { ProfileScreen } from '@/screens/seeker/ProfileScreen';
@@ -43,6 +44,7 @@ const Tab = createBottomTabNavigator<SeekerTabParamList>();
 const TAB_META: Record<keyof SeekerTabParamList, { i18nKey: string; glyph: string }> = {
   Home: { i18nKey: 'tabs.home', glyph: '⌂' },
   Jobs: { i18nKey: 'tabs.jobs', glyph: '◇' },
+  MyJob: { i18nKey: 'tabs.my_job', glyph: '★' },
   Community: { i18nKey: 'tabs.community', glyph: '❖' },
   Chat: { i18nKey: 'tabs.chat', glyph: '✦' },
   Earnings: { i18nKey: 'tabs.earnings', glyph: '₹' },
@@ -61,6 +63,7 @@ export function SeekerTabNavigator() {
       >
         <Tab.Screen name="Home" component={SeekerHomeScreen} />
         <Tab.Screen name="Jobs" component={JobsScreen} />
+        <Tab.Screen name="MyJob" component={MyJobScreen} />
         <Tab.Screen name="Community" component={CommunityScreen} />
         <Tab.Screen name="Chat" component={ChatListScreen} />
         <Tab.Screen name="Earnings" component={EarningsScreen} />

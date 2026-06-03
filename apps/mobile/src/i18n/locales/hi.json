@@ -40,7 +40,8 @@
     "community": "समुदाय",
     "chat": "चैट",
     "earnings": "कमाई",
-    "profile": "प्रोफ़ाइल"
+    "profile": "प्रोफ़ाइल",
+    "my_job": "मेरी नौकरी"
   },
   "community_hub": {
     "title": "समुदाय",
@@ -646,7 +647,8 @@
       "interview_video_link": " (वीडियो — लिंक चैट में)",
       "interview_video": " (वीडियो)",
       "interview_phone": " (फोन)"
-    }
+    },
+    "open_my_job": "मेरी नौकरी में खोलें →"
   },
   "saved_jobs": {
     "eyebrow": "सेव की गई",
@@ -3160,5 +3162,56 @@
     "no_number": "इस संपर्क का कोई फ़ोन नंबर नहीं है।",
     "fail": "कॉल शुरू नहीं हो सकी। फिर से प्रयास करें।",
     "cta_employer": "डूंडो से नियोक्ता को कॉल करें"
+  },
+  "my_job": {
+    "eyebrow": "मेरा काम",
+    "title": "मेरी नौकरी",
+    "stat_days": "दिन",
+    "stat_shifts": "शिफ़्ट",
+    "stat_hours": "घंटे",
+    "stat_caption": "{{month}} में काम किया",
+    "empty_eyebrow": "कोई सक्रिय नौकरी नहीं",
+    "empty_title": "अभी आपको कहीं हायर नहीं किया गया",
+    "empty_body": "जब कोई नियोक्ता आपको हायर करेगा, आपका कार्यस्थल, हाज़िरी और सैलरी स्लिप यहाँ दिखेंगे।",
+    "job_count": "{{n}} सक्रिय नौकरी",
+    "next_shift": "अगली: {{when}}",
+    "awaiting_payment": "{{n}} भुगतान बाकी"
+  },
+  "my_employer": {
+    "back": "← वापस",
+    "rating": "{{avg}}★ ({{n}})",
+    "no_rating": "अभी कोई रेटिंग नहीं",
+    "verified": "सत्यापित",
+    "view_profile": "पूरा प्रोफ़ाइल और समीक्षाएँ देखें →",
+    "terms_title": "आपकी शर्तें",
+    "terms_role": "भूमिका",
+    "terms_wage": "वेतन",
+    "terms_project": "प्रोजेक्ट",
+    "terms_project_value": "{{days}} दिन · {{start}} → {{end}}",
+    "period_hour": "घंटा",
+    "period_day": "दिन",
+    "period_week": "हफ़्ता",
+    "period_month": "महीना",
+    "period_fixed": "तय",
+    "attendance_title": "इस महीने की हाज़िरी",
+    "attendance_empty": "इस महीने इस नियोक्ता के साथ कोई शिफ़्ट दर्ज नहीं।",
+    "payslip_cta": "सैलरी स्लिप डाउनलोड करें (PDF)",
+    "payslip_busy": "तैयार हो रहा है…",
+    "payslip_empty_title": "स्लिप के लिए कुछ नहीं",
+    "payslip_empty_body": "इस महीने इस नियोक्ता से कोई घंटे या भुगतान नहीं।",
+    "payslip_pdf_title": "सैलरी स्लिप",
+    "payslip_days": "काम के दिन",
+    "payslip_shifts": "शिफ़्ट",
+    "payslip_hours": "घंटे",
+    "payslip_paid": "भुगतान (निपटाया)",
+    "payslip_footer": "डूंडो द्वारा तैयार। घंटे साइट चेक-इन से; भुगतान महीने के निपटाए गए UPI भुगतान हैं।",
+    "payslip_share": "सैलरी स्लिप साझा करें",
+    "payslip_fail": "स्लिप तैयार नहीं हो सकी। फिर से प्रयास करें।",
+    "this_job": "यह नौकरी",
+    "schedule_title": "मेरा शेड्यूल",
+    "schedule_empty": "कोई आगामी शिफ़्ट निर्धारित नहीं।",
+    "next_shift": "अगली शिफ़्ट {{when}}",
+    "directions": "साइट का रास्ता",
+    "wallet": "मेरी कमाई और वॉलेट"
   }
 }

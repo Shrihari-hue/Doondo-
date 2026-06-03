@@ -34,6 +34,7 @@ import { LeaveRatingScreen } from '@/screens/seeker/LeaveRatingScreen';
 import { NotificationsScreen } from '@/screens/seeker/NotificationsScreen';
 import { EditExpectedSalaryScreen } from '@/screens/seeker/EditExpectedSalaryScreen';
 import { MyApplicationsScreen } from '@/screens/seeker/MyApplicationsScreen';
+import { MyEmployerJobScreen } from '@/screens/seeker/MyEmployerJobScreen';
 import { MyJobsScreen } from '@/screens/seeker/MyJobsScreen';
 import { NewChatScreen } from '@/screens/chat/NewChatScreen';
 import { SettingsScreen } from '@/screens/seeker/SettingsScreen';
@@ -143,6 +144,11 @@ export function AppNavigator() {
       <Stack.Screen
         name="ApplicantDetail"
         component={ApplicantDetailScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="MyEmployerJob"
+        component={MyEmployerJobScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen

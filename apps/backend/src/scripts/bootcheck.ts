@@ -100,6 +100,7 @@ async function main(): Promise<void> {
       import('@/modules/homeSafe/homeSafe.service'),
       import('@/modules/maskedCall/maskedCall.service'),
       import('@/lib/maskedCall'),
+      import('@/modules/workerJob/workerJob.service'),
       import('@/lib/transactionalSms'),
     ]);
   });

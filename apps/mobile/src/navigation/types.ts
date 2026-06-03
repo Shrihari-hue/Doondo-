@@ -49,6 +49,8 @@ export type SeekerTabParamList = {
   Home: undefined;
   /** Full jobs list — accepts an initial query keyword from category tile / voice. */
   Jobs: { initialQuery?: string } | undefined;
+  /** My Job — active employers + attendance, payslip, shift tools. */
+  MyJob: undefined;
   /** Community hub — find work buddies, mentors, ratings & reviews. */
   Community: undefined;
   /** Conversations list. */
@@ -93,6 +95,8 @@ export type AppStackParamList = {
   };
   /** Modal: applicants for one of the employer's jobs. */
   JobApplicants: { jobId: string; jobTitle?: string };
+  /** Per-employer worker hub — attendance, payslip, schedule, shift tools. */
+  MyEmployerJob: { employerId: string; employerName: string };
   /** Modal: a single applicant — full seeker profile + actions. */
   ApplicantDetail: { applicationId: string };
   /** Modal: post a new job (employer). */
