@@ -18,7 +18,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, TextField, FormError, PaymentConfirmationPanel, CraftShowcase, HireCelebration } from '@/components';
+import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, TextField, FormError, PaymentConfirmationPanel, CraftShowcase, HireCelebration, DisputeSection } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { applicationsApi, type ApplicantEntry, type SchedulePayload } from '@/api/applications.api';
@@ -33,6 +33,8 @@ import { arrivalLikelihoodApi, type ArrivalBand } from '@/api/arrivalLikelihood.
 import { workProofApi } from '@/api/workProof.api';
 import { moderationApi, type ReportReason } from '@/api/moderation.api';
 import { incidentsApi } from '@/api/incidents.api';
+import { crewDocumentsApi } from '@/api/crewDocuments.api';
+import { maskedCallApi } from '@/api/maskedCall.api';
 import { pickChatImage } from '@/lib/chatImage';
 import { UpiPaymentPanel } from './UpiPaymentPanel';
 import { ApiError } from '@/api/errors';
@@ -343,6 +345,11 @@ export function ApplicantDetailScreen() {
           <IncidentLogCard workerId={applicant.seeker.id} applicationId={applicant.id} />
         ) : null}
 
+        {/* Tracked documents (licence/cert expiry) for this worker. */}
+        {applicant.seeker?.id ? (
+          <CrewDocumentsCard workerId={applicant.seeker.id} />
+        ) : null}
+
         {/* Next-shift scheduling + night-before confirmation status. */}
         {applicant.status === 'hired' ? (
           <EmployerShiftCard applicant={applicant} />
@@ -351,6 +358,16 @@ export function ApplicantDetailScreen() {
         {/* Photo proof of completed work — review + approve. */}
         {applicant.status === 'hired' ? (
           <WorkProofReviewCard applicationId={applicant.id} />
+        ) : null}
+
+        {/* Call via Doondo — masked call (or gated reveal fallback). */}
+        {applicant.status === 'hired' ? (
+          <CallViaDoondoButton applicationId={applicant.id} />
+        ) : null}
+
+        {/* Dispute resolution — two-sided grievance flow for this hire. */}
+        {applicant.status === 'hired' ? (
+          <DisputeSection applicationId={applicant.id} />
         ) : null}
 
         {/* Self-qualifying skill check result, when this job requires one. */}
@@ -1079,6 +1096,109 @@ function IncidentLogCard({
   );
 }
 
+// ─── Crew documents ────────────────────────────────────────────────────────
+
+/**
+ * Tracks a worker's credential expiries (driving licence, electrical cert).
+ * Add a label + expiry date (YYYY-MM-DD); the card flags anything within
+ * 30 days or already expired so a lapse never surfaces on shift day.
+ */
+function CrewDocumentsCard({ workerId }: { workerId: string }) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  const queryClient = useQueryClient();
+  const [label, setLabel] = useState('');
+  const [expiry, setExpiry] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const query = useQuery({
+    queryKey: ['crew-documents', workerId],
+    queryFn: () => crewDocumentsApi.list(workerId),
+  });
+  const docs = query.data?.documents ?? [];
+
+  const validDate = /^\d{4}-\d{2}-\d{2}$/.test(expiry) && !Number.isNaN(Date.parse(expiry));
+
+  async function add() {
+    if (busy || !label.trim() || !validDate) return;
+    setBusy(true);
+    try {
+      await crewDocumentsApi.add({ workerId, label: label.trim(), expiresAt: expiry });
+      haptic('success');
+      setLabel('');
+      setExpiry('');
+      await queryClient.invalidateQueries({ queryKey: ['crew-documents', workerId] });
+      await queryClient.invalidateQueries({ queryKey: ['crew-documents', 'expiring'] });
+    } catch {
+      haptic('error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(id: string) {
+    try {
+      await crewDocumentsApi.remove(id);
+      haptic('selection');
+      await queryClient.invalidateQueries({ queryKey: ['crew-documents', workerId] });
+    } catch {
+      haptic('error');
+    }
+  }
+
+  const soon = Date.now() + 30 * 86_400_000;
+
+  return (
+    <Card>
+      <View style={{ gap: spacing.sm }}>
+        <Text variant="footnote" weight="medium" tone="secondary" style={{ letterSpacing: 1.0 }}>
+          {t('employer.documents.label')}
+        </Text>
+        {docs.map((d) => {
+          const exp = new Date(d.expiresAt).getTime();
+          const tone = exp < Date.now() ? 'danger' : exp < soon ? 'warning' : 'secondary';
+          return (
+            <View key={d.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <View style={{ flex: 1 }}>
+                <Text variant="body" weight="medium" numberOfLines={1}>
+                  {d.label}
+                </Text>
+                <Text variant="caption" tone={tone}>
+                  {t('employer.documents.expires', {
+                    date: new Date(d.expiresAt).toLocaleDateString('en-IN'),
+                  })}
+                </Text>
+              </View>
+              <Pressable onPress={() => void remove(d.id)} hitSlop={8}>
+                <Text variant="footnote" tone="tertiary">
+                  {t('employer.documents.remove')}
+                </Text>
+              </Pressable>
+            </View>
+          );
+        })}
+        <TextField
+          value={label}
+          onChangeText={setLabel}
+          placeholder={t('employer.documents.label_ph')}
+        />
+        <TextField
+          value={expiry}
+          onChangeText={setExpiry}
+          placeholder={t('employer.documents.expiry_ph')}
+          keyboardType="numbers-and-punctuation"
+        />
+        <Button
+          label={busy ? t('employer.documents.adding') : t('employer.documents.add')}
+          variant="secondary"
+          onPress={() => void add()}
+          disabled={busy || !label.trim() || !validDate}
+        />
+      </View>
+    </Card>
+  );
+}
+
 // ─── Block / report ────────────────────────────────────────────────────────
 
 /**
@@ -1167,6 +1287,60 @@ function ModerationActions({ workerId, workerName }: { workerId: string; workerN
  * rejection. Sits alongside the pay flow as the quality gate before money
  * moves.
  */
+/**
+ * "Call via Doondo" — places a privacy-preserving call to the worker. When
+ * a telephony provider is configured the dialled number is a masked proxy;
+ * otherwise it falls back to the worker's real (already-revealable) number
+ * so the call still connects.
+ */
+function CallViaDoondoButton({ applicationId }: { applicationId: string }) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  const [busy, setBusy] = useState(false);
+
+  async function call() {
+    if (busy) return;
+    setBusy(true);
+    haptic('selection');
+    try {
+      const res = await maskedCallApi.start(applicationId);
+      if (!res.dialNumber) {
+        Alert.alert(t('masked_call.no_number'));
+        return;
+      }
+      await Linking.openURL(`tel:${res.dialNumber}`);
+    } catch {
+      haptic('error');
+      Alert.alert(t('masked_call.fail'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Pressable
+      onPress={() => void call()}
+      disabled={busy}
+      accessibilityRole="button"
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.sm,
+        paddingVertical: 12,
+        borderRadius: radii.pill,
+        borderWidth: 0.5,
+        borderColor: theme.brand.hero,
+        opacity: busy ? 0.6 : 1,
+      }}
+    >
+      <Text variant="body" weight="medium" style={{ color: theme.brand.hero }}>
+        {busy ? t('masked_call.connecting') : t('masked_call.cta')}
+      </Text>
+    </Pressable>
+  );
+}
+
 function WorkProofReviewCard({ applicationId }: { applicationId: string }) {
   const { theme } = useTheme();
   const t = useTranslate();

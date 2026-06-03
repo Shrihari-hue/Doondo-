@@ -42,6 +42,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { haptic } from '@/lib/haptics';
 import { jobsApi } from '@/api/jobs.api';
 import { applicationsApi, type ApplicantEntry } from '@/api/applications.api';
+import { needsYouNowApi, type NeedsYouNowItem } from '@/api/needsYouNow.api';
+import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
@@ -54,6 +56,7 @@ export function EmployerHomeScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const t = useTranslate();
 
   const jobsQuery = useQuery({
     queryKey: ['jobs', 'mine', 'active'],
@@ -66,6 +69,14 @@ export function EmployerHomeScreen() {
     queryFn: () => applicationsApi.listForEmployer({ limit: 100 }),
     staleTime: 30_000,
   });
+
+  // The prioritized action feed — what actually needs the employer now.
+  const needsQuery = useQuery({
+    queryKey: ['needs-you-now'],
+    queryFn: () => needsYouNowApi.get(),
+    staleTime: 30_000,
+  });
+  const needsItems = needsQuery.data?.items ?? [];
 
   const activeJobs = jobsQuery.data?.jobs ?? [];
 
@@ -120,7 +131,19 @@ export function EmployerHomeScreen() {
   const refetch = () => {
     void jobsQuery.refetch();
     void appsQuery.refetch();
+    void needsQuery.refetch();
   };
+
+  function openNeedsItem(item: NeedsYouNowItem) {
+    haptic('selection');
+    if (item.route === 'applicant' && item.applicationId) {
+      navigation.navigate('ApplicantDetail', { applicationId: item.applicationId });
+    } else if (item.route === 'workforce') {
+      navigation.navigate('Workforce');
+    } else {
+      navigation.navigate('EmployerJobs' as never);
+    }
+  }
 
   // The one nudge — a single most-important prompt, or nothing.
   let nudge: string | null = null;
@@ -250,8 +273,32 @@ export function EmployerHomeScreen() {
             />
           }
         >
+          {/* Needs you now — prioritized action feed */}
+          {needsItems.length > 0 && (
+            <View style={{ gap: spacing.sm }}>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: '700',
+                  letterSpacing: 1.4,
+                  color: theme.text.tertiary,
+                }}
+              >
+                {t('employer.needs_now.title')}
+              </Text>
+              {needsItems.map((item) => (
+                <NeedsRow
+                  key={item.kind}
+                  item={item}
+                  label={needsLabel(item, t)}
+                  onPress={() => openNeedsItem(item)}
+                />
+              ))}
+            </View>
+          )}
+
           {/* The one nudge */}
-          {nudge && (
+          {nudge && needsItems.length === 0 && (
             <View
               style={{
                 flexDirection: 'row',
@@ -725,6 +772,96 @@ function WaitingRow({
       <Feather name="chevron-right" size={20} color={theme.text.tertiary} />
     </Pressable>
   );
+}
+
+const NEEDS_ICON: Record<
+  NeedsYouNowItem['kind'],
+  { icon: keyof typeof Feather.glyphMap; bg: string; fg: string }
+> = {
+  worker_on_the_way: { icon: 'navigation', bg: 'rgba(34,197,94,0.16)', fg: jade[500] },
+  counter_offer: { icon: 'dollar-sign', bg: 'rgba(224,167,68,0.18)', fg: amber[500] },
+  work_proof: { icon: 'camera', bg: 'rgba(37,99,235,0.14)', fg: blue[600] },
+  applicant_waiting: { icon: 'clock', bg: 'rgba(255,107,76,0.16)', fg: coral[500] },
+  expiring_doc: { icon: 'alert-triangle', bg: 'rgba(224,80,68,0.16)', fg: coral[600] },
+};
+
+function NeedsRow({
+  item,
+  label,
+  onPress,
+}: {
+  item: NeedsYouNowItem;
+  label: string;
+  onPress: () => void;
+}) {
+  const { theme } = useTheme();
+  const cfg = NEEDS_ICON[item.kind];
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+        backgroundColor: theme.bg.surface,
+        borderRadius: radii.lg,
+        borderWidth: 0.5,
+        borderColor: theme.border.subtle,
+        padding: spacing.md,
+        opacity: pressed ? 0.8 : 1,
+      })}
+    >
+      <View
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 10,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: cfg.bg,
+        }}
+      >
+        <Feather name={cfg.icon} size={17} color={cfg.fg} />
+      </View>
+      <Text
+        style={{ flex: 1, fontSize: 14, fontWeight: '600', color: theme.text.primary }}
+        numberOfLines={2}
+      >
+        {label}
+      </Text>
+      <Feather name="chevron-right" size={20} color={theme.text.tertiary} />
+    </Pressable>
+  );
+}
+
+/** Build the human label for an action item from its kind/count/sample. */
+function needsLabel(item: NeedsYouNowItem, t: (k: string, v?: Record<string, unknown>) => string): string {
+  const one = item.count === 1;
+  switch (item.kind) {
+    case 'worker_on_the_way':
+      return one
+        ? t('employer.needs_now.on_the_way_one', { name: item.sample })
+        : t('employer.needs_now.on_the_way_many', { n: item.count });
+    case 'counter_offer':
+      return one
+        ? t('employer.needs_now.counter_one', { name: item.sample })
+        : t('employer.needs_now.counter_many', { n: item.count });
+    case 'work_proof':
+      return one
+        ? t('employer.needs_now.proof_one')
+        : t('employer.needs_now.proof_many', { n: item.count });
+    case 'applicant_waiting':
+      return one
+        ? t('employer.needs_now.waiting_one', { name: item.sample })
+        : t('employer.needs_now.waiting_many', { n: item.count });
+    case 'expiring_doc':
+      return one
+        ? t('employer.needs_now.doc_one', { sample: item.sample })
+        : t('employer.needs_now.doc_many', { n: item.count });
+    default:
+      return '';
+  }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

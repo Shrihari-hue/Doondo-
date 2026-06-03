@@ -41,6 +41,11 @@ const schema = z.object({
   // 'msg91'   — MSG91's transactional SMS API + our local OtpChallenge store.
   SMS_PROVIDER: z.enum(['console', 'twilio', 'msg91']).default('console'),
 
+  // Masked calling — telephony proxy provider. 'none' (default) means no
+  // proxy is allocated and the call flow falls back to the gated number
+  // reveal; a real provider (Exotel/Twilio) slots in behind this switch.
+  MASKED_CALL_PROVIDER: z.enum(['none', 'exotel', 'twilio']).default('none'),
+
   // Twilio Verify (https://www.twilio.com/docs/verify)
   // Auth: either AccountSid + AuthToken (legacy) OR ApiKeySid + ApiKeySecret
   // (recommended — scopeable and rotatable). When both are configured the
@@ -183,6 +188,21 @@ const schema = z.object({
    * reminders.
    */
   OFFER_EXPIRY_CRON: z.string().default('*/15 * * * *'),
+
+  // ─── Stalling-job auto-escalation sweep ───────────────────────────────
+  /**
+   * Cron for the auto-escalation sweep. Default top of every hour — a
+   * stalling post is detected and boosted within the hour, cheaply.
+   */
+  ESCALATION_CRON: z.string().default('5 * * * *'),
+  /**
+   * Hours an active, under-filled job must sit before stage 1 (boost)
+   * fires. Each subsequent stage waits another ESCALATION_STAGE_GAP_HOURS.
+   * Default 8 — past a working shift's worth of quiet.
+   */
+  ESCALATION_STALL_HOURS: z.coerce.number().int().positive().default(8),
+  /** Minimum hours between escalation stages for one job. Default 16. */
+  ESCALATION_STAGE_GAP_HOURS: z.coerce.number().int().positive().default(16),
 
   // ─── Dormant-user re-engagement sweep ─────────────────────────────────
   /**

@@ -452,6 +452,12 @@ export interface PublicJob {
   recurring: boolean;
   /** Pre-shift checklist items the worker acknowledges. */
   prepChecklist: string[];
+  /** Multi-day project span when this is a project, else null. */
+  project: { startDate: string; endDate: string; totalDays: number } | null;
+  /** Auto-escalation stage (0 = none, 1 = boosted, 2/3 = needs attention). */
+  escalationStage: number;
+  /** ISO time the auto-escalation feed-boost is live until, or null. */
+  boostedUntil: string | null;
   /** Where the role is performed — defaults to onsite. */
   workMode: WorkMode;
   schedule: {

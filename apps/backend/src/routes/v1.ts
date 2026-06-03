@@ -49,9 +49,18 @@ import crewRouter from '@/modules/crew/crew.routes';
 import travelTimeRouter from '@/modules/travelTime/travelTime.routes';
 import rosterRouter from '@/modules/roster/roster.routes';
 import timesheetRouter from '@/modules/timesheet/timesheet.routes';
+import statementRouter from '@/modules/statement/statement.routes';
+import needsYouNowRouter from '@/modules/needsYouNow/needsYouNow.routes';
+import disputesRouter from '@/modules/disputes/dispute.routes';
+import squadsRouter from '@/modules/squads/squad.routes';
+import homeSafeRouter from '@/modules/homeSafe/homeSafe.routes';
+import maskedCallRouter from '@/modules/maskedCall/maskedCall.routes';
 import { blocksRouter, reportsRouter } from '@/modules/moderation/moderation.routes';
 import incidentsRouter from '@/modules/incidents/incident.routes';
 import churnRouter from '@/modules/churn/churn.routes';
+import favoritesRouter from '@/modules/favorites/favorites.routes';
+import crewDocumentsRouter from '@/modules/crewDocuments/crewDocument.routes';
+import siteBriefingRouter from '@/modules/siteBriefing/siteBriefing.routes';
 import reelsRouter from '@/modules/reels/reel.routes';
 import communityRouter from '@/modules/community/post.routes';
 import hiringRequestsRouter from '@/modules/hiringRequests/hiringRequest.routes';
@@ -111,6 +120,18 @@ v1.use('/travel-times', travelTimeRouter);
 v1.use('/roster', rosterRouter);
 // Timesheet — per-worker monthly worked hours from shift check-ins.
 v1.use('/timesheet', timesheetRouter);
+// Monthly statement — consolidated worked-hours + settled-pay roll-up (PDF on mobile).
+v1.use('/statement', statementRouter);
+// "Needs you now" — prioritized employer action feed for Home.
+v1.use('/needs-you-now', needsYouNowRouter);
+// Dispute resolution — two-sided grievance flow tied to a hire.
+v1.use('/disputes', disputesRouter);
+// Squad hire — reusable worker groups + one-tap deploy to a job.
+v1.use('/squads', squadsRouter);
+// "Reached home safe" — post-shift safety check-out loop (seeker).
+v1.use('/home-safe', homeSafeRouter);
+// Masked calling — privacy-preserving call between hire parties (proxy or reveal fallback).
+v1.use('/masked-call', maskedCallRouter);
 // Moderation — employer block list + user reports.
 v1.use('/blocks', blocksRouter);
 v1.use('/reports', reportsRouter);
@@ -118,6 +139,12 @@ v1.use('/reports', reportsRouter);
 v1.use('/incidents', incidentsRouter);
 // Crew churn early-warning — regulars who've gone quiet.
 v1.use('/churn-risks', churnRouter);
+// Worker-favorited employers — two-way reputation signal.
+v1.use('/employer-favorites', favoritesRouter);
+// Crew document-expiry tracking — licences/certs + lapse warnings.
+v1.use('/crew-documents', crewDocumentsRouter);
+// Job-site briefing — pre-arrival instructions + photos for hired workers.
+v1.use('/site-briefing', siteBriefingRouter);
 // Hire Reels — worker intro videos + the employer discovery feed.
 v1.use('/reels', reelsRouter);
 // Community — the worker feed: posts, likes, comments, reposts.

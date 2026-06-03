@@ -477,6 +477,17 @@ function JobDetailScreenInner() {
           {job.urgent && (
             <DetailRow icon="⚡" label={t('job_detail.urgent_pill')} tone={theme.status.warning} />
           )}
+          {job.project ? (
+            <DetailRow
+              icon="📅"
+              label={t('job_detail.project_pill', {
+                days: job.project.totalDays,
+                start: job.project.startDate,
+                end: job.project.endDate,
+              })}
+              tone={theme.brand.hero}
+            />
+          ) : null}
         </View>
 
         {/* Job Description */}

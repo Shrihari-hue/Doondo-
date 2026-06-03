@@ -19,20 +19,23 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import { Alert, FlatList, Linking, Pressable, RefreshControl, ScrollView, Share, View } from 'react-native';
+import { Alert, FlatList, Image, Linking, Pressable, RefreshControl, ScrollView, Share, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, LoadingSpinner, EmptyState, PaymentConfirmationPanel, ErrorPanel, HireCelebration, HireShareCardPoster, TextField } from '@/components';
+import { Screen, Text, LoadingSpinner, EmptyState, PaymentConfirmationPanel, ErrorPanel, HireCelebration, HireShareCardPoster, TextField, DisputeSection } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
 import { workProofApi } from '@/api/workProof.api';
+import { siteBriefingApi } from '@/api/siteBriefing.api';
 import { pickChatImage } from '@/lib/chatImage';
 import { sosApi } from '@/api/sos.api';
 import { shiftCheckInApi } from '@/api/shiftCheckIn.api';
+import { homeSafeApi } from '@/api/homeSafe.api';
+import { maskedCallApi } from '@/api/maskedCall.api';
 import { captureShiftSelfie } from '@/lib/selfie';
 import { getCurrentCoords } from '@/lib/location';
 import { friendlyErrorMessage } from '@/lib/friendlyError';
@@ -68,6 +71,25 @@ function MyApplicationsInner() {
     queryFn: () => applicationsApi.listMine({ limit: 50 }),
     staleTime: 30_000,
   });
+
+  // "Reached home safe?" prompts opened when the worker checked out.
+  const homeSafeQuery = useQuery({
+    queryKey: ['home-safe', 'pending'],
+    queryFn: () => homeSafeApi.pending(),
+    staleTime: 30_000,
+  });
+  const homeSafeChecks = homeSafeQuery.data ?? [];
+
+  async function confirmHomeSafe(id: string) {
+    haptic('selection');
+    try {
+      await homeSafeApi.confirm(id);
+      haptic('success');
+      void queryClient.invalidateQueries({ queryKey: ['home-safe', 'pending'] });
+    } catch {
+      haptic('error');
+    }
+  }
 
   // Pending ratings the seeker can leave. Indexed by applicationId for
   // O(1) lookup as we render each row.
@@ -345,10 +367,57 @@ function MyApplicationsInner() {
           }}
           data={filtered}
           keyExtractor={(a) => a.id}
+          ListHeaderComponent={
+            homeSafeChecks.length > 0 ? (
+              <View style={{ gap: spacing.sm, marginBottom: spacing.md }}>
+                {homeSafeChecks.map((c) => (
+                  <View
+                    key={c.id}
+                    style={{
+                      backgroundColor: theme.bg.surface,
+                      borderRadius: radii.lg,
+                      borderWidth: 1,
+                      borderColor: theme.brand.hero,
+                      padding: spacing.lg,
+                      gap: spacing.sm,
+                    }}
+                  >
+                    <Text variant="body" weight="semibold">
+                      {t('home_safe.title')}
+                    </Text>
+                    <Text variant="footnote" tone="secondary">
+                      {c.jobTitle
+                        ? t('home_safe.body_job', { title: c.jobTitle })
+                        : t('home_safe.body')}
+                    </Text>
+                    <Pressable
+                      onPress={() => void confirmHomeSafe(c.id)}
+                      accessibilityRole="button"
+                      style={{
+                        marginTop: spacing.xs,
+                        alignSelf: 'flex-start',
+                        paddingHorizontal: spacing.lg,
+                        paddingVertical: 10,
+                        borderRadius: radii.pill,
+                        backgroundColor: theme.brand.hero,
+                      }}
+                    >
+                      <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                        {t('home_safe.confirm')}
+                      </Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            ) : null
+          }
           refreshControl={
             <RefreshControl
               refreshing={query.isRefetching}
-              onRefresh={() => void query.refetch()}
+              onRefresh={() => {
+                void query.refetch();
+                void homeSafeQuery.refetch();
+              }}
               tintColor={theme.brand.hero}
             />
           }
@@ -437,6 +506,21 @@ function MyApplicationsInner() {
                 {/* Pre-shift checklist — when hired and the job has one. */}
                 {item.status === 'hired' && (item.job?.prepChecklist?.length ?? 0) > 0 ? (
                   <PrepChecklistCard application={item} />
+                ) : null}
+
+                {/* Site briefing — when hired and the job's id is known. */}
+                {item.status === 'hired' && item.job?.id ? (
+                  <SiteBriefingCard jobId={item.job.id} />
+                ) : null}
+
+                {/* Call the employer via Doondo (masked, or reveal fallback). */}
+                {item.status === 'hired' ? (
+                  <CallEmployerButton applicationId={item.id} />
+                ) : null}
+
+                {/* Dispute resolution — raise/respond to a grievance on this hire. */}
+                {item.status === 'hired' ? (
+                  <DisputeSection applicationId={item.id} />
                 ) : null}
 
                 {/* Interview card — shown whenever there's a scheduled
@@ -1251,6 +1335,55 @@ function InterviewCard({
  * the doc.
  */
 /**
+ * Site briefing card. Shows the employer's pre-arrival instructions and
+ * annotated photos for a hired worker ("park behind the shop, ask for
+ * Raju, wear boots"). Self-hides when no briefing has been set.
+ */
+function SiteBriefingCard({ jobId }: { jobId: string }) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  const query = useQuery({
+    queryKey: ['site-briefing', jobId],
+    queryFn: () => siteBriefingApi.get(jobId),
+  });
+  const b = query.data;
+  if (!b || !b.exists || (!b.text && b.photoUrls.length === 0)) return null;
+
+  return (
+    <View
+      style={{
+        marginTop: spacing.sm,
+        padding: spacing.md,
+        borderRadius: radii.lg,
+        borderWidth: 0.5,
+        borderColor: theme.border.default,
+        backgroundColor: theme.bg.surface,
+        gap: spacing.sm,
+      }}
+    >
+      <Text variant="footnote" weight="semibold" tone="secondary" style={{ letterSpacing: 0.6 }}>
+        {t('site_briefing.title')}
+      </Text>
+      {b.text ? <Text variant="body">{b.text}</Text> : null}
+      {b.photoUrls.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            {b.photoUrls.map((uri, i) => (
+              <Image
+                key={i}
+                source={{ uri }}
+                style={{ width: 160, height: 120, borderRadius: radii.md }}
+                resizeMode="cover"
+              />
+            ))}
+          </View>
+        </ScrollView>
+      ) : null}
+    </View>
+  );
+}
+
+/**
  * Pre-shift checklist card. Shows the employer's checklist items; the
  * worker ticks them all and taps "I'm ready", which records the
  * acknowledgement so the employer knows they're prepared.
@@ -1426,6 +1559,58 @@ function WorkProofCard({ applicationId }: { applicationId: string }) {
         </Pressable>
       ) : null}
     </View>
+  );
+}
+
+/**
+ * "Call via Doondo" — the worker side of masked calling. Calls the
+ * employer through the privacy proxy (or the gated reveal fallback) and
+ * dials the returned number.
+ */
+function CallEmployerButton({ applicationId }: { applicationId: string }) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  const [busy, setBusy] = useState(false);
+
+  async function call() {
+    if (busy) return;
+    setBusy(true);
+    haptic('selection');
+    try {
+      const res = await maskedCallApi.start(applicationId);
+      if (!res.dialNumber) {
+        Alert.alert(t('masked_call.no_number'));
+        return;
+      }
+      await Linking.openURL(`tel:${res.dialNumber}`);
+    } catch {
+      haptic('error');
+      Alert.alert(t('masked_call.fail'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Pressable
+      onPress={() => void call()}
+      disabled={busy}
+      accessibilityRole="button"
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: radii.pill,
+        borderWidth: 0.5,
+        borderColor: theme.brand.hero,
+        opacity: busy ? 0.6 : 1,
+      }}
+    >
+      <Text variant="body" weight="medium" style={{ color: theme.brand.hero }}>
+        {busy ? t('masked_call.connecting') : t('masked_call.cta_employer')}
+      </Text>
+    </Pressable>
   );
 }
 

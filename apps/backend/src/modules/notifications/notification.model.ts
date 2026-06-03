@@ -55,6 +55,10 @@ export const NOTIFICATION_KINDS = [
   'hiring_request',           // an employer invited this worker to apply for a job
   'hiring_request_responded', // a worker accepted/declined the employer's invite
   'employer_interest',        // a worker expressed interest in this employer
+  'dispute_raised',           // the other party opened a dispute about a hire
+  'dispute_update',           // a dispute you're part of got a reply or was closed
+  'job_escalated',            // a stalling job was auto-boosted / needs attention
+  'reached_home_safe',        // a worker confirmed they got home safely (to circle)
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

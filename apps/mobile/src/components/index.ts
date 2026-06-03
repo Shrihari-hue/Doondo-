@@ -25,3 +25,4 @@ export { CraftShowcase } from './CraftShowcase';
 export { HireCelebration } from './HireCelebration';
 export { HireShareCardPoster } from './HireShareCardPoster';
 export { WomenSafetyBadge } from './WomenSafetyBadge';
+export { DisputeSection } from './DisputeSection';

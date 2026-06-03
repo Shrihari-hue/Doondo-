@@ -13,6 +13,18 @@ import type {
   WorkplaceAnswers,
 } from './types';
 
+export interface ProjectProgress {
+  isProject: boolean;
+  startDate: string | null;
+  endDate: string | null;
+  totalDays: number;
+  elapsedDays: number;
+  remainingDays: number;
+  percentElapsed: number;
+  hiredCount: number;
+  workers: { workerId: string; name: string; photoUrl: string | null; daysAttended: number }[];
+}
+
 export interface NearbyParams {
   lat: number;
   lng: number;
@@ -205,6 +217,26 @@ export const jobsApi = {
   repost: (jobId: string) =>
     apiRequest<{ job: PublicJob }>(`/jobs/${jobId}/repost`, { method: 'POST' }),
 
+  /** Wage benchmark vs. the local median for one of your jobs. */
+  wageBenchmark: (jobId: string) =>
+    apiRequest<{
+      benchmark: {
+        hasBenchmark: boolean;
+        sampleSize: number;
+        medianPaise: number | null;
+        yourPaise: number;
+        belowMarket: boolean;
+        period: string;
+        currency: string;
+      };
+    }>(`/jobs/${jobId}/wage-benchmark`),
+
+  /** Multi-day project progress (Day X of N + per-worker days attended). */
+  projectProgress: (jobId: string) =>
+    apiRequest<{ progress: ProjectProgress }>(`/jobs/${jobId}/project-progress`).then(
+      (r) => r.progress,
+    ),
+
   update: (jobId: string, body: Partial<CreateJobPayload>) =>
     apiRequest<{ job: PublicJob }>(`/jobs/${jobId}`, { method: 'PATCH', body }),
 
@@ -259,6 +291,9 @@ export interface CreateJobPayload {
   recurring?: boolean;
   /** Pre-shift checklist items the worker acknowledges. */
   prepChecklist?: string[];
+  /** Multi-day project mode: inclusive YYYY-MM-DD start/end (both or neither). */
+  projectStartDate?: string | null;
+  projectEndDate?: string | null;
   schedule?: {
     days?: number[];
     startTime?: string | null;

@@ -92,6 +92,14 @@ async function main(): Promise<void> {
       import('@/modules/applications/shiftConfirmation.service'),
       import('@/modules/applications/offerExpiry.service'),
       import('@/modules/travelTime/travelTime.service'),
+      import('@/modules/statement/statement.service'),
+      import('@/modules/needsYouNow/needsYouNow.service'),
+      import('@/modules/disputes/dispute.service'),
+      import('@/modules/jobs/escalation.service'),
+      import('@/modules/squads/squad.service'),
+      import('@/modules/homeSafe/homeSafe.service'),
+      import('@/modules/maskedCall/maskedCall.service'),
+      import('@/lib/maskedCall'),
       import('@/lib/transactionalSms'),
     ]);
   });
@@ -111,6 +119,10 @@ async function main(): Promise<void> {
       import('@/modules/employerResponse/employerResponse.model'),
       import('@/modules/workProof/workProof.model'),
       import('@/modules/crew/crew.model'),
+      import('@/modules/disputes/dispute.model'),
+      import('@/modules/squads/squad.model'),
+      import('@/modules/homeSafe/homeSafe.model'),
+      import('@/modules/maskedCall/maskedCall.model'),
     ]);
   });
 
@@ -128,6 +140,7 @@ async function main(): Promise<void> {
       ['REENGAGEMENT_CRON', env.REENGAGEMENT_CRON],
       ['SHIFT_CONFIRM_CRON', env.SHIFT_CONFIRM_CRON],
       ['OFFER_EXPIRY_CRON', env.OFFER_EXPIRY_CRON],
+      ['ESCALATION_CRON', env.ESCALATION_CRON],
     ] as const) {
       assert(cron.validate(expr), `${name} is not a valid cron expression: "${expr}"`);
     }

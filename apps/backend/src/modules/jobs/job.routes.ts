@@ -96,6 +96,20 @@ router.post(
   validate(jobIdParamsSchema),
   controller.repostJob,
 );
+router.get(
+  '/:id/wage-benchmark',
+  requireAuth,
+  requireRole('employer'),
+  validate(jobIdParamsSchema),
+  controller.wageBenchmark,
+);
+router.get(
+  '/:id/project-progress',
+  requireAuth,
+  requireRole('employer'),
+  validate(jobIdParamsSchema),
+  controller.projectProgress,
+);
 router.post(
   '/:id/pause',
   requireAuth,

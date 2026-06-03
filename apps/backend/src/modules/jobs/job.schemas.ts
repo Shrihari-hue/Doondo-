@@ -182,6 +182,21 @@ export const createJobSchema = z.object({
       recurring: z.boolean().optional(),
       /** Pre-shift checklist items the worker acknowledges. */
       prepChecklist: z.array(z.string().trim().min(1).max(80)).max(10).optional(),
+      /**
+       * Multi-day project mode: an inclusive YYYY-MM-DD start/end. The
+       * worker is hired for the whole span, not a single shift. Both must
+       * be present together; end must not precede start.
+       */
+      projectStartDate: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, 'projectStartDate must be YYYY-MM-DD')
+        .nullable()
+        .optional(),
+      projectEndDate: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, 'projectEndDate must be YYYY-MM-DD')
+        .nullable()
+        .optional(),
       schedule: scheduleSchema,
       /** Time-sensitive posting. Defaults to false. */
       urgent: z.boolean().default(false),

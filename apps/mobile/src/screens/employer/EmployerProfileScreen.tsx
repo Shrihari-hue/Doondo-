@@ -28,6 +28,7 @@ import {
 import { useTheme } from '@/theme/useTheme';
 import { laborBudgetApi, type BudgetPeriod } from '@/api/laborBudget.api';
 import { employerResponseApi, type ResponseSettings } from '@/api/employerResponse.api';
+import { favoritesApi } from '@/api/favorites.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/auth.store';
 import { meApi } from '@/api/me.api';
@@ -165,6 +166,8 @@ export function EmployerProfileScreen() {
         <Text variant="footnote" tone="secondary">
           {user.email}
         </Text>
+
+        <FavoritedByStat t={t} />
 
         {/* Completion */}
         <Card premium={user.profileCompletion === 100}>
@@ -443,6 +446,21 @@ function LaborBudgetCard({ t }: { t: TFn }) {
         )}
       </View>
     </Card>
+  );
+}
+
+/** "N workers favourited you" reputation signal. Hidden when zero. */
+function FavoritedByStat({ t }: { t: TFn }) {
+  const query = useQuery({
+    queryKey: ['employer-favorited-count'],
+    queryFn: () => favoritesApi.myCount(),
+  });
+  const count = query.data?.count ?? 0;
+  if (count <= 0) return null;
+  return (
+    <Text variant="footnote" tone="hero" weight="medium">
+      {t('employer.profile.favorited_by', { n: count })}
+    </Text>
   );
 }
 

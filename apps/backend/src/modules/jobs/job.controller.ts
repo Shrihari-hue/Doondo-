@@ -129,6 +129,36 @@ export async function createJob(
   }
 }
 
+/** Wage benchmark vs. the local median for one of the employer's jobs. */
+export async function wageBenchmark(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const benchmark = await jobService.getWageBenchmark(req.user.id, req.params.id!);
+    ok(req, res, 200, { benchmark });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Multi-day project progress for one of the employer's project jobs. */
+export async function projectProgress(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const progress = await jobService.getProjectProgress(req.user.id, req.params.id!);
+    ok(req, res, 200, { progress });
+  } catch (err) {
+    next(err);
+  }
+}
+
 /** Re-post a previous job as a fresh, active posting. */
 export async function repostJob(
   req: Request,

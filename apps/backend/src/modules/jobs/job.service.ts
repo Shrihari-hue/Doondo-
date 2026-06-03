@@ -24,7 +24,9 @@ import { CrewMemberModel } from '@/modules/crew/crew.model';
 import { emitToUser } from '@/sockets/bus';
 import { matchJobToAlerts } from '@/modules/alerts/alert.service';
 import { UserModel } from '@/modules/users/user.model';
-import { JobModel, type JobStatus, type PublicJob } from './job.model';
+import { ApplicationModel } from '@/modules/applications/application.model';
+import { ShiftCheckInModel } from '@/modules/applications/shiftCheckIn.model';
+import { JobModel, buildProject, type JobStatus, type PublicJob } from './job.model';
 import { computeWomenSafety, type WomenSafety } from './womenSafety';
 import { findSkillTest } from '@/modules/skillTests/skillTests.catalogue';
 import type {
@@ -204,6 +206,13 @@ export async function findFirstMatch(query: PreviewQuery): Promise<{
     }
     if (r.employer && (r.employer as { isVerified?: boolean }).isVerified) {
       bias += 5;
+    }
+    // Auto-escalation feed boost: a stalling job that's been escalated
+    // gets lifted while its boost window is live, so it draws eyes.
+    const boostedUntil = (r.escalation as { boostedUntil?: Date | string | null } | null | undefined)
+      ?.boostedUntil;
+    if (boostedUntil && new Date(boostedUntil).getTime() > Date.now()) {
+      bias += 40;
     }
     return { row: r, bias };
   });
@@ -518,6 +527,23 @@ export async function listSaved(userId: string): Promise<PublicJob[]> {
 
 // ─── Employer-side operations (Phase 3) ─────────────────────────────────────
 
+/**
+ * Normalise an optional project date pair into the persisted fields.
+ * Both must be present and end ≥ start, else the job is a one-off (nulls).
+ */
+function projectDates(
+  start: string | null,
+  end: string | null,
+): { projectStartDate: Date | null; projectEndDate: Date | null } {
+  if (!start || !end) return { projectStartDate: null, projectEndDate: null };
+  const s = new Date(`${start}T00:00:00.000Z`);
+  const e = new Date(`${end}T00:00:00.000Z`);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime()) || e.getTime() < s.getTime()) {
+    return { projectStartDate: null, projectEndDate: null };
+  }
+  return { projectStartDate: s, projectEndDate: e };
+}
+
 export async function createJob(
   employerId: string,
   input: CreateJobBody,
@@ -553,6 +579,9 @@ export async function createJob(
     headcount: input.headcount ?? 1,
     recurring: input.recurring ?? false,
     prepChecklist: input.prepChecklist ?? [],
+    // Multi-day project: persist only when BOTH dates are present and the
+    // end isn't before the start; otherwise leave it a one-off.
+    ...projectDates(input.projectStartDate ?? null, input.projectEndDate ?? null),
     crewHeadStartUntil:
       input.crewFirstHours && input.crewFirstHours > 0
         ? new Date(Date.now() + input.crewFirstHours * 60 * 60 * 1000)
@@ -598,6 +627,193 @@ export async function createJob(
   }
 
   return publicJob;
+}
+
+export interface WageBenchmark {
+  /** False when too few comparable posts exist to benchmark against. */
+  hasBenchmark: boolean;
+  sampleSize: number;
+  /** Median pay (paise) for the same type/city/period nearby. */
+  medianPaise: number | null;
+  /** This job's pay (paise). */
+  yourPaise: number;
+  /** True when this job pays below the local median. */
+  belowMarket: boolean;
+  period: string;
+  currency: string;
+}
+
+/**
+ * Wage benchmark for one of the employer's jobs: how its pay compares to
+ * the local median for the same job type, city, and pay period. Powers the
+ * "cooks near you post ₹650/day; yours is ₹520 — that's why it's slow"
+ * nudge. Reuses the same window + city-match approach as the public
+ * pay-stats endpoint.
+ */
+export async function getWageBenchmark(
+  employerId: string,
+  jobId: string,
+): Promise<WageBenchmark> {
+  const job = await JobModel.findById(jobId).select('employerId type pay location').lean();
+  if (!job) throw errors.jobNotFound();
+  if ((job.employerId as unknown as Types.ObjectId).toString() !== employerId) {
+    throw errors.forbidden();
+  }
+  const pay = (job as { pay?: { amount?: number; period?: string; currency?: string } }).pay ?? {};
+  const city = (job as { location?: { city?: string } }).location?.city ?? '';
+  const yourPaise = pay.amount ?? 0;
+  const period = pay.period ?? 'day';
+  const currency = pay.currency ?? 'INR';
+
+  const base: WageBenchmark = {
+    hasBenchmark: false,
+    sampleSize: 0,
+    medianPaise: null,
+    yourPaise,
+    belowMarket: false,
+    period,
+    currency,
+  };
+  if (!city) return base;
+
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const docs = await JobModel.find({
+    _id: { $ne: new Types.ObjectId(jobId) },
+    status: 'active',
+    type: (job as { type?: string }).type,
+    'pay.period': period,
+    'location.city': new RegExp(`^${escapeRegex(city)}$`, 'i'),
+    createdAt: { $gte: since },
+  })
+    .select('pay.amount')
+    .lean();
+
+  const amounts = docs
+    .map((d) => (d as { pay?: { amount?: number } }).pay?.amount)
+    .filter((n): n is number => typeof n === 'number')
+    .sort((a, b) => a - b);
+  if (amounts.length < 5) return base;
+
+  const mid = Math.floor(amounts.length / 2);
+  const median =
+    amounts.length % 2 === 0 ? Math.round((amounts[mid - 1]! + amounts[mid]!) / 2) : amounts[mid]!;
+
+  return {
+    hasBenchmark: true,
+    sampleSize: amounts.length,
+    medianPaise: median,
+    yourPaise,
+    belowMarket: yourPaise > 0 && yourPaise < median,
+    period,
+    currency,
+  };
+}
+
+export interface ProjectProgress {
+  isProject: boolean;
+  startDate: string | null;
+  endDate: string | null;
+  totalDays: number;
+  /** Days elapsed inclusive of today, clamped to [0, totalDays]. */
+  elapsedDays: number;
+  remainingDays: number;
+  percentElapsed: number;
+  hiredCount: number;
+  workers: { workerId: string; name: string; photoUrl: string | null; daysAttended: number }[];
+}
+
+/**
+ * Progress of a multi-day project job for its owning employer: where we
+ * are in the span (Day X of N) plus per-hired-worker days attended,
+ * derived from shift check-ins already recorded for this job. Read-only.
+ */
+export async function getProjectProgress(
+  employerId: string,
+  jobId: string,
+): Promise<ProjectProgress> {
+  const job = await JobModel.findById(jobId)
+    .select('employerId projectStartDate projectEndDate')
+    .lean();
+  if (!job) throw errors.jobNotFound();
+  if ((job.employerId as unknown as Types.ObjectId).toString() !== employerId) {
+    throw errors.forbidden();
+  }
+
+  const project = buildProject(
+    (job as { projectStartDate?: Date | null }).projectStartDate ?? null,
+    (job as { projectEndDate?: Date | null }).projectEndDate ?? null,
+  );
+  const empty: ProjectProgress = {
+    isProject: false,
+    startDate: null,
+    endDate: null,
+    totalDays: 0,
+    elapsedDays: 0,
+    remainingDays: 0,
+    percentElapsed: 0,
+    hiredCount: 0,
+    workers: [],
+  };
+  if (!project) return empty;
+
+  const DAY = 24 * 60 * 60 * 1000;
+  const startMs = new Date(`${project.startDate}T00:00:00.000Z`).getTime();
+  const todayMs = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z').getTime();
+  const elapsedDays = Math.max(0, Math.min(project.totalDays, Math.floor((todayMs - startMs) / DAY) + 1));
+  const remainingDays = Math.max(0, project.totalDays - elapsedDays);
+  const percentElapsed = Math.round((elapsedDays / project.totalDays) * 100);
+
+  // Hired workers on this job.
+  const hired = await ApplicationModel.find({
+    jobId: new Types.ObjectId(jobId),
+    status: 'hired',
+  })
+    .select('seekerId')
+    .lean();
+  const seekerIds = hired.map((h) => h.seekerId as unknown as Types.ObjectId);
+
+  // Distinct days each hired worker checked in for this job.
+  const checkIns = await ShiftCheckInModel.find({
+    jobId: new Types.ObjectId(jobId),
+    kind: 'check_in',
+  })
+    .select('seekerId timestamp')
+    .lean();
+  const daysByWorker = new Map<string, Set<string>>();
+  for (const c of checkIns) {
+    const wid = (c.seekerId as unknown as Types.ObjectId).toString();
+    const day = new Date(c.timestamp as Date).toISOString().slice(0, 10);
+    if (!daysByWorker.has(wid)) daysByWorker.set(wid, new Set());
+    daysByWorker.get(wid)!.add(day);
+  }
+
+  const users = await UserModel.find({ _id: { $in: seekerIds } })
+    .select('name photoUrl')
+    .lean();
+  const userMap = new Map(users.map((u) => [(u._id as Types.ObjectId).toString(), u]));
+
+  const workers = seekerIds.map((id) => {
+    const wid = id.toString();
+    const u = userMap.get(wid);
+    return {
+      workerId: wid,
+      name: (u as { name?: string } | undefined)?.name ?? 'Worker',
+      photoUrl: (u as { photoUrl?: string | null } | undefined)?.photoUrl ?? null,
+      daysAttended: daysByWorker.get(wid)?.size ?? 0,
+    };
+  });
+
+  return {
+    isProject: true,
+    startDate: project.startDate,
+    endDate: project.endDate,
+    totalDays: project.totalDays,
+    elapsedDays,
+    remainingDays,
+    percentElapsed,
+    hiredCount: seekerIds.length,
+    workers,
+  };
 }
 
 /**
@@ -895,6 +1111,16 @@ export function formatRawJob(r: Record<string, unknown>): PublicJob {
     })(),
     recurring: Boolean(r.recurring),
     prepChecklist: (r.prepChecklist as string[] | undefined) ?? [],
+    project: buildProject(
+      (r.projectStartDate as Date | string | null | undefined) ?? null,
+      (r.projectEndDate as Date | string | null | undefined) ?? null,
+    ),
+    escalationStage:
+      ((r.escalation as { stage?: number } | null | undefined)?.stage as number | undefined) ?? 0,
+    boostedUntil: (() => {
+      const v = (r.escalation as { boostedUntil?: Date | string | null } | null | undefined)?.boostedUntil;
+      return v && new Date(v).getTime() > Date.now() ? new Date(v).toISOString() : null;
+    })(),
     workMode: (r.workMode as PublicJob['workMode']) ?? 'onsite',
     schedule: (r.schedule as PublicJob['schedule']) ?? null,
     status: r.status as PublicJob['status'],

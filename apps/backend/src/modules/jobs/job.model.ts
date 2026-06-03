@@ -56,6 +56,28 @@ export type PayPeriod = (typeof PAY_PERIODS)[number];
 export const JOB_STATUSES = ['active', 'paused', 'filled', 'expired'] as const;
 export type JobStatus = (typeof JOB_STATUSES)[number];
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Build the PublicJob `project` block from a stored start/end date pair.
+ * Returns null unless both are set; totalDays is the inclusive span.
+ */
+export function buildProject(
+  start: Date | string | null,
+  end: Date | string | null,
+): { startDate: string; endDate: string; totalDays: number } | null {
+  if (!start || !end) return null;
+  const s = new Date(start);
+  const e = new Date(end);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return null;
+  const totalDays = Math.max(1, Math.floor((e.getTime() - s.getTime()) / DAY_MS) + 1);
+  return {
+    startDate: s.toISOString().slice(0, 10),
+    endDate: e.toISOString().slice(0, 10),
+    totalDays,
+  };
+}
+
 // ─── Subdocuments ───────────────────────────────────────────────────────────
 
 interface Pay {
@@ -149,6 +171,24 @@ export interface Job {
    * ("bring tools", "wear uniform", "know the address"). Empty = none.
    */
   prepChecklist: string[];
+  /**
+   * Multi-day project mode: inclusive UTC date range the worker is hired
+   * across (not a single shift). Both null = an ordinary one-off / weekly
+   * job.
+   */
+  projectStartDate?: Date | null;
+  projectEndDate?: Date | null;
+  /**
+   * Auto-escalation state for a stalling job. A scheduler advances `stage`
+   * (0 = none, 1 = boosted, 2 = recommendation sent, 3 = final nudge) when
+   * an active job isn't drawing enough applicants to fill its headcount.
+   * `boostedUntil` is consulted by the "right now" feed to lift the job.
+   */
+  escalation?: {
+    stage: number;
+    lastEscalatedAt?: Date | null;
+    boostedUntil?: Date | null;
+  } | null;
   schedule?: Schedule | null;
   status: JobStatus;
   /**
@@ -241,6 +281,18 @@ export interface PublicJob {
   recurring: boolean;
   /** Pre-shift checklist items the worker acknowledges. Empty = none. */
   prepChecklist: string[];
+  /**
+   * Multi-day project span when the post is a project, else null.
+   * Dates are YYYY-MM-DD; totalDays is the inclusive day count.
+   */
+  project: { startDate: string; endDate: string; totalDays: number } | null;
+  /**
+   * Auto-escalation state, surfaced so the employer sees a "Boosted" /
+   * "Needs attention" badge on a stalling post. stage 0 = none.
+   */
+  escalationStage: number;
+  /** ISO time the feed-boost is active until, or null. */
+  boostedUntil: string | null;
   schedule: Schedule | null;
   status: JobStatus;
   /** True if the employer has marked this posting as time-sensitive. */
@@ -368,6 +420,19 @@ const jobSchema = new Schema<Job, JobModelType, JobMethods>(
     crewHeadStartUntil: { type: Date, default: null, index: true },
     recurring: { type: Boolean, default: false, index: true },
     prepChecklist: { type: [String], default: [] },
+    projectStartDate: { type: Date, default: null },
+    projectEndDate: { type: Date, default: null },
+    escalation: {
+      type: new Schema(
+        {
+          stage: { type: Number, default: 0, min: 0, max: 3 },
+          lastEscalatedAt: { type: Date, default: null },
+          boostedUntil: { type: Date, default: null },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
     workMode: {
       type: String,
       enum: WORK_MODES,
@@ -440,6 +505,12 @@ jobSchema.method('toPublicJSON', function (this: JobDocument): PublicJob {
     crewHeadStartUntil: this.crewHeadStartUntil ? this.crewHeadStartUntil.toISOString() : null,
     recurring: Boolean(this.recurring),
     prepChecklist: [...(this.prepChecklist ?? [])],
+    project: buildProject(this.projectStartDate ?? null, this.projectEndDate ?? null),
+    escalationStage: this.escalation?.stage ?? 0,
+    boostedUntil:
+      this.escalation?.boostedUntil && this.escalation.boostedUntil.getTime() > Date.now()
+        ? this.escalation.boostedUntil.toISOString()
+        : null,
     workMode: this.workMode ?? 'onsite',
     schedule: this.schedule ?? null,
     status: this.status,

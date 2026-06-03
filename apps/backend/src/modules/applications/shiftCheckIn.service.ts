@@ -180,6 +180,24 @@ export async function createCheckIn(input: CreateInput): Promise<PublicShiftChec
     timestamp: row.timestamp.toISOString(),
   });
 
+  // On check-OUT, open a "reached home safe?" prompt for the worker. The
+  // positive safety bookend to the shift — best-effort, never blocks.
+  if (input.kind === 'check_out') {
+    void (async () => {
+      try {
+        const { openOnCheckout } = await import('@/modules/homeSafe/homeSafe.service');
+        await openOnCheckout({
+          seekerId: app.seekerId.toString(),
+          applicationId: app.id,
+          jobId: app.jobId.toString(),
+          employerId: app.employerId.toString(),
+        });
+      } catch (err) {
+        logger.warn({ err, applicationId: app.id }, 'home-safe open failed');
+      }
+    })();
+  }
+
   // Bump the seeker's shift-day streak — only on check_in (not check_out)
   // so each day of work counts exactly once. Fire-and-forget.
   if (input.kind === 'check_in') {

@@ -53,6 +53,7 @@ import type { JobDraft } from '@/api/postDraft.api';
 
 /** Day index (0 = Sun … 6 = Sat) → short label for the description note. */
 const DRAFT_DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'PostJob'>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
@@ -117,6 +118,9 @@ export function PostJobScreen() {
   /** Recurring weekly shift + the weekdays it repeats on (0=Sun…6=Sat). */
   const [recurring, setRecurring] = useState(false);
   const [recurDays, setRecurDays] = useState<number[]>([]);
+  const [isProject, setIsProject] = useState(false);
+  const [projectStart, setProjectStart] = useState('');
+  const [projectEnd, setProjectEnd] = useState('');
   const [prepItems, setPrepItems] = useState<string[]>([]);
   const [prepDraft, setPrepDraft] = useState('');
   const [urgent, setUrgent] = useState(false);
@@ -222,6 +226,9 @@ export function PostJobScreen() {
         schedule:
           recurring && recurDays.length > 0 ? { days: [...recurDays].sort() } : undefined,
         prepChecklist: prepItems.length > 0 ? prepItems : undefined,
+        projectStartDate:
+          isProject && ISO_DATE.test(projectStart) ? projectStart : undefined,
+        projectEndDate: isProject && ISO_DATE.test(projectEnd) ? projectEnd : undefined,
         urgent,
         workMode,
         audioDescriptionUrl: audio?.dataUrl ?? null,
@@ -622,6 +629,53 @@ export function PostJobScreen() {
                     );
                   })}
                 </View>
+              </>
+            ) : null}
+          </View>
+
+          {/* Multi-day project mode */}
+          <View style={{ gap: spacing.sm }}>
+            <Text
+              variant="footnote"
+              weight="medium"
+              tone="secondary"
+              style={{ letterSpacing: 1.0 }}
+            >
+              {t('employer.post_job.section_project')}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: spacing.xs }}>
+              <Pressable onPress={() => setIsProject(false)}>
+                <Pill
+                  label={t('employer.post_job.project_off')}
+                  tone={!isProject ? 'hero' : 'neutral'}
+                />
+              </Pressable>
+              <Pressable onPress={() => setIsProject(true)}>
+                <Pill
+                  label={t('employer.post_job.project_on')}
+                  tone={isProject ? 'hero' : 'neutral'}
+                />
+              </Pressable>
+            </View>
+            {isProject ? (
+              <>
+                <Text variant="footnote" tone="tertiary">
+                  {t('employer.post_job.project_hint')}
+                </Text>
+                <TextField
+                  label={t('employer.post_job.field_project_start')}
+                  value={projectStart}
+                  onChangeText={setProjectStart}
+                  placeholder="YYYY-MM-DD"
+                  autoCapitalize="none"
+                />
+                <TextField
+                  label={t('employer.post_job.field_project_end')}
+                  value={projectEnd}
+                  onChangeText={setProjectEnd}
+                  placeholder="YYYY-MM-DD"
+                  autoCapitalize="none"
+                />
               </>
             ) : null}
           </View>

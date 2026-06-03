@@ -281,6 +281,9 @@ function PostCard({ job, t }: { job: PublicJob; t: TFn }) {
           </View>
         </View>
 
+        {/* Auto-escalation badge — boosted, or needs the employer's attention. */}
+        <EscalationBadge job={job} t={t} />
+
         {/* Row 2 — full-width "View applicants" inset row */}
         <Pressable onPress={goToApplicants}>
           <View
@@ -460,6 +463,24 @@ function StatusPill({ status, t }: { status: JobStatus; t: TFn }) {
   };
   const { label, tone } = map[status];
   return <Pill label={label} tone={tone} />;
+}
+
+/**
+ * Auto-escalation badge. A stalling job that's been boosted shows a
+ * "Boosted" chip; once it reaches the recommendation stages it reads as
+ * "Needs attention" so the employer knows to act (raise wage, widen, etc.).
+ * Renders nothing for healthy posts (stage 0) or closed ones.
+ */
+function EscalationBadge({ job, t }: { job: PublicJob; t: TFn }) {
+  if (job.status !== 'active' || (job.escalationStage ?? 0) < 1) return null;
+  const boosted = job.boostedUntil != null && new Date(job.boostedUntil).getTime() > Date.now();
+  if (job.escalationStage >= 2) {
+    return <Pill label={t('employer.posts.escalation_attention')} tone="warning" />;
+  }
+  if (boosted) {
+    return <Pill label={t('employer.posts.escalation_boosted')} tone="info" />;
+  }
+  return null;
 }
 
 function TipCard({ t }: { t: TFn }) {

@@ -1143,6 +1143,41 @@ export async function sendTrustCircleShiftPush(input: {
 }
 
 /**
+ * Reassurance push to a trust-circle contact when a worker confirms they
+ * reached home safely after a shift. The positive bookend to the shift
+ * pings — "they're home, all good".
+ */
+export async function sendHomeSafeCirclePush(input: {
+  recipientId: string;
+  workerFirstName: string;
+}): Promise<void> {
+  const title = 'Home safe';
+  const body = `${input.workerFirstName} reached home safely.`;
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'reached_home_safe',
+    title,
+    body,
+    deeplink: { screen: 'Home' },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'default',
+      data: { type: 'trust_circle:home_safe', deeplink: { screen: 'Home' } },
+    })),
+  );
+}
+
+/**
  * Push + in-app row when someone is rated. The push module fires this from
  * the ratings service after a successful create.
  */

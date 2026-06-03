@@ -29,6 +29,7 @@ import { runGhostSweep } from '@/modules/applications/ghostSweep.service';
 import { runInterviewReminderSweep } from '@/modules/applications/interviewReminders.service';
 import { runShiftConfirmationSweep } from '@/modules/applications/shiftConfirmation.service';
 import { runOfferExpirySweep } from '@/modules/applications/offerExpiry.service';
+import { runEscalationSweep } from '@/modules/jobs/escalation.service';
 import { runReengagementSweep } from '@/modules/notifications/reengagement.service';
 
 let registered: ScheduledTask[] = [];
@@ -59,6 +60,7 @@ export function bootScheduler(): void {
   const reminderValid = cron.validate(env.INTERVIEW_REMINDER_CRON);
   const shiftConfirmValid = cron.validate(env.SHIFT_CONFIRM_CRON);
   const offerExpiryValid = cron.validate(env.OFFER_EXPIRY_CRON);
+  const escalationValid = cron.validate(env.ESCALATION_CRON);
   const reengagementValid = cron.validate(env.REENGAGEMENT_CRON);
   if (!digestValid) {
     logger.error(
@@ -88,6 +90,12 @@ export function bootScheduler(): void {
     logger.error(
       { cron: env.OFFER_EXPIRY_CRON },
       'OFFER_EXPIRY_CRON is not a valid cron expression — offer expiry disabled',
+    );
+  }
+  if (!escalationValid) {
+    logger.error(
+      { cron: env.ESCALATION_CRON },
+      'ESCALATION_CRON is not a valid cron expression — job auto-escalation disabled',
     );
   }
   if (!reengagementValid) {
@@ -195,6 +203,26 @@ export function bootScheduler(): void {
     );
     registered.push(offerExpiryTask);
     logger.info({ cron: env.OFFER_EXPIRY_CRON }, 'scheduler: offer expiry sweep registered');
+  }
+
+  // ─── Stalling-job auto-escalation sweep ────────────────────────────────
+  if (escalationValid) {
+    const escalationTask = cron.schedule(
+      env.ESCALATION_CRON,
+      () => {
+        runEscalationSweep().catch((err) => {
+          logger.error({ err }, 'escalation sweep run failed');
+        });
+      },
+      {
+        timezone: 'UTC',
+      },
+    );
+    registered.push(escalationTask);
+    logger.info(
+      { cron: env.ESCALATION_CRON, stallHours: env.ESCALATION_STALL_HOURS },
+      'scheduler: job auto-escalation sweep registered',
+    );
   }
 
   // ─── Dormant-user re-engagement sweep ──────────────────────────────────

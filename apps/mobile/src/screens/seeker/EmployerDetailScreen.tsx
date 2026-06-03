@@ -28,6 +28,7 @@ import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { employersApi, type EmployerProfile } from '@/api/employers.api';
 import { ratingsApi, type TagSummary, type TagSummaryEntry } from '@/api/ratings.api';
 import { employerInterestApi } from '@/api/employerInterest.api';
+import { favoritesApi } from '@/api/favorites.api';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
@@ -124,6 +125,7 @@ function EmployerDetailInner() {
               <TagSummaryPanel summary={tagSummaryQuery.data} />
             )}
             <InterestButton employerId={userId} employerName={displayName} />
+            <FavoriteEmployerButton employerId={userId} />
           </View>
         }
         ListEmptyComponent={
@@ -695,6 +697,54 @@ function formatPay(pay: PublicJob['pay'], t: TFn): string {
  * has no live job posted; the employer sees it in their Find-workers
  * "Interested in you" list.
  */
+/**
+ * A heart toggle letting the worker favourite this employer. Favouriting
+ * boosts the employer's reputation signal ("N workers favourited you") and
+ * marks them as one the worker wants to hear from.
+ */
+function FavoriteEmployerButton({ employerId }: { employerId: string }) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ['employer-favorite', employerId],
+    queryFn: () => favoritesApi.status(employerId),
+  });
+  const favorited = query.data?.favorited ?? false;
+
+  const mutation = useMutation({
+    mutationFn: () => favoritesApi.set(employerId, !favorited),
+    onSuccess: () => {
+      haptic('selection');
+      void queryClient.invalidateQueries({ queryKey: ['employer-favorite', employerId] });
+    },
+  });
+
+  return (
+    <Pressable
+      onPress={() => mutation.mutate()}
+      disabled={mutation.isPending}
+      accessibilityRole="button"
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        paddingVertical: 10,
+        borderRadius: 999,
+        borderWidth: 0.5,
+        borderColor: favorited ? theme.brand.hero : theme.border.default,
+        backgroundColor: favorited ? theme.brand.heroSubtle : 'transparent',
+      }}
+    >
+      <Text style={{ fontSize: 15 }}>{favorited ? '♥' : '♡'}</Text>
+      <Text variant="footnote" weight="medium" style={{ color: favorited ? theme.brand.hero : theme.text.secondary }}>
+        {favorited ? t('employer_detail.favorited') : t('employer_detail.favorite')}
+      </Text>
+    </Pressable>
+  );
+}
+
 function InterestButton({
   employerId,
   employerName,
