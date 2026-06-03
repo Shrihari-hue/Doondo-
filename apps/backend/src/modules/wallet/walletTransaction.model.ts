@@ -23,7 +23,15 @@
 
 import { Schema, model, type Model, type HydratedDocument, type Types } from 'mongoose';
 
-export const WALLET_KINDS = ['hire_payment', 'adjustment', 'cash_log'] as const;
+export const WALLET_KINDS = [
+  'hire_payment',
+  'adjustment',
+  'cash_log',
+  // Doondo Collect: a QR payment credited net of commission, and a
+  // withdrawal (money out to the worker's bank).
+  'qr_collection',
+  'payout',
+] as const;
 export type WalletKind = (typeof WALLET_KINDS)[number];
 
 export const WALLET_STATUSES = ['pending', 'settled', 'reversed'] as const;
@@ -43,6 +51,10 @@ export interface WalletTransaction {
   applicationId?: Schema.Types.ObjectId | null;
   /** Set when transitioning to settled. */
   settledAt?: Date | null;
+  /** For qr_collection: the gross amount paid before commission (paise). */
+  grossPaise?: number | null;
+  /** For qr_collection: Doondo's commission withheld (paise). */
+  feePaise?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -57,6 +69,8 @@ export interface PublicWalletTransaction {
   jobId: string | null;
   applicationId: string | null;
   settledAt: string | null;
+  grossPaise: number | null;
+  feePaise: number | null;
   createdAt: string;
 }
 
@@ -78,6 +92,8 @@ const walletSchema = new Schema<WalletTransaction, WalletTransactionModelType, W
     jobId: { type: Schema.Types.ObjectId, ref: 'Job', default: null, index: true },
     applicationId: { type: Schema.Types.ObjectId, ref: 'Application', default: null },
     settledAt: { type: Date, default: null },
+    grossPaise: { type: Number, default: null },
+    feePaise: { type: Number, default: null },
   },
   { timestamps: true },
 );
@@ -103,6 +119,8 @@ walletSchema.method('toPublicJSON', function (
     jobId: this.jobId ? this.jobId.toString() : null,
     applicationId: this.applicationId ? this.applicationId.toString() : null,
     settledAt: this.settledAt ? this.settledAt.toISOString() : null,
+    grossPaise: this.grossPaise ?? null,
+    feePaise: this.feePaise ?? null,
     createdAt: this.createdAt.toISOString(),
   };
 });

@@ -39,6 +39,7 @@ import { MyJobsScreen } from '@/screens/seeker/MyJobsScreen';
 import { NewChatScreen } from '@/screens/chat/NewChatScreen';
 import { SettingsScreen } from '@/screens/seeker/SettingsScreen';
 import { MyEarningsScreen } from '@/screens/seeker/MyEarningsScreen';
+import { CollectScreen } from '@/screens/seeker/CollectScreen';
 import { DownloadCenterScreen } from '@/screens/seeker/DownloadCenterScreen';
 import { EmployerDetailScreen } from '@/screens/seeker/EmployerDetailScreen';
 import { SosScreen } from '@/screens/seeker/SosScreen';
@@ -245,6 +246,11 @@ export function AppNavigator() {
       <Stack.Screen
         name="MyEarnings"
         component={MyEarningsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="Collect"
+        component={CollectScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen

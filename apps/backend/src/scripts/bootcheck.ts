@@ -101,6 +101,9 @@ async function main(): Promise<void> {
       import('@/modules/maskedCall/maskedCall.service'),
       import('@/lib/maskedCall'),
       import('@/modules/workerJob/workerJob.service'),
+      import('@/modules/collect/collect.service'),
+      import('@/lib/paymentAggregator'),
+      import('@/lib/qrMatrix'),
       import('@/lib/transactionalSms'),
     ]);
   });
@@ -124,6 +127,7 @@ async function main(): Promise<void> {
       import('@/modules/squads/squad.model'),
       import('@/modules/homeSafe/homeSafe.model'),
       import('@/modules/maskedCall/maskedCall.model'),
+      import('@/modules/collect/collect.model'),
     ]);
   });
 

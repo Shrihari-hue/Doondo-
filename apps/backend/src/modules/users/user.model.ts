@@ -292,6 +292,18 @@ export interface User {
    */
   upiVpa?: string | null;
   /**
+   * Worker payout bank account for Doondo Collect withdrawals. Stored so
+   * the payment aggregator can send wallet balance to the worker's bank.
+   * `verified` is set by the aggregator's penny-drop/name check.
+   */
+  payoutBank?: {
+    holderName: string;
+    accountNumber: string;
+    ifsc: string;
+    verified: boolean;
+    addedAt: Date;
+  } | null;
+  /**
    * Per-type push notification toggles. Missing keys default to true
    * (notifications on). Used by the push fan-out service to filter
    * sends before they hit the device.
@@ -769,6 +781,19 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
      * over UPI. Optional — the worker can also receive cash.
      */
     upiVpa: { type: String, default: null, lowercase: true, trim: true, maxlength: 80 },
+    payoutBank: {
+      type: new Schema(
+        {
+          holderName: { type: String, required: true, trim: true, maxlength: 120 },
+          accountNumber: { type: String, required: true, trim: true, maxlength: 34 },
+          ifsc: { type: String, required: true, uppercase: true, trim: true, maxlength: 15 },
+          verified: { type: Boolean, default: false },
+          addedAt: { type: Date, default: Date.now },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
     notificationPrefs: {
       type: new Schema(
         {

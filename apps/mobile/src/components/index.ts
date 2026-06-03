@@ -27,3 +27,4 @@ export { HireShareCardPoster } from './HireShareCardPoster';
 export { WomenSafetyBadge } from './WomenSafetyBadge';
 export { DisputeSection } from './DisputeSection';
 export { HiredJobTools } from './HiredJobTools';
+export { QrCode, type QrMatrix } from './QrCode';

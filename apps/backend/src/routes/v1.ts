@@ -56,6 +56,7 @@ import squadsRouter from '@/modules/squads/squad.routes';
 import homeSafeRouter from '@/modules/homeSafe/homeSafe.routes';
 import maskedCallRouter from '@/modules/maskedCall/maskedCall.routes';
 import workerJobRouter from '@/modules/workerJob/workerJob.routes';
+import collectRouter from '@/modules/collect/collect.routes';
 import { blocksRouter, reportsRouter } from '@/modules/moderation/moderation.routes';
 import incidentsRouter from '@/modules/incidents/incident.routes';
 import churnRouter from '@/modules/churn/churn.routes';
@@ -135,6 +136,8 @@ v1.use('/home-safe', homeSafeRouter);
 v1.use('/masked-call', maskedCallRouter);
 // Worker "My Job" hub — attendance + payslip rollups (seeker).
 v1.use('/my-job', workerJobRouter);
+// Doondo Collect — worker bank account, collection QRs, withdrawals.
+v1.use('/collect', collectRouter);
 // Moderation — employer block list + user reports.
 v1.use('/blocks', blocksRouter);
 v1.use('/reports', reportsRouter);

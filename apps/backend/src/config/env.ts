@@ -46,6 +46,16 @@ const schema = z.object({
   // reveal; a real provider (Exotel/Twilio) slots in behind this switch.
   MASKED_CALL_PROVIDER: z.enum(['none', 'exotel', 'twilio']).default('none'),
 
+  // ─── Doondo Collect — worker QR payments + payouts ────────────────────
+  // Payment aggregator for collections/commission-split/payouts. 'none'
+  // (default) simulates everything — no real money moves. A licensed PA
+  // (Razorpay/Cashfree) slots in behind this switch after KYC.
+  PAYMENT_AGGREGATOR: z.enum(['none', 'razorpay', 'cashfree']).default('none'),
+  // Doondo's commission on a QR collection, in basis points (300 = 3%).
+  DOONDO_COMMISSION_BPS: z.coerce.number().int().min(0).max(1000).default(300),
+  // Base URL the collection QR encodes (the Doondo hosted pay-link).
+  COLLECT_BASE_URL: z.string().default('https://pay.doondo.app'),
+
   // Twilio Verify (https://www.twilio.com/docs/verify)
   // Auth: either AccountSid + AuthToken (legacy) OR ApiKeySid + ApiKeySecret
   // (recommended — scopeable and rotatable). When both are configured the

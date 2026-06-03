@@ -184,6 +184,17 @@ function Inner() {
 
         {/* ── Money cards ────────────────────────────────────────────── */}
         <MoneyCard
+          glyph="📲"
+          tint={theme.status.successSubtle}
+          label={t('earnings_hub.collect')}
+          hint={t('earnings_hub.collect_hint')}
+          topValue={t('earnings_hub.collect_top')}
+          topTone="primary"
+          bottomValue={t('earnings_hub.collect_caption')}
+          bottomTone="success"
+          onPress={() => navigation.navigate('Collect')}
+        />
+        <MoneyCard
           glyph="💰"
           tint={theme.brand.heroSubtle}
           label={t('earnings_hub.ledger')}

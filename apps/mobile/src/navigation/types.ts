@@ -162,6 +162,8 @@ export type AppStackParamList = {
   Settings: undefined;
   /** Modal: seeker earnings ledger. */
   MyEarnings: undefined;
+  /** Doondo Collect — worker bank account, collection QR, withdrawals. */
+  Collect: undefined;
   /** Modal: offline-saved jobs list. */
   DownloadCenter: undefined;
   /** Modal: public employer detail (the "About this employer" page). */
