@@ -46,6 +46,15 @@ export interface Conversation {
   unreadEmployer: number;
   unreadSeeker: number;
 
+  /**
+   * Per-side translation-language override for THIS thread
+   * ('en'|'hi'|'ta'|'te'|'kn'). Null = use that user's app locale (the
+   * default). Lets a reader view one conversation in a different language
+   * than the rest of the app — and change the choice again later.
+   */
+  translationLangSeeker?: string | null;
+  translationLangEmployer?: string | null;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -66,6 +75,9 @@ export interface PublicConversation {
   lastSenderId: string | null;
   /** Set per-viewer by the service — count for the current user only. */
   unread: number;
+  /** Per-side translation-language overrides (null = app locale). */
+  translationLangSeeker: string | null;
+  translationLangEmployer: string | null;
   createdAt: string;
 }
 
@@ -99,6 +111,8 @@ const conversationSchema = new Schema<
     lastSenderId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     unreadEmployer: { type: Number, default: 0, min: 0 },
     unreadSeeker: { type: Number, default: 0, min: 0 },
+    translationLangSeeker: { type: String, default: null, maxlength: 5 },
+    translationLangEmployer: { type: String, default: null, maxlength: 5 },
   },
   { timestamps: true },
 );
@@ -128,6 +142,8 @@ conversationSchema.method('toPublicJSON', function (
     lastSenderId: this.lastSenderId ? this.lastSenderId.toString() : null,
     // The service overrides this to the right side per viewer.
     unread: 0,
+    translationLangSeeker: this.translationLangSeeker ?? null,
+    translationLangEmployer: this.translationLangEmployer ?? null,
     createdAt: this.createdAt.toISOString(),
   };
 });

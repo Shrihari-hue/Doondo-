@@ -82,6 +82,20 @@ export const chatApi = {
     ),
 
   /**
+   * Pick the language THIS conversation's translations render in for the
+   * caller (null = back to the app language). Recent incoming messages
+   * are re-translated server-side right away.
+   */
+  setTranslationLang: (
+    conversationId: string,
+    lang: 'en' | 'hi' | 'ta' | 'te' | 'kn' | null,
+  ) =>
+    apiRequest<{ lang: 'en' | 'hi' | 'ta' | 'te' | 'kn' | null }>(
+      `/conversations/${conversationId}/translation-lang`,
+      { method: 'PUT', body: { lang } },
+    ),
+
+  /**
    * Idempotently get (or create) the chat for one of my applications.
    * Used by the seeker NewChat flow to start a thread before the
    * employer has shortlisted.

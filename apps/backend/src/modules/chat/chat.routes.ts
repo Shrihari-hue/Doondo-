@@ -70,4 +70,19 @@ router.post(
   controller.retranslate,
 );
 
+// Per-conversation translation language — the reader picks what language
+// THIS thread renders in (null = back to their app locale). Changeable
+// any time; recent incoming messages are re-translated immediately.
+router.put(
+  '/:id/translation-lang',
+  requireAuth,
+  validate(
+    z.object({
+      params: z.object({ id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id') }),
+      body: z.object({ lang: z.enum(['en', 'hi', 'ta', 'te', 'kn']).nullable() }),
+    }),
+  ),
+  controller.setTranslationLang,
+);
+
 export default router;

@@ -300,8 +300,16 @@ export async function sendMessage(
   let translationTarget: TranslatableLang | null = null;
   let translationStatus: 'none' | 'pending' | 'failed' = 'none';
   if (kind === 'text' && body) {
-    const recipient = await UserModel.findById(recipientId).select('locale').lean();
-    const loc = recipient?.locale;
+    // The recipient's per-conversation language override wins over their
+    // app locale — they may read THIS thread in a different language.
+    const override = isEmployer
+      ? conversation.translationLangSeeker
+      : conversation.translationLangEmployer;
+    let loc: string | null | undefined = isTranslatableLang(override) ? override : null;
+    if (!loc) {
+      const recipient = await UserModel.findById(recipientId).select('locale').lean();
+      loc = recipient?.locale;
+    }
     if (isTranslatableLang(loc) && detectLang(body) !== loc) {
       if (consumeTranslationBudget(userId)) {
         translationTarget = loc;
@@ -466,6 +474,80 @@ export async function retranslateMessage(
 }
 
 /**
+ * Set (or clear) the caller's translation language for ONE conversation.
+ *
+ * The employer writes in their language; the worker picks what THEY want
+ * to read it in — per thread, changeable any time. Null clears the
+ * override back to the app locale. After saving, the most recent incoming
+ * text messages are re-translated into the new language (budget
+ * permitting) so the switch takes effect immediately, not just for future
+ * messages.
+ */
+export async function setConversationTranslationLang(
+  userId: string,
+  conversationId: string,
+  lang: TranslatableLang | null,
+): Promise<{ lang: TranslatableLang | null }> {
+  const conversation = await assertParticipant(userId, conversationId);
+  const isSeeker = conversation.seekerId.toString() === userId;
+  if (isSeeker) conversation.translationLangSeeker = lang;
+  else conversation.translationLangEmployer = lang;
+  await conversation.save();
+
+  // The now-effective reading language for this user.
+  let effective: TranslatableLang | null = lang;
+  if (!effective) {
+    const me = await UserModel.findById(userId).select('locale').lean();
+    effective = isTranslatableLang(me?.locale) ? (me?.locale as TranslatableLang) : null;
+  }
+
+  // Re-render recent incoming texts in the new language so the change is
+  // visible right away. Best-effort and budget-capped.
+  if (effective) {
+    const recent = await MessageModel.find({
+      conversationId: conversation._id,
+      senderId: { $ne: new Types.ObjectId(userId) },
+      kind: 'text',
+      body: { $nin: ['', null] },
+    })
+      .sort({ createdAt: -1 })
+      .limit(15)
+      .select('body senderId')
+      .lean();
+
+    for (const m of recent) {
+      if (!consumeTranslationBudget(userId)) break;
+      const messageId = (m._id as Types.ObjectId).toString();
+      await MessageModel.updateOne(
+        { _id: m._id },
+        { $set: { translationStatus: 'pending' } },
+      );
+      for (const uid of [
+        conversation.employerId.toString(),
+        conversation.seekerId.toString(),
+      ]) {
+        emitToUser(uid, 'chat:message_translated', {
+          messageId,
+          conversationId: conversation.id,
+          translation: null,
+          status: 'pending',
+        });
+      }
+      void translateMessageForRecipient({
+        messageId,
+        conversationId: conversation.id,
+        senderId: (m.senderId as unknown as Types.ObjectId).toString(),
+        recipientId: userId,
+        body: m.body as string,
+        targetLang: effective,
+      });
+    }
+  }
+
+  return { lang };
+}
+
+/**
  * Best-effort message translation. Runs fully detached from the send
  * request. Looks up the recipient's preferred language, translates the
  * message body into it, stamps `translation` on the message, and emits
@@ -502,18 +584,33 @@ async function translateMessageForRecipient(input: {
   try {
     let targetLang = input.targetLang;
     if (!targetLang) {
-      const recipient = await UserModel.findById(input.recipientId)
-        .select('locale')
+      // Per-conversation override first, then the recipient's app locale.
+      const convo = await ConversationModel.findById(input.conversationId)
+        .select('seekerId translationLangSeeker translationLangEmployer')
         .lean();
-      const loc = recipient?.locale;
-      if (!isTranslatableLang(loc)) {
-        await MessageModel.updateOne(
-          { _id: input.messageId },
-          { $set: { translationStatus: 'none' } },
-        );
-        return;
+      const recipientIsSeeker =
+        convo && (convo.seekerId as unknown as Types.ObjectId).toString() === input.recipientId;
+      const override = convo
+        ? recipientIsSeeker
+          ? convo.translationLangSeeker
+          : convo.translationLangEmployer
+        : null;
+      if (isTranslatableLang(override)) {
+        targetLang = override;
+      } else {
+        const recipient = await UserModel.findById(input.recipientId)
+          .select('locale')
+          .lean();
+        const loc = recipient?.locale;
+        if (!isTranslatableLang(loc)) {
+          await MessageModel.updateOne(
+            { _id: input.messageId },
+            { $set: { translationStatus: 'none' } },
+          );
+          return;
+        }
+        targetLang = loc;
       }
-      targetLang = loc;
     }
 
     const result = await translateText({ text: input.body, targetLang });

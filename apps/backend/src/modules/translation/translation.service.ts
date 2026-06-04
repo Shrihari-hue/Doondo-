@@ -92,11 +92,11 @@ interface TranslationProvider {
 // anthropic. Mirrors the philosophy of the transcription mock.
 
 const MOCK_PREVIEW: Record<TranslatableLang, string> = {
-  en: '(Translation preview — set TRANSLATION_PROVIDER=anthropic for real translations.)',
-  hi: '(अनुवाद पूर्वावलोकन — वास्तविक अनुवाद के लिए TRANSLATION_PROVIDER=anthropic सेट करें।)',
-  ta: '(மொழிபெயர்ப்பு முன்னோட்டம் — உண்மையான மொழிபெயர்ப்புக்கு TRANSLATION_PROVIDER=anthropic.)',
-  te: '(అనువాద ప్రివ్యూ — నిజమైన అనువాదాల కోసం TRANSLATION_PROVIDER=anthropic సెట్ చేయండి.)',
-  kn: '(ಅನುವಾದ ಮುನ್ನೋಟ — ನಿಜವಾದ ಅನುವಾದಗಳಿಗಾಗಿ TRANSLATION_PROVIDER=anthropic.)',
+  en: '(Translation preview — set TRANSLATION_PROVIDER=openai (or anthropic) for real translations.)',
+  hi: '(अनुवाद पूर्वावलोकन — वास्तविक अनुवाद के लिए TRANSLATION_PROVIDER=openai सेट करें।)',
+  ta: '(மொழிபெயர்ப்பு முன்னோட்டம் — உண்மையான மொழிபெயர்ப்புக்கு TRANSLATION_PROVIDER=openai.)',
+  te: '(అనువాద ప్రివ్యూ — నిజమైన అనువాదాల కోసం TRANSLATION_PROVIDER=openai సెట్ చేయండి.)',
+  kn: '(ಅನುವಾದ ಮುನ್ನೋಟ — ನಿಜವಾದ ಅನುವಾದಗಳಿಗಾಗಿ TRANSLATION_PROVIDER=openai.)',
 };
 
 class MockTranslationProvider implements TranslationProvider {

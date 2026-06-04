@@ -849,7 +849,13 @@
     "show_original": "मूल दिखाएं",
     "hide_original": "मूल छिपाएं",
     "auto_translated": "स्वतः अनुवादित",
-    "translate_toggle_a11y": "अनुवाद प्रदर्शन टॉगल करें"
+    "translate_toggle_a11y": "अनुवाद प्रदर्शन टॉगल करें",
+    "lang_sheet_title": "अनुवाद",
+    "lang_sheet_only_translation": "केवल अनुवाद दिखाएं (मूल छिपाएं)",
+    "lang_sheet_on": "चालू",
+    "lang_sheet_off": "बंद",
+    "lang_sheet_hint": "इस चैट को किसी और भाषा में पढ़ें। आप इसे कभी भी बदल सकते हैं।",
+    "lang_default": "ऐप की भाषा (डिफ़ॉल्ट)"
   },
   "find_friends": {
     "title": "दोस्त ढूँढें",

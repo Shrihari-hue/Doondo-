@@ -150,3 +150,23 @@ export async function retranslate(
     next(err);
   }
 }
+
+/** Set / clear the caller's translation language for one conversation. */
+export async function setTranslationLang(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const body = req.body as { lang: 'en' | 'hi' | 'ta' | 'te' | 'kn' | null };
+    const result = await chatService.setConversationTranslationLang(
+      req.user.id,
+      req.params.id!,
+      body.lang,
+    );
+    ok(req, res, 200, result);
+  } catch (err) {
+    next(err);
+  }
+}

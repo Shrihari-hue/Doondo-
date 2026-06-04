@@ -32,6 +32,7 @@ import {
   Animated,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -124,9 +125,33 @@ function ConversationScreenInner() {
     });
   }
 
+  // Translation sheet — pick the language THIS thread renders in.
+  const [langSheetOpen, setLangSheetOpen] = useState(false);
+
   const headerQuery = useQuery({
     queryKey: ['chat', 'conversation', conversationId],
     queryFn: () => chatApi.detail(conversationId),
+  });
+
+  // The caller's per-conversation translation language (null = app locale).
+  const convo = headerQuery.data?.conversation;
+  const myTranslationLang =
+    convo && user?.id
+      ? user.id === convo.seekerId
+        ? (convo.translationLangSeeker ?? null)
+        : (convo.translationLangEmployer ?? null)
+      : null;
+
+  const setLangMutation = useMutation({
+    mutationFn: (lang: 'en' | 'hi' | 'ta' | 'te' | 'kn' | null) =>
+      chatApi.setTranslationLang(conversationId, lang),
+    onSuccess: () => {
+      haptic('success');
+      setLangSheetOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ['chat', 'conversation', conversationId] });
+      void queryClient.invalidateQueries({ queryKey: ['chat', 'messages', conversationId] });
+    },
+    onError: () => haptic('error'),
   });
 
   const messagesQuery = useQuery({
@@ -563,13 +588,16 @@ function ConversationScreenInner() {
             )}
           </View>
 
-          {/* Translate toggle — 'both' (translation + original) vs
-              'translation-only'. Tinted when translation-only is on. */}
+          {/* Translation settings — opens a sheet with the display-mode
+              toggle AND a per-thread language picker. Tinted when an
+              override or translation-only mode is active. */}
           <Pressable
-            onPress={toggleTranslateMode}
+            onPress={() => {
+              haptic('selection');
+              setLangSheetOpen(true);
+            }}
             hitSlop={10}
             accessibilityRole="button"
-            accessibilityState={{ selected: translateMode === 'translation-only' }}
             accessibilityLabel={t('conversation.translate_toggle_a11y')}
             style={{
               width: 38,
@@ -578,7 +606,7 @@ function ConversationScreenInner() {
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor:
-                translateMode === 'translation-only'
+                translateMode === 'translation-only' || myTranslationLang
                   ? theme.brand.heroSubtle
                   : 'transparent',
             }}
@@ -862,13 +890,112 @@ function ConversationScreenInner() {
           </View>
         )}
       </KeyboardAvoidingView>
+
+      {/* Translation settings sheet — display mode + per-thread language. */}
+      <Modal
+        visible={langSheetOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setLangSheetOpen(false)}
+      >
+        <Pressable
+          onPress={() => setLangSheetOpen(false)}
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
+        >
+          <Pressable
+            onPress={() => undefined}
+            style={{
+              backgroundColor: theme.bg.surface,
+              borderTopLeftRadius: radii.xl,
+              borderTopRightRadius: radii.xl,
+              padding: spacing.xl,
+              gap: spacing.md,
+            }}
+          >
+            <Text style={{ fontSize: 17, fontWeight: '700', color: theme.text.primary }}>
+              {t('conversation.lang_sheet_title')}
+            </Text>
+
+            {/* Display mode */}
+            <Pressable
+              onPress={toggleTranslateMode}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: translateMode === 'translation-only' }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing.md,
+                paddingVertical: spacing.sm,
+              }}
+            >
+              <Text style={{ flex: 1, fontSize: 14, color: theme.text.primary }}>
+                {t('conversation.lang_sheet_only_translation')}
+              </Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: theme.brand.hero }}>
+                {translateMode === 'translation-only'
+                  ? t('conversation.lang_sheet_on')
+                  : t('conversation.lang_sheet_off')}
+              </Text>
+            </Pressable>
+
+            <Text style={{ fontSize: 12, color: theme.text.tertiary }}>
+              {t('conversation.lang_sheet_hint')}
+            </Text>
+
+            {(
+              [
+                [null, t('conversation.lang_default')],
+                ['en', 'English'],
+                ['hi', 'हिन्दी'],
+                ['ta', 'தமிழ்'],
+                ['te', 'తెలుగు'],
+                ['kn', 'ಕನ್ನಡ'],
+              ] as Array<['en' | 'hi' | 'ta' | 'te' | 'kn' | null, string]>
+            ).map(([lang, label]) => {
+              const selected = myTranslationLang === lang || (!myTranslationLang && lang === null);
+              return (
+                <Pressable
+                  key={lang ?? 'default'}
+                  onPress={() => setLangMutation.mutate(lang)}
+                  disabled={setLangMutation.isPending}
+                  accessibilityRole="button"
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: 10,
+                    paddingHorizontal: spacing.md,
+                    borderRadius: radii.lg,
+                    backgroundColor: selected ? theme.brand.heroSubtle : 'transparent',
+                    opacity: setLangMutation.isPending ? 0.6 : 1,
+                  }}
+                >
+                  <Text
+                    style={{
+                      flex: 1,
+                      fontSize: 15,
+                      fontWeight: selected ? '700' : '400',
+                      color: selected ? theme.brand.hero : theme.text.primary,
+                    }}
+                  >
+                    {label}
+                  </Text>
+                  {selected ? (
+                    <Text style={{ color: theme.brand.hero, fontWeight: '700' }}>✓</Text>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
 
 function formatSeconds(s: number): string {
-  const m = Math.floor(s / 60);
-  const r = s % 60;
+  const whole = Math.max(0, Math.floor(s));
+  const m = Math.floor(whole / 60);
+  const r = whole % 60;
   return `${m}:${r.toString().padStart(2, '0')}`;
 }
 
@@ -1515,8 +1642,9 @@ function VoiceAttachment({
 }
 
 function fmt(s: number): string {
-  const m = Math.floor(s / 60);
-  const r = s % 60;
+  const whole = Math.max(0, Math.floor(s));
+  const m = Math.floor(whole / 60);
+  const r = whole % 60;
   return `${m}:${r.toString().padStart(2, '0')}`;
 }
 

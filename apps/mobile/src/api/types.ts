@@ -544,6 +544,9 @@ export interface PublicConversation {
   lastMessagePreview: string | null;
   lastSenderId: string | null;
   unread: number;
+  /** Per-side translation-language overrides (null = app locale). */
+  translationLangSeeker?: string | null;
+  translationLangEmployer?: string | null;
   createdAt: string;
   /** Hydrated by listMine / detail. */
   counterpart?: {

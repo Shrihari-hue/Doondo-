@@ -856,7 +856,13 @@
     "show_original": "Show original",
     "hide_original": "Hide original",
     "auto_translated": "Auto-translated",
-    "translate_toggle_a11y": "Toggle translation display"
+    "translate_toggle_a11y": "Toggle translation display",
+    "lang_sheet_title": "Translation",
+    "lang_sheet_only_translation": "Show translation only (hide original)",
+    "lang_sheet_on": "On",
+    "lang_sheet_off": "Off",
+    "lang_sheet_hint": "Read this chat in a different language. You can change it any time.",
+    "lang_default": "App language (default)"
   },
   "find_friends": {
     "title": "Find friends",
