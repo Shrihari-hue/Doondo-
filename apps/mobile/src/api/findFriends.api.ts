@@ -13,6 +13,8 @@ export interface FoundFriend {
   role: 'seeker' | 'employer';
   photoUrl: string | null;
   onDoondo: true;
+  /** The submitted hash this user matched on — maps back to a contact. */
+  matchedHash: string | null;
 }
 
 /**
@@ -59,6 +61,26 @@ export async function sha256Hex(input: string): Promise<string> {
 
 export function normalisePhone(phone: string): string {
   return phone.replace(/[^0-9]/g, '');
+}
+
+/**
+ * Candidate normalisations for one address-book number, so a contact
+ * saved as "+91 95911 35739" still matches an account stored as
+ * "9591135739" (and vice-versa). Indian numbers are 10 digits; we try
+ * the digits as saved, the last 10, and "91"+last-10 — hashed
+ * individually, the server matches any. Fixes the "my friend is on
+ * Doondo but doesn't show" miss caused by country-code formatting.
+ */
+export function phoneVariants(phone: string): string[] {
+  const digits = normalisePhone(phone);
+  if (digits.length < 7) return [];
+  const variants = new Set<string>([digits]);
+  if (digits.length >= 10) {
+    const last10 = digits.slice(-10);
+    variants.add(last10);
+    variants.add(`91${last10}`);
+  }
+  return [...variants];
 }
 
 export const findFriendsApi = {

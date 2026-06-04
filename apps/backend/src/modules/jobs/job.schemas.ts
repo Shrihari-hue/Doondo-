@@ -16,7 +16,10 @@ const objectIdSchema = z.string().refine((v) => Types.ObjectId.isValid(v), {
 
 const lat = z.coerce.number().min(-90).max(90);
 const lng = z.coerce.number().min(-180).max(180);
-const radius = z.coerce.number().int().min(100).max(50_000); // meters
+// Max 100km — matches the widest distance chip in the mobile UI (rural
+// workers genuinely search that far). Was 50km, which made the 100km
+// chip fail validation.
+const radius = z.coerce.number().int().min(100).max(100_000); // meters
 
 export const nearbyQuerySchema = z.object({
   query: z.object({

@@ -26,7 +26,7 @@ import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import {
   findFriendsApi,
-  normalisePhone,
+  phoneVariants,
   sha256Hex,
   type FoundFriend,
 } from '@/api/findFriends.api';
@@ -35,12 +35,19 @@ import type { AppStackParamList } from '@/navigation/types';
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
+interface InviteContact {
+  /** The contact's saved display name, or the number when nameless. */
+  name: string;
+  /** Dialable number (digits as saved). */
+  number: string;
+}
+
 type LoadState =
   | { kind: 'idle' }
   | { kind: 'permission_denied' }
   | { kind: 'loading' }
   | { kind: 'unsupported'; message: string }
-  | { kind: 'ready'; matched: FoundFriend[]; uncheckedNumbers: string[] };
+  | { kind: 'ready'; matched: FoundFriend[]; inviteContacts: InviteContact[] };
 
 function Inner() {
   const { theme } = useTheme();
@@ -65,27 +72,62 @@ function Inner() {
         return;
       }
       const { data } = await Contacts.getContactsAsync({
-        fields: [Contacts.Fields.PhoneNumbers],
+        fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Name],
         pageSize: 2000,
       });
-      const phones: string[] = [];
+
+      // Keep the contact's NAME with each number, and hash several
+      // normalisations per number (digits-as-saved, last-10, 91+last-10)
+      // so "+91 …" address-book formatting still matches a 10-digit
+      // Doondo account. hash → contact lets us turn a server match back
+      // into "which contact is this".
+      interface ContactEntry {
+        name: string;
+        number: string;
+        hashes: string[];
+      }
+      const entries: ContactEntry[] = [];
+      const seenNumbers = new Set<string>();
       for (const c of data) {
-        const nums = c.phoneNumbers ?? [];
-        for (const p of nums) {
-          if (p.number) phones.push(p.number);
+        const displayName = (c.name ?? '').trim();
+        for (const p of c.phoneNumbers ?? []) {
+          if (!p.number) continue;
+          const variants = phoneVariants(p.number);
+          if (variants.length === 0) continue;
+          const canonical = variants[variants.length - 1]!; // last-10-based key
+          if (seenNumbers.has(canonical)) continue;
+          seenNumbers.add(canonical);
+          entries.push({
+            name: displayName || variants[0]!,
+            number: variants[0]!,
+            hashes: await Promise.all(variants.map((v) => sha256Hex(v))),
+          });
+          if (entries.length >= 600) break; // stay under the server's hash cap
+        }
+        if (entries.length >= 600) break;
+      }
+
+      const hashToEntry = new Map<string, ContactEntry>();
+      for (const e of entries) {
+        for (const h of e.hashes) {
+          if (!hashToEntry.has(h)) hashToEntry.set(h, e);
         }
       }
-      const normalised = Array.from(
-        new Set(phones.map(normalisePhone).filter((n) => n.length >= 7)),
-      );
-      const hashes = await Promise.all(normalised.map((n) => sha256Hex(n)));
-      const { friends } = await findFriendsApi.match(hashes);
-      const matchedNums = new Set<string>(); // we don't know which raw nums matched
-      setState({
-        kind: 'ready',
-        matched: friends,
-        uncheckedNumbers: normalised.slice(0, 20).filter((n) => !matchedNums.has(n)),
-      });
+
+      const { friends } = await findFriendsApi.match([...hashToEntry.keys()]);
+
+      // Contacts that matched a Doondo user drop out of the invite list.
+      const matchedEntries = new Set<ContactEntry>();
+      for (const f of friends) {
+        const entry = f.matchedHash ? hashToEntry.get(f.matchedHash) : undefined;
+        if (entry) matchedEntries.add(entry);
+      }
+      const inviteContacts = entries
+        .filter((e) => !matchedEntries.has(e))
+        .slice(0, 20)
+        .map((e) => ({ name: e.name, number: e.number }));
+
+      setState({ kind: 'ready', matched: friends, inviteContacts });
     } catch (err) {
       setState({
         kind: 'unsupported',
@@ -254,14 +296,15 @@ function Inner() {
                 {t('find_friends.invite_blurb')}
               </Text>
               <View style={{ paddingHorizontal: spacing.lg, gap: spacing.sm }}>
-                {state.uncheckedNumbers.slice(0, 8).map((num) => (
+                {state.inviteContacts.slice(0, 8).map((c) => (
                   <Pressable
-                    key={num}
-                    onPress={() => inviteViaWhatsApp(num)}
+                    key={c.number}
+                    onPress={() => inviteViaWhatsApp(c.number)}
                     style={({ pressed }) => ({
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'space-between',
+                      gap: spacing.md,
                       paddingHorizontal: spacing.md,
                       paddingVertical: spacing.sm,
                       borderRadius: radii.lg,
@@ -270,9 +313,19 @@ function Inner() {
                       backgroundColor: pressed ? theme.bg.muted : 'transparent',
                     })}
                   >
-                    <Text style={{ fontSize: 14, color: theme.text.primary }}>
-                      {num}
-                    </Text>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{ fontSize: 14, fontWeight: '600', color: theme.text.primary }}
+                        numberOfLines={1}
+                      >
+                        {c.name}
+                      </Text>
+                      {c.name !== c.number ? (
+                        <Text style={{ fontSize: 12, color: theme.text.tertiary }}>
+                          {c.number}
+                        </Text>
+                      ) : null}
+                    </View>
                     <Text style={{ fontSize: 12, fontWeight: '600', color: '#10B981' }}>
                       {t('find_friends.invite_arrow')}
                     </Text>

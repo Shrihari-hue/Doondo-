@@ -17,6 +17,7 @@
 
 import { Schema, model, type Model, type HydratedDocument } from 'mongoose';
 import type { UserRole } from '@/lib/jwt';
+import { hashPhone } from '@/lib/phoneHash';
 import type { CraftPhoto } from '@/modules/skills/skill.catalogue';
 
 export type { CraftPhoto } from '@/modules/skills/skill.catalogue';
@@ -1186,5 +1187,17 @@ function computeProfileCompletion(u: UserDocument): number {
   const filled = checks.filter(Boolean).length;
   return Math.round((filled / checks.length) * 100);
 }
+
+// Keep the privacy-preserving contact-match index in sync with the phone.
+// Fires on signup, phone change, AND lazily on any later save (login
+// touches lastLoginAt + saves), which backfills users created before
+// phoneHash existed. Without this hook nothing ever wrote phoneHash, so
+// Find Friends / Trust Circle / SOS matching could never hit.
+userSchema.pre('save', function (next) {
+  if (this.phone && (this.isModified('phone') || !this.phoneHash)) {
+    this.phoneHash = hashPhone(this.phone);
+  }
+  next();
+});
 
 export const UserModel = model<User, UserModel>('User', userSchema);

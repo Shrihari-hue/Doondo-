@@ -274,7 +274,7 @@ const schema = z.object({
    * development — production deploys that want real translations must set
    * this to 'anthropic' explicitly and supply ANTHROPIC_API_KEY.
    */
-  TRANSLATION_PROVIDER: z.enum(['anthropic', 'mock']).default('mock'),
+  TRANSLATION_PROVIDER: z.enum(['anthropic', 'openai', 'mock']).default('mock'),
   /**
    * Model used for text generation (chat translation + Smart Resume
    * rewrites). Default a recent Sonnet — strong multilingual quality at a
@@ -288,7 +288,9 @@ const schema = z.object({
    * the Anthropic Messages API; 'mock' returns a deterministic tailored
    * draft so the flow works on a fresh checkout. Default 'mock'.
    */
-  RESUME_REWRITE_PROVIDER: z.enum(['anthropic', 'mock']).default('mock'),
+  RESUME_REWRITE_PROVIDER: z.enum(['anthropic', 'openai', 'mock']).default('mock'),
+  /** OpenAI chat model for text features (Smart Resume, etc.). */
+  OPENAI_MODEL: z.string().default('gpt-5-mini'),
 
   // ─── Doondo Score — shareable signed credential ───────────────────────
   /**

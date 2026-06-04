@@ -2122,7 +2122,8 @@
       "no_dialer_title": "Couldn't open dialer",
       "no_dialer_body": "Your phone's dialer isn't available. The number is {{phone}}",
       "not_available_title": "Not available",
-      "not_available_default": "Couldn't reveal contact."
+      "not_available_default": "Couldn't reveal contact.",
+      "location_default": "Showing a default area — turn on location (or set your city in your profile) to find workers near you."
     },
     "profile": {
       "switch_a11y": "Switch account",

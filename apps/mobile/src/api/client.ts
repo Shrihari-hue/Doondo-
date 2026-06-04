@@ -23,6 +23,21 @@ import type { ApiErrorCode, ApiSuccess, ApiErrorEnvelope } from './types';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000';
 const API_VERSION = process.env.EXPO_PUBLIC_API_VERSION ?? 'v1';
+
+/**
+ * Resolve a media URL (reel video, thumbnail, etc.) for playback.
+ *
+ * The backend's mock storage returns HOST-RELATIVE paths (e.g.
+ * "/media/reels/abc.mp4") so media is always served from the same host the
+ * app already reaches via API_URL — no dependency on the backend's
+ * PUBLIC_BASE_URL matching the client. Absolute URLs (a real CDN from the
+ * `http` provider, or any "http(s)://…") are returned unchanged.
+ */
+export function resolveMediaUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url) || url.startsWith('data:')) return url;
+  return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+}
 const APP_VERSION = (Constants.expoConfig?.version as string | undefined) ?? '0.0.0';
 
 // ─── Auth adapter — wired in from the store at app start ─────────────────────

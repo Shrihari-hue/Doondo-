@@ -47,6 +47,43 @@ export async function getCurrentCoords(): Promise<Coords | null> {
   }
 }
 
+/** Last-resort coordinates when neither GPS nor a saved location exists. */
+export const DEFAULT_COORDS: Coords = { lat: 12.9716, lng: 77.5946, source: 'manual' };
+
+export interface ResolvedCoords extends Coords {
+  /**
+   * How we got these coords:
+   *   'gps'     — live device location (accurate)
+   *   'saved'   — the user's saved profile location (real city, not live)
+   *   'default' — hardcoded last resort (likely wrong — surface a warning)
+   */
+  origin: 'gps' | 'saved' | 'default';
+}
+
+/**
+ * Resolve coordinates for a nearby search / beacon, preferring accuracy
+ * but never silently jumping to a far-off default city.
+ *
+ *   1. live GPS (when permission + a fix are available), else
+ *   2. the user's saved profile location (their real city), else
+ *   3. a hardcoded default — flagged as 'default' so the UI can warn that
+ *      the location is a guess.
+ *
+ * `saved` is the [lng, lat] pair from the user's profile (location or
+ * employerLocation). Fixes the bug where a denied GPS permission made the
+ * app search a default city and silently miss real nearby beacons.
+ */
+export async function resolveCoords(
+  saved: [number, number] | null | undefined,
+): Promise<ResolvedCoords> {
+  const gps = await getCurrentCoords().catch(() => null);
+  if (gps) return { ...gps, origin: 'gps' };
+  if (saved && saved.length === 2) {
+    return { lat: saved[1], lng: saved[0], source: 'manual', origin: 'saved' };
+  }
+  return { ...DEFAULT_COORDS, origin: 'default' };
+}
+
 /**
  * Override the cache with manually-picked coords. Used after the user
  * sets their city/area in the location picker (Phase 2 polish step).

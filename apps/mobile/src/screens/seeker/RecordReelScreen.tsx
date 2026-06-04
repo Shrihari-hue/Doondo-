@@ -39,6 +39,7 @@ import { haptic } from '@/lib/haptics';
 import { friendlyErrorMessage } from '@/lib/friendlyError';
 import { recordReel, pickReel, type ReelCaptureResult } from '@/lib/reelVideo';
 import { reelsApi } from '@/api/reels.api';
+import { resolveMediaUrl } from '@/api/client';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
@@ -65,8 +66,10 @@ function RecordReelScreenInner() {
 
   // The source currently on screen: the fresh capture wins, else the
   // saved reel. `useVideoPlayer` must be called unconditionally.
+  // Fresh local capture (file://) plays as-is; the saved reel URL is
+  // host-relative and resolved against the API base.
   const source = useMemo<string | null>(
-    () => captured?.uri ?? reel?.videoUrl ?? null,
+    () => captured?.uri ?? resolveMediaUrl(reel?.videoUrl) ?? null,
     [captured, reel],
   );
   const player = useVideoPlayer(source, (p) => {
@@ -138,7 +141,7 @@ function RecordReelScreenInner() {
     if (!source) return null;
     // Prefer the saved reel's poster; a freshly-captured clip has no
     // thumbnail yet (the provider produces those on upload).
-    const poster = !captured && reel?.thumbnailUrl ? reel.thumbnailUrl : null;
+    const poster = !captured && reel?.thumbnailUrl ? resolveMediaUrl(reel.thumbnailUrl) : null;
     return (
       <View
         style={{

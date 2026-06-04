@@ -89,7 +89,7 @@ export interface TailoredResume {
   /** A short, encouraging note on why this worker fits — shown to them. */
   pitch: string;
   /** Which provider produced this. */
-  provider: 'anthropic' | 'mock';
+  provider: 'anthropic' | 'openai' | 'mock';
 }
 
 interface ResumeRewriteProvider {
@@ -310,6 +310,135 @@ Rules:
   }
 }
 
+// ─── OpenAI provider ────────────────────────────────────────────────────────
+// Same contract as the Anthropic provider — locally-computed skill ranking,
+// model writes only the natural-language summary / blurbs / pitch — but via
+// OpenAI's chat-completions API, reusing the OPENAI_API_KEY the deploy
+// already has for transcription. Uses `max_completion_tokens` (the gpt-5 /
+// o-series parameter) and JSON response mode.
+
+class OpenAiResumeRewriteProvider implements ResumeRewriteProvider {
+  constructor(
+    private apiKey: string,
+    private model: string,
+  ) {}
+
+  async rewrite(input: ResumeRewriteInput): Promise<TailoredResume> {
+    const { profile, job } = input;
+    const { ordered, matched, missing } = rankSkills(profile.skills, job.skills);
+
+    const system = `You are a resume-tailoring assistant for Doondo, a blue-collar hiring app in India. Rewrite a worker's resume so it speaks directly to ONE specific job. The worker is often low-literacy — keep every sentence short, plain, and honest.
+
+Rules:
+- Output a SINGLE JSON object. No markdown fences, no commentary.
+- Shape MUST be: { "summary": string, "workBlurbs": [{ "company": string, "role": string, "blurb": string }], "pitch": string }.
+- "summary": 2-3 short sentences introducing the worker for THIS job. Mention real, relevant strengths only.
+- "workBlurbs": one entry per work-history item given, in the same order. "blurb" is ONE short sentence re-framing that job toward the target role. Keep company and role exactly as given.
+- "pitch": one short, encouraging sentence telling the worker why they fit and what to lead with.
+- NEVER invent experience, skills, certifications, or employers. Use only what is provided. If the worker has little experience, be honest and emphasise reliability and willingness.`;
+
+    const userContent = JSON.stringify({
+      targetJob: {
+        title: job.title,
+        description: job.description.slice(0, 1500),
+        requiredSkills: job.skills,
+      },
+      worker: {
+        name: profile.name,
+        bio: profile.bio,
+        skills: profile.skills,
+        experienceYears: profile.experienceYears,
+        workHistory: profile.workHistory,
+        education: profile.education,
+      },
+    });
+
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        max_completion_tokens: 1536,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system' as const, content: system },
+          { role: 'user' as const, content: userContent },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      logger.error(
+        { status: res.status, body: text.slice(0, 300) },
+        'openai resume-rewrite call failed',
+      );
+      throw new Error(`Resume rewrite failed (${res.status})`);
+    }
+
+    const json = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string | null } }>;
+    };
+    const raw = json.choices?.[0]?.message?.content?.trim() ?? '';
+    const cleaned = raw
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim();
+
+    let parsed: { summary?: unknown; workBlurbs?: unknown; pitch?: unknown };
+    try {
+      parsed = JSON.parse(cleaned) as typeof parsed;
+    } catch (err) {
+      logger.error({ err, raw: raw.slice(0, 300) }, 'resume-rewrite response was not JSON');
+      throw new Error('Resume rewrite response was not valid JSON');
+    }
+
+    const blurbsByKey = new Map<string, string>();
+    if (Array.isArray(parsed.workBlurbs)) {
+      for (const b of parsed.workBlurbs) {
+        if (b && typeof b === 'object') {
+          const r = b as Record<string, unknown>;
+          if (
+            typeof r.company === 'string' &&
+            typeof r.role === 'string' &&
+            typeof r.blurb === 'string'
+          ) {
+            blurbsByKey.set(`${r.company}::${r.role}`, r.blurb.trim());
+          }
+        }
+      }
+    }
+    const workBlurbs: TailoredWorkBlurb[] = profile.workHistory.map((w) => ({
+      company: w.company,
+      role: w.role,
+      blurb:
+        blurbsByKey.get(`${w.company}::${w.role}`) ||
+        (w.description && w.description.trim()) ||
+        `${w.role} at ${w.company}.`,
+    }));
+
+    return {
+      jobTitle: job.title,
+      summary:
+        typeof parsed.summary === 'string' && parsed.summary.trim()
+          ? parsed.summary.trim()
+          : `${profile.name} — applying for the ${job.title} role.`,
+      highlightedSkills: ordered,
+      matchedSkills: matched,
+      missingSkills: missing,
+      workBlurbs,
+      pitch:
+        typeof parsed.pitch === 'string' && parsed.pitch.trim()
+          ? parsed.pitch.trim()
+          : 'Lead with the experience closest to this job.',
+      provider: 'openai',
+    };
+  }
+}
+
 // ─── Provider picker ───────────────────────────────────────────────────────
 
 let cachedProvider: ResumeRewriteProvider | null = null;
@@ -326,6 +455,13 @@ function pickProvider(): ResumeRewriteProvider {
       env.ANTHROPIC_API_KEY,
       env.ANTHROPIC_TEXT_MODEL,
     );
+  } else if (env.RESUME_REWRITE_PROVIDER === 'openai') {
+    if (!env.OPENAI_API_KEY) {
+      throw new Error(
+        'RESUME_REWRITE_PROVIDER=openai but OPENAI_API_KEY is not set.',
+      );
+    }
+    cachedProvider = new OpenAiResumeRewriteProvider(env.OPENAI_API_KEY, env.OPENAI_MODEL);
   } else {
     cachedProvider = new MockResumeRewriteProvider();
   }
@@ -382,7 +518,10 @@ export async function tailorResumeForJob(
           (s) => !matchedSet.has(s.toLowerCase()),
         ),
         workBlurbs: saved.workBlurbs,
-        provider: saved.provider === 'anthropic' ? 'anthropic' : 'mock',
+        provider:
+          saved.provider === 'anthropic' || saved.provider === 'openai'
+            ? saved.provider
+            : 'mock',
       },
       saved: true,
     };

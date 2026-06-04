@@ -17,7 +17,7 @@
  */
 
 import { Types } from 'mongoose';
-import crypto from 'crypto';
+
 import { UserModel } from '@/modules/users/user.model';
 
 export interface FoundFriend {
@@ -29,6 +29,13 @@ export interface FoundFriend {
    *  true here because we only return matched users; the surface for
    *  un-matched hashes is computed client-side. */
   onDoondo: true;
+  /**
+   * The submitted hash this user matched on — echoed back so the client
+   * can tie the match to a specific address-book contact (show their
+   * saved name, and drop them from the invite list). No new information
+   * leaks: the client sent this exact hash in the request.
+   */
+  matchedHash: string | null;
 }
 
 /**
@@ -49,7 +56,7 @@ export async function findByHashes(
     phoneHash: { $in: unique },
     _id: { $ne: vid },
   })
-    .select('name role photoUrl')
+    .select('name role photoUrl phoneHash')
     .limit(500)
     .lean();
 
@@ -59,19 +66,14 @@ export async function findByHashes(
     role: u.role as 'seeker' | 'employer',
     photoUrl: (u.photoUrl as string | null | undefined) ?? null,
     onDoondo: true as const,
+    matchedHash: (u.phoneHash as string | null | undefined) ?? null,
   }));
 }
 
 /**
  * Normalise + hash a single phone number into the same representation
- * used by the user index. The mobile client uses the matching function
- * to avoid round-trip drift.
- *
- *   - Strip whitespace, dashes, parentheses
- *   - Drop a leading '+'
- *   - Hash with SHA-256 and return lowercase hex
+ * used by the user index. Implementation lives in lib/phoneHash so the
+ * user model's pre-save hook can use it without a circular import;
+ * re-exported here for the existing callers (trust-circle pings, SOS).
  */
-export function hashPhone(input: string): string {
-  const normalised = input.replace(/[^0-9]/g, '');
-  return crypto.createHash('sha256').update(normalised).digest('hex');
-}
+export { hashPhone } from '@/lib/phoneHash';

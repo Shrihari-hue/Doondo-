@@ -36,6 +36,7 @@ import { Text } from '@/components';
 import { useTranslate } from '@/i18n/useTranslate';
 import { haptic } from '@/lib/haptics';
 import { reelsApi, type PublicReel } from '@/api/reels.api';
+import { resolveMediaUrl } from '@/api/client';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
@@ -53,7 +54,7 @@ function ReelCard({
   height: number;
   t: TFn;
 }) {
-  const player = useVideoPlayer(reel.videoUrl, (p) => {
+  const player = useVideoPlayer(resolveMediaUrl(reel.videoUrl), (p) => {
     p.loop = true;
     p.muted = false;
   });
@@ -84,7 +85,7 @@ function ReelCard({
           and stays visible if the source fails to load. */}
       {reel.thumbnailUrl ? (
         <Image
-          source={{ uri: reel.thumbnailUrl }}
+          source={{ uri: resolveMediaUrl(reel.thumbnailUrl) ?? undefined }}
           style={{
             position: 'absolute',
             top: 0,

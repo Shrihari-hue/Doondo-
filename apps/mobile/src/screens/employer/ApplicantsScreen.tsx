@@ -17,7 +17,8 @@ import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { applicationsApi } from '@/api/applications.api';
 import { haptic } from '@/lib/haptics';
-import { getCurrentCoords } from '@/lib/location';
+import { resolveCoords } from '@/lib/location';
+import { useAuth } from '@/hooks/useAuth';
 import { availabilityApi } from '@/api/availability.api';
 import type { ApplicationStatus } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
@@ -37,6 +38,9 @@ export function ApplicantsScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const t = useTranslate();
+  const { user } = useAuth();
+  const savedCoords =
+    user?.employerLocation?.coordinates ?? user?.location?.coordinates ?? null;
   const [filter, setFilter] = useState<ApplicationStatus | 'all'>('all');
 
   const query = useQuery({
@@ -50,10 +54,12 @@ export function ApplicantsScreen() {
   // full list runs its own location-aware query inside the dedicated
   // screen. Refetches every 30s to keep the count fresh.
   const availabilityCount = useQuery({
-    queryKey: ['availabilities', 'count', 'employer'],
+    queryKey: ['availabilities', 'count', 'employer', savedCoords?.[0], savedCoords?.[1]],
     queryFn: async () => {
-      const coords = await getCurrentCoords().catch(() => null);
-      if (!coords) return { count: 0 };
+      const coords = await resolveCoords(savedCoords);
+      // Don't tease a count from a guessed default city — only when we have
+      // a real (GPS or saved) location.
+      if (coords.origin === 'default') return { count: 0 };
       const result = await availabilityApi.nearby({
         lat: coords.lat,
         lng: coords.lng,

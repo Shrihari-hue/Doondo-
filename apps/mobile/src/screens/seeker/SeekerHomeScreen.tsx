@@ -43,7 +43,7 @@ import { useFestival } from '@/lib/festivals';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { jobsApi } from '@/api/jobs.api';
-import { getCurrentCoords, type Coords } from '@/lib/location';
+import { resolveCoords, type ResolvedCoords } from '@/lib/location';
 import { haptic } from '@/lib/haptics';
 import { getSecure, setSecure } from '@/lib/secureStore';
 import { useTranslate } from '@/i18n/useTranslate';
@@ -74,7 +74,6 @@ type Nav = NativeStackNavigationProp<AppStackParamList>;
 // Bengaluru fallback so the screen never feels broken on permission denial.
 // Tagged `manual` because it isn't device GPS — the UI uses `source` to show
 // a "Detected your area" hint vs. a "Showing default city" hint.
-const FALLBACK_COORDS: Coords = { lat: 12.9716, lng: 77.5946, source: 'manual' };
 
 interface Category {
   key: string;
@@ -103,7 +102,7 @@ export function SeekerHomeScreen() {
   // Festival Mode — tints the wordmark during a festival window.
   const festival = useFestival();
 
-  const [coords, setCoords] = useState<Coords | null>(null);
+  const [coords, setCoords] = useState<ResolvedCoords | null>(null);
 
   // Mode toggle — Today / This week / Career. Default is 'today' for fresh
   // installs (the blue-collar-first experience) but we honour whatever the
@@ -135,17 +134,21 @@ export function SeekerHomeScreen() {
     void setSecure('homeMode', next).catch(() => undefined);
   }
 
+  // Prefer live GPS → the worker's saved location → a flagged default, so
+  // the availability beacon never silently publishes at a far-off default
+  // city when GPS is unavailable.
+  const savedCoords = user?.location?.coordinates ?? null;
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const c = await getCurrentCoords().catch(() => null);
+      const c = await resolveCoords(savedCoords);
       if (cancelled) return;
-      setCoords(c ?? FALLBACK_COORDS);
+      setCoords(c);
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [savedCoords]);
 
   // Real nearby-jobs query for the home preview.
   const jobsQuery = useQuery({

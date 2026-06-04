@@ -77,7 +77,7 @@ export interface TranslationResult {
   /** True when source === target — nothing needed translating. */
   skipped: boolean;
   /** Which provider produced this — useful for logs / dev sanity. */
-  provider: 'anthropic' | 'mock';
+  provider: 'anthropic' | 'openai' | 'mock';
 }
 
 interface TranslationProvider {
@@ -202,6 +202,92 @@ Rules:
   }
 }
 
+// ─── OpenAI provider ────────────────────────────────────────────────────────
+// Same JSON contract as the Anthropic provider, via OpenAI chat
+// completions — reuses the OPENAI_API_KEY the deploy already has for
+// transcription and Smart Resume. Uses `max_completion_tokens` (the
+// gpt-5 / o-series parameter) and JSON response mode.
+
+class OpenAiTranslationProvider implements TranslationProvider {
+  constructor(
+    private apiKey: string,
+    private model: string,
+  ) {}
+
+  async translate(input: TranslationInput): Promise<TranslationResult> {
+    const targetName = LANG_NAMES[input.targetLang];
+    const system = `You are a translation engine for Doondo, a blue-collar hiring chat app in India. Translate the user's chat message into ${targetName}.
+
+Rules:
+- Output a SINGLE JSON object. No markdown fences, no commentary before or after.
+- Shape MUST be: { "text": string, "sourceLang": "en"|"hi"|"ta"|"te"|"kn" }.
+- "text" is the message translated naturally into ${targetName}. Keep it conversational and short — it is a chat message, not a document.
+- "sourceLang" is the language the ORIGINAL message was written in.
+- If the message is already in ${targetName}, return it unchanged with the correct sourceLang.
+- Preserve names, phone numbers, addresses, job titles and money amounts exactly.
+- Do not add, explain, or omit anything. Translate only what is there.`;
+
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        max_completion_tokens: 1024,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system' as const, content: system },
+          { role: 'user' as const, content: input.text },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      logger.error(
+        { status: res.status, body: text.slice(0, 300) },
+        'openai translation call failed',
+      );
+      throw new Error(`Translation failed (${res.status})`);
+    }
+
+    const json = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string | null } }>;
+    };
+    const raw = json.choices?.[0]?.message?.content?.trim() ?? '';
+    const cleaned = raw
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim();
+
+    let parsed: { text?: unknown; sourceLang?: unknown };
+    try {
+      parsed = JSON.parse(cleaned) as { text?: unknown; sourceLang?: unknown };
+    } catch (err) {
+      logger.error({ err, raw: raw.slice(0, 300) }, 'translation response was not JSON');
+      throw new Error('Translation response was not valid JSON');
+    }
+
+    const text =
+      typeof parsed.text === 'string' && parsed.text.trim().length > 0
+        ? parsed.text.trim()
+        : input.text;
+    const sourceLang = isTranslatableLang(parsed.sourceLang)
+      ? parsed.sourceLang
+      : detectLang(input.text);
+
+    return {
+      text,
+      sourceLang,
+      targetLang: input.targetLang,
+      skipped: sourceLang === input.targetLang,
+      provider: 'openai',
+    };
+  }
+}
+
 // ─── Provider picker ───────────────────────────────────────────────────────
 
 let cachedProvider: TranslationProvider | null = null;
@@ -218,6 +304,11 @@ function pickProvider(): TranslationProvider {
       env.ANTHROPIC_API_KEY,
       env.ANTHROPIC_TEXT_MODEL,
     );
+  } else if (env.TRANSLATION_PROVIDER === 'openai') {
+    if (!env.OPENAI_API_KEY) {
+      throw new Error('TRANSLATION_PROVIDER=openai but OPENAI_API_KEY is not set.');
+    }
+    cachedProvider = new OpenAiTranslationProvider(env.OPENAI_API_KEY, env.OPENAI_MODEL);
   } else {
     cachedProvider = new MockTranslationProvider();
   }

@@ -105,9 +105,12 @@ class MockReelStorageProvider implements ReelStorageProvider {
 
   constructor() {
     this.dir = path.resolve(process.cwd(), env.REEL_STORAGE_DIR);
-    // Trim trailing slash so URL joins stay clean.
-    const base = env.PUBLIC_BASE_URL.replace(/\/+$/, '');
-    this.publicBase = `${base}/media/reels`;
+    // Host-RELATIVE base. The mobile resolves it against the API base URL
+    // it already talks to, so the video is always served from the same
+    // reachable host — no need to keep PUBLIC_BASE_URL in sync with the
+    // client's API_URL (the dev footgun that made reels "unavailable" on a
+    // real device). The `http` CDN provider still returns absolute URLs.
+    this.publicBase = '/media/reels';
   }
 
   /** Where a given seeker's reel lives on disk. */

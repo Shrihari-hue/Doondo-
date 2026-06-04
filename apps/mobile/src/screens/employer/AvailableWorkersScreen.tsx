@@ -36,7 +36,8 @@ import { Screen, Text, LoadingSpinner, EmptyState, Avatar, Stars } from '@/compo
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { haptic } from '@/lib/haptics';
-import { getCurrentCoords, type Coords } from '@/lib/location';
+import { resolveCoords, type ResolvedCoords } from '@/lib/location';
+import { useAuth } from '@/hooks/useAuth';
 import {
   availabilityApi,
   type NearbyAvailability,
@@ -54,10 +55,6 @@ type Nav = NativeStackNavigationProp<AppStackParamList>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 type ViewMode = 'list' | 'map';
 
-// Tagged `manual` because it isn't device GPS — satisfies the Coords
-// interface so consumers can branch on the source if they want to.
-const FALLBACK_COORDS: Coords = { lat: 12.9716, lng: 77.5946, source: 'manual' };
-
 const SEARCH_RADIUS_M = 15_000;
 
 export function AvailableWorkersScreen() {
@@ -65,20 +62,25 @@ export function AvailableWorkersScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const t = useTranslate();
-  const [coords, setCoords] = useState<Coords | null>(null);
+  const { user } = useAuth();
+  const [coords, setCoords] = useState<ResolvedCoords | null>(null);
   const [mode, setMode] = useState<ViewMode>('list');
 
+  // Prefer live GPS → the employer's saved location → a flagged default,
+  // so a denied GPS permission doesn't silently search a far-off city.
+  const savedCoords =
+    user?.employerLocation?.coordinates ?? user?.location?.coordinates ?? null;
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const c = await getCurrentCoords().catch(() => null);
+      const c = await resolveCoords(savedCoords);
       if (cancelled) return;
-      setCoords(c ?? FALLBACK_COORDS);
+      setCoords(c);
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [savedCoords]);
 
   const query = useQuery({
     queryKey: ['availabilities', 'nearby', coords?.lat, coords?.lng],
@@ -268,6 +270,24 @@ export function AvailableWorkersScreen() {
         <ModeTab label="List" active={mode === 'list'} onPress={() => setMode('list')} />
         <ModeTab label="Map" active={mode === 'map'} onPress={() => setMode('map')} />
       </View>
+
+      {coords?.origin === 'default' ? (
+        <View
+          style={{
+            marginTop: spacing.sm,
+            marginHorizontal: spacing.xl,
+            padding: spacing.md,
+            borderRadius: radii.lg,
+            borderWidth: 0.5,
+            borderColor: theme.status.warningBorder,
+            backgroundColor: theme.status.warningSubtle,
+          }}
+        >
+          <Text variant="footnote" weight="medium" tone="warning">
+            {t('employer.available_workers.location_default')}
+          </Text>
+        </View>
+      ) : null}
 
       <View style={{ flex: 1, paddingTop: spacing.md }}>
         {query.isLoading ? (
