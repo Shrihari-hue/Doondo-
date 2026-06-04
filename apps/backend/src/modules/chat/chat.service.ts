@@ -504,18 +504,25 @@ export async function setConversationTranslationLang(
   // Re-render recent incoming texts in the new language so the change is
   // visible right away. Best-effort and budget-capped.
   if (effective) {
+    // Texts AND voice notes: a voice bubble's transcript should re-render
+    // in the new language exactly like a text message does.
     const recent = await MessageModel.find({
       conversationId: conversation._id,
       senderId: { $ne: new Types.ObjectId(userId) },
-      kind: 'text',
-      body: { $nin: ['', null] },
+      $or: [
+        { kind: 'text', body: { $nin: ['', null] } },
+        { kind: 'voice', transcript: { $nin: ['', null] } },
+      ],
     })
       .sort({ createdAt: -1 })
       .limit(15)
-      .select('body senderId')
+      .select('body transcript kind senderId')
       .lean();
 
     for (const m of recent) {
+      const source =
+        m.kind === 'voice' ? ((m.transcript as string | null) ?? '') : ((m.body as string) ?? '');
+      if (!source) continue;
       if (!consumeTranslationBudget(userId)) break;
       const messageId = (m._id as Types.ObjectId).toString();
       await MessageModel.updateOne(
@@ -538,7 +545,7 @@ export async function setConversationTranslationLang(
         conversationId: conversation.id,
         senderId: (m.senderId as unknown as Types.ObjectId).toString(),
         recipientId: userId,
-        body: m.body as string,
+        body: source,
         targetLang: effective,
       });
     }
