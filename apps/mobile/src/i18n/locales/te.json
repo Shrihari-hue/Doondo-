@@ -38,9 +38,11 @@
     "home": "హోమ్",
     "jobs": "ఉద్యోగాలు",
     "community": "సంఘం",
+    "voice": "వాయిస్",
     "chat": "చాట్",
     "earnings": "సంపాదన",
-    "profile": "ప్రొఫైల్"
+    "profile": "ప్రొఫైల్",
+    "my_job": "నా పని"
   },
   "community_hub": {
     "title": "సంఘం",
@@ -238,6 +240,7 @@
       "downloads_subtitle": "సేవ్ చేసిన పోస్ట్‌లు మరియు ఆఫ్‌లైన్ కంటెంట్",
       "settings": "సెట్టింగ్‌లు",
       "settings_subtitle": "భాష, నోటిఫికేషన్‌లు, థీమ్",
+      "my_job_subtitle": "హాజరు, షిఫ్ట్‌లు మరియు పే స్లిప్‌లు",
       "edit_profile": "ప్రొఫైల్‌ను సవరించండి",
       "edit_profile_subtitle": "పేరు, బయో, అనుభవం, అందుబాటు"
     },

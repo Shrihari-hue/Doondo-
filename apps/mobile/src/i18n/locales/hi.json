@@ -38,6 +38,7 @@
     "home": "होम",
     "jobs": "नौकरियाँ",
     "community": "समुदाय",
+    "voice": "वॉइस",
     "chat": "चैट",
     "earnings": "कमाई",
     "profile": "प्रोफ़ाइल",
@@ -243,6 +244,7 @@
       "downloads_subtitle": "सेव की पोस्ट और ऑफलाइन कंटेंट",
       "settings": "सेटिंग्स",
       "settings_subtitle": "भाषा, सूचनाएं, थीम",
+      "my_job_subtitle": "हाज़िरी, शिफ़्ट और सैलरी स्लिप",
       "edit_profile": "प्रोफ़ाइल बदलें",
       "edit_profile_subtitle": "नाम, बायो, अनुभव, उपलब्धता"
     },

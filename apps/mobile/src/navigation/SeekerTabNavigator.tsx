@@ -2,22 +2,17 @@
  * SeekerTabNavigator — bottom tabs for the seeker role, blue design.
  *
  * Layout:
- *   Home | Jobs | Community | Chat | Earnings | Profile
+ *   Home | Jobs | Community | Voice | Chat | Earnings | Profile
  *
- * Six equal-width tabs. Voice search is no longer a center FAB — it now
- * lives on the Home screen (the voice hero card), which keeps the tab
- * row uncluttered. See Doondo-Profile-Redesign-Spec.md at the repo root.
- *
- * Note: six tabs is the upper bound for a bottom bar. Labels are kept to
- * single words and the active tab is marked by colour only (it never
- * widens) so every tab stays an equal ~16.6% slice. Test at 320 dp width
- * and in every locale before shipping.
+ * Community now occupies the old My Job slot, and the center slot is a
+ * dedicated voice-search action that opens the VoiceAgent modal.
  *
  * Wrapped in SeekerThemeOverride so every tab inside this navigator gets
  * the royal-blue palette without flipping the employer side.
  */
 
 import { Pressable, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import {
   createBottomTabNavigator,
   type BottomTabBarProps,
@@ -31,20 +26,20 @@ import { useTranslate } from '@/i18n/useTranslate';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { SeekerHomeScreen } from '@/screens/seeker/SeekerHomeScreen';
 import { JobsScreen } from '@/screens/seeker/JobsScreen';
-import { MyJobScreen } from '@/screens/seeker/MyJobScreen';
 import { CommunityScreen } from '@/screens/seeker/CommunityScreen';
 import { EarningsScreen } from '@/screens/seeker/EarningsScreen';
 import { ProfileScreen } from '@/screens/seeker/ProfileScreen';
 import { ChatListScreen } from '@/screens/chat/ChatListScreen';
-import type { SeekerTabParamList } from './types';
+import type { AppStackParamList, SeekerTabParamList } from './types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const Tab = createBottomTabNavigator<SeekerTabParamList>();
+type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
 /** Glyphs only — labels resolve to translations via useTranslate(). */
 const TAB_META: Record<keyof SeekerTabParamList, { i18nKey: string; glyph: string }> = {
   Home: { i18nKey: 'tabs.home', glyph: '⌂' },
   Jobs: { i18nKey: 'tabs.jobs', glyph: '◇' },
-  MyJob: { i18nKey: 'tabs.my_job', glyph: '★' },
   Community: { i18nKey: 'tabs.community', glyph: '❖' },
   Chat: { i18nKey: 'tabs.chat', glyph: '✦' },
   Earnings: { i18nKey: 'tabs.earnings', glyph: '₹' },
@@ -63,7 +58,6 @@ export function SeekerTabNavigator() {
       >
         <Tab.Screen name="Home" component={SeekerHomeScreen} />
         <Tab.Screen name="Jobs" component={JobsScreen} />
-        <Tab.Screen name="MyJob" component={MyJobScreen} />
         <Tab.Screen name="Community" component={CommunityScreen} />
         <Tab.Screen name="Chat" component={ChatListScreen} />
         <Tab.Screen name="Earnings" component={EarningsScreen} />
@@ -78,6 +72,7 @@ export function SeekerTabNavigator() {
 function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { theme } = useTheme();
   const t = useTranslate();
+  const rootNavigation = useNavigation<AppNav>();
 
   function renderTab(routeIndex: number) {
     const route = state.routes[routeIndex]!;
@@ -141,6 +136,64 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     );
   }
 
+  function renderVoiceAction() {
+    return (
+      <Pressable
+        key="voice-search"
+        accessibilityRole="button"
+        accessibilityLabel={t('tabs.voice')}
+        onPress={() => {
+          haptic('selection');
+          rootNavigation.navigate('VoiceAgent');
+        }}
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: spacing.xs,
+          gap: 2,
+        }}
+      >
+        <View
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 21,
+            backgroundColor: theme.brand.hero,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: theme.brand.hero,
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.24,
+            shadowRadius: 10,
+            elevation: 6,
+          }}
+        >
+          <Text
+            style={{
+              color: '#FFFFFF',
+              fontSize: 18,
+              lineHeight: 18,
+            }}
+          >
+            🎤
+          </Text>
+        </View>
+        <Text
+          variant="caption"
+          weight="medium"
+          numberOfLines={1}
+          style={{
+            fontSize: 10,
+            color: theme.brand.hero,
+          }}
+        >
+          {t('tabs.voice')}
+        </Text>
+      </Pressable>
+    );
+  }
+
   return (
     <View
       style={{
@@ -155,7 +208,9 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         minHeight: 76,
       }}
     >
-      {state.routes.map((_, index) => renderTab(index))}
+      {state.routes.slice(0, 3).map((_, index) => renderTab(index))}
+      {renderVoiceAction()}
+      {state.routes.slice(3).map((_, index) => renderTab(index + 3))}
     </View>
   );
 }

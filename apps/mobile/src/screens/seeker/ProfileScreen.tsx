@@ -1042,6 +1042,17 @@ export function ProfileScreen() {
             title={t('profile_groups.account')}
           >
             <MenuRow
+              icon="★"
+              tint="#DBEAFE"
+              label={t('tabs.my_job')}
+              subtitle={t('profile.menu.my_job_subtitle')}
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('MyJob');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
               icon="📝"
               tint="#DDD6FE"
               label={user.workHistory?.length ? t('profile_screen.menu_extra.my_resume') : t('profile_screen.menu_extra.build_resume')}

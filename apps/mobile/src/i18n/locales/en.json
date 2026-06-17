@@ -38,6 +38,7 @@
     "home": "Home",
     "jobs": "Jobs",
     "community": "Community",
+    "voice": "Voice",
     "chat": "Chat",
     "earnings": "Earnings",
     "profile": "Profile",
@@ -243,6 +244,7 @@
       "downloads_subtitle": "Saved posts and offline content",
       "settings": "Settings",
       "settings_subtitle": "Language, notifications, theme",
+      "my_job_subtitle": "Attendance, shifts and payslips",
       "edit_profile": "Edit Profile Details",
       "edit_profile_subtitle": "Name, bio, experience, availability"
     },

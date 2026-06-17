@@ -38,9 +38,11 @@
     "home": "ಮುಖಪುಟ",
     "jobs": "ಕೆಲಸಗಳು",
     "community": "ಸಮುದಾಯ",
+    "voice": "ವಾಯ್ಸ್",
     "chat": "ಚಾಟ್",
     "earnings": "ಗಳಿಕೆ",
-    "profile": "ಪ್ರೊಫೈಲ್"
+    "profile": "ಪ್ರೊಫೈಲ್",
+    "my_job": "ನನ್ನ ಕೆಲಸ"
   },
   "community_hub": {
     "title": "ಸಮುದಾಯ",
@@ -238,6 +240,7 @@
       "downloads_subtitle": "ಉಳಿಸಿದ ಪೋಸ್ಟ್‌ಗಳು ಮತ್ತು ಆಫ್‌ಲೈನ್ ವಿಷಯ",
       "settings": "ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
       "settings_subtitle": "ಭಾಷೆ, ಸೂಚನೆಗಳು, ಥೀಮ್",
+      "my_job_subtitle": "ಹಾಜರಿ, ಶಿಫ್ಟ್‌ಗಳು ಮತ್ತು ವೇತನ ಸ್ಲಿಪ್‌ಗಳು",
       "edit_profile": "ಪ್ರೊಫೈಲ್ ಬದಲಾಯಿಸಿ",
       "edit_profile_subtitle": "ಹೆಸರು, ಬಯೋ, ಅನುಭವ, ಲಭ್ಯತೆ"
     },
