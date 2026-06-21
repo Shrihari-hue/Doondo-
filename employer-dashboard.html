@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Doondo Employer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --blue:#2563EB;--blue-dark:#1D4ED8;--blue-light:#EFF6FF;
+  --green:#22C55E;--green-dark:#16A34A;--green-light:#DCFCE7;
+  --orange:#E8552A;--amber:#F59E0B;
+  --gray-50:#F9FAFB;--gray-100:#F3F4F6;--gray-200:#E5E7EB;
+  --gray-300:#D1D5DB;--gray-400:#9CA3AF;--gray-500:#6B7280;
+  --gray-600:#4B5563;--gray-700:#374151;--gray-800:#1F2937;
+  --white:#fff;
+  --r:12px;--r-lg:16px;--r-xl:24px;
+  --shadow:0 1px 4px rgba(0,0,0,.08);--shadow-md:0 4px 16px rgba(0,0,0,.10);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#E8ECF0;display:flex;justify-content:center;padding:20px 0;min-height:100vh;}
+.phone{width:390px;position:relative;}
+.screen{display:none;width:390px;min-height:844px;background:var(--white);border-radius:40px;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;position:relative;flex-direction:column;}
+.screen.active{display:flex;}
+
+/* STATUS BAR */
+.sb{display:flex;justify-content:space-between;align-items:center;padding:14px 24px 6px;font-size:12px;font-weight:600;}
+.sb.light{color:var(--gray-800);}
+.sb.dark-sb{color:#fff;background:transparent;position:absolute;top:0;left:0;right:0;z-index:20;}
+
+/* SCROLLABLE */
+.scroll{flex:1;overflow-y:auto;padding-bottom:90px;}
+.scroll::-webkit-scrollbar{display:none;}
+
+/* BOTTOM NAV - LIGHT */
+.bnav{position:absolute;bottom:0;left:0;right:0;height:78px;background:var(--white);border-top:1px solid var(--gray-200);display:flex;align-items:center;padding:0 8px 10px;z-index:100;}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:6px 2px;}
+.ni .ico{font-size:22px;color:var(--gray-400);}
+.ni .lbl{font-size:10px;color:var(--gray-400);font-weight:500;}
+.ni.on .ico{color:var(--blue);}
+.ni.on .lbl{color:var(--blue);font-weight:700;}
+.mic-fab{width:54px;height:54px;background:var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 14px rgba(37,99,235,.45);margin-bottom:12px;font-size:20px;color:#fff;border:none;flex-shrink:0;}
+
+/* DARK NAV */
+.dnav{position:absolute;bottom:0;left:0;right:0;height:78px;background:#111;border-top:1px solid #222;display:flex;align-items:center;padding:0 4px 10px;z-index:100;}
+.dni{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:6px 2px;position:relative;}
+.dni .ico{font-size:20px;color:#555;}
+.dni .lbl{font-size:10px;color:#555;font-weight:500;}
+.dni.on .ico,.dni.on .lbl{color:#fff;font-weight:700;}
+.dni.on::before{content:'';position:absolute;top:0;left:25%;right:25%;height:2px;background:var(--orange);border-radius:0 0 2px 2px;}
+
+/* COMMON BUTTONS */
+.btn-blue{background:var(--blue);color:#fff;border:none;border-radius:50px;padding:15px;width:100%;font-size:16px;font-weight:700;cursor:pointer;transition:all .2s;}
+.btn-blue:hover{background:var(--blue-dark);}
+.btn-outline-blue{background:var(--white);color:var(--blue);border:1.5px solid var(--blue);border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;}
+.btn-gray{background:var(--white);color:var(--gray-700);border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;}
+
+/* SCREEN HEADER */
+.shdr{display:flex;align-items:center;padding:12px 20px;gap:12px;}
+.back{width:36px;height:36px;border-radius:50%;border:none;background:var(--gray-100);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;flex-shrink:0;}
+.stitle{font-size:18px;font-weight:700;color:var(--gray-800);flex:1;}
+
+/* FORM */
+.flabel{font-size:13px;font-weight:600;color:var(--gray-700);margin-bottom:6px;display:block;}
+.finput{width:100%;padding:12px 14px;border:1.5px solid var(--gray-200);border-radius:10px;font-size:14px;color:var(--gray-800);background:var(--white);outline:none;font-family:inherit;transition:border-color .2s;}
+.finput:focus{border-color:var(--blue);}
+.finput::placeholder{color:var(--gray-400);}
+.fgroup{margin-bottom:14px;}
+
+/* CHIPS */
+.chip{padding:8px 14px;border-radius:50px;border:1.5px solid var(--gray-200);background:var(--white);color:var(--gray-600);font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.chip.on{background:var(--blue);border-color:var(--blue);color:#fff;}
+
+/* TAG */
+.tag-green{background:var(--green-light);color:var(--green-dark);font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;}
+.tag-blue{background:var(--blue-light);color:var(--blue);font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;}
+
+/* =========================================
+   SPLASH
+   ========================================= */
+#splash{background:linear-gradient(160deg,#0F172A 0%,#1E3A5F 50%,#1D4ED8 100%);justify-content:space-between;}
+.sp-content{flex:1;display:flex;flex-direction:column;align-items:center;padding:30px 32px 0;}
+.sp-logo{text-align:center;margin-bottom:12px;}
+.sp-logo .lt{font-size:42px;font-weight:800;color:#fff;letter-spacing:-1px;line-height:1;}
+.sp-logo .lt span{color:var(--green);}
+.sp-logo .em{font-size:16px;font-weight:600;color:var(--green);letter-spacing:1px;margin-top:2px;}
+.sp-tag{text-align:center;color:rgba(255,255,255,.9);margin:14px 0 18px;}
+.sp-tag h2{font-size:26px;font-weight:700;line-height:1.3;}
+.sp-illus{width:180px;height:180px;background:radial-gradient(circle,rgba(37,99,235,.3) 0%,transparent 70%);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:90px;margin:0 0 16px;}
+.sp-opts{width:100%;display:flex;flex-direction:column;gap:10px;}
+.sp-opt{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:var(--r-lg);padding:14px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;}
+.sp-opt-ico{width:46px;height:46px;background:rgba(255,255,255,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.sp-opt h4{color:#fff;font-size:15px;font-weight:700;}
+.sp-opt p{color:rgba(255,255,255,.6);font-size:12px;margin-top:2px;}
+.sp-bot{padding:20px 32px 36px;width:100%;}
+.sp-login{text-align:center;margin-top:12px;color:rgba(255,255,255,.6);font-size:13px;}
+.sp-login a{color:#fff;font-weight:600;cursor:pointer;}
+
+/* =========================================
+   HOME
+   ========================================= */
+#home .home-top{background:var(--white);padding:10px 20px 0;}
+#home .home-logo-bar{display:flex;justify-content:space-between;align-items:center;padding:4px 0 10px;}
+#home .logo-text{font-size:24px;font-weight:800;color:var(--blue);letter-spacing:-0.5px;}
+#home .logo-text span{color:var(--green);}
+#home .logo-sub{font-size:11px;font-weight:700;color:var(--green);letter-spacing:.5px;text-align:center;line-height:1;}
+#home .logo-wrap{text-align:center;}
+#home .greeting-row{display:flex;justify-content:space-between;align-items:center;padding:6px 20px 12px;}
+#home .greeting{font-size:18px;font-weight:700;color:var(--gray-800);}
+#home .switch-btn{background:var(--white);border:1px solid var(--gray-200);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:600;color:var(--blue);cursor:pointer;white-space:nowrap;}
+
+.biz-card{background:var(--white);border:1px solid var(--gray-200);border-radius:var(--r-lg);padding:14px 16px;margin:0 20px 12px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);}
+.biz-ava{width:50px;height:50px;background:var(--blue-light);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;}
+.biz-name{font-size:15px;font-weight:700;color:var(--gray-800);}
+.biz-type{font-size:12px;color:var(--gray-500);margin-top:1px;}
+.biz-rating{display:flex;align-items:center;gap:4px;margin-top:4px;font-size:12px;color:var(--gray-500);}
+.biz-star{color:var(--amber);}
+
+.wallet-card{background:linear-gradient(135deg,#1D4ED8 0%,#2563EB 60%,#3B82F6 100%);border-radius:var(--r-lg);padding:16px 18px;margin:0 20px 16px;display:flex;align-items:center;justify-content:space-between;}
+.w-ico{width:36px;height:36px;background:rgba(255,255,255,.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-right:12px;flex-shrink:0;}
+.w-left{display:flex;align-items:center;}
+.w-lbl{font-size:11px;color:rgba(255,255,255,.75);font-weight:500;}
+.w-amt{font-size:26px;font-weight:800;color:#fff;margin-top:2px;}
+.add-money{background:var(--white);border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:700;color:var(--gray-800);cursor:pointer;}
+
+.qa-row{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:0 20px 20px;}
+.qa{display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:transform .15s;}
+.qa:hover{transform:scale(1.04);}
+.qa-ico{width:58px;height:58px;background:var(--blue-light);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;}
+.qa-lbl{font-size:11px;font-weight:600;color:var(--gray-700);text-align:center;line-height:1.3;}
+
+.sec-hdr{display:flex;justify-content:space-between;align-items:center;padding:0 20px 12px;}
+.sec-title{font-size:16px;font-weight:700;color:var(--gray-800);}
+.view-all{font-size:13px;font-weight:600;color:var(--blue);cursor:pointer;}
+
+.job-card{background:var(--white);border:1px solid var(--gray-200);border-radius:var(--r);padding:14px 16px;margin:0 20px 10px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);cursor:pointer;transition:box-shadow .2s;}
+.job-card:hover{box-shadow:var(--shadow-md);}
+.job-ava{width:46px;height:46px;border-radius:50%;background:var(--gray-100);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;}
+.job-title{font-size:14px;font-weight:700;color:var(--gray-800);}
+.job-meta{font-size:12px;color:var(--gray-500);margin-top:2px;}
+.job-apps{font-size:12px;color:var(--gray-500);margin-top:4px;}
+
+.why-sec{background:var(--gray-50);padding:20px;margin-top:8px;}
+.why-title{font-size:17px;font-weight:800;color:var(--gray-800);margin-bottom:14px;}
+.why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.why-item{background:var(--white);border-radius:var(--r);padding:12px 8px;text-align:center;box-shadow:var(--shadow);}
+.why-ico{font-size:26px;margin-bottom:6px;}
+.why-name{font-size:11px;font-weight:700;color:var(--gray-800);margin-bottom:3px;}
+.why-desc{font-size:10px;color:var(--gray-500);line-height:1.4;}
+
+/* =========================================
+   POST A JOB (LIGHT)
+   ========================================= */
+.hire-tabs{display:flex;gap:10px;padding:0 20px 16px;}
+.hire-tab{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border-radius:var(--r);border:2px solid var(--gray-200);cursor:pointer;font-size:13px;font-weight:600;color:var(--gray-600);background:var(--white);transition:all .2s;}
+.hire-tab.on{border-color:var(--blue);background:var(--blue-light);color:var(--blue);}
+
+.jtype-row{display:flex;gap:8px;}
+.jtype-opt{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border:1.5px solid var(--gray-200);border-radius:50px;cursor:pointer;font-size:13px;font-weight:600;color:var(--gray-600);transition:all .2s;}
+.jtype-opt.on{border-color:var(--blue);color:var(--blue);background:var(--blue-light);}
+.jtype-radio{width:14px;height:14px;border-radius:50%;border:2px solid currentColor;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.jtype-opt.on .jtype-radio::after{content:'';width:6px;height:6px;border-radius:50%;background:var(--blue);}
+
+.sal-row{display:flex;gap:8px;}
+.rupee-wrap{flex:1;position:relative;}
+.rupee-prefix{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--gray-600);font-weight:700;}
+.rupee-wrap .finput{padding-left:26px;}
+.period-sel{width:110px;}
+.fselect{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B7280' stroke-width='2' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+.loc-hint{font-size:12px;color:var(--blue);font-weight:600;margin-top:6px;cursor:pointer;}
+.char-ct{font-size:11px;color:var(--gray-400);text-align:right;margin-top:4px;}
+
+/* =========================================
+   APPLICANTS
+   ========================================= */
+.ftabs{overflow-x:auto;padding:4px 20px 16px;display:flex;gap:8px;}
+.ftabs::-webkit-scrollbar{display:none;}
+.ftab{display:flex;align-items:center;gap:5px;padding:8px 16px;border-radius:50px;border:1.5px solid var(--gray-200);background:var(--white);font-size:13px;font-weight:600;color:var(--gray-600);cursor:pointer;white-space:nowrap;transition:all .2s;}
+.ftab.on{background:var(--blue);border-color:var(--blue);color:#fff;}
+.ftab .cnt{background:rgba(255,255,255,.25);border-radius:10px;padding:1px 6px;font-size:11px;}
+.ftab:not(.on) .cnt{background:var(--gray-100);color:var(--gray-500);}
+
+.app-card{background:var(--white);border-bottom:1px solid var(--gray-100);padding:14px 20px;display:flex;gap:12px;}
+.app-ava{width:48px;height:48px;border-radius:50%;background:var(--gray-200);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+.app-name{font-size:15px;font-weight:700;color:var(--gray-800);}
+.app-time{font-size:11px;color:var(--gray-400);}
+.app-role{font-size:13px;color:var(--gray-500);margin-top:3px;}
+.app-loc{font-size:12px;color:var(--gray-400);margin-top:2px;}
+.app-acts{display:flex;gap:8px;margin-top:10px;}
+
+/* =========================================
+   FIND WORKERS
+   ========================================= */
+.vsearch{margin:0 20px 14px;background:var(--gray-50);border:1.5px solid var(--gray-200);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;}
+.vsearch-mic{width:36px;height:36px;background:var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0;}
+.fpills{display:flex;gap:8px;padding:0 20px 14px;overflow-x:auto;}
+.fpills::-webkit-scrollbar{display:none;}
+.fpill{padding:7px 14px;border-radius:50px;border:1.5px solid var(--gray-200);background:var(--white);font-size:12px;font-weight:600;color:var(--gray-700);cursor:pointer;white-space:nowrap;box-shadow:var(--shadow);}
+
+.map-box{height:310px;background:#E8F0E9;position:relative;overflow:hidden;}
+.map-bg{width:100%;height:100%;background:repeating-linear-gradient(0deg,rgba(0,0,0,.04) 0,transparent 1px,transparent 40px,rgba(0,0,0,.04) 40px),repeating-linear-gradient(90deg,rgba(0,0,0,.04) 0,transparent 1px,transparent 40px,rgba(0,0,0,.04) 40px),linear-gradient(135deg,#D1E8D4 0%,#C5DFD4 30%,#D4E8D4 60%,#C8DCC8 100%);position:relative;}
+.mroad-h{position:absolute;left:0;right:0;height:10px;background:rgba(255,255,255,.8);}
+.mroad-v{position:absolute;top:0;bottom:0;width:10px;background:rgba(255,255,255,.8);}
+.mpin{position:absolute;width:34px;height:34px;background:var(--blue);border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 3px 10px rgba(37,99,235,.4);}
+.mpin .pi{transform:rotate(45deg);font-size:14px;color:#fff;}
+.mpin.sel{background:var(--blue-dark);width:40px;height:40px;}
+
+.worker-preview{position:absolute;bottom:0;left:16px;right:16px;background:var(--white);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:14px;display:flex;align-items:center;gap:12px;box-shadow:0 -4px 20px rgba(0,0,0,.12);}
+.wp-ava{width:50px;height:50px;border-radius:50%;background:var(--gray-200);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;}
+.wp-name{font-size:15px;font-weight:700;color:var(--gray-800);}
+.wp-meta{font-size:12px;color:var(--gray-500);margin-top:1px;}
+.wp-dist{font-size:12px;color:var(--gray-400);margin-top:2px;}
+.wp-rating{display:flex;align-items:center;gap:3px;font-size:12px;color:var(--gray-500);}
+.wp-rate{font-size:15px;font-weight:800;color:var(--gray-800);text-align:right;}
+
+/* =========================================
+   JOB DETAILS
+   ========================================= */
+.jd-hdr{padding:0 20px 14px;display:flex;gap:14px;}
+.jd-ico{width:52px;height:52px;background:var(--blue-light);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;}
+.jd-title{font-size:20px;font-weight:800;color:var(--gray-800);}
+.jd-meta{font-size:13px;color:var(--gray-500);margin-top:3px;}
+.active-tag{background:var(--green-light);color:var(--green-dark);font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-bottom:4px;}
+
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--gray-200);border-radius:var(--r);overflow:hidden;margin:0 20px 16px;}
+.stat-item{background:var(--white);padding:12px 8px;text-align:center;}
+.stat-val{font-size:22px;font-weight:800;color:var(--blue);}
+.stat-lbl{font-size:11px;color:var(--gray-500);margin-top:2px;}
+
+.dtabs{display:flex;border-bottom:2px solid var(--gray-100);margin:0 20px;}
+.dtab{flex:1;text-align:center;padding:10px;font-size:13px;font-weight:600;color:var(--gray-500);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
+.dtab.on{color:var(--blue);border-bottom-color:var(--blue);}
+
+.hired-card{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--gray-100);}
+.h-ava{width:44px;height:44px;border-radius:50%;background:var(--gray-200);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.h-name{font-size:14px;font-weight:700;color:var(--gray-800);}
+.h-date{font-size:12px;color:var(--gray-500);margin-top:2px;}
+.h-rate{font-size:13px;color:var(--gray-600);font-weight:600;margin-top:2px;}
+.call-btn{background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;}
+.more-btn{width:28px;height:28px;border:none;background:transparent;font-size:18px;color:var(--gray-400);cursor:pointer;}
+.hire-more{margin:14px 20px;background:var(--blue);color:#fff;border:none;border-radius:12px;padding:16px;font-size:15px;font-weight:700;cursor:pointer;width:calc(100% - 40px);}
+
+/* =========================================
+   JOBS SCREEN
+   ========================================= */
+.jl-item{background:var(--white);border-bottom:1px solid var(--gray-100);padding:14px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;}
+.jl-item:hover{background:var(--gray-50);}
+.jl-ico{width:46px;height:46px;border-radius:12px;background:var(--blue-light);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.jl-title{font-size:14px;font-weight:700;color:var(--gray-800);}
+.jl-meta{font-size:12px;color:var(--gray-500);margin-top:2px;}
+.jl-stat{font-size:12px;color:var(--blue);font-weight:600;margin-top:4px;}
+.stag{font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;}
+.stag-on{background:var(--green-light);color:var(--green-dark);}
+.stag-off{background:var(--gray-100);color:var(--gray-500);}
+
+/* =========================================
+   DARK SCREENS SHARED
+   ========================================= */
+.ds{background:#0A0A0A;color:#fff;}
+.dk-in{width:100%;background:#1A1A1A;border:1px solid #2A2A2A;border-radius:10px;padding:12px 14px;font-size:14px;color:#fff;font-family:inherit;outline:none;}
+.dk-in:focus{border-color:#444;}
+.dk-in::placeholder{color:#444;}
+.dk-lbl{font-size:10px;font-weight:700;color:#888;letter-spacing:.8px;text-transform:uppercase;display:block;margin-bottom:6px;}
+.dk-chip{padding:8px 14px;border-radius:50px;border:1.5px solid #2A2A2A;background:#1A1A1A;color:#AAA;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.dk-chip.on{background:var(--orange);border-color:var(--orange);color:#fff;}
+.dk-chip.on-green{background:var(--green-dark);border-color:var(--green-dark);color:#fff;}
+.dk-sec{padding:0 20px;margin-bottom:18px;}
+
+/* =========================================
+   POST JOB V2 (DARK)
+   ========================================= */
+#pjv2{background:#0A0A0A;}
+.pj-hdr{padding:12px 20px 16px;}
+.pj-cancel{font-size:13px;color:#888;cursor:pointer;margin-bottom:6px;}
+.pj-hed{font-size:10px;color:#666;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;}
+.pj-title{font-size:28px;font-weight:800;color:#fff;line-height:1.2;}
+.voice-bar{background:#1A1A1A;border:1px solid #2A2A2A;border-radius:12px;padding:13px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;}
+.v-mic{width:36px;height:36px;background:#2A2A2A;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.v-txt p{font-size:13px;color:#fff;font-weight:600;}
+.v-txt span{font-size:12px;color:#555;}
+.hold-rec{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#1A1A1A;border-radius:10px;margin-top:8px;}
+.rec-dot{width:10px;height:10px;border-radius:50%;background:var(--orange);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.hold-rec span{font-size:12px;color:#888;}
+.hold-rec small{font-size:11px;color:#555;margin-left:auto;}
+.pp-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.pp-chip{padding:6px 12px;border-radius:50px;border:1.5px solid #2A2A2A;background:transparent;color:#777;font-size:12px;font-weight:600;cursor:pointer;}
+.pp-chip.on{background:var(--orange);border-color:var(--orange);color:#fff;}
+.loc-redetect{background:#1A1A1A;border:1px solid #2A2A2A;border-radius:10px;padding:14px;text-align:center;color:var(--orange);font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;}
+.offer-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #181818;}
+.sk-tag{background:#1A1A1A;border:1px solid #2A2A2A;border-radius:20px;padding:6px 12px;font-size:13px;color:#CCC;display:inline-flex;align-items:center;gap:6px;}
+.tgl{width:44px;height:24px;background:#333;border-radius:12px;position:relative;cursor:pointer;flex-shrink:0;}
+.tgl.on{background:var(--orange);}
+.tgl::after{content:'';position:absolute;width:18px;height:18px;background:#fff;border-radius:50%;top:3px;left:3px;transition:transform .2s;}
+.tgl.on::after{transform:translateX(20px);}
+.pj-pub{padding:16px 20px 32px;background:#0A0A0A;}
+.pj-pub-btn{width:100%;background:var(--orange);color:#fff;border:none;border-radius:12px;padding:16px;font-size:16px;font-weight:800;cursor:pointer;}
+
+/* =========================================
+   WORKERS HUB (DARK)
+   ========================================= */
+#whub{background:#0A0A0A;}
+.wh-hdr{padding:20px 20px 14px;display:flex;justify-content:space-between;}
+.wh-title{font-size:36px;font-weight:900;color:#fff;}
+.wh-sub{font-size:14px;color:#666;margin-top:4px;}
+.wh-toggle{display:flex;background:#1A1A1A;border-radius:50px;padding:4px;margin:0 20px 22px;}
+.wh-tab{flex:1;padding:10px;border-radius:50px;border:none;background:transparent;color:#666;font-size:14px;font-weight:700;cursor:pointer;text-align:center;}
+.wh-tab.on{background:var(--green-dark);color:#fff;}
+.hub-item{padding:18px 20px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #141414;cursor:pointer;}
+.hub-item:hover{background:#111;}
+.hub-ico{width:64px;height:64px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0;}
+.hub-title{font-size:18px;font-weight:800;color:#fff;}
+.hub-desc{font-size:13px;color:#666;margin-top:4px;line-height:1.4;}
+.hub-arr{font-size:18px;color:#444;}
+
+/* =========================================
+   CONVERSATIONS (DARK)
+   ========================================= */
+#convs{background:#0A0A0A;}
+.conv-hdr{padding:20px 20px 14px;}
+.conv-title{font-size:32px;font-weight:900;color:#fff;}
+.conv-ftabs{display:flex;background:#1A1A1A;border-radius:12px;padding:4px;margin:0 20px 14px;}
+.conv-ftab{flex:1;padding:9px;border-radius:9px;border:none;background:transparent;color:#666;font-size:13px;font-weight:600;cursor:pointer;text-align:center;}
+.conv-ftab.on{background:#1F1F1F;color:var(--orange);}
+.conv-item{padding:14px 20px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #141414;cursor:pointer;}
+.conv-item:hover{background:#111;}
+.conv-ava{width:52px;height:52px;border-radius:50%;background:#2A2A2A;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;flex-shrink:0;overflow:hidden;}
+.conv-name{font-size:16px;font-weight:700;color:#fff;}
+.conv-last{font-size:13px;color:#666;margin-top:3px;}
+.conv-time{font-size:12px;color:#555;flex-shrink:0;}
+.conv-dot{width:8px;height:8px;border-radius:50%;background:var(--orange);flex-shrink:0;}
+.new-chat{position:absolute;bottom:88px;left:20px;right:20px;background:var(--orange);color:#fff;border:none;border-radius:16px;padding:18px;font-size:16px;font-weight:800;cursor:pointer;}
+
+/* =========================================
+   PROFILE / YOU (DARK)
+   ========================================= */
+#profy{background:#0A0A0A;}
+.prof-top{padding:20px 20px 14px;display:flex;align-items:center;gap:14px;}
+.prof-photo{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--orange),var(--amber));display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0;}
+.prof-emp-lbl{font-size:11px;color:#888;font-weight:600;text-transform:uppercase;}
+.prof-name{font-size:22px;font-weight:800;color:#fff;margin-top:2px;}
+.prof-change{font-size:12px;color:var(--orange);font-weight:600;cursor:pointer;margin-top:3px;}
+.prof-email{font-size:12px;color:#555;margin-top:4px;}
+.comp-card{margin:0 20px 14px;background:#1A1A1A;border-radius:14px;padding:16px;display:flex;align-items:center;gap:14px;}
+.comp-ring{width:56px;height:56px;border-radius:50%;background:conic-gradient(var(--orange) 0% 71%,#2A2A2A 71% 100%);display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;}
+.comp-ring::after{content:'';position:absolute;width:40px;height:40px;border-radius:50%;background:#1A1A1A;}
+.comp-pct{position:relative;z-index:1;font-size:14px;font-weight:800;color:#fff;}
+.comp-lbl{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.5px;font-weight:700;}
+.comp-val{font-size:20px;font-weight:900;color:#fff;margin-top:2px;}
+.comp-sub{font-size:12px;color:#666;margin-top:3px;}
+.prof-sec{margin:0 20px 10px;background:#141414;border-radius:14px;overflow:hidden;}
+.prof-row{padding:14px 16px;border-bottom:1px solid #1C1C1C;display:flex;align-items:flex-start;justify-content:space-between;}
+.prof-row:last-child{border-bottom:none;}
+.pr-lbl{font-size:10px;color:#666;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+.pr-val{font-size:14px;color:#fff;}
+.pr-sub{font-size:12px;color:#555;margin-top:2px;}
+.pr-edit{background:transparent;border:none;color:var(--orange);font-size:13px;font-weight:700;cursor:pointer;}
+.bgt-bar{height:6px;background:#2A2A2A;border-radius:3px;margin-top:10px;}
+.bgt-fill{height:100%;border-radius:3px;background:var(--orange);}
+.bgt-btn{width:100%;background:transparent;border:1px solid #2A2A2A;border-radius:10px;padding:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-top:12px;}
+.app-row{display:flex;gap:8px;margin-top:4px;}
+.app-opt{flex:1;padding:10px;border-radius:10px;border:1.5px solid #2A2A2A;background:transparent;color:#888;font-size:12px;font-weight:700;cursor:pointer;text-align:center;}
+.app-opt.on{border-color:var(--orange);color:var(--orange);background:rgba(232,85,42,.1);}
+.signout{width:100%;background:transparent;border:1px solid #2A2A2A;border-radius:12px;padding:16px;color:#EF4444;font-size:15px;font-weight:700;cursor:pointer;margin:0 0 32px;}
+
+/* =========================================
+   HIRE BY REELS (DARK)
+   ========================================= */
+#reels{background:#000;overflow:hidden;}
+.reel-feed{position:relative;width:100%;height:100%;overflow:hidden;}
+.reel-card{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;justify-content:flex-end;transition:transform .4s cubic-bezier(.25,.46,.45,.94);}
+.reel-card.up{transform:translateY(-110%);}
+.reel-card.dn{transform:translateY(110%);}
+.reel-bg{position:absolute;inset:0;}
+.reel-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.85) 0%,rgba(0,0,0,.3) 50%,rgba(0,0,0,.15) 100%);}
+.reel-prog{position:absolute;top:16px;left:0;right:0;display:flex;gap:3px;padding:0 16px;z-index:30;}
+.rp-bar{flex:1;height:3px;background:rgba(255,255,255,.3);border-radius:2px;overflow:hidden;}
+.rp-bar.done .rp-fill{width:100%;}
+.rp-bar.cur .rp-fill{animation:rprog 4s linear infinite;}
+@keyframes rprog{from{width:0}to{width:100%}}
+.rp-fill{height:100%;background:#fff;border-radius:2px;}
+.reel-back{position:absolute;top:44px;left:16px;z-index:30;width:38px;height:38px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;cursor:pointer;backdrop-filter:blur(4px);}
+.reel-title-bar{position:absolute;top:50px;left:0;right:0;text-align:center;z-index:30;font-size:16px;font-weight:700;color:#fff;}
+.reel-sides{position:absolute;right:14px;bottom:220px;z-index:10;display:flex;flex-direction:column;gap:18px;align-items:center;}
+.rs-btn{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;}
+.rs-ico{width:44px;height:44px;background:rgba(255,255,255,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.2);}
+.rs-lbl{font-size:11px;color:rgba(255,255,255,.9);font-weight:600;}
+.reel-info{position:relative;z-index:10;padding:0 20px 14px;}
+.ri-top{display:flex;align-items:flex-end;gap:12px;margin-bottom:10px;}
+.ri-ava{width:56px;height:56px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;}
+.ri-name{font-size:20px;font-weight:800;color:#fff;}
+.ri-role{font-size:14px;color:rgba(255,255,255,.8);margin-top:2px;}
+.ri-loc{font-size:13px;color:rgba(255,255,255,.6);margin-top:3px;}
+.ri-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(37,99,235,.8);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;margin-top:4px;}
+.ri-rate{display:inline-flex;align-items:center;gap:4px;background:rgba(22,163,74,.85);color:#fff;font-size:13px;font-weight:800;padding:4px 10px;border-radius:20px;margin-top:4px;margin-left:6px;}
+.ri-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+.ri-tag{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;backdrop-filter:blur(4px);}
+.ri-acts{display:flex;gap:8px;}
+.r-skip{flex:1;padding:13px;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.3);border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px);}
+.r-sl{flex:1;padding:13px;background:rgba(245,158,11,.85);border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;}
+.r-hire{flex:1.2;padding:13px;background:linear-gradient(135deg,#16A34A,#22C55E);border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(34,197,94,.4);}
+
+/* =========================================
+   MY EMPLOYEES
+   ========================================= */
+.emp-sum{display:flex;gap:10px;padding:0 20px 14px;}
+.escard{flex:1;background:var(--white);border:1px solid var(--gray-200);border-radius:var(--r);padding:12px;text-align:center;box-shadow:var(--shadow);}
+.escard .esnum{font-size:22px;font-weight:800;}
+.escard .eslbl{font-size:11px;color:var(--gray-500);margin-top:2px;}
+.escard.blue .esnum{color:var(--blue);}
+.escard.green .esnum{color:var(--green-dark);}
+.escard.orange .esnum{color:var(--orange);}
+
+.empc{background:var(--white);border-bottom:1px solid var(--gray-100);padding:14px 20px;}
+.empc-top{display:flex;align-items:center;gap:12px;}
+.emp-ava{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;position:relative;}
+.emp-dot{position:absolute;bottom:1px;right:1px;width:12px;height:12px;border-radius:50%;border:2px solid #fff;}
+.emp-dot.on{background:var(--green-dark);}
+.emp-dot.off{background:var(--gray-400);}
+.emp-name{font-size:15px;font-weight:700;color:var(--gray-800);}
+.emp-role{font-size:13px;color:var(--gray-500);margin-top:1px;}
+.emp-date{font-size:11px;color:var(--gray-400);margin-top:2px;}
+.emp-rate-val{font-size:14px;font-weight:800;color:var(--blue);text-align:right;}
+.emp-rate-lbl{font-size:10px;color:var(--gray-400);text-align:right;}
+.emp-metrics{display:flex;gap:8px;margin-top:12px;}
+.emm{flex:1;background:var(--gray-50);border-radius:8px;padding:8px 10px;}
+.emm-lbl{font-size:10px;color:var(--gray-500);font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
+.emm-val{font-size:14px;font-weight:700;color:var(--gray-800);margin-top:3px;}
+.emm-sub{font-size:10px;color:var(--gray-400);margin-top:1px;}
+.att-bar{height:4px;background:var(--gray-200);border-radius:2px;margin-top:4px;overflow:hidden;}
+.att-fill{height:100%;border-radius:2px;background:var(--green-dark);}
+.ptag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;display:inline-block;margin-top:4px;}
+.ptag-paid{background:var(--green-light);color:var(--green-dark);}
+.ptag-pend{background:#FEF3C7;color:#D97706;}
+.ptag-over{background:#FEE2E2;color:#DC2626;}
+.emp-acts{display:flex;gap:8px;margin-top:10px;}
+.ea-btn{flex:1;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;display:flex;align-items:center;justify-content:center;gap:5px;}
+.ea-call{background:var(--blue);color:#fff;}
+.ea-pay{background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-dark)!important;}
+.ea-msg{background:var(--gray-100);color:var(--gray-700);}
+</style>
+</head>
+<body>
+<div class="phone">
+
+<!-- SPLASH -->
+<div id="splash" class="screen active">
+  <div class="sb" style="color:#fff;background:transparent;"><span>9:41</span><span>▲▲ WiFi 🔋</span></div>
+  <div class="sp-content">
+    <div class="sp-logo">
+      <div class="lt">D<span>oo</span>ndo</div>
+      <div class="em">Employer</div>
+    </div>
+    <div class="sp-tag"><h2>Hire the right people.<br>Get work done.</h2></div>
+    <div class="sp-illus">👨‍💼</div>
+    <div class="sp-opts">
+      <div class="sp-opt"><div class="sp-opt-ico">🏢</div><div><h4>Hire for your Company / Business</h4><p>Shops, Offices, Factories &amp; more</p></div></div>
+      <div class="sp-opt"><div class="sp-opt-ico">🏠</div><div><h4>Hire for your Home / Household</h4><p>Cooking, Cleaning, Repair &amp; more</p></div></div>
+    </div>
+  </div>
+  <div class="sp-bot">
+    <button class="btn-blue" onclick="nav('home')">Continue</button>
+    <p class="sp-login">Already have an account? <a onclick="nav('home')">Login</a></p>
+  </div>
+</div>
+
+<!-- HOME -->
+<div id="home" class="screen">
+  <div class="sb light" style="background:var(--white);">
+    <span style="font-size:18px;cursor:pointer;">☰</span>
+    <div class="logo-wrap">
+      <div class="logo-text">D<span>oo</span>ndo</div>
+      <div class="logo-sub">Employer</div>
+    </div>
+    <span style="font-size:20px;cursor:pointer;">🔔</span>
+  </div>
+  <div class="scroll">
+    <div class="greeting-row">
+      <span class="greeting">Good morning, Rajesh 👋</span>
+      <button class="switch-btn">Switch to Household</button>
+    </div>
+    <div class="biz-card">
+      <div class="biz-ava">🏢</div>
+      <div>
+        <div class="biz-name">Rajesh Enterprises</div>
+        <div class="biz-type">Business Account</div>
+        <div class="biz-rating"><span class="biz-star">★</span><span>4.7 (128 reviews)</span></div>
+      </div>
+    </div>
+    <div class="wallet-card">
+      <div class="w-left">
+        <div class="w-ico">💳</div>
+        <div><div class="w-lbl">Wallet Balance</div><div class="w-amt">₹1,250</div></div>
+      </div>
+      <button class="add-money">Add Money</button>
+    </div>
+    <div class="qa-row">
+      <div class="qa" onclick="nav('pjv2')"><div class="qa-ico">➕</div><span class="qa-lbl">Post a Job</span></div>
+      <div class="qa" onclick="nav('find')"><div class="qa-ico">🔍</div><span class="qa-lbl">Find Workers</span></div>
+      <div class="qa" onclick="nav('jobs')"><div class="qa-ico" style="background:#EDE9FE;">📋</div><span class="qa-lbl">My Jobs</span></div>
+      <div class="qa"><div class="qa-ico" style="background:#FFF7ED;">⭐</div><span class="qa-lbl">Shortlist</span></div>
+    </div>
+    <div class="sec-hdr"><span class="sec-title">Active Jobs</span><span class="view-all" onclick="nav('jobs')">View all</span></div>
+    <div class="job-card" onclick="nav('jobdet')">
+      <div class="job-ava">🧹</div>
+      <div style="flex:1"><div class="job-title">Office Helper</div><div class="job-meta">Daily • Full time</div><div class="job-apps">5 applications</div></div>
+      <span class="tag-green">3 New</span>
+    </div>
+    <div class="job-card" onclick="nav('apps')">
+      <div class="job-ava">🛵</div>
+      <div style="flex:1"><div class="job-title">Delivery Boy</div><div class="job-meta">Daily • Part time</div><div class="job-apps">2 applications</div></div>
+      <span class="tag-green">1 New</span>
+    </div>
+    <div style="height:8px;background:var(--gray-50);margin-top:8px;"></div>
+    <div class="why-sec">
+      <div class="why-title">Why Employers ❤️ Doondo</div>
+      <div class="why-grid">
+        <div class="why-item"><div class="why-ico">🎙️</div><div class="why-name">Audio Search</div><div class="why-desc">Find workers by speaking</div></div>
+        <div class="why-item"><div class="why-ico">📍</div><div class="why-name">Map Based Search</div><div class="why-desc">Find nearby workers instantly</div></div>
+        <div class="why-item"><div class="why-ico">👥</div><div class="why-name">Verified Workers</div><div class="why-desc">Background verified &amp; trusted</div></div>
+        <div class="why-item"><div class="why-ico">💬</div><div class="why-name">Easy Communication</div><div class="why-desc">Chat or call directly in app</div></div>
+        <div class="why-item"><div class="why-ico">🛡️</div><div class="why-name">Secure Payments</div><div class="why-desc">Pay safely using Doondo Wallet</div></div>
+        <div class="why-item"><div class="why-ico">🎧</div><div class="why-name">24/7 Support</div><div class="why-desc">We are here to help you</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="bnav">
+    <div class="ni on" onclick="nav('home')"><span class="ico">🏠</span><span class="lbl">Home</span></div>
+    <div class="ni" onclick="nav('jobs')"><span class="ico">📋</span><span class="lbl">Jobs</span></div>
+    <button class="mic-fab">🎙️</button>
+    <div class="ni" onclick="nav('convs')"><span class="ico">💬</span><span class="lbl">Messages</span></div>
+    <div class="ni" onclick="nav('profy')"><span class="ico">👤</span><span class="lbl">Profile</span></div>
+  </div>
+</div>
+
+<!-- POST A JOB LIGHT -->
+<div id="postjob" class="screen">
+  <div class="sb light" style="background:#fff;"><span>9:41</span><span>▲▲ 🔋</span></div>
+  <div class="shdr"><button class="back" onclick="nav('home')">←</button><span class="stitle">Post a Job</span></div>
+  <div class="scroll" style="padding:0 20px 0;">
+    <p style="font-size:13px;font-weight:600;color:var(--gray-700);margin-bottom:10px;">I am hiring for</p>
+    <div class="hire-tabs" style="padding:0 0 16px;">
+      <div class="hire-tab on" onclick="setTab(this,'hire')"><span>🏢</span> Business / Company</div>
+      <div class="hire-tab" onclick="setTab(this,'hire')"><span>🏠</span> Home / Household</div>
+    </div>
+    <div class="fgroup"><label class="flabel">Job Title / Role</label><input class="finput" placeholder="e.g. Cook, Driver, Electrician"></div>
+    <div class="fgroup"><label class="flabel">Job Category</label><select class="finput fselect"><option value="">Select category</option><option>Cleaning</option><option>Cooking</option><option>Delivery</option><option>Driver</option><option>Electrician</option><option>Office Helper</option></select></div>
+    <div class="fgroup">
+      <label class="flabel">Work Location</label>
+      <div style="position:relative;"><input class="finput" placeholder="Enter area or pin on map" style="padding-right:40px;"><span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--gray-400);">📍</span></div>
+      <div class="loc-hint">📍 Use my current location</div>
+    </div>
+    <div class="fgroup">
+      <label class="flabel">Job Type</label>
+      <div class="jtype-row">
+        <div class="jtype-opt on" onclick="setTab(this,'jtype')"><div class="jtype-radio"></div>Full Time</div>
+        <div class="jtype-opt" onclick="setTab(this,'jtype')"><div class="jtype-radio"></div>Part Time</div>
+        <div class="jtype-opt" onclick="setTab(this,'jtype')"><div class="jtype-radio"></div>One Time</div>
+      </div>
+    </div>
+    <div class="fgroup">
+      <label class="flabel">Expected Salary</label>
+      <div class="sal-row">
+        <div class="rupee-wrap"><span class="rupee-prefix">₹</span><input class="finput" type="number" placeholder="Enter amount"></div>
+        <select class="finput fselect period-sel"><option>per day</option><option>per week</option><option>per month</option></select>
+      </div>
+    </div>
+    <div class="fgroup">
+      <label class="flabel">Job Description</label>
+      <textarea class="finput" rows="4" placeholder="Describe the work, timing, skills required..." maxlength="300" oninput="document.getElementById('cc').textContent=this.value.length+'/300'" style="resize:none;"></textarea>
+      <div class="char-ct" id="cc">0/300</div>
+    </div>
+    <div style="padding:16px 0 32px;"><button class="btn-blue" onclick="nav('home')">Publish Job</button></div>
+  </div>
+</div>
+
+<!-- APPLICANTS -->
+<div id="apps" class="screen">
+  <div class="sb light" style="background:#fff;"><span>9:41</span><span>▲▲ 🔋</span></div>
+  <div class="shdr"><button class="back" onclick="nav('home')">←</button><span class="stitle">Applicants</span></div>
+  <div class="ftabs">
+    <div class="ftab on">All <span class="cnt">28</span></div>
+    <div class="ftab">New <span class="cnt">12</span></div>
+    <div class="ftab">Shortlisted <span class="cnt">8</span></div>
+    <div class="ftab">Hired <span class="cnt">5</span></div>
+  </div>
+  <div class="scroll" style="padding-bottom:0;">
+    <div class="app-card"><div class="app-ava">👨</div><div style="flex:1"><div style="display:flex;justify-content:space-between;"><span class="app-name">Arun Kumar</span><div><span class="tag-green">New</span><div class="app-time" style="text-align:right;margin-top:4px;">Today, 10:30 AM</div></div></div><div class="app-role">Office Helper • 3 yrs exp</div><div class="app-loc">📍 Bengaluru</div><div class="app-acts"><button class="btn-outline-blue">View Profile</button><button class="btn-gray">Shortlist</button></div></div></div>
+    <div class="app-card"><div class="app-ava">👨‍🦱</div><div style="flex:1"><div style="display:flex;justify-content:space-between;"><span class="app-name">Mahesh R.</span><div><span class="tag-green">New</span><div class="app-time" style="text-align:right;margin-top:4px;">Today, 09:15 AM</div></div></div><div class="app-role">Delivery Boy • 2 yrs exp</div><div class="app-loc">📍 Bengaluru</div><div class="app-acts"><button class="btn-outline-blue">View Profile</button><button class="btn-gray">Shortlist</button></div></div></div>
+    <div class="app-card"><div class="app-ava">👨‍🍳</div><div style="flex:1"><div style="display:flex;justify-content:space-between;"><span class="app-name">Shiva Prasad</span><div class="app-time">Yesterday, 08:45 PM</div></div><div class="app-role">Cook • 5 yrs exp</div><div class="app-loc">📍 Bengaluru</div><div class="app-acts"><button class="btn-outline-blue">View Profile</button><button class="btn-gray">Shortlist</button></div></div></div>
+    <div class="app-card"><div class="app-ava">🧑</div><div style="flex:1"><div style="display:flex;justify-content:space-between;"><span class="app-name">Rakesh</span><div class="app-time">Yesterday, 07:30 PM</div></div><div class="app-role">Cleaner • 1 yr exp</div><div class="app-loc">📍 Bengaluru</div><div class="app-acts"><button class="btn-outline-blue">View Profile</button><button class="btn-gray">Shortlist</button></div></div></div>
+  </div>
+</div>
+
+<!-- FIND WORKERS -->
+<div id="find" class="screen">
+  <div class="sb light" style="background:#fff;"><span>9:41</span><span>▲▲ 🔋</span></div>
+  <div class="shdr"><button class="back" onclick="nav('home')">←</button><span class="stitle">Find Workers</span></div>
+  <div class="vsearch"><div class="vsearch-mic">🎙️</div><div><p style="font-size:13px;font-weight:600;color:var(--gray-600);">Tap mic to search by voice</p><span style="font-size:12px;color:var(--gray-400);">e.g. plumber near me</span></div><span style="color:var(--gray-300);font-size:20px;margin-left:auto;">›</span></div>
+  <div class="fpills">
+    <div class="fpill">Category ▾</div><div class="fpill">Skills ▾</div><div class="fpill">Location ▾</div><div class="fpill">Filters ▾</div>
+  </div>
+  <div class="map-box">
+    <div class="map-bg">
+      <div class="mroad-h" style="top:30%;"></div><div class="mroad-h" style="top:55%;"></div><div class="mroad-h" style="top:75%;"></div>
+      <div class="mroad-v" style="left:20%;"></div><div class="mroad-v" style="left:50%;"></div><div class="mroad-v" style="left:75%;"></div>
+      <div class="mpin" style="top:20%;left:15%;"><span class="pi">👤</span></div>
+      <div class="mpin" style="top:15%;left:55%;"><span class="pi">👤</span></div>
+      <div class="mpin" style="top:35%;left:70%;"><span class="pi">👤</span></div>
+      <div class="mpin sel" style="top:42%;left:36%;"><span class="pi">👤</span></div>
+      <div class="mpin" style="top:58%;left:24%;"><span class="pi">👤</span></div>
+    </div>
+    <div class="worker-preview">
+      <div class="wp-ava">⚡</div>
+      <div style="flex:1"><div class="wp-name">Suresh B.</div><div class="wp-meta">Electrician • 4 yrs exp</div><div class="wp-dist">📍 1.2 km away</div><div class="wp-rating"><span style="color:var(--amber);">★</span> 4.6 (32)</div></div>
+      <div style="text-align:right"><div class="wp-rate">₹900 / day</div><button class="btn-outline-blue" style="margin-top:6px;font-size:12px;padding:6px 12px;" onclick="nav('jobdet')">View Profile</button></div>
+    </div>
+  </div>
+  <div class="bnav">
+    <div class="ni on" onclick="nav('home')"><span class="ico">🏠</span><span class="lbl">Home</span></div>
+    <div class="ni" onclick="nav('jobs')"><span class="ico">📋</span><span class="lbl">Jobs</span></div>
+    <button class="mic-fab">🎙️</button>
+    <div class="ni" onclick="nav('convs')"><span class="ico">💬</span><span class="lbl">Messages</span></div>
+    <div class="ni" onclick="nav('profy')"><span class="ico">👤</span><span class="lbl">Profile</span></div>
+  </div>
+</div>
+
+<!-- JOB DETAILS -->
+<div id="jobdet" class="screen">
+  <div class="sb light" style="background:#fff;"><span>9:41</span><span>▲▲ 🔋</span></div>
+  <div class="shdr"><button class="back" onclick="nav('home')">←</button><span class="stitle">Job Details</span><button class="more-btn">⋯</button></div>
+  <div class="scroll" style="padding-bottom:0;">
+    <div class="jd-hdr"><div class="jd-ico">🧹</div><div><span class="active-tag">Active</span><div class="jd-title">Office Helper</div><div class="jd-meta">Full Time • Started on 20 May 2024</div><div class="jd-meta">📍 Bengaluru, Karnataka</div></div></div>
+    <div class="stats-row">
+      <div class="stat-item"><div class="stat-val">28</div><div class="stat-lbl">Applications</div></div>
+      <div class="stat-item"><div class="stat-val">12</div><div class="stat-lbl">Shortlisted</div></div>
+      <div class="stat-item"><div class="stat-val">3</div><div class="stat-lbl">Hired</div></div>
+      <div class="stat-item"><div class="stat-val">5</div><div class="stat-lbl">Interviews</div></div>
+    </div>
+    <div class="dtabs">
+      <div class="dtab" onclick="setTab(this,'dtab')">Applications</div>
+      <div class="dtab" onclick="setTab(this,'dtab')">Shortlisted</div>
+      <div class="dtab on" onclick="setTab(this,'dtab')">Hired</div>
+    </div>
+    <div class="hired-card"><div class="h-ava">👨</div><div style="flex:1"><div class="h-name">Ramesh K.</div><div class="h-date">Hired on 20 May 2024</div><div class="h-rate">₹800 / day</div></div><button class="call-btn">Call</button><button class="more-btn">⋯</button></div>
+    <div class="hired-card"><div class="h-ava">👨‍🦱</div><div style="flex:1"><div class="h-name">Jagadeesh</div><div class="h-date">Hired on 21 May 2024</div><div class="h-rate">₹750 / day</div></div><button class="call-btn">Call</button><button class="more-btn">⋯</button></div>
+    <div class="hired-card"><div class="h-ava">⚡</div><div style="flex:1"><div class="h-name">Suresh B.</div><div class="h-date">Hired on 20 May 2024</div><div class="h-rate">₹900 / day</div></div><button class="call-btn">Call</button><button class="more-btn">⋯</button></div>
+    <button class="hire-more" onclick="nav('apps')">+ Hire More</button>
+  </div>
+  <div class="bnav">
+    <div class="ni" onclick="nav('home')"><span class="ico">🏠</span><span class="lbl">Home</span></div>
+    <div class="ni on" onclick="nav('jobs')"><span class="ico">📋</span><span class="lbl">Jobs</span></div>
+    <button class="mic-fab">🎙️</button>
+    <div class="ni" onclick="nav('convs')"><span class="ico">💬</span><span class="lbl">Messages</span></div>
+    <div class="ni" onclick="nav('profy')"><span class="ico">👤</span><span class="lbl">Profile</span></div>
+  </div>
+</div>
+
+<!-- MY JOBS -->
+<div id="jobs" class="screen">
+  <div class="sb light" style="background:#fff;"><span>9:41</span><span>▲▲ 🔋</span></div>
+  <div class="shdr"><button class="back" onclick="nav('home')">←</button><span class="stitle">My Jobs</span><button class="btn-outline-blue" style="font-size:12px;padding:7px 12px;border-radius:8px;" onclick="nav('pjv2')">+ Post</button></div>
+  <div class="ftabs">
+    <div class="ftab on">All</div><div class="ftab">Active</div><div class="ftab">Closed</div><div class="ftab">Draft</div>
+  </div>
+  <div class="scroll" style="padding-bottom:90px;">
+    <div class="jl-item" onclick="nav('jobdet')"><div class="jl-ico">🧹</div><div style="flex:1"><div class="jl-title">Office Helper</div><div class="jl-meta">Full Time • Bengaluru</div><div class="jl-stat">28 applications • 3 hired</div></div><span class="stag stag-on">Active</span></div>
+    <div class="jl-item" onclick="nav('apps')"><div class="jl-ico">🛵</div><div style="flex:1"><div class="jl-title">Delivery Boy</div><div class="jl-meta">Part Time • Bengaluru</div><div class="jl-stat">2 applications • 0 hired</div></div><span class="stag stag-on">Active</span></div>
+    <div class="jl-item"><div class="jl-ico">🧑‍🍳</div><div style="flex:1"><div class="jl-title">Cook</div><div class="jl-meta">Full Time • Bengaluru</div><div class="jl-stat">14 applications • 1 hired</div></div><span class="stag stag-off">Closed</span></div>
+    <div class="jl-item"><div class="jl-ico">🔧</div><div style="flex:1"><div class="jl-title">Plumber</div><div class="jl-meta">One Time • Bengaluru</div><div class="jl-stat">6 applications • 1 hired</div></div><span class="stag stag-off">Closed</span></div>
+  </div>
+  <div class="bnav">
+    <div class="ni" onclick="nav('home')"><span class="ico">🏠</span><span class="lbl">Home</span></div>
+    <div class="ni on"><span class="ico">📋</span><span class="lbl">Jobs</span></div>
+    <button class="mic-fab">🎙️</button>
+    <div class="ni" onclick="nav('convs')"><span class="ico">💬</span><span class="lbl">Messages</span></div>
+    <div class="ni" onclick="nav('profy')"><span class="ico">👤</span><span class="lbl">Profile</span></div>
+  </div>
+</div>
+
+<!-- POST JOB V2 DARK -->
+<div id="pjv2" class="screen ds">
+  <div class="sb dark-sb"><span>9:41</span><span>▲▲ 🔋</span></div>
+  <div class="scroll" style="padding-top:60px;padding-bottom:0;">
+    <div class="pj-hdr"><div class="pj-cancel" onclick="nav('home')">Cancel</div><div class="pj-hed">Post a Job</div><div class="pj-title">Tell us what<br>you need.</div></div>
+    <div class="dk-sec"><div class="voice-bar"><div class="v-mic">🎙️</div><div class="v-txt"><p>Speak your job</p><span>Tap and say — e.g. "2 dishwashers, Friday in 2h, ₹600"</span></div></div></div>
+    <div class="dk-sec"><div class="dk-lbl" style="margin-bottom:6px;">Title</div><input class="dk-in" type="text" placeholder="Delivery rider, salon assistant..."></div>
+    <div class="dk-sec"><div class="dk-lbl">Description</div><textarea class="dk-in" rows="3" placeholder="What does the job involve? Any requirements?" style="resize:none;"></textarea><div class="hold-rec" style="margin-top:8px;"><div class="rec-dot"></div><span>Hold to record voice description</span><small>Optional · 90s</small></div></div>
+    <div class="dk-sec"><div class="dk-lbl">Type</div><div style="display:flex;flex-wrap:wrap;gap:8px;"><div class="dk-chip" onclick="dkChip(this,'typ')">Full-time</div><div class="dk-chip" onclick="dkChip(this,'typ')">Part-time</div><div class="dk-chip on" onclick="dkChip(this,'typ')">Gig</div><div class="dk-chip" onclick="dkChip(this,'typ')">Shift</div><div class="dk-chip" onclick="dkChip(this,'typ')">Contract</div></div></div>
+    <div class="dk-sec"><div class="dk-lbl">Pay — Amount (₹)</div><div style="position:relative;"><span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#777;font-weight:700;">₹</span><input class="dk-in" type="number" placeholder="e.g. 600" style="padding-left:26px;"></div><div class="pp-row"><div class="pp-chip" onclick="ppChip(this)">per hour</div><div class="pp-chip on" onclick="ppChip(this)">per day</div><div class="pp-chip" onclick="ppChip(this)">per week</div><div class="pp-chip" onclick="ppChip(this)">per month</div><div class="pp-chip" onclick="ppChip(this)">fixed</div></div></div>
+    <div class="dk-sec"><div class="dk-lbl">Location</div><div class="loc-redetect">↻ Re-detect location</div><div style="margin-bottom:8px;"><div class="dk-lbl" style="font-size:11px;">City</div><input class="dk-in" value="Bangalore"></div><div style="margin-bottom:8px;"><div class="dk-lbl" style="font-size:11px;">Area / neighbourhood</div><input class="dk-in" value="Jayanagar"></div><div style="margin-bottom:8px;"><div class="dk-lbl" style="font-size:11px;">Pincode</div><input class="dk-in" value="560041"></div><div><div class="dk-lbl" style="font-size:11px;">How many people?</div><input class="dk-in" type="number" value="1" style="width:80px;"></div></div>
+    <div class="dk-sec"><div class="dk-lbl">Offer / My Crew First</div><p style="font-size:12px;color:#666;margin-bottom:10px;">Give your saved crew a head start before the job goes public.</p><div style="display:flex;flex-wrap:wrap;gap:8px;"><div class="dk-chip on" onclick="dkChip(this,'crew')">Public now</div><div class="dk-chip" onclick="dkChip(this,'crew')">Crew first 3h</div><div class="dk-chip" onclick="dkChip(this,'crew')">Crew first 6h</div><div class="dk-chip" onclick="dkChip(this,'crew')">Crew first 24h</div></div></div>
+    <div class="dk-sec"><div class="dk-lbl">Repeats Weekly?</div><div style="display:flex;gap:8px;"><div class="dk-chip on" onclick="dkChip(this,'rep')">One time</div><div class="dk-chip" onclick="dkChip(this,'rep')">Repeats weekly</div></div></div>
+    <div class="dk-sec"><div class="dk-lbl">Multi-Day Project?</div><div style="display:flex;gap:8px;"><div class="dk-chip on" onclick="dkChip(this,'day')">Single shift</div><div class="dk-chip" onclick="dkChip(this,'day')">Multi-day project</div></div></div>
+    <div class="dk-sec"><div class="dk-lbl">Skills Needed</div><input class="dk-in" placeholder="Add skill" style="margin-bottom:10px;"><div style="display:flex;flex-wrap:wrap;gap:8px;"><div class="sk-tag">driving <span style="color:#555;cursor:pointer;">×</span></div><div class="sk-tag">customer service <span style="color:#555;cursor:pointer;">×</span></div></div></div>
+    <div class="dk-sec"><div class="dk-lbl">Work Mode</div><div style="display:flex;gap:8px;"><div class="dk-chip on" onclick="dkChip(this,'wm')">Onsite</div><div class="dk-chip" onclick="dkChip(this,'wm')">Hybrid</div><div class="dk-chip" onclick="dkChip(this,'wm')">Remote</div></div></div>
+    <div class="dk-sec"><div style="background:#1A1A1A;border-radius:12px;padding:14px;display:flex;gap:12px;cursor:pointer;" onclick="toggleUrg(this)"><div id="urgbox" style="width:20px;height:20px;border-radius:4px;border:2px solid #333;flex-shrink:0;margin-top:1px;"></div><div><div style="font-size:14px;color:#fff;font-weight:700;">Mark as urgent</div><div style="font-size:12px;color:#666;margin-top:3px;">Urgent jobs sort ahead of others and notify nearby workers.</div></div></div></div>
+    <div class="dk-sec"><div class="dk-lbl">What you offer workers</div><div class="offer-row"><span style="font-size:13px;color:#CCC;">Wages paid on time</span><span style="color:#16A34A;font-size:12px;font-weight:700;">Yes ✓</span></div><div class="offer-row"><span style="font-size:13px;color:#CCC;">Overtime paid extra</span><span style="color:#16A34A;font-size:12px;font-weight:700;">Yes ✓</span></div><div class="offer-row"><span style="font-size:13px;color:#CCC;">Safety equipment provided</span><span style="color:#16A34A;font-size:12px;font-weight:700;">Yes ✓</span></div><div class="offer-row"><span style="font-size:13px;color:#CCC;">Written contract given</span><span style="color:#16A34A;font-size:12px;font-weight:700;">Yes ✓</span></div><div class="offer-row" style="border:none;"><span style="font-size:13px;color:#CCC;">Women at work</span><span style="color:#16A34A;font-size:12px;font-weight:700;">Yes ✓</span></div></div>
+    <div class="pj-pub"><button class="pj-pub-btn" onclick="nav('home')">Post Job →</button></div>
+  </div>
+</div>
+
+<!-- WORKERS HUB -->
+<div id="whub" class="screen ds">
+  <div class="sb dark-sb"><span>9:41</span><span>☀️ 🔔</span></div>
+  <div class="scroll" style="padding-top:60px;padding-bottom:90px;">
+    <div class="wh-hdr"><div><div class="wh-title">Workers</div><div class="wh-sub">Your team. Everywhere.</div></div></div>
+    <div class="wh-toggle"><button class="wh-tab on" onclick="wTab(this)">Find workers</button><button class="wh-tab" onclick="wTab(this)">My workforce</button></div>
+    <div class="hub-item" onclick="nav('find')"><div class="hub-ico" style="background:linear-gradient(135deg,#1a3a5c,#2563EB);">📡</div><div style="flex:1"><div class="hub-title">Available now</div><div class="hub-desc">Workers broadcasting that they're free nearby — browse as list or map.</div></div><span class="hub-arr">›</span></div>
+    <div class="hub-item" onclick="nav('reels')"><div class="hub-ico" style="background:linear-gradient(135deg,#2d1b69,#7C3AED);">🎬</div><div style="flex:1"><div class="hub-title">Hire Reels</div><div class="hub-desc">Swipe through 30-second worker intro videos.</div></div><span class="hub-arr">›</span></div>
+    <div class="hub-item"><div class="hub-ico" style="background:linear-gradient(135deg,#3d1a00,#D97706);">🙋</div><div style="flex:1"><div class="hub-title">Interested in you</div><div class="hub-desc">Workers who asked to work for you — invite them to a job.</div></div><span class="hub-arr">›</span></div>
+    <div class="hub-item"><div class="hub-ico" style="background:linear-gradient(135deg,#1a2a1a,#16A34A);">📤</div><div style="flex:1"><div class="hub-title">Requests sent</div><div class="hub-desc">Hiring requests you've sent, and how workers responded.</div></div><span class="hub-arr">›</span></div>
+    <div class="hub-item" onclick="nav('myemp')"><div class="hub-ico" style="background:linear-gradient(135deg,#1a1a3d,#3B82F6);">👥</div><div style="flex:1"><div class="hub-title">My crew</div><div class="hub-desc">Import workers you already know and save for one-tap re-hire.</div></div><span class="hub-arr">›</span></div>
+  </div>
+  <div class="dnav">
+    <div class="dni" onclick="nav('home')"><span class="ico">⌂</span><span class="lbl">Home</span></div>
+    <div class="dni" onclick="nav('jobs')"><span class="ico">◇</span><span class="lbl">Jobs</span></div>
+    <div class="dni on"><span class="ico">◎</span><span class="lbl">Workers</span></div>
+    <div class="dni" onclick="nav('convs')"><span class="ico">💬</span><span class="lbl">Chat</span></div>
+    <div class="dni" onclick="nav('profy')"><span class="ico">⌘</span><span class="lbl">You</span></div>
+  </div>
+</div>
+
+<!-- CONVERSATIONS -->
+<div id="convs" class="screen ds">
+  <div class="sb dark-sb"><span>2:12</span><span>5G 🔋</span></div>
+  <div class="scroll" style="padding-top:60px;padding-bottom:160px;">
+    <div class="conv-hdr"><div class="conv-title">Conversations</div></div>
+    <div class="conv-ftabs"><button class="conv-ftab on" onclick="cTab(this)">All</button><button class="conv-ftab" onclick="cTab(this)">Employers</button><button class="conv-ftab" onclick="cTab(this)">Support</button></div>
+    <div class="conv-item"><div class="conv-ava" style="background:#222;">GS</div><div style="flex:1"><div class="conv-name">Gautham Shetty</div><div class="conv-last">Hi</div></div><div style="text-align:right"><div class="conv-time">Jun 4</div><div style="display:flex;justify-content:flex-end;margin-top:6px;"><div class="conv-dot"></div></div></div></div>
+    <div class="conv-item"><div class="conv-ava" style="background:#333;">SH</div><div style="flex:1"><div class="conv-name">Shrinidhi</div><div class="conv-last">🎙️ Voice note</div></div><div class="conv-time">Jun 4</div></div>
+    <div class="conv-item"><div class="conv-ava" style="background:#C2410C;">PR</div><div style="flex:1"><div class="conv-name">Pruthvi</div><div class="conv-last">Say hello.</div></div><div class="conv-time">May 27</div></div>
+    <div class="conv-item"><div class="conv-ava" style="background:#C2410C;">SN</div><div style="flex:1"><div class="conv-name">Sneha</div><div class="conv-last">Say hello.</div></div><div class="conv-time">May 24</div></div>
+    <div class="conv-item"><div class="conv-ava" style="background:#333;">SH</div><div style="flex:1"><div class="conv-name">Shrinidhi</div><div class="conv-last">Hiiii</div></div><div class="conv-time">May 21</div></div>
+  </div>
+  <button class="new-chat">+ New Chat</button>
+  <div class="dnav">
+    <div class="dni" onclick="nav('home')"><span class="ico">⌂</span><span class="lbl">Home</span></div>
+    <div class="dni" onclick="nav('jobs')"><span class="ico">◇</span><span class="lbl">Jobs</span></div>
+    <div class="dni" onclick="nav('whub')"><span class="ico">◎</span><span class="lbl">Workers</span></div>
+    <div class="dni on"><span class="ico">💬</span><span class="lbl">Chat</span></div>
+    <div class="dni" onclick="nav('profy')"><span class="ico">⌘</span><span class="lbl">You</span></div>
+  </div>
+</div>
+
+<!-- PROFILE / YOU -->
+<div id="profy" class="screen ds">
+  <div class="sb dark-sb"><span>9:41</span><span>▲▲ 🔋</span></div>
+  <div class="scroll" style="padding-top:60px;padding-bottom:90px;">
+    <div class="prof-top"><div class="prof-photo">👨‍💼</div><div><div class="prof-emp-lbl">Employer</div><div class="prof-name">Xenovia</div><div class="prof-change">Change photo</div><div class="prof-email">team@xenovia.in</div></div></div>
+    <div class="comp-card"><div class="comp-ring"><span class="comp-pct">71%</span></div><div class="comp-text"><div class="comp-lbl">Business Profile</div><div class="comp-val">71%</div><div class="comp-sub">Complete your profile so seekers trust your posts.</div></div></div>
+    <div class="prof-sec"><div class="prof-row"><div><div class="pr-lbl">Business</div><div class="pr-val">Xenovia</div><div class="pr-sub">Individual</div></div><button class="pr-edit">Edit</button></div></div>
+    <div class="prof-sec"><div class="prof-row"><div><div class="pr-lbl">Compliance</div><div class="pr-val" style="color:var(--orange);">GSTIN not set</div><div class="pr-sub">Add to verify your business.</div></div><button class="pr-edit">Edit</button></div></div>
+    <div class="prof-sec"><div class="prof-row"><div><div class="pr-lbl">Location</div><div class="pr-val">Jayanagar, Bangalore</div><div class="pr-sub">GPS set</div></div><button class="pr-edit">Edit</button></div></div>
+    <div class="prof-sec"><div class="prof-row"><div><div class="pr-lbl" style="color:var(--amber);">Verification</div><div class="pr-sub" style="margin-top:4px;">Confirm your phone + selfie to earn the gold ★</div></div><button class="pr-edit" style="background:var(--orange);color:#fff;padding:6px 14px;border-radius:20px;font-size:12px;">Verify</button></div></div>
+    <div class="prof-sec"><div class="prof-row" style="flex-direction:column;align-items:stretch;"><div class="pr-lbl">Labor Budget</div><div class="pr-val" style="margin-top:4px;">₹0 of ₹2,500 this Week</div><div class="bgt-bar"><div class="bgt-fill" style="width:0%;"></div></div><div class="pr-sub" style="margin-top:6px;">₹2,500 left</div><button class="bgt-btn">Edit budget</button></div></div>
+    <div class="prof-sec">
+      <div class="prof-row"><div><div style="font-size:14px;color:#fff;font-weight:600;">Quiet hours</div><div class="pr-sub">We won't flag you for slow replies during these hours.</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="prof-row"><div><div style="font-size:14px;color:#fff;font-weight:600;">SMS new-applicant alerts</div><div class="pr-sub">Get a text when someone applies — even with app closed.</div></div><div class="tgl on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="prof-row" style="flex-direction:column;align-items:stretch;"><div style="display:flex;gap:24px;margin-bottom:12px;"><div><div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">From</div><div style="font-size:18px;color:#fff;font-weight:800;margin-top:4px;">10 PM</div></div><div><div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:700;">To</div><div style="font-size:18px;color:#fff;font-weight:800;margin-top:4px;">10 AM</div></div></div><div style="font-size:11px;color:#666;margin-bottom:8px;">Auto-reply (optional)</div><input class="dk-in" placeholder="e.g. Thanks! I'll reply in the morning."><button class="bgt-btn" style="margin-top:10px;">Save</button></div>
+    </div>
+    <div class="prof-sec"><div class="prof-row" style="flex-direction:column;align-items:stretch;"><div style="display:flex;justify-content:space-between;margin-bottom:12px;"><span class="pr-lbl">Appearance</span><span style="font-size:12px;color:#555;">Auto · dark</span></div><div class="app-row"><div class="app-opt on" onclick="aOpt(this)">⚙ System</div><div class="app-opt" onclick="aOpt(this)">🌙 Dark</div><div class="app-opt" onclick="aOpt(this)">☀️ Light</div></div></div></div>
+    <div style="padding:8px 20px;"><button class="signout">Sign out</button></div>
+  </div>
+  <div class="dnav">
+    <div class="dni" onclick="nav('home')"><span class="ico">⌂</span><span class="lbl">Home</span></div>
+    <div class="dni" onclick="nav('jobs')"><span class="ico">◇</span><span class="lbl">Jobs</span></div>
+    <div class="dni" onclick="nav('whub')"><span class="ico">◎</span><span class="lbl">Workers</span></div>
+    <div class="dni" onclick="nav('convs')"><span class="ico">💬</span><span class="lbl">Chat</span></div>
+    <div class="dni on"><span class="ico">⌘</span><span class="lbl">You</span></div>
+  </div>
+</div>
+
+<!-- HIRE BY REELS -->
+<div id="reels" class="screen" style="background:#000;overflow:hidden;">
+  <div class="sb dark-sb" style="top:16px;"><span>9:41</span><span>▲▲ 🔋</span></div>
+  <div class="reel-prog" style="top:16px;">
+    <div class="rp-bar done"><div class="rp-fill"></div></div>
+    <div class="rp-bar cur"><div class="rp-fill"></div></div>
+    <div class="rp-bar"><div class="rp-fill"></div></div>
+    <div class="rp-bar"><div class="rp-fill"></div></div>
+    <div class="rp-bar"><div class="rp-fill"></div></div>
+  </div>
+  <div class="reel-back" onclick="nav('home')">←</div>
+  <div class="reel-title-bar">🎬 Hire by Reels</div>
+  <div class="reel-feed" id="rfeed">
+    <div class="reel-card" id="rc0">
+      <div class="reel-bg" style="background:linear-gradient(160deg,#1a1a2e,#16213e,#0f3460,#533483);"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:.12;font-size:140px;">🔧</div></div>
+      <div class="reel-sides">
+        <div class="rs-btn"><div class="rs-ico">❤️</div><span class="rs-lbl">156</span></div>
+        <div class="rs-btn"><div class="rs-ico">💬</div><span class="rs-lbl">Chat</span></div>
+        <div class="rs-btn"><div class="rs-ico">↗️</div><span class="rs-lbl">Share</span></div>
+        <div class="rs-btn"><div class="rs-ico">⭐</div><span class="rs-lbl">Save</span></div>
+      </div>
+      <div class="reel-info">
+        <div class="ri-top">
+          <div class="ri-ava" style="background:linear-gradient(135deg,#667eea,#764ba2);">⚡</div>
+          <div><div class="ri-name">Suresh B.</div><div class="ri-role">Electrician • 4 yrs experience</div><div><span class="ri-badge">✔ Verified</span><span class="ri-rate">₹900 / day</span></div><div class="ri-loc">📍 1.2 km away • Bengaluru</div></div>
+        </div>
+        <div class="ri-tags"><span class="ri-tag">Wiring</span><span class="ri-tag">Panel Work</span><span class="ri-tag">AC Install</span><span class="ri-tag">⭐ 4.6 (32)</span></div>
+        <div class="ri-acts">
+          <button class="r-skip" onclick="rNext()">✕ Skip</button>
+          <button class="r-sl" onclick="rShortlist(this)">♡ Shortlist</button>
+          <button class="r-hire" onclick="rHire(this)">✓ Hire Now</button>
+        </div>
+      </div>
+    </div>
+    <div class="reel-card dn" id="rc1">
+      <div class="reel-bg" style="background:linear-gradient(160deg,#1a1a1a,#2d1b69,#11998e);"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:.12;font-size:140px;">🍳</div></div>
+      <div class="reel-sides">
+        <div class="rs-btn"><div class="rs-ico">❤️</div><span class="rs-lbl">89</span></div>
+        <div class="rs-btn"><div class="rs-ico">💬</div><span class="rs-lbl">Chat</span></div>
+        <div class="rs-btn"><div class="rs-ico">↗️</div><span class="rs-lbl">Share</span></div>
+        <div class="rs-btn"><div class="rs-ico">⭐</div><span class="rs-lbl">Save</span></div>
+      </div>
+      <div class="reel-info">
+        <div class="ri-top">
+          <div class="ri-ava" style="background:linear-gradient(135deg,#11998e,#38ef7d);">🍳</div>
+          <div><div class="ri-name">Priya Menon</div><div class="ri-role">Cook • 7 yrs experience</div><div><span class="ri-badge">✔ Verified</span><span class="ri-rate">₹700 / day</span></div><div class="ri-loc">📍 2.4 km away • Bengaluru</div></div>
+        </div>
+        <div class="ri-tags"><span class="ri-tag">South Indian</span><span class="ri-tag">North Indian</span><span class="ri-tag">Tiffin</span><span class="ri-tag">⭐ 4.8 (61)</span></div>
+        <div class="ri-acts">
+          <button class="r-skip" onclick="rNext()">✕ Skip</button>
+          <button class="r-sl" onclick="rShortlist(this)">♡ Shortlist</button>
+          <button class="r-hire" onclick="rHire(this)">✓ Hire Now</button>
+        </div>
+      </div>
+    </div>
+    <div class="reel-card dn" id="rc2">
+      <div class="reel-bg" style="background:linear-gradient(160deg,#0f0c29,#302b63,#24243e);"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:.12;font-size:140px;">🛵</div></div>
+      <div class="reel-sides">
+        <div class="rs-btn"><div class="rs-ico">❤️</div><span class="rs-lbl">234</span></div>
+        <div class="rs-btn"><div class="rs-ico">💬</div><span class="rs-lbl">Chat</span></div>
+        <div class="rs-btn"><div class="rs-ico">↗️</div><span class="rs-lbl">Share</span></div>
+        <div class="rs-btn"><div class="rs-ico">⭐</div><span class="rs-lbl">Save</span></div>
+      </div>
+      <div class="reel-info">
+        <div class="ri-top">
+          <div class="ri-ava" style="background:linear-gradient(135deg,#f093fb,#f5576c);">🛵</div>
+          <div><div class="ri-name">Karthik R.</div><div class="ri-role">Delivery Boy • 2 yrs experience</div><div><span class="ri-badge">✔ Verified</span><span class="ri-rate">₹600 / day</span></div><div class="ri-loc">📍 0.8 km away • Bengaluru</div></div>
+        </div>
+        <div class="ri-tags"><span class="ri-tag">2-Wheeler</span><span class="ri-tag">Food Delivery</span><span class="ri-tag">⭐ 4.4 (18)</span></div>
+        <div class="ri-acts">
+          <button class="r-skip" onclick="rNext()">✕ Skip</button>
+          <button class="r-sl" onclick="rShortlist(this)">♡ Shortlist</button>
+          <button class="r-hire" onclick="rHire(this)">✓ Hire Now</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MY EMPLOYEES -->
+<div id="myemp" class="screen">
+  <div class="sb light" style="background:#fff;"><span>9:41</span><span>▲▲ 🔋</span></div>
+  <div class="shdr"><button class="back" onclick="nav('home')">←</button><span class="stitle">My Employees</span><button class="btn-outline-blue" style="font-size:12px;padding:7px 12px;border-radius:8px;" onclick="nav('find')">+ Add</button></div>
+  <div style="margin:4px 20px 12px;background:var(--gray-50);border:1.5px solid var(--gray-200);border-radius:50px;padding:10px 16px;display:flex;gap:10px;color:var(--gray-400);font-size:14px;"><span>🔍</span><span>Search employees...</span></div>
+  <div class="emp-sum">
+    <div class="escard blue"><div class="esnum">12</div><div class="eslbl">Total</div></div>
+    <div class="escard green"><div class="esnum">9</div><div class="eslbl">Active</div></div>
+    <div class="escard orange"><div class="esnum">3</div><div class="eslbl">Inactive</div></div>
+  </div>
+  <div class="ftabs"><div class="ftab on">All <span class="cnt">12</span></div><div class="ftab">Active <span class="cnt">9</span></div><div class="ftab">Inactive <span class="cnt">3</span></div></div>
+  <div class="scroll" style="padding-bottom:0;">
+    <div class="empc"><div class="empc-top"><div class="emp-ava" style="background:#DBEAFE;">👨<div class="emp-dot on"></div></div><div style="flex:1"><div class="emp-name">Ramesh K.</div><div class="emp-role">Office Helper</div><div class="emp-date">Hired: 20 May 2024</div></div><div><div class="emp-rate-val">₹800</div><div class="emp-rate-lbl">per day</div></div></div><div class="emp-metrics"><div class="emm"><div class="emm-lbl">Attendance</div><div class="emm-val">22/26</div><div class="att-bar"><div class="att-fill" style="width:85%;"></div></div><div class="emm-sub">85% this month</div></div><div class="emm"><div class="emm-lbl">Payment</div><div class="emm-val">₹17,600</div><span class="ptag ptag-paid">Paid</span></div><div class="emm"><div class="emm-lbl">Month</div><div class="emm-val">June '24</div><div class="emm-sub">26 working days</div></div></div><div class="emp-acts"><button class="ea-btn ea-call">📞 Call</button><button class="ea-btn ea-pay">💳 Pay</button><button class="ea-btn ea-msg">💬 Message</button></div></div>
+    <div class="empc"><div class="empc-top"><div class="emp-ava" style="background:#DCFCE7;">👨‍🦱<div class="emp-dot on"></div></div><div style="flex:1"><div class="emp-name">Jagadeesh M.</div><div class="emp-role">Office Helper</div><div class="emp-date">Hired: 21 May 2024</div></div><div><div class="emp-rate-val">₹750</div><div class="emp-rate-lbl">per day</div></div></div><div class="emp-metrics"><div class="emm"><div class="emm-lbl">Attendance</div><div class="emm-val">24/26</div><div class="att-bar"><div class="att-fill" style="width:92%;"></div></div><div class="emm-sub">92% this month</div></div><div class="emm"><div class="emm-lbl">Payment</div><div class="emm-val">₹4,500</div><span class="ptag ptag-pend">Pending</span></div><div class="emm"><div class="emm-lbl">Month</div><div class="emm-val">June '24</div><div class="emm-sub">26 working days</div></div></div><div class="emp-acts"><button class="ea-btn ea-call">📞 Call</button><button class="ea-btn ea-pay">💳 Pay Now</button><button class="ea-btn ea-msg">💬 Message</button></div></div>
+    <div class="empc"><div class="empc-top"><div class="emp-ava" style="background:#EDE9FE;">⚡<div class="emp-dot on"></div></div><div style="flex:1"><div class="emp-name">Suresh B.</div><div class="emp-role">Electrician</div><div class="emp-date">Hired: 20 May 2024</div></div><div><div class="emp-rate-val">₹900</div><div class="emp-rate-lbl">per day</div></div></div><div class="emp-metrics"><div class="emm"><div class="emm-lbl">Attendance</div><div class="emm-val">19/26</div><div class="att-bar"><div class="att-fill" style="width:73%;background:var(--amber);"></div></div><div class="emm-sub">73% this month</div></div><div class="emm"><div class="emm-lbl">Payment</div><div class="emm-val">₹6,300</div><span class="ptag ptag-over">Overdue</span></div><div class="emm"><div class="emm-lbl">Month</div><div class="emm-val">June '24</div><div class="emm-sub">26 working days</div></div></div><div class="emp-acts"><button class="ea-btn ea-call">📞 Call</button><button class="ea-btn" style="background:#FEE2E2;color:#DC2626;border:1px solid #DC2626;flex:1.3;">💳 Pay Overdue</button><button class="ea-btn ea-msg">💬</button></div></div>
+  </div>
+</div>
+
+<script>
+function nav(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));const t=document.getElementById(id);if(t){t.classList.add('active');t.querySelector('.scroll')&&(t.querySelector('.scroll').scrollTop=0);}}
+function setTab(el,group){el.closest('[data-group="'+group+'"]')||el.parentNode.querySelectorAll('[onclick*="setTab"][onclick*="\''+group+'\'"]').forEach(e=>e.classList.remove('on'));el.classList.add('on');}
+function dkChip(el,g){el.closest('.dk-sec').querySelectorAll('.dk-chip').forEach(c=>c.classList.remove('on'));el.classList.add('on');}
+function ppChip(el){el.parentNode.querySelectorAll('.pp-chip').forEach(c=>c.classList.remove('on'));el.classList.add('on');}
+function toggleUrg(w){const b=w.querySelector('#urgbox');b.style.background=b.style.background?'':'#E8552A';b.style.borderColor=b.style.borderColor&&b.style.borderColor!='rgb(232, 85, 42)'?'':'#E8552A';b.textContent=b.textContent?'':'✓';b.style.color='#fff';}
+function wTab(el){el.parentNode.querySelectorAll('.wh-tab').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
+function cTab(el){el.parentNode.querySelectorAll('.conv-ftab').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
+function aOpt(el){el.parentNode.querySelectorAll('.app-opt').forEach(o=>o.classList.remove('on'));el.classList.add('on');}
+
+// Filter tabs generic
+document.querySelectorAll('.ftabs').forEach(wrap=>{wrap.querySelectorAll('.ftab').forEach(tab=>{tab.addEventListener('click',function(){wrap.querySelectorAll('.ftab').forEach(t=>t.classList.remove('on'));this.classList.add('on');});});});
+document.querySelectorAll('.hire-tab').forEach(t=>t.addEventListener('click',function(){this.parentNode.querySelectorAll('.hire-tab').forEach(x=>x.classList.remove('on'));this.classList.add('on');}));
+document.querySelectorAll('.jtype-opt').forEach(t=>t.addEventListener('click',function(){this.parentNode.querySelectorAll('.jtype-opt').forEach(x=>x.classList.remove('on'));this.classList.add('on');}));
+document.querySelectorAll('.dtab').forEach(t=>t.addEventListener('click',function(){this.parentNode.querySelectorAll('.dtab').forEach(x=>x.classList.remove('on'));this.classList.add('on');}));
+
+// REELS
+let rCur=0;const rTotal=3;
+function rNext(){if(rCur>=rTotal-1)return;document.getElementById('rc'+rCur).classList.add('up');rCur++;document.getElementById('rc'+rCur).classList.remove('dn');rUpdProg();}
+function rPrev(){if(rCur<=0)return;document.getElementById('rc'+rCur).classList.add('dn');rCur--;document.getElementById('rc'+rCur).classList.remove('up');rUpdProg();}
+function rShortlist(btn){btn.textContent='♥ Shortlisted!';btn.style.background='rgba(245,158,11,1)';setTimeout(rNext,600);}
+function rHire(btn){btn.textContent='✓ Hired!';btn.style.background='linear-gradient(135deg,#059669,#10B981)';setTimeout(rNext,800);}
+function rUpdProg(){document.querySelectorAll('.rp-bar').forEach((b,i)=>{b.className='rp-bar';b.innerHTML='<div class="rp-fill"></div>';if(i<rCur)b.classList.add('done');if(i===rCur)b.classList.add('cur');});}
+let rY=0;
+document.getElementById('reels').addEventListener('touchstart',e=>{rY=e.touches[0].clientY;});
+document.getElementById('reels').addEventListener('touchend',e=>{const d=rY-e.changedTouches[0].clientY;if(d>50)rNext();else if(d<-50)rPrev();});
+document.getElementById('reels').addEventListener('mousedown',e=>{rY=e.clientY;});
+document.getElementById('reels').addEventListener('mouseup',e=>{const d=rY-e.clientY;if(d>50)rNext();else if(d<-50)rPrev();});
+</script>
+</div>
+</body>
+</html>
