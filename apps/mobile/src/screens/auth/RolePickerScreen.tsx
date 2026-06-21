@@ -34,7 +34,7 @@ type TFn = (key: string, opts?: Record<string, unknown>) => string;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const FIND_WORK_IMAGE = require('../../../assets/images/find-work-card.jpeg');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const HIRE_WORKERS_IMAGE = require('../../../assets/images/hire-workers-card.jpeg');
+const HIRE_WORKERS_IMAGE = require('../../../assets/images/workers-hero.png');
 
 // Language toggle on the role picker now cycles through all 5 supported
 // locales, persisting via the LanguageProvider so the rest of the app
