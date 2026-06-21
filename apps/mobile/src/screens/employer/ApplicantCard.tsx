@@ -104,7 +104,7 @@ export function ApplicantCard({ applicant, showJobTitle = false, blind = false, 
               experience,
             ]
               .filter(Boolean)
-              .join(' • ') || applicant.seeker?.skills?.[0] ?? ''}
+              .join(' • ') || (applicant.seeker?.skills?.[0] ?? '')}
           </Text>
 
           {/* Location */}
