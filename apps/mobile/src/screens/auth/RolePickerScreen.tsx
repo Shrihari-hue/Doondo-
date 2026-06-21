@@ -300,6 +300,7 @@ export function RolePickerScreen() {
                 badge={t('role_picker.seeker_badge')}
                 body={t('role_picker.seeker_body')}
                 cta={t('role_picker.seeker_cta')}
+                fullBleed
                 onPress={() => go('seeker')}
               />
 
@@ -687,17 +688,22 @@ function UtilityButton({
 }
 
 function JourneyCard({
+  accent,
   image,
+  badge,
+  body,
+  cta,
+  fullBleed = false,
   onPress,
 }: {
-  // Kept for desktop API compatibility but no longer rendered — the JPEG
-  // contains the full card design (badge, headline, feature list, CTA strip).
   accent?: string;
   image: number;
   badge?: string;
   body?: string;
   items?: ReadonlyArray<readonly [string, string]>;
   cta?: string;
+  /** When true, the image fills the entire card (seeker card — full card design baked into JPEG). */
+  fullBleed?: boolean;
   onPress: () => void;
 }) {
   const { theme, scheme } = useTheme();
@@ -705,43 +711,136 @@ function JourneyCard({
   const compact = width < 820;
   const isLight = scheme === 'light';
 
-  // The JPEGs are designed at ~2:3 portrait (1024×1536 ish). Honor that
-  // ratio so the full card renders without cropping any edge content
-  // (icon, badge, headline, items, CTA strip, footer tagline).
   const imageAspect = 2 / 3;
   const cardRadius = compact ? 24 : 36;
+  const cardAccent = accent ?? (isLight ? '#D29A17' : '#E3AE31');
 
+  const cardStyle = {
+    flex: 1,
+    alignSelf: 'flex-start' as const,
+    aspectRatio: imageAspect,
+    borderRadius: cardRadius,
+    overflow: 'hidden' as const,
+    backgroundColor: theme.bg.surface,
+    borderWidth: 0.5,
+    borderColor: isLight ? theme.border.default : theme.premium.hairline,
+    shadowColor: isLight ? '#B99968' : '#000000',
+    shadowOpacity: isLight ? 0.12 : 0.24,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 16 },
+    elevation: 6,
+  };
+
+  if (fullBleed) {
+    return (
+      <Pressable onPress={onPress} style={cardStyle}>
+        <Image
+          source={image}
+          resizeMode="cover"
+          style={{ width: '100%', height: '100%', backgroundColor: theme.bg.surface }}
+        />
+      </Pressable>
+    );
+  }
+
+  // Composed layout — illustration on top, text content below.
+  // Used for the employer card where the asset is an illustration (not a
+  // full-card-design JPEG).
   return (
-    <Pressable
-      onPress={onPress}
-      style={{
-        flex: 1,
-        // alignSelf flex-start means the card is sized by its content
-        // (the image's natural aspect ratio) instead of stretching to
-        // match the row's height — that way the full JPEG always shows.
-        alignSelf: 'flex-start',
-        aspectRatio: imageAspect,
-        borderRadius: cardRadius,
-        overflow: 'hidden',
-        backgroundColor: theme.bg.surface,
-        borderWidth: 0.5,
-        borderColor: isLight ? theme.border.default : theme.premium.hairline,
-        shadowColor: isLight ? '#B99968' : '#000000',
-        shadowOpacity: isLight ? 0.12 : 0.24,
-        shadowRadius: 28,
-        shadowOffset: { width: 0, height: 16 },
-        elevation: 6,
-      }}
-    >
-      <Image
-        source={image}
-        resizeMode="cover"
+    <Pressable onPress={onPress} style={cardStyle}>
+      {/* Illustration hero — takes ~55% of the card height */}
+      <View
         style={{
-          width: '100%',
-          height: '100%',
-          backgroundColor: theme.bg.surface,
+          flex: 55,
+          backgroundColor: isLight ? '#EEF2FF' : '#1A1535',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: compact ? spacing.md : spacing.lg,
         }}
-      />
+      >
+        <Image
+          source={image}
+          resizeMode="contain"
+          style={{ width: '85%', height: '85%' }}
+        />
+      </View>
+
+      {/* Content area — badge, headline, body, CTA */}
+      <View
+        style={{
+          flex: 45,
+          backgroundColor: theme.bg.surface,
+          paddingHorizontal: compact ? spacing.md : spacing.lg,
+          paddingTop: compact ? spacing.sm : spacing.md,
+          paddingBottom: compact ? spacing.sm : spacing.md,
+          gap: compact ? 4 : spacing.xs,
+          justifyContent: 'space-between',
+        }}
+      >
+        <View style={{ gap: compact ? 4 : spacing.xs }}>
+          {badge ? (
+            <View
+              style={{
+                alignSelf: 'flex-start',
+                borderRadius: radii.pill,
+                paddingHorizontal: compact ? spacing.sm : spacing.md,
+                paddingVertical: 3,
+                backgroundColor: isLight ? 'rgba(211,165,86,0.14)' : 'rgba(141,109,255,0.16)',
+                borderWidth: 0.5,
+                borderColor: isLight ? 'rgba(211,165,86,0.4)' : 'rgba(141,109,255,0.4)',
+              }}
+            >
+              <Text
+                variant="caption"
+                weight="medium"
+                style={{
+                  letterSpacing: 0.8,
+                  fontSize: compact ? 9 : 11,
+                  color: cardAccent,
+                }}
+              >
+                {badge}
+              </Text>
+            </View>
+          ) : null}
+
+          {body ? (
+            <Text
+              variant={compact ? 'caption' : 'footnote'}
+              weight="medium"
+              style={{ color: theme.text.primary, lineHeight: compact ? 14 : 18 }}
+              numberOfLines={3}
+            >
+              {body}
+            </Text>
+          ) : null}
+        </View>
+
+        {cta ? (
+          <View
+            style={{
+              borderRadius: radii.md,
+              paddingVertical: compact ? 6 : spacing.sm,
+              paddingHorizontal: compact ? spacing.sm : spacing.md,
+              backgroundColor: cardAccent,
+              alignItems: 'center',
+              flexDirection: 'row',
+              justifyContent: 'center',
+              gap: spacing.xs,
+            }}
+          >
+            <Text
+              variant={compact ? 'caption' : 'footnote'}
+              weight="medium"
+              style={{ color: '#FFFDF7', fontSize: compact ? 10 : 12 }}
+              numberOfLines={1}
+            >
+              {cta}
+            </Text>
+            <Feather name="arrow-right" size={compact ? 10 : 12} color="#FFFDF7" />
+          </View>
+        ) : null}
+      </View>
     </Pressable>
   );
 }
