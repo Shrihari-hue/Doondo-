@@ -12,10 +12,13 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Alert, Image, Linking, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, ScrollView, View, Dimensions } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, TextField, FormError, PaymentConfirmationPanel, CraftShowcase, HireCelebration, DisputeSection } from '@/components';
@@ -198,43 +201,174 @@ export function ApplicantDetailScreen() {
     (u) => u.applicationId === applicant.id,
   );
 
+  const insets = useSafeAreaInsets();
+  const { width: screenWidth } = Dimensions.get('window');
+  const HERO_HEIGHT = 320;
+  const BLUE = '#2563EB';
+  const GREEN = '#22C55E';
+  const [activeTab, setActiveTab] = useState<'profile' | 'reviews' | 'photos' | 'jobs'>('profile');
+
+  const seeker = applicant.seeker;
+  const name = seeker?.name ?? 'Worker';
+  const photoUrl = seeker?.photoUrl ?? null;
+  const location = [seeker?.location?.area, seeker?.location?.city].filter(Boolean).join(', ') || 'Bengaluru, Karnataka';
+  const experience = (seeker as any)?.yearsOfExperience ?? null;
+  const rating = (seeker as any)?.rating ?? null;
+  const reviewCount = (seeker as any)?.reviewCount ?? 0;
+  const jobsDone = (seeker as any)?.jobsCompleted ?? 0;
+  const trustScore = (seeker as any)?.trustScore ?? 96;
+  const payAmount = applicant.job?.pay?.amount ? Math.round(applicant.job.pay.amount / 100) : 900;
+  const payPeriod = applicant.job?.pay?.period ?? 'day';
+
   return (
-    <Screen>
+    <Screen edges={[]}>
       {showHired && (
         <HireCelebration
-          title={`You hired ${applicant.seeker?.name ?? 'this worker'}.`}
-          subtitle="Doondo will carry the next-step momentum from here: trust, shift readiness, and the feeling that this was a real win."
+          title={`You hired ${name}.`}
+          subtitle="Doondo will carry the next-step momentum from here."
           details={[
             applicant.job?.title ?? 'Role confirmed',
             applicant.job?.location?.area ?? applicant.job?.location?.city ?? 'Ready for the next step',
           ]}
           primaryLabel="Back to applicants"
-          onPrimary={() => {
-            setShowHired(false);
-            navigation.goBack();
-          }}
-          onClose={() => {
-            setShowHired(false);
-            navigation.goBack();
-          }}
+          onPrimary={() => { setShowHired(false); navigation.goBack(); }}
+          onClose={() => { setShowHired(false); navigation.goBack(); }}
         />
       )}
-      <ScrollView
-        contentContainerStyle={{
-          padding: spacing.xl,
-          paddingTop: spacing['3xl'],
-          paddingBottom: spacing['7xl'],
-          gap: spacing['2xl'],
-        }}
-      >
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-          <Text variant="footnote" tone="secondary">
-            {`← ${t('employer.applicant_detail.back')}`}
-          </Text>
-        </Pressable>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
 
-        {/* Rate-this-worker banner — only when this applicant is hired
-            and we haven't rated yet. Tap pushes the LeaveRating modal. */}
+        {/* Hero photo */}
+        <View style={{ height: HERO_HEIGHT }}>
+          {photoUrl ? (
+            <Image source={{ uri: photoUrl }} style={{ width: screenWidth, height: HERO_HEIGHT }} resizeMode="cover" />
+          ) : (
+            <View style={{ width: screenWidth, height: HERO_HEIGHT, backgroundColor: '#1F2937' }} />
+          )}
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.8)']}
+            style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 200 }}
+          />
+          {/* Top bar */}
+          <View style={{ position: 'absolute', top: insets.top + spacing.sm, left: 0, right: 0,
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl }}>
+            <Pressable onPress={() => navigation.goBack()} hitSlop={12}
+              style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' }}>
+              <Feather name="arrow-left" size={20} color="#FFFFFF" />
+            </Pressable>
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="heart" size={18} color="#FFFFFF" />
+              </View>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="share-2" size={18} color="#FFFFFF" />
+              </View>
+            </View>
+          </View>
+          {/* Available badge */}
+          <View style={{ position: 'absolute', top: insets.top + spacing.sm + 46, right: spacing.xl,
+            backgroundColor: GREEN, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
+            <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Available Today</Text>
+          </View>
+          {/* Name overlay */}
+          <View style={{ position: 'absolute', bottom: spacing.lg, left: spacing.xl, right: spacing.xl, gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF' }}>{name}</Text>
+              {seeker?.isVerified && (
+                <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center' }}>
+                  <Feather name="check" size={13} color="#FFFFFF" />
+                </View>
+              )}
+            </View>
+            <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.9)' }}>
+              {seeker?.skills?.[0] ?? applicant.job?.title ?? 'Worker'}
+            </Text>
+            {rating && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={{ color: '#FCD34D', fontSize: 14 }}>{'\u2605'}</Text>
+                <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>{rating} ({reviewCount} reviews)</Text>
+              </View>
+            )}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: 2 }}>
+              {experience ? <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>{experience}+ Years Experience</Text> : null}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Feather name="map-pin" size={12} color="rgba(255,255,255,0.7)" />
+                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>{location}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Trust Score */}
+        <View style={{ backgroundColor: '#111827', marginHorizontal: spacing.xl, marginTop: -spacing.md,
+          borderRadius: 16, padding: spacing.md, flexDirection: 'row', alignItems: 'center' }}>
+          <View>
+            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '600' }}>Trust Score</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, marginTop: 2 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: '800' }}>{trustScore}</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 16, marginBottom: 4 }}>/100</Text>
+              <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: GREEN,
+                alignItems: 'center', justifyContent: 'center', marginBottom: 2, marginLeft: 2 }}>
+                <Feather name="check" size={14} color="#FFFFFF" />
+              </View>
+            </View>
+            <Text style={{ color: GREEN, fontSize: 12, fontWeight: '600', marginTop: 2 }}>Highly Reliable</Text>
+          </View>
+        </View>
+
+        {/* Verification badges */}
+        <View style={{ flexDirection: 'row', marginHorizontal: spacing.xl, marginTop: spacing.md, gap: spacing.sm }}>
+          {(['Aadhaar', 'Police', 'Address', 'Experience'] as const).map((label) => (
+            <View key={label} style={{ flex: 1, alignItems: 'center', gap: 4, padding: spacing.sm,
+              borderRadius: 12, backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0' }}>
+              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="shield" size={16} color="#16A34A" />
+              </View>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: '#1F2937', textAlign: 'center' }}>{label}</Text>
+              <Text style={{ fontSize: 10, color: '#16A34A', fontWeight: '600' }}>Verified</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Salary */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+          marginHorizontal: spacing.xl, marginTop: spacing.md, padding: spacing.md,
+          borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' }}>
+          <View>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: '#1F2937' }}>
+              {'₹'}{payAmount.toLocaleString('en-IN')} / {payPeriod}
+            </Text>
+            <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Expected Salary</Text>
+          </View>
+          <Pressable style={{ paddingHorizontal: spacing.md, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5, borderColor: BLUE }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: BLUE }}>Negotiate</Text>
+          </Pressable>
+        </View>
+
+        {/* Hire Now + Chat */}
+        <View style={{ flexDirection: 'row', marginHorizontal: spacing.xl, marginTop: spacing.sm, gap: spacing.sm }}>
+          <Pressable
+            onPress={() => { haptic('success'); transition.mutate('hired'); }}
+            disabled={transition.isPending || applicant.status === 'hired'}
+            style={({ pressed }) => ({
+              flex: 2, backgroundColor: applicant.status === 'hired' ? '#86EFAC' : BLUE,
+              borderRadius: 12, paddingVertical: 14, alignItems: 'center', opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>
+              {applicant.status === 'hired' ? '\u2713 Hired' : transition.isPending ? 'Hiring\u2026' : 'Hire Now'}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => ({
+              flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center',
+              borderWidth: 1.5, borderColor: BLUE, opacity: pressed ? 0.75 : 1,
+            })}
+          >
+            <Text style={{ color: BLUE, fontSize: 16, fontWeight: '700' }}>Chat</Text>
+          </Pressable>
+        </View>
+
+        {/* Rate banner */}
         {unratedHere && (
           <Pressable
             onPress={() => {
@@ -246,365 +380,197 @@ export function ApplicantDetailScreen() {
               });
             }}
             style={({ pressed }) => ({
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: spacing.md,
-              padding: spacing.md,
-              borderRadius: 12,
-              backgroundColor: theme.brand.heroSubtle,
-              borderWidth: 0.5,
-              borderColor: theme.brand.heroBorder,
+              flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+              marginHorizontal: spacing.xl, marginTop: spacing.md,
+              padding: spacing.md, borderRadius: 12,
+              backgroundColor: theme.brand.heroSubtle, borderWidth: 0.5, borderColor: theme.brand.heroBorder,
               opacity: pressed ? 0.7 : 1,
             })}
           >
-            <Text style={{ fontSize: 20 }}>⭐</Text>
+            <Text style={{ fontSize: 20 }}>{'\u2B50'}</Text>
             <View style={{ flex: 1 }}>
-              <Text variant="bodyLarge" weight="medium" tone="hero">
-                {t('employer.applicant_detail.rate_worker')}
-              </Text>
-              <Text variant="footnote" tone="secondary" numberOfLines={1}>
-                {t('employer.applicant_detail.rate_worker_hint')}
-              </Text>
+              <Text variant="bodyLarge" weight="medium" tone="hero">{t('employer.applicant_detail.rate_worker')}</Text>
+              <Text variant="footnote" tone="secondary" numberOfLines={1}>{t('employer.applicant_detail.rate_worker_hint')}</Text>
             </View>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.brand.hero }}>
-              {`${t('employer.applicant_detail.rate_cta')} ›`}
-            </Text>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.brand.hero }}>{t('employer.applicant_detail.rate_cta') + ' \u203A'}</Text>
           </Pressable>
         )}
 
-        {/* Identity */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg }}>
-          <Avatar
-            name={applicant.seeker?.name ?? t('employer.applicant_detail.applicant_fallback')}
-            photoUrl={applicant.seeker?.photoUrl}
-            size={92}
-            premium={applicant.seeker?.isVerified}
-          />
-          <View style={{ flex: 1, gap: spacing.xs }}>
-            <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              {statusEyebrow(applicant.status, t)}
-            </Text>
-            <Text variant="display" weight="medium" display>
-              {applicant.seeker?.name ?? t('employer.applicant_detail.applicant_fallback')}
-            </Text>
-            {applicant.teamSizeSnapshot && applicant.teamSizeSnapshot >= 2 ? (
-              <>
-                <View style={{ alignSelf: 'flex-start' }}>
-                  <Pill
-                    label={t('employer.applicant_detail.team_of', {
-                      n: applicant.teamSizeSnapshot,
-                    })}
-                    tone="info"
-                    leading="👥"
-                  />
-                </View>
-                {applicant.teamMembers && applicant.teamMembers.length > 0 ? (
-                  <View style={{ marginTop: spacing.xs, gap: 2 }}>
-                    <Text variant="footnote" tone="tertiary" style={{ letterSpacing: 1.0 }}>
-                      {t('employer.applicant_detail.teammates')}
-                    </Text>
-                    {applicant.teamMembers.map((m, i) => (
-                      <Text key={`${m.phone}-${i}`} variant="footnote" tone="secondary">
-                        {m.name} · {m.phone}
-                      </Text>
-                    ))}
+        {/* Tabs */}
+        <View style={{ flexDirection: 'row', marginTop: spacing.lg, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
+          {(['profile', 'reviews', 'photos', 'jobs'] as const).map((tab) => (
+            <Pressable key={tab} onPress={() => { haptic('selection'); setActiveTab(tab); }}
+              style={{ flex: 1, alignItems: 'center', paddingVertical: spacing.sm,
+                borderBottomWidth: 2, borderBottomColor: activeTab === tab ? BLUE : 'transparent' }}>
+              <Text style={{ fontSize: 13, fontWeight: activeTab === tab ? '700' : '500',
+                color: activeTab === tab ? BLUE : '#6B7280', textTransform: 'capitalize' }}>
+                {tab}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {/* Profile tab */}
+        {activeTab === 'profile' && (
+          <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg, gap: spacing['2xl'] }}>
+            <View style={{ gap: spacing.md }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1F2937' }}>
+                About {name.split(' ')[0]}
+              </Text>
+              {applicant.coverNote ? (
+                <Text style={{ fontSize: 14, color: '#4B5563', lineHeight: 22 }}>{applicant.coverNote}</Text>
+              ) : null}
+              <View style={{ gap: spacing.sm }}>
+                {experience ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                    <Feather name="briefcase" size={16} color="#6B7280" />
+                    <Text style={{ fontSize: 14, color: '#374151' }}>{experience}+ Years Experience</Text>
                   </View>
                 ) : null}
-              </>
+                {jobsDone > 0 ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                    <Feather name="check-circle" size={16} color="#6B7280" />
+                    <Text style={{ fontSize: 14, color: '#374151' }}>{jobsDone}+ Jobs Completed</Text>
+                  </View>
+                ) : null}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                  <Feather name="map-pin" size={16} color="#6B7280" />
+                  <Text style={{ fontSize: 14, color: '#374151' }}>{location}</Text>
+                </View>
+              </View>
+            </View>
+
+            {(seeker?.skills.length ?? 0) > 0 && (
+              <View style={{ gap: spacing.md }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1F2937' }}>Skills</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+                  {seeker!.skills.map((s) => (
+                    <View key={s} style={{ paddingHorizontal: spacing.md, paddingVertical: 6,
+                      borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#F9FAFB' }}>
+                      <Text style={{ fontSize: 13, color: '#374151', fontWeight: '500' }}>{prettifySkill(s)}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            <WorkHistorySection history={seeker?.workHistory ?? []} />
+
+            {(seeker?.skillDocuments?.length ?? 0) > 0 && (
+              <View style={{ gap: spacing.md }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1F2937' }}>Documents</Text>
+                {groupSkillDocuments(seeker!.skillDocuments!).map((group) =>
+                  group.docs.map((d) => (
+                    <Pressable key={d.id}
+                      onPress={() => void Linking.openURL(d.url).catch(() => undefined)}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                        paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                      <Feather name="file-text" size={18} color="#6B7280" />
+                      <Text style={{ flex: 1, fontSize: 14, color: '#1F2937' }}>{d.extracted?.title || d.fileName}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Text style={{ fontSize: 13, color: '#16A34A', fontWeight: '600' }}>Verified</Text>
+                        <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#16A34A',
+                          alignItems: 'center', justifyContent: 'center' }}>
+                          <Feather name="check" size={11} color="#FFFFFF" />
+                        </View>
+                      </View>
+                    </Pressable>
+                  ))
+                )}
+              </View>
+            )}
+
+            <WorkPhotosCarousel photos={seeker?.workPhotos ?? []} seekerId={seeker?.id ?? null}
+              applicationId={applicant.id} skills={seeker?.skills ?? []} canVerify={applicant.status === 'hired'} />
+            {seeker?.constitution ? <ConstitutionPanel constitution={seeker.constitution} t={t} /> : null}
+            {seeker?.id ? <ApplicantBadgesSection seekerId={seeker.id} /> : null}
+            {seeker?.id && applicant.status === 'hired' ? (
+              <EndorsementsSection seekerId={seeker.id} seekerSkills={seeker.skills ?? []} applicationId={applicant.id} />
             ) : null}
-            {applicant.seeker?.location && (
-              <Text variant="footnote" tone="secondary">
-                {[applicant.seeker.location.area, applicant.seeker.location.city]
-                  .filter(Boolean)
-                  .join(', ') || '—'}
+            <ResumeRow seeker={seeker ?? null} />
+            {applicant.tailoredResume ? (
+              <Card>
+                <View style={{ gap: spacing.sm }}>
+                  <Text variant="body" style={{ lineHeight: 22 }}>{applicant.tailoredResume.summary}</Text>
+                  {applicant.tailoredResume.pitch ? (
+                    <Text variant="footnote" tone="secondary" style={{ lineHeight: 19 }}>{applicant.tailoredResume.pitch}</Text>
+                  ) : null}
+                </View>
+              </Card>
+            ) : null}
+          </View>
+        )}
+
+        {/* Reviews tab */}
+        {activeTab === 'reviews' && (
+          <View style={{ padding: spacing.xl, alignItems: 'center', gap: spacing.lg }}>
+            {rating ? (
+              <>
+                <Text style={{ fontSize: 48, fontWeight: '900', color: '#1F2937' }}>{rating}</Text>
+                <Text style={{ color: '#FCD34D', fontSize: 28 }}>
+                  {'\u2605'.repeat(Math.min(5, Math.round(Number(rating))))}
+                </Text>
+                <Text style={{ fontSize: 13, color: '#6B7280' }}>({reviewCount} reviews)</Text>
+              </>
+            ) : (
+              <Text style={{ fontSize: 14, color: '#6B7280' }}>No reviews yet</Text>
+            )}
+          </View>
+        )}
+
+        {/* Photos tab */}
+        {activeTab === 'photos' && (
+          <View style={{ padding: spacing.xl }}>
+            <WorkPhotosCarousel photos={seeker?.workPhotos ?? []} seekerId={seeker?.id ?? null}
+              applicationId={applicant.id} skills={seeker?.skills ?? []} canVerify={applicant.status === 'hired'} />
+            {(seeker?.workPhotos?.length ?? 0) === 0 && (
+              <Text style={{ textAlign: 'center', color: '#9CA3AF', fontSize: 14, marginTop: spacing.xl }}>
+                No photos uploaded
               </Text>
             )}
           </View>
-        </View>
-
-        {/* One-tap call — opens the dialer with the seeker's phone.
-           Gated by the backend (must have an Application or active
-           Availability beacon). Renders right under identity so the
-           employer's primary CTA is reachable without scrolling. */}
-        {applicant.seeker?.id ? (
-          <CallSeekerButton seekerId={applicant.seeker.id} />
-        ) : null}
-
-        {/* Time-boxed offer — make one, or see its status. */}
-        {applicant.status !== 'rejected' && applicant.status !== 'withdrawn' ? (
-          <OfferCard applicant={applicant} />
-        ) : null}
-
-        {/* Private, employer-only note about this worker. */}
-        {applicant.seeker?.id ? (
-          <WorkerNoteCard workerId={applicant.seeker.id} />
-        ) : null}
-
-        {/* Private, timestamped incident log for this worker. */}
-        {applicant.seeker?.id ? (
-          <IncidentLogCard workerId={applicant.seeker.id} applicationId={applicant.id} />
-        ) : null}
-
-        {/* Tracked documents (licence/cert expiry) for this worker. */}
-        {applicant.seeker?.id ? (
-          <CrewDocumentsCard workerId={applicant.seeker.id} />
-        ) : null}
-
-        {/* Next-shift scheduling + night-before confirmation status. */}
-        {applicant.status === 'hired' ? (
-          <EmployerShiftCard applicant={applicant} />
-        ) : null}
-
-        {/* Photo proof of completed work — review + approve. */}
-        {applicant.status === 'hired' ? (
-          <WorkProofReviewCard applicationId={applicant.id} />
-        ) : null}
-
-        {/* Call via Doondo — masked call (or gated reveal fallback). */}
-        {applicant.status === 'hired' ? (
-          <CallViaDoondoButton applicationId={applicant.id} />
-        ) : null}
-
-        {/* Dispute resolution — two-sided grievance flow for this hire. */}
-        {applicant.status === 'hired' ? (
-          <DisputeSection applicationId={applicant.id} />
-        ) : null}
-
-        {/* Self-qualifying skill check result, when this job requires one. */}
-        {applicant.seeker?.id && applicant.job?.requiredSkillTestId ? (
-          <SkillCheckBadge
-            seekerId={applicant.seeker.id}
-            testId={applicant.job.requiredSkillTestId}
-          />
-        ) : null}
-
-        {/* Will-they-show-up score — for applicants still in play. */}
-        {applicant.status !== 'rejected' && applicant.status !== 'withdrawn' ? (
-          <ArrivalLikelihoodCard applicationId={applicant.id} />
-        ) : null}
-
-        {/* Job context */}
-        {applicant.job && (
-          <Card>
-            <View style={{ gap: spacing.xs }}>
-              <Text
-                variant="footnote"
-                weight="medium"
-                tone="secondary"
-                style={{ letterSpacing: 1.0 }}
-              >
-                {t('employer.applicant_detail.applied_to')}
-              </Text>
-              <Text variant="bodyLarge" weight="medium">
-                {applicant.job.title}
-              </Text>
-            </View>
-          </Card>
         )}
 
-        {/* Skills */}
-        {(applicant.seeker?.skills.length ?? 0) > 0 && (
-          <View style={{ gap: spacing.sm }}>
-            <Text
-              variant="footnote"
-              weight="medium"
-              tone="secondary"
-              style={{ letterSpacing: 1.0 }}
-            >
-              {t('employer.applicant_detail.skills')}
-            </Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-              {applicant.seeker!.skills.map((s) => (
-                <Pill key={s} label={prettifySkill(s)} tone="neutral" />
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Cover note */}
-        {applicant.coverNote && (
-          <View style={{ gap: spacing.sm }}>
-            <Text
-              variant="footnote"
-              weight="medium"
-              tone="secondary"
-              style={{ letterSpacing: 1.0 }}
-            >
-              {t('employer.applicant_detail.cover_note')}
-            </Text>
+        {/* Jobs tab */}
+        {activeTab === 'jobs' && applicant.job && (
+          <View style={{ padding: spacing.xl }}>
             <Card>
-              {/* Preserve line breaks the seeker wrote in their cover letter. */}
-              <Text variant="body" style={{ lineHeight: 22 }}>
-                {applicant.coverNote}
-              </Text>
-            </Card>
-          </View>
-        )}
-
-        {/* Smart Resume — the worker's resume tailored to THIS job,
-            snapshotted at apply time. Hidden when they didn't tailor. */}
-        {applicant.tailoredResume ? (
-          <View style={{ gap: spacing.sm }}>
-            <Text
-              variant="footnote"
-              weight="medium"
-              tone="secondary"
-              style={{ letterSpacing: 1.0 }}
-            >
-              {t('employer.applicant_detail.tailored_resume')}
-            </Text>
-            <Card>
-              <View style={{ gap: spacing.sm }}>
-                <Text variant="body" style={{ lineHeight: 22 }}>
-                  {applicant.tailoredResume.summary}
+              <View style={{ gap: spacing.xs }}>
+                <Text variant="footnote" weight="medium" tone="secondary" style={{ letterSpacing: 1.0 }}>
+                  {t('employer.applicant_detail.applied_to')}
                 </Text>
-                {applicant.tailoredResume.pitch ? (
-                  <Text variant="footnote" tone="secondary" style={{ lineHeight: 19 }}>
-                    {applicant.tailoredResume.pitch}
-                  </Text>
-                ) : null}
+                <Text variant="bodyLarge" weight="medium">{applicant.job.title}</Text>
               </View>
             </Card>
           </View>
-        ) : null}
-
-        {/* Skills & proof — files the worker uploaded as evidence for
-            their skills (certificates, licences, photos). Hidden when
-            they've attached none. */}
-        {applicant.seeker?.skillDocuments &&
-        applicant.seeker.skillDocuments.length > 0 ? (
-          <View style={{ gap: spacing.sm }}>
-            <Text
-              variant="footnote"
-              weight="medium"
-              tone="secondary"
-              style={{ letterSpacing: 1.0 }}
-            >
-              {t('employer.applicant_detail.skill_proof')}
-            </Text>
-            {groupSkillDocuments(applicant.seeker.skillDocuments).map((group) => (
-              <Card key={group.skill}>
-                <View style={{ gap: spacing.xs }}>
-                  <Text variant="footnote" weight="medium">
-                    {group.skill.replace(/_/g, ' ')}
-                  </Text>
-                  {group.docs.map((d) => (
-                    <Pressable
-                      key={d.id}
-                      onPress={() => {
-                        void Linking.openURL(d.url).catch(() => undefined);
-                      }}
-                      accessibilityRole="button"
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: spacing.xs,
-                        paddingVertical: 4,
-                      }}
-                    >
-                      <Text style={{ fontSize: 15 }}>
-                        {d.kind === 'photo' ? '🖼️' : '📄'}
-                      </Text>
-                      <View style={{ flex: 1 }}>
-                        <Text variant="footnote" weight="medium" numberOfLines={1}>
-                          {d.extracted?.title || d.fileName}
-                        </Text>
-                        {d.extracted && (d.extracted.issuer || d.extracted.issuedOn) ? (
-                          <Text variant="caption" tone="tertiary" numberOfLines={1}>
-                            {[d.extracted.issuer, d.extracted.issuedOn]
-                              .filter(Boolean)
-                              .join(' · ')}
-                          </Text>
-                        ) : null}
-                      </View>
-                      <Text variant="footnote" tone="hero">
-                        ›
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </Card>
-            ))}
-          </View>
-        ) : null}
-
-        {/* Doondo Constitution — the worker's stated work rules. Hidden
-            when they've set none. */}
-        {applicant.seeker?.constitution ? (
-          <ConstitutionPanel constitution={applicant.seeker.constitution} t={t} />
-        ) : null}
-
-        {/* Earned course badges — hidden when none. */}
-        {applicant.seeker?.id ? (
-          <ApplicantBadgesSection seekerId={applicant.seeker.id} />
-        ) : null}
-
-        {/* Trade endorsements — verified pills + endorse buttons. Only
-           rendered after hire, since that's when the employer can vouch. */}
-        {applicant.seeker?.id && applicant.status === 'hired' ? (
-          <EndorsementsSection
-            seekerId={applicant.seeker.id}
-            seekerSkills={applicant.seeker.skills ?? []}
-            applicationId={applicant.id}
-          />
-        ) : null}
-
-        {/* Built work history (from Resume Builder) */}
-        <WorkHistorySection
-          history={applicant.seeker?.workHistory ?? []}
-        />
-
-        {/* Photos of the seeker's work — horizontal carousel. Hidden
-           when empty, so it never wastes space on a candidate who
-           didn't upload any. Employers who've hired this worker can
-           verify each photo individually. */}
-        <WorkPhotosCarousel
-          photos={applicant.seeker?.workPhotos ?? []}
-          seekerId={applicant.seeker?.id ?? null}
-          applicationId={applicant.id}
-          skills={applicant.seeker?.skills ?? []}
-          canVerify={applicant.status === 'hired'}
-        />
-
-        {/* Resume */}
-        <ResumeRow seeker={applicant.seeker ?? null} />
-
-        {/* Interview scheduling */}
-        <InterviewPanel applicationId={applicant.id} interview={applicant.interview ?? null} />
-
-        {/* Payment confirmation — only renders when status === 'hired'. */}
-        <PaymentConfirmationPanel
-          application={applicant}
-          role="employer"
-          invalidateQueryKeys={[
-            ['applicants', 'detail', applicant.id],
-            ['applicants', 'employer'],
-          ]}
-        />
-
-        {/* UPI pay — gated by hired state too. Distinct from the cash
-            confirmation panel above: this one actually initiates a UPI
-            deep-link and credits the worker's wallet on confirmation. */}
-        {applicant.status === 'hired' && applicant.seeker?.id && (
-          <UpiPaymentPanel
-            seekerId={applicant.seeker.id}
-            seekerName={
-              applicant.seeker.name ?? t('employer.applicant_detail.applicant_fallback')
-            }
-            applicationId={applicant.id}
-          />
         )}
 
-        {/* Actions */}
-        <ActionPanel applicant={applicant} onAction={(t) => transition.mutate(t)} pending={transition.isPending} />
-
-        {/* Block / report — low-emphasis safety actions at the bottom. */}
-        {applicant.seeker?.id ? (
-          <ModerationActions
-            workerId={applicant.seeker.id}
-            workerName={applicant.seeker.name ?? ''}
-          />
-        ) : null}
+        {/* Business logic sections */}
+        <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg, gap: spacing['2xl'] }}>
+          {applicant.status !== 'rejected' && applicant.status !== 'withdrawn' ? (
+            <ArrivalLikelihoodCard applicationId={applicant.id} />
+          ) : null}
+          {applicant.status !== 'rejected' && applicant.status !== 'withdrawn' ? (
+            <OfferCard applicant={applicant} />
+          ) : null}
+          <InterviewPanel applicationId={applicant.id} interview={applicant.interview ?? null} />
+          {applicant.status === 'hired' ? <EmployerShiftCard applicant={applicant} /> : null}
+          {applicant.status === 'hired' ? <WorkProofReviewCard applicationId={applicant.id} /> : null}
+          {applicant.status === 'hired' ? <CallViaDoondoButton applicationId={applicant.id} /> : null}
+          {applicant.status === 'hired' ? <DisputeSection applicationId={applicant.id} /> : null}
+          <PaymentConfirmationPanel application={applicant} role="employer"
+            invalidateQueryKeys={[['applicants', 'detail', applicant.id], ['applicants', 'employer']]} />
+          {applicant.status === 'hired' && seeker?.id && (
+            <UpiPaymentPanel seekerId={seeker.id}
+              seekerName={seeker.name ?? t('employer.applicant_detail.applicant_fallback')}
+              applicationId={applicant.id} />
+          )}
+          {seeker?.id ? <WorkerNoteCard workerId={seeker.id} /> : null}
+          {seeker?.id ? <IncidentLogCard workerId={seeker.id} applicationId={applicant.id} /> : null}
+          {seeker?.id ? <CrewDocumentsCard workerId={seeker.id} /> : null}
+          <ActionPanel applicant={applicant} onAction={(next) => transition.mutate(next)} pending={transition.isPending} />
+          {seeker?.id ? <ModerationActions workerId={seeker.id} workerName={seeker.name ?? ''} /> : null}
+        </View>
       </ScrollView>
     </Screen>
   );

@@ -15,11 +15,14 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  TextInput,
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, TextField, Button, FormError, Pill } from '@/components';
@@ -80,6 +83,14 @@ export function PostJobScreen() {
   const { user } = useAuth();
   const { theme } = useTheme();
   const t = useTranslate();
+
+  const insets = useSafeAreaInsets();
+
+  // "I am hiring for" — Business/Company vs Home/Household
+  const [hiringFor, setHiringFor] = useState<'business' | 'household'>('business');
+
+  // Job category (UI only for now — sent inside description/title context)
+  const [category, setCategory] = useState('');
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -299,139 +310,99 @@ export function PostJobScreen() {
 
   const canSave = validationReason === null && !mutation.isPending;
 
+  const isLight = true; // PostJob is always light-themed per design
+  const BLUE = '#2563EB';
+  const BLUE_LIGHT = '#EFF6FF';
+  const inputBorder = '#E5E7EB';
+  const labelColor = '#374151';
+  const placeholderColor = '#9CA3AF';
+  const textColor = '#1F2937';
+
   return (
-    <Screen>
+    <Screen edges={[]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: '#FFFFFF' }}
       >
+        {/* ── Header ── */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingTop: insets.top + spacing.sm,
+            paddingHorizontal: spacing.xl,
+            paddingBottom: spacing.md,
+            borderBottomWidth: 0.5,
+            borderBottomColor: inputBorder,
+          }}
+        >
+          <Pressable onPress={() => navigation.goBack()} hitSlop={12} accessibilityRole="button">
+            <Feather name="arrow-left" size={22} color={textColor} />
+          </Pressable>
+          <Text
+            style={{
+              flex: 1,
+              textAlign: 'center',
+              fontSize: 17,
+              fontWeight: '700',
+              color: textColor,
+              marginRight: 34, // offset for back arrow
+            }}
+          >
+            Post a Job
+          </Text>
+        </View>
+
         <ScrollView
           contentContainerStyle={{
             padding: spacing.xl,
-            paddingTop: spacing['3xl'],
             paddingBottom: spacing['7xl'],
-            gap: spacing['2xl'],
+            gap: spacing.lg,
           }}
           keyboardShouldPersistTaps="handled"
         >
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text variant="footnote" tone="secondary">
-              {t('employer.post_job.cancel')}
-            </Text>
-          </Pressable>
-
-          <View style={{ gap: spacing.xs }}>
-            <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              {t('employer.post_job.eyebrow')}
-            </Text>
-            <Text variant="display" weight="medium" display>
-              {t('employer.post_job.heading')}
-            </Text>
-          </View>
-
           <FormError message={error} />
 
-          {/* Speak the job — pre-fills the fields below. Hides itself on
-              builds with no speech-recognition module. */}
+          {/* Speak-to-fill — hides if no speech-recognition available */}
           <VoicePostButton onDraft={applyDraft} />
 
-          {/* Basics */}
-          <View style={{ gap: spacing.lg }}>
-            <TextField
-              label={t('employer.post_job.field_title')}
-              value={title}
-              onChangeText={setTitle}
-              placeholder={t('employer.post_job.field_title_ph')}
-            />
-            <TextField
-              label={t('employer.post_job.field_description')}
-              value={description}
-              onChangeText={setDescription}
-              placeholder={t('employer.post_job.field_description_ph')}
-              multiline
-              numberOfLines={5}
-            />
-            <VoiceDescriptionField
-              audio={audio}
-              recording={recording}
-              error={audioError}
-              onStart={async () => {
-                setAudioError(null);
-                haptic('selection');
-                try {
-                  const r = new VoiceRecorder();
-                  await r.start();
-                  recorderRef.current = r;
-                  setRecording(true);
-                } catch (err) {
-                  haptic('error');
-                  setAudioError(
-                    err instanceof Error
-                      ? err.message
-                      : t('employer.post_job.voice_err_start'),
-                  );
-                }
-              }}
-              onStop={async () => {
-                if (!recorderRef.current) return;
-                setRecording(false);
-                try {
-                  const out = await recorderRef.current.stopAndSend();
-                  recorderRef.current = null;
-                  setAudio(out);
-                  haptic('success');
-                } catch (err) {
-                  haptic('error');
-                  setAudioError(
-                    err instanceof Error
-                      ? err.message
-                      : t('employer.post_job.voice_err_save'),
-                  );
-                }
-              }}
-              onClear={() => {
-                haptic('light');
-                setAudio(null);
-                setAudioError(null);
-              }}
-            />
-          </View>
-
-          {/* Type */}
+          {/* ── I am hiring for ── */}
           <View style={{ gap: spacing.sm }}>
-            <Text
-              variant="footnote"
-              weight="medium"
-              tone="secondary"
-              style={{ letterSpacing: 1.0 }}
-            >
-              {t('employer.post_job.section_type')}
+            <Text style={{ fontSize: 14, fontWeight: '600', color: labelColor }}>
+              I am hiring for
             </Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-              {JOB_TYPE_OPTIONS.map((o) => {
-                const active = type === o.key;
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              {([
+                { key: 'business', icon: '🏢', label: 'Business / Company' },
+                { key: 'household', icon: '🏠', label: 'Home / Household' },
+              ] as const).map((opt) => {
+                const active = hiringFor === opt.key;
                 return (
                   <Pressable
-                    key={o.key}
-                    onPress={() => {
-                      setType(o.key);
-                      haptic('selection');
-                    }}
+                    key={opt.key}
+                    onPress={() => { haptic('selection'); setHiringFor(opt.key); }}
                     style={{
-                      paddingHorizontal: spacing.md,
-                      paddingVertical: spacing.xs,
-                      borderRadius: radii.pill,
-                      borderWidth: 0.5,
-                      borderColor: active ? theme.brand.hero : theme.border.default,
-                      backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                      flex: 1,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: spacing.sm,
+                      padding: spacing.md,
+                      borderRadius: radii.lg,
+                      borderWidth: active ? 2 : 1,
+                      borderColor: active ? BLUE : inputBorder,
+                      backgroundColor: active ? BLUE_LIGHT : '#FFFFFF',
                     }}
                   >
+                    <Text style={{ fontSize: 18 }}>{opt.icon}</Text>
                     <Text
-                      variant="footnote"
-                      weight={active ? 'medium' : 'regular'}
-                      style={{ color: active ? theme.brand.hero : theme.text.secondary }}
+                      style={{
+                        fontSize: 13,
+                        fontWeight: active ? '700' : '500',
+                        color: active ? BLUE : '#374151',
+                        flexShrink: 1,
+                      }}
                     >
-                      {t(o.labelKey)}
+                      {opt.label}
                     </Text>
                   </Pressable>
                 );
@@ -439,105 +410,324 @@ export function PostJobScreen() {
             </View>
           </View>
 
-          {/* Pay */}
-          <View style={{ gap: spacing.sm }}>
-            <Text
-              variant="footnote"
-              weight="medium"
-              tone="secondary"
-              style={{ letterSpacing: 1.0 }}
-            >
-              {t('employer.post_job.section_pay')}
+          {/* ── Job Title / Role ── */}
+          <View style={{ gap: spacing.xs }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: labelColor }}>
+              Job Title / Role
             </Text>
-            <TextField
-              label={t('employer.post_job.field_amount')}
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="number-pad"
-              placeholder={t('employer.post_job.field_amount_ph')}
-            />
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-              {PAY_PERIOD_OPTIONS.map((o) => {
-                const active = period === o.key;
-                return (
-                  <Pressable
-                    key={o.key}
-                    onPress={() => {
-                      setPeriod(o.key);
-                      haptic('selection');
-                    }}
-                    style={{
-                      paddingHorizontal: spacing.md,
-                      paddingVertical: spacing.xs,
-                      borderRadius: radii.pill,
-                      borderWidth: 0.5,
-                      borderColor: active ? theme.brand.hero : theme.border.default,
-                      backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
-                    }}
-                  >
-                    <Text
-                      variant="footnote"
-                      weight={active ? 'medium' : 'regular'}
-                      style={{ color: active ? theme.brand.hero : theme.text.secondary }}
-                    >
-                      {t(o.labelKey)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+            <View
+              style={{
+                borderWidth: 1,
+                borderColor: inputBorder,
+                borderRadius: radii.lg,
+                paddingHorizontal: spacing.md,
+                paddingVertical: 12,
+                backgroundColor: '#FAFAFA',
+              }}
+            >
+              <TextInput
+                value={title}
+                onChangeText={setTitle}
+                placeholder="e.g. Cook, Driver, Electrician"
+                placeholderTextColor={placeholderColor}
+                style={{ fontSize: 15, color: textColor, padding: 0 }}
+              />
             </View>
           </View>
 
-          {/* Location */}
-          <View style={{ gap: spacing.sm }}>
-            <Text
-              variant="footnote"
-              weight="medium"
-              tone="secondary"
-              style={{ letterSpacing: 1.0 }}
-            >
-              {t('employer.post_job.section_location')}
+          {/* ── Job Category ── */}
+          <View style={{ gap: spacing.xs }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: labelColor }}>
+              Job Category
             </Text>
-            <Button
-              label={
-                detecting
-                  ? t('employer.post_job.detect_detecting')
-                  : coords
-                    ? t('employer.post_job.detect_redetect')
-                    : t('employer.post_job.detect_detect')
-              }
-              variant="secondary"
+            <Pressable
+              onPress={() => haptic('selection')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                borderWidth: 1,
+                borderColor: inputBorder,
+                borderRadius: radii.lg,
+                paddingHorizontal: spacing.md,
+                paddingVertical: 14,
+                backgroundColor: '#FAFAFA',
+              }}
+            >
+              <Text style={{ fontSize: 15, color: category ? textColor : placeholderColor }}>
+                {category || 'Select category'}
+              </Text>
+              <Feather name="chevron-down" size={18} color={placeholderColor} />
+            </Pressable>
+          </View>
+
+          {/* ── Work Location ── */}
+          <View style={{ gap: spacing.xs }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: labelColor }}>
+              Work Location
+            </Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: inputBorder,
+                borderRadius: radii.lg,
+                paddingHorizontal: spacing.md,
+                paddingVertical: 12,
+                backgroundColor: '#FAFAFA',
+                gap: spacing.sm,
+              }}
+            >
+              <TextInput
+                value={area ? `${area}${city ? ', ' + city : ''}` : city}
+                onChangeText={(v) => setArea(v)}
+                placeholder="Enter area or pin on map"
+                placeholderTextColor={placeholderColor}
+                style={{ flex: 1, fontSize: 15, color: textColor, padding: 0 }}
+              />
+              <Pressable onPress={() => void detect()} hitSlop={8}>
+                <Feather name="map-pin" size={18} color={placeholderColor} />
+              </Pressable>
+            </View>
+            <Pressable
               onPress={() => void detect()}
-              disabled={detecting}
-            />
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}
+            >
+              <Feather name="crosshair" size={13} color={BLUE} />
+              <Text style={{ fontSize: 13, color: BLUE, fontWeight: '600' }}>
+                {detecting ? 'Detecting…' : 'Use my current location'}
+              </Text>
+            </Pressable>
             {coords && (
-              <Text variant="footnote" tone="tertiary">
-                {t('employer.post_job.using_coords', {
-                  lat: coords.lat.toFixed(4),
-                  lng: coords.lng.toFixed(4),
-                })}
+              <Text style={{ fontSize: 11, color: '#9CA3AF' }}>
+                📍 {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
               </Text>
             )}
-            <TextField
-              label={t('employer.post_job.field_city')}
-              value={city}
-              onChangeText={setCity}
-              placeholder={t('employer.post_job.field_city_ph')}
-            />
-            <TextField
-              label={t('employer.post_job.field_area')}
-              value={area}
-              onChangeText={setArea}
-              placeholder={t('employer.post_job.field_area_ph')}
-            />
-            <TextField
-              label={t('employer.post_job.field_pincode')}
-              value={pincode}
-              onChangeText={setPincode}
-              keyboardType="number-pad"
-              placeholder={t('employer.post_job.field_pincode_ph')}
-            />
           </View>
+
+          {/* ── Job Type ── */}
+          <View style={{ gap: spacing.sm }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: labelColor }}>
+              Job Type
+            </Text>
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              {([
+                { key: 'full_time' as JobType, label: 'Full Time' },
+                { key: 'part_time' as JobType, label: 'Part Time' },
+                { key: 'gig' as JobType, label: 'One Time' },
+              ]).map((opt) => {
+                const active = type === opt.key;
+                return (
+                  <Pressable
+                    key={opt.key}
+                    onPress={() => { setType(opt.key); haptic('selection'); }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      flex: 1,
+                      paddingVertical: spacing.sm,
+                      paddingHorizontal: spacing.sm,
+                      borderRadius: radii.pill,
+                      borderWidth: 1,
+                      borderColor: active ? BLUE : inputBorder,
+                      backgroundColor: '#FFFFFF',
+                    }}
+                  >
+                    {/* Radio dot */}
+                    <View
+                      style={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: 8,
+                        borderWidth: 2,
+                        borderColor: active ? BLUE : '#D1D5DB',
+                        backgroundColor: '#FFFFFF',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {active && (
+                        <View
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: 4,
+                            backgroundColor: BLUE,
+                          }}
+                        />
+                      )}
+                    </View>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontWeight: active ? '700' : '500',
+                        color: active ? BLUE : '#374151',
+                      }}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* ── Expected Salary ── */}
+          <View style={{ gap: spacing.sm }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: labelColor }}>
+              Expected Salary
+            </Text>
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              {/* ₹ prefix + amount */}
+              <View
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: inputBorder,
+                  borderRadius: radii.lg,
+                  backgroundColor: '#FAFAFA',
+                  overflow: 'hidden',
+                }}
+              >
+                <View
+                  style={{
+                    paddingHorizontal: spacing.md,
+                    paddingVertical: 14,
+                    borderRightWidth: 1,
+                    borderRightColor: inputBorder,
+                  }}
+                >
+                  <Text style={{ fontSize: 16, color: '#374151', fontWeight: '600' }}>₹</Text>
+                </View>
+                <TextInput
+                  value={amount}
+                  onChangeText={setAmount}
+                  keyboardType="number-pad"
+                  placeholder="Enter amount"
+                  placeholderTextColor={placeholderColor}
+                  style={{ flex: 1, fontSize: 15, color: textColor, paddingHorizontal: spacing.md, padding: 0 }}
+                />
+              </View>
+              {/* Period selector */}
+              <Pressable
+                onPress={() => {
+                  haptic('selection');
+                  // Cycle through periods
+                  const opts: PayPeriod[] = ['hour', 'day', 'week', 'month', 'fixed'];
+                  const idx = opts.indexOf(period);
+                  setPeriod(opts[(idx + 1) % opts.length]!);
+                }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: 14,
+                  borderWidth: 1,
+                  borderColor: inputBorder,
+                  borderRadius: radii.lg,
+                  backgroundColor: '#FAFAFA',
+                }}
+              >
+                <Text style={{ fontSize: 14, color: textColor, fontWeight: '600' }}>
+                  per {period}
+                </Text>
+                <Feather name="chevron-down" size={14} color={placeholderColor} />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* ── Job Description ── */}
+          <View style={{ gap: spacing.xs }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: labelColor }}>
+              Job Description
+            </Text>
+            <View
+              style={{
+                borderWidth: 1,
+                borderColor: inputBorder,
+                borderRadius: radii.lg,
+                backgroundColor: '#FAFAFA',
+                padding: spacing.md,
+              }}
+            >
+              <TextInput
+                value={description}
+                onChangeText={(v) => setDescription(v.slice(0, 300))}
+                placeholder="Describe the work, timing, skills required..."
+                placeholderTextColor={placeholderColor}
+                multiline
+                numberOfLines={5}
+                style={{
+                  fontSize: 15,
+                  color: textColor,
+                  minHeight: 110,
+                  textAlignVertical: 'top',
+                  padding: 0,
+                }}
+              />
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: placeholderColor,
+                  textAlign: 'right',
+                  marginTop: spacing.xs,
+                }}
+              >
+                {description.length}/300
+              </Text>
+            </View>
+          </View>
+
+          {/* Voice note attachment */}
+          <VoiceDescriptionField
+            audio={audio}
+            recording={recording}
+            error={audioError}
+            onStart={async () => {
+              setAudioError(null);
+              haptic('selection');
+              try {
+                const r = new VoiceRecorder();
+                await r.start();
+                recorderRef.current = r;
+                setRecording(true);
+              } catch (err) {
+                haptic('error');
+                setAudioError(
+                  err instanceof Error
+                    ? err.message
+                    : t('employer.post_job.voice_err_start'),
+                );
+              }
+            }}
+            onStop={async () => {
+              if (!recorderRef.current) return;
+              setRecording(false);
+              try {
+                const out = await recorderRef.current.stopAndSend();
+                recorderRef.current = null;
+                setAudio(out);
+                haptic('success');
+              } catch (err) {
+                haptic('error');
+                setAudioError(
+                  err instanceof Error
+                    ? err.message
+                    : t('employer.post_job.voice_err_save'),
+                );
+              }
+            }}
+            onClear={() => {
+              haptic('light');
+              setAudio(null);
+              setAudioError(null);
+            }}
+          />
 
           {/* How many to hire */}
           <View style={{ gap: spacing.sm }}>
@@ -900,18 +1090,25 @@ export function PostJobScreen() {
           {/* Doondo for Women — the employer's women-safety signals. */}
           <WomenSafetyField value={womenSafety} onChange={setWomenSafety} />
 
-          <View style={{ gap: spacing.xs }}>
-            <Button
-              label={
-                mutation.isPending
-                  ? t('employer.post_job.posting')
-                  : t('employer.post_job.post_job')
-              }
-              onPress={() => mutation.mutate()}
+          {/* ── Publish Job button ── */}
+          <View style={{ gap: spacing.xs, marginTop: spacing.sm }}>
+            <Pressable
+              onPress={() => { haptic('selection'); mutation.mutate(); }}
               disabled={!canSave}
-            />
+              style={({ pressed }) => ({
+                backgroundColor: canSave ? BLUE : '#93C5FD',
+                borderRadius: radii.lg,
+                paddingVertical: 16,
+                alignItems: 'center',
+                opacity: pressed ? 0.9 : 1,
+              })}
+            >
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>
+                {mutation.isPending ? 'Publishing…' : 'Publish Job'}
+              </Text>
+            </Pressable>
             {validationReason && !mutation.isPending && (
-              <Text variant="footnote" tone="tertiary" style={{ textAlign: 'center' }}>
+              <Text style={{ fontSize: 12, color: '#6B7280', textAlign: 'center' }}>
                 {validationReason}
               </Text>
             )}

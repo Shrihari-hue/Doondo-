@@ -1,298 +1,238 @@
 /**
- * ApplicantsScreen — cross-job applicants tab.
+ * ApplicantsScreen — cross-job applicant list, redesigned to match reference.
  *
- * Aggregates applicants across all of the employer's jobs. Status chips
- * filter the list. Each card shows which job the applicant applied to.
+ * Layout:
+ *   - Back arrow + "Applicants" header
+ *   - Filter tabs with live counts: All · New · Shortlisted · Hired
+ *   - Applicant cards (avatar, name, job, exp, location, time, status, actions)
  */
 
-import { useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  View,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, SkeletonCard, EmptyState } from '@/components';
 import { useTheme } from '@/theme/useTheme';
-import { useTranslate } from '@/i18n/useTranslate';
 import { applicationsApi } from '@/api/applications.api';
 import { haptic } from '@/lib/haptics';
-import { resolveCoords } from '@/lib/location';
-import { useAuth } from '@/hooks/useAuth';
-import { availabilityApi } from '@/api/availability.api';
 import type { ApplicationStatus } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 import { ApplicantCard } from './ApplicantCard';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
-const STATUS_FILTERS: Array<{ key: ApplicationStatus | 'all'; labelKey: string }> = [
-  { key: 'all', labelKey: 'employer.applicants.filter_all' },
-  { key: 'pending', labelKey: 'employer.applicants.filter_pending' },
-  { key: 'viewed', labelKey: 'employer.applicants.filter_viewed' },
-  { key: 'shortlisted', labelKey: 'employer.applicants.filter_shortlisted' },
-  { key: 'hired', labelKey: 'employer.applicants.filter_hired' },
-];
+const BLUE = '#2563EB';
+const BLUE_LIGHT = '#EFF6FF';
 
 export function ApplicantsScreen() {
-  const { theme } = useTheme();
+  const { scheme } = useTheme();
+  const isLight = scheme !== 'dark';
   const navigation = useNavigation<Nav>();
-  const t = useTranslate();
-  const { user } = useAuth();
-  const savedCoords =
-    user?.employerLocation?.coordinates ?? user?.location?.coordinates ?? null;
+  const insets = useSafeAreaInsets();
+
   const [filter, setFilter] = useState<ApplicationStatus | 'all'>('all');
 
+  // Fetch all applicants once, then filter client-side so tab counts are accurate
   const query = useQuery({
-    queryKey: ['applicants', 'employer', filter],
-    queryFn: () =>
-      applicationsApi.listForEmployer(filter !== 'all' ? { status: filter } : {}),
-  });
-
-  // Lightweight count for the "Available right now" banner. We don't
-  // need coordinates here — the banner just teases the feature; the
-  // full list runs its own location-aware query inside the dedicated
-  // screen. Refetches every 30s to keep the count fresh.
-  const availabilityCount = useQuery({
-    queryKey: ['availabilities', 'count', 'employer', savedCoords?.[0], savedCoords?.[1]],
-    queryFn: async () => {
-      const coords = await resolveCoords(savedCoords);
-      // Don't tease a count from a guessed default city — only when we have
-      // a real (GPS or saved) location.
-      if (coords.origin === 'default') return { count: 0 };
-      const result = await availabilityApi.nearby({
-        lat: coords.lat,
-        lng: coords.lng,
-        radius: 15_000,
-        limit: 1,
-      });
-      // The list endpoint caps at `limit` rows. Treat anything >= 1 as
-      // "some workers available"; the dedicated screen shows the full set.
-      return { count: result.availabilities.length };
-    },
+    queryKey: ['applicants', 'employer', 'all'],
+    queryFn: () => applicationsApi.listForEmployer({ limit: 200 }),
     staleTime: 30_000,
-    refetchInterval: 60_000,
   });
 
-  const hasAvailableWorkers = (availabilityCount.data?.count ?? 0) > 0;
+  const allApplicants = query.data?.applications ?? [];
 
-  const applicants = query.data?.applications ?? [];
+  // Tab counts
+  const counts = useMemo(() => ({
+    all: allApplicants.length,
+    pending: allApplicants.filter((a) => a.status === 'pending').length,
+    shortlisted: allApplicants.filter((a) => a.status === 'shortlisted').length,
+    hired: allApplicants.filter((a) => a.status === 'hired').length,
+  }), [allApplicants]);
+
+  // Filtered list for current tab
+  const applicants = useMemo(
+    () =>
+      filter === 'all'
+        ? allApplicants
+        : allApplicants.filter((a) => a.status === filter),
+    [allApplicants, filter],
+  );
+
+  const bg = isLight ? '#FFFFFF' : '#0C0A0E';
+  const border = isLight ? '#E5E7EB' : '#1F1F1F';
+  const textPrimary = isLight ? '#1F2937' : '#F9FAFB';
+  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+
+  const TABS: Array<{ key: ApplicationStatus | 'all'; label: string; count: number }> = [
+    { key: 'all',         label: 'All',         count: counts.all },
+    { key: 'pending',     label: 'New',         count: counts.pending },
+    { key: 'shortlisted', label: 'Shortlisted', count: counts.shortlisted },
+    { key: 'hired',       label: 'Hired',       count: counts.hired },
+  ];
 
   return (
-    <Screen edges={['top']}>
-      <ScrollView
-        contentContainerStyle={{
-          padding: spacing.xl,
-          paddingTop: spacing['2xl'],
-          paddingBottom: spacing['4xl'],
-          gap: spacing.lg,
-          flexGrow: 1,
-        }}
-        refreshControl={
-          <RefreshControl
-            refreshing={query.isRefetching}
-            onRefresh={() => void query.refetch()}
-            tintColor={theme.brand.hero}
-          />
-        }
-      >
-        <View style={{ gap: spacing.xs }}>
-          <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-            {t('employer.applicants.eyebrow')}
-          </Text>
-          <Text variant="display" weight="medium" display>
-            {t('employer.applicants.title')}
+    <Screen edges={[]}>
+      <View style={{ flex: 1, backgroundColor: bg }}>
+
+        {/* ── Header ── */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingTop: insets.top + spacing.sm,
+            paddingHorizontal: spacing.xl,
+            paddingBottom: spacing.md,
+            borderBottomWidth: 0.5,
+            borderBottomColor: border,
+            backgroundColor: bg,
+          }}
+        >
+          <Pressable onPress={() => navigation.goBack()} hitSlop={12} accessibilityRole="button">
+            <Feather name="arrow-left" size={22} color={textPrimary} />
+          </Pressable>
+          <Text
+            style={{
+              flex: 1,
+              textAlign: 'center',
+              fontSize: 17,
+              fontWeight: '700',
+              color: textPrimary,
+              marginRight: 34,
+            }}
+          >
+            Applicants
           </Text>
         </View>
 
-        {/* Available-right-now teaser — only renders when at least one
-           worker is broadcasting nearby. Solid green/blue card with a
-           pulse to draw attention without nagging when nobody's around. */}
-        <Pressable
-          onPress={() => {
-            haptic('selection');
-            navigation.navigate('AvailableWorkers');
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={t('employer.applicants.available_now_a11y')}
-          style={({ pressed }) => ({
-            padding: spacing.md,
-            borderRadius: radii.lg,
-            backgroundColor: hasAvailableWorkers ? '#D1FAE5' : '#EFF6FF',
-            borderWidth: 0.5,
-            borderColor: hasAvailableWorkers ? '#86EFAC' : '#BFDBFE',
+        {/* ── Filter tabs ── */}
+        <View
+          style={{
             flexDirection: 'row',
-            alignItems: 'center',
-            gap: spacing.md,
-            opacity: pressed ? 0.85 : 1,
-          })}
-        >
-          <View
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: hasAvailableWorkers ? '#10B981' : '#2563EB',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ fontSize: 16 }}>
-              {hasAvailableWorkers ? '🟢' : '📡'}
-            </Text>
-          </View>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text
-              style={{
-                fontSize: 14,
-                fontWeight: '700',
-                color: hasAvailableWorkers ? '#065F46' : '#1E40AF',
-              }}
-            >
-              {hasAvailableWorkers
-                ? t('employer.applicants.available_now_title')
-                : t('employer.applicants.available_off_title')}
-            </Text>
-            <Text
-              style={{
-                fontSize: 12,
-                color: hasAvailableWorkers ? '#047857' : '#1E3A8A',
-                opacity: 0.85,
-              }}
-              numberOfLines={1}
-            >
-              {hasAvailableWorkers
-                ? t('employer.applicants.available_now_subtitle')
-                : t('employer.applicants.available_off_subtitle')}
-            </Text>
-          </View>
-          <Text
-            style={{
-              fontSize: 14,
-              fontWeight: '700',
-              color: hasAvailableWorkers ? '#065F46' : '#1E40AF',
-            }}
-          >
-            ›
-          </Text>
-        </Pressable>
-
-        {/* Hire Reels — swipe through worker intro videos to discover talent. */}
-        <Pressable
-          onPress={() => {
-            haptic('selection');
-            navigation.navigate('ReelFeed');
+            paddingHorizontal: spacing.xl,
+            paddingVertical: spacing.sm,
+            borderBottomWidth: 0.5,
+            borderBottomColor: border,
+            backgroundColor: bg,
+            gap: spacing.xs,
           }}
-          accessibilityRole="button"
-          accessibilityLabel={t('reels.feed_title')}
-          style={({ pressed }) => ({
-            padding: spacing.md,
-            borderRadius: radii.lg,
-            backgroundColor: '#F5F3FF',
-            borderWidth: 0.5,
-            borderColor: '#DDD6FE',
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: spacing.md,
-            opacity: pressed ? 0.85 : 1,
-          })}
         >
-          <View
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: '#7C3AED',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ fontSize: 16 }}>🎬</Text>
-          </View>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: '#5B21B6' }}>
-              {t('reels.feed_card_title')}
-            </Text>
-            <Text
-              style={{ fontSize: 12, color: '#6D28D9', opacity: 0.85 }}
-              numberOfLines={1}
-            >
-              {t('reels.feed_card_subtitle')}
-            </Text>
-          </View>
-          <Text style={{ fontSize: 14, fontWeight: '700', color: '#5B21B6' }}>›</Text>
-        </Pressable>
-
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-          {STATUS_FILTERS.map((f) => {
-            const active = filter === f.key;
+          {TABS.map((tab) => {
+            const active = filter === tab.key;
             return (
               <Pressable
-                key={f.key}
-                onPress={() => {
-                  haptic('selection');
-                  setFilter(f.key);
-                }}
+                key={tab.key}
+                onPress={() => { haptic('selection'); setFilter(tab.key); }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
                 style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 5,
                   paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.xs,
+                  paddingVertical: spacing.sm,
                   borderRadius: radii.pill,
-                  borderWidth: 0.5,
-                  borderColor: active ? theme.brand.hero : theme.border.default,
-                  backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                  borderWidth: active ? 1.5 : 1,
+                  borderColor: active ? BLUE : border,
+                  backgroundColor: active ? BLUE_LIGHT : bg,
                 }}
               >
                 <Text
-                  variant="footnote"
-                  weight={active ? 'medium' : 'regular'}
-                  style={{ color: active ? theme.brand.hero : theme.text.secondary }}
+                  style={{
+                    fontSize: 13,
+                    fontWeight: active ? '700' : '500',
+                    color: active ? BLUE : textSecondary,
+                  }}
                 >
-                  {t(f.labelKey)}
+                  {tab.label}
                 </Text>
+                {tab.count > 0 && (
+                  <View
+                    style={{
+                      backgroundColor: active ? BLUE : (isLight ? '#F3F4F6' : '#2A2A2A'),
+                      borderRadius: 10,
+                      minWidth: 20,
+                      height: 20,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingHorizontal: 5,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: '700',
+                        color: active ? '#FFFFFF' : textSecondary,
+                      }}
+                    >
+                      {tab.count}
+                    </Text>
+                  </View>
+                )}
               </Pressable>
             );
           })}
         </View>
 
-        {query.isLoading ? (
-          <View style={{ gap: spacing.md }}>
-            <SkeletonCard lines={2} />
-            <SkeletonCard lines={2} />
-          </View>
-        ) : query.isError ? (
-          <EmptyState
-            glyph="✕"
-            tone="warning"
-            eyebrow={t('employer.applicants.offline_eyebrow')}
-            title={t('employer.applicants.offline_title')}
-            message={t('employer.applicants.offline_message')}
-            tall
-          />
-        ) : applicants.length === 0 ? (
-          <EmptyState
-            glyph="◔"
-            tone="hero"
-            eyebrow={filter === 'all' ? t('employer.applicants.empty_waiting_eyebrow') : t('employer.applicants.empty_filter_eyebrow')}
-            title={
-              filter === 'all'
-                ? t('employer.applicants.empty_no_applicants_title')
-                : t('employer.applicants.empty_filter_title', { filter })
-            }
-            message={
-              filter === 'all'
-                ? t('employer.applicants.empty_no_applicants_message')
-                : t('employer.applicants.empty_filter_message')
-            }
-            tall
-          />
-        ) : (
-          <View style={{ gap: spacing.md }}>
-            {applicants.map((a) => (
+        {/* ── List ── */}
+        <ScrollView
+          contentContainerStyle={{
+            padding: spacing.xl,
+            paddingBottom: 100,
+            gap: spacing.md,
+          }}
+          refreshControl={
+            <RefreshControl
+              refreshing={query.isRefetching}
+              onRefresh={() => void query.refetch()}
+              tintColor={BLUE}
+            />
+          }
+        >
+          {query.isLoading ? (
+            <>
+              <SkeletonCard lines={2} />
+              <SkeletonCard lines={2} />
+              <SkeletonCard lines={2} />
+            </>
+          ) : query.isError ? (
+            <EmptyState
+              glyph="✕"
+              tone="warning"
+              eyebrow="Offline"
+              title="Could not load applicants"
+              message="Check your connection and pull to refresh."
+              tall
+            />
+          ) : applicants.length === 0 ? (
+            <EmptyState
+              glyph="◔"
+              tone="hero"
+              eyebrow={filter === 'all' ? 'No applicants yet' : `No ${filter} applicants`}
+              title={filter === 'all' ? 'Waiting for applicants' : 'Nothing here'}
+              message={
+                filter === 'all'
+                  ? 'Post a job and applicants will appear here.'
+                  : 'Try a different filter.'
+              }
+              tall
+            />
+          ) : (
+            applicants.map((a) => (
               <ApplicantCard key={a.id} applicant={a} showJobTitle />
-            ))}
-          </View>
-        )}
-      </ScrollView>
+            ))
+          )}
+        </ScrollView>
+      </View>
     </Screen>
   );
 }
