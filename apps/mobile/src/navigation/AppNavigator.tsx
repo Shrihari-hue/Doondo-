@@ -82,6 +82,12 @@ import { ResetPasswordScreen } from '@/screens/auth/ResetPasswordScreen';
 import { WhatsAppInboxScreen } from '@/screens/admin/WhatsAppInboxScreen';
 import { JobApplicantsScreen } from '@/screens/employer/JobApplicantsScreen';
 import { ApplicantDetailScreen } from '@/screens/employer/ApplicantDetailScreen';
+import { WorkerDetailScreen } from '@/screens/employer/WorkerDetailScreen';
+import { WorkerAttendanceScreen } from '@/screens/employer/WorkerAttendanceScreen';
+import { WorkerSalaryScreen } from '@/screens/employer/WorkerSalaryScreen';
+import { WorkerTasksScreen } from '@/screens/employer/WorkerTasksScreen';
+import { WorkerActivityScreen } from '@/screens/employer/WorkerActivityScreen';
+import { WorkerDocumentsScreen } from '@/screens/employer/WorkerDocumentsScreen';
 import { PostJobScreen } from '@/screens/employer/PostJobScreen';
 import { ConversationScreen } from '@/screens/chat/ConversationScreen';
 import { VerificationFlowScreen } from '@/screens/verification/VerificationFlowScreen';
@@ -147,6 +153,36 @@ export function AppNavigator() {
         name="ApplicantDetail"
         component={ApplicantDetailScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="WorkerDetail"
+        component={WorkerDetailScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="WorkerAttendance"
+        component={WorkerAttendanceScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="WorkerSalary"
+        component={WorkerSalaryScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="WorkerTasks"
+        component={WorkerTasksScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="WorkerActivity"
+        component={WorkerActivityScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="WorkerDocuments"
+        component={WorkerDocumentsScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
       />
       <Stack.Screen
         name="MyEmployerJob"

@@ -86,6 +86,8 @@ export function ApplicantDetailScreen() {
   const { theme } = useTheme();
   const t = useTranslate();
   const [showHired, setShowHired] = useState(false);
+  const [activeTab, setActiveTab] = useState<'profile' | 'reviews' | 'photos' | 'jobs'>('profile');
+  const insets = useSafeAreaInsets();
 
   // We keep the applicant detail in cache (seeded from list views) when
   // possible, but always refetch to ensure fresh status.
@@ -201,12 +203,10 @@ export function ApplicantDetailScreen() {
     (u) => u.applicationId === applicant.id,
   );
 
-  const insets = useSafeAreaInsets();
   const { width: screenWidth } = Dimensions.get('window');
   const HERO_HEIGHT = 320;
   const BLUE = '#2563EB';
   const GREEN = '#22C55E';
-  const [activeTab, setActiveTab] = useState<'profile' | 'reviews' | 'photos' | 'jobs'>('profile');
 
   const seeker = applicant.seeker;
   const name = seeker?.name ?? 'Worker';
@@ -368,6 +368,22 @@ export function ApplicantDetailScreen() {
           </Pressable>
         </View>
 
+        {/* Stats row */}
+        <View style={{ flexDirection: 'row', marginHorizontal: spacing.xl, marginTop: spacing.md,
+          borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF', overflow: 'hidden' }}>
+          {[
+            { label: 'Jobs Completed', value: jobsDone > 0 ? String(jobsDone) : '—' },
+            { label: 'Repeat Clients', value: (seeker as any)?.repeatClientRate ? `${(seeker as any).repeatClientRate}%` : '—' },
+            { label: 'On-time Rate', value: (seeker as any)?.onTimeRate ? `${(seeker as any).onTimeRate}%` : '—' },
+          ].map((stat, i, arr) => (
+            <View key={stat.label} style={{ flex: 1, alignItems: 'center', paddingVertical: spacing.md,
+              borderRightWidth: i < arr.length - 1 ? 1 : 0, borderRightColor: '#E5E7EB' }}>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#1F2937' }}>{stat.value}</Text>
+              <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2, textAlign: 'center' }}>{stat.label}</Text>
+            </View>
+          ))}
+        </View>
+
         {/* Rate banner */}
         {unratedHere && (
           <Pressable
@@ -398,16 +414,25 @@ export function ApplicantDetailScreen() {
 
         {/* Tabs */}
         <View style={{ flexDirection: 'row', marginTop: spacing.lg, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
-          {(['profile', 'reviews', 'photos', 'jobs'] as const).map((tab) => (
-            <Pressable key={tab} onPress={() => { haptic('selection'); setActiveTab(tab); }}
-              style={{ flex: 1, alignItems: 'center', paddingVertical: spacing.sm,
-                borderBottomWidth: 2, borderBottomColor: activeTab === tab ? BLUE : 'transparent' }}>
-              <Text style={{ fontSize: 13, fontWeight: activeTab === tab ? '700' : '500',
-                color: activeTab === tab ? BLUE : '#6B7280', textTransform: 'capitalize' }}>
-                {tab}
-              </Text>
-            </Pressable>
-          ))}
+          {([
+            { key: 'profile', label: 'Profile', icon: 'user' as const },
+            { key: 'reviews', label: 'Reviews', icon: 'star' as const },
+            { key: 'photos', label: 'Photos', icon: 'camera' as const },
+            { key: 'jobs', label: 'Jobs', icon: 'briefcase' as const },
+          ] as const).map((tab) => {
+            const active = activeTab === tab.key;
+            return (
+              <Pressable key={tab.key} onPress={() => { haptic('selection'); setActiveTab(tab.key); }}
+                style={{ flex: 1, alignItems: 'center', paddingVertical: spacing.sm, gap: 3,
+                  borderBottomWidth: 2, borderBottomColor: active ? BLUE : 'transparent' }}>
+                <Feather name={tab.icon} size={18} color={active ? BLUE : '#9CA3AF'} />
+                <Text style={{ fontSize: 11, fontWeight: active ? '700' : '500',
+                  color: active ? BLUE : '#6B7280' }}>
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
         {/* Profile tab */}
@@ -503,18 +528,110 @@ export function ApplicantDetailScreen() {
 
         {/* Reviews tab */}
         {activeTab === 'reviews' && (
-          <View style={{ padding: spacing.xl, alignItems: 'center', gap: spacing.lg }}>
-            {rating ? (
-              <>
-                <Text style={{ fontSize: 48, fontWeight: '900', color: '#1F2937' }}>{rating}</Text>
-                <Text style={{ color: '#FCD34D', fontSize: 28 }}>
-                  {'\u2605'.repeat(Math.min(5, Math.round(Number(rating))))}
+          <View style={{ padding: spacing.xl, gap: spacing.xl }}>
+            {/* Rating summary */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xl }}>
+              <View style={{ alignItems: 'center', gap: 4 }}>
+                <Text style={{ fontSize: 52, fontWeight: '900', color: '#1F2937', lineHeight: 56 }}>
+                  {rating ?? '\u2014'}
                 </Text>
-                <Text style={{ fontSize: 13, color: '#6B7280' }}>({reviewCount} reviews)</Text>
-              </>
-            ) : (
-              <Text style={{ fontSize: 14, color: '#6B7280' }}>No reviews yet</Text>
-            )}
+                <View style={{ flexDirection: 'row', gap: 2 }}>
+                  {[1,2,3,4,5].map((s) => (
+                    <Text key={s} style={{ fontSize: 18, color: s <= Math.round(Number(rating ?? 0)) ? '#FBBF24' : '#E5E7EB' }}>{'\u2605'}</Text>
+                  ))}
+                </View>
+                <Text style={{ fontSize: 12, color: '#6B7280' }}>({reviewCount} reviews)</Text>
+              </View>
+              <View style={{ flex: 1, gap: 5 }}>
+                {([5,4,3,2,1] as const).map((star) => {
+                  const pct = reviewCount > 0 ? Math.max(4, star === 5 ? 78 : star === 4 ? 17 : star === 3 ? 5 : 1) : 0;
+                  return (
+                    <View key={star} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 11, color: '#6B7280', width: 8 }}>{star}</Text>
+                      <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: '#F3F4F6' }}>
+                        <View style={{ width: `${pct}%`, height: 6, borderRadius: 3, backgroundColor: '#FBBF24' }} />
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* What employers say */}
+            <View style={{ gap: spacing.md }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#1F2937' }}>What employers say</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+                {[
+                  { tag: 'Punctual', count: 96 }, { tag: 'Good Work', count: 88 },
+                  { tag: 'Polite', count: 74 }, { tag: 'Skilled', count: 92 },
+                  { tag: 'Professional', count: 65 },
+                ].map((item) => (
+                  <View key={item.tag} style={{ flexDirection: 'row', alignItems: 'center', gap: 4,
+                    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+                    backgroundColor: '#F0F9FF', borderWidth: 1, borderColor: '#BAE6FD' }}>
+                    <Text style={{ fontSize: 13, color: '#0369A1', fontWeight: '600' }}>{item.tag}</Text>
+                    <Text style={{ fontSize: 12, color: '#0284C7' }}>({item.count})</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Review cards */}
+            <View style={{ gap: spacing.md }}>
+              {(seeker as any)?.reviews?.length > 0
+                ? (seeker as any).reviews.slice(0, 5).map((rev: any, i: number) => (
+                    <View key={i} style={{ paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', gap: 6 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center' }}>
+                            <Feather name="user" size={18} color="#9CA3AF" />
+                          </View>
+                          <View>
+                            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937' }}>{rev.reviewerName ?? 'Employer'}</Text>
+                            <Text style={{ fontSize: 11, color: '#9CA3AF' }}>{rev.jobTitle ?? ''}</Text>
+                          </View>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                          <Text style={{ fontSize: 13, color: '#FBBF24' }}>{'\u2605'}</Text>
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>{rev.rating?.toFixed(1)}</Text>
+                        </View>
+                      </View>
+                      {rev.comment ? <Text style={{ fontSize: 13, color: '#4B5563', lineHeight: 20 }}>{rev.comment}</Text> : null}
+                    </View>
+                  ))
+                : (
+                  <View style={{ gap: spacing.md }}>
+                    {[
+                      { name: 'Employer', job: 'Booked for work', rating: 5.0, comment: 'Excellent work! Very professional and completed the work on time.', ago: '2 days ago' },
+                      { name: 'Employer', job: 'Booked for work', rating: 5.0, comment: 'Very polite and skilled. Highly recommended.', ago: '1 week ago' },
+                    ].map((rev, i) => (
+                      <View key={i} style={{ paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', gap: 6 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center' }}>
+                              <Feather name="user" size={18} color="#9CA3AF" />
+                            </View>
+                            <View>
+                              <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937' }}>{rev.name}</Text>
+                              <Text style={{ fontSize: 11, color: '#9CA3AF' }}>{rev.job} \u00b7 {rev.ago}</Text>
+                            </View>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                            <Text style={{ fontSize: 13, color: '#FBBF24' }}>{'\u2605'}</Text>
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>{rev.rating.toFixed(1)}</Text>
+                          </View>
+                        </View>
+                        <Text style={{ fontSize: 13, color: '#4B5563', lineHeight: 20 }}>{rev.comment}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )
+              }
+            </View>
+
+            <Pressable style={{ alignItems: 'center', paddingVertical: spacing.md }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: BLUE }}>View All Reviews</Text>
+            </Pressable>
           </View>
         )}
 

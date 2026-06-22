@@ -97,6 +97,18 @@ export type AppStackParamList = {
   MyEmployerJob: { employerId: string; employerName: string };
   /** Modal: a single applicant — full seeker profile + actions. */
   ApplicantDetail: { applicationId: string };
+  /** Modal: hired worker detail — trust score, contact info, action tabs. */
+  WorkerDetail: { applicationId: string };
+  /** Modal: worker attendance calendar for a given month. */
+  WorkerAttendance: { applicationId: string; workerName: string };
+  /** Modal: worker salary breakdown + payment history. */
+  WorkerSalary: { applicationId: string; workerName: string };
+  /** Modal: task list assigned to a worker. */
+  WorkerTasks: { applicationId: string; workerName: string };
+  /** Modal: chronological activity timeline for a worker. */
+  WorkerActivity: { applicationId: string; workerName: string };
+  /** Modal: worker's verified documents. */
+  WorkerDocuments: { applicationId: string; workerName: string };
   /** Modal: post a new job (employer). */
   PostJob: undefined;
   /** Modal: full-screen conversation thread. */

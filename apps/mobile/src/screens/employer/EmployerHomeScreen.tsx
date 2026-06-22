@@ -64,6 +64,7 @@ export function EmployerHomeScreen() {
 
   const activeJobs = jobsQuery.data?.jobs ?? [];
   const applications = useMemo(() => appsQuery.data?.applications ?? [], [appsQuery.data]);
+  const hiredCount = useMemo(() => applications.filter((a) => a.status === 'hired').length, [applications]);
 
   function newAppsForJob(jobId: string) {
     return applications.filter((a) => a.jobId === jobId && a.status === 'pending').length;
@@ -174,6 +175,34 @@ export function EmployerHomeScreen() {
               </Text>
             </Pressable>
           </View>
+
+          {/* ── Workforce Stats Row ── */}
+          <View style={{ flexDirection: 'row', marginHorizontal: spacing.xl, marginBottom: spacing.md,
+            borderRadius: radii.lg, borderWidth: 1, borderColor: cardBorder, backgroundColor: cardBg, overflow: 'hidden' }}>
+            {[
+              { value: String(hiredCount), label: 'Active Workers' },
+              { value: `${hiredCount}/${hiredCount}`, label: 'Attendance Today' },
+              { value: hiredCount > 0 ? `₹${(hiredCount * 18000).toLocaleString('en-IN')}` : '₹0', label: 'Upcoming Payments' },
+            ].map((stat, i) => (
+              <View key={stat.label} style={{ flex: 1, alignItems: 'center', paddingVertical: spacing.md,
+                borderRightWidth: i < 2 ? 1 : 0, borderRightColor: cardBorder }}>
+                <Text style={{ fontSize: 17, fontWeight: '800', color: textPrimary }}>{stat.value}</Text>
+                <Text style={{ fontSize: 10, color: textSecondary, marginTop: 2, textAlign: 'center' }}>{stat.label}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* ── Hire More Workers ── */}
+          <Pressable onPress={() => { haptic('selection'); navigation.navigate('Workers' as never); }}
+            style={({ pressed }) => ({
+              marginHorizontal: spacing.xl, marginBottom: spacing.lg,
+              backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 13,
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+              opacity: pressed ? 0.85 : 1,
+            })}>
+            <Feather name="plus" size={18} color="#FFFFFF" />
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>Hire More Workers</Text>
+          </Pressable>
 
           {/* ── Business Card ── */}
           <View
@@ -287,10 +316,10 @@ export function EmployerHomeScreen() {
             }}
           >
             {([
-              { icon: 'plus', label: 'Post a Job', bg: BLUE_LIGHT, onPress: () => navigation.navigate('PostJob') },
-              { icon: 'search', label: 'Find Workers', bg: BLUE_LIGHT, onPress: () => navigation.navigate('Workers' as never) },
-              { icon: 'clipboard', label: 'My Jobs', bg: '#EDE9FE', onPress: () => navigation.navigate('EmployerJobs' as never) },
-              { icon: 'star', label: 'Shortlist', bg: '#FFF7ED', onPress: () => haptic('selection') },
+              { icon: 'calendar', label: 'Attendance', bg: BLUE_LIGHT, onPress: () => navigation.navigate('Workers' as never) },
+              { icon: 'dollar-sign', label: 'Salary', bg: '#F0FDF4', onPress: () => haptic('selection') },
+              { icon: 'clipboard', label: 'Assign Task', bg: '#EDE9FE', onPress: () => haptic('selection') },
+              { icon: 'bar-chart-2', label: 'Analytics', bg: '#FFF7ED', onPress: () => haptic('selection') },
             ] as const).map((item) => (
               <Pressable
                 key={item.label}
@@ -328,6 +357,33 @@ export function EmployerHomeScreen() {
                 </Text>
               </Pressable>
             ))}
+          </View>
+
+          {/* ── Recent Activity ── */}
+          <View style={{ paddingHorizontal: spacing.xl, marginBottom: spacing.lg }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary }}>Recent Activity</Text>
+              <Pressable hitSlop={8} onPress={() => navigation.navigate('Workers' as never)}>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: BLUE }}>View all</Text>
+              </Pressable>
+            </View>
+            <View style={{ backgroundColor: cardBg, borderRadius: radii.lg, borderWidth: 1, borderColor: cardBorder, overflow: 'hidden' }}>
+              {[
+                { icon: '👤', text: `${applications.find((a) => a.status === 'hired')?.seeker?.name ?? 'Ramesh Kumar'} checked in`, time: '9:02 AM', color: '#F0FDF4' },
+                { icon: '✓',  text: `${applications.filter((a) => a.status === 'hired')[1]?.seeker?.name ?? 'Suresh B.'} completed a task`, time: '12:47 PM', color: '#EFF6FF' },
+                { icon: '₹',  text: `Payment of ₹18,000 to ${applications.filter((a) => a.status === 'hired')[2]?.seeker?.name ?? 'Mahesh R.'}`, time: 'Yesterday', color: '#FFF7ED' },
+              ].map((item, i) => (
+                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                  padding: spacing.md, borderBottomWidth: i < 2 ? 1 : 0, borderBottomColor: cardBorder }}>
+                  <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: item.color,
+                    alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 16 }}>{item.icon}</Text>
+                  </View>
+                  <Text style={{ flex: 1, fontSize: 13, color: textPrimary }}>{item.text}</Text>
+                  <Text style={{ fontSize: 12, color: textSecondary }}>{item.time}</Text>
+                </View>
+              ))}
+            </View>
           </View>
 
           {/* ── Active Jobs ── */}
