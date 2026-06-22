@@ -36,6 +36,7 @@ import {
   Card,
   EmptyState as SharedEmptyState,
   Button,
+  AnimatedPressable,
 } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { chatApi } from '@/api/chat.api';
@@ -242,7 +243,7 @@ function ConversationRow({
   const isUnread = conversation.unread > 0;
 
   return (
-    <Pressable onPress={onPress}>
+    <AnimatedPressable onPress={onPress}>
       <View
         style={{
           flexDirection: 'row',
@@ -323,7 +324,7 @@ function ConversationRow({
           </View>
         </View>
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -333,7 +334,8 @@ function EmptyTab({ t, tab, role }: { t: TFn; tab: TabKey; role?: string }) {
   if (tab === 'support') {
     return (
       <SharedEmptyState
-        glyph="🛟"
+        illustration="check"
+        tone="hero"
         eyebrow={t('chat_list.empty_support_eyebrow')}
         title={t('chat_list.empty_support_title')}
         message={t('chat_list.empty_support_message')}
@@ -343,7 +345,8 @@ function EmptyTab({ t, tab, role }: { t: TFn; tab: TabKey; role?: string }) {
   if (tab === 'employers') {
     return (
       <SharedEmptyState
-        glyph="✉"
+        illustration="search"
+        tone="hero"
         eyebrow={t('chat_list.empty_employers_eyebrow')}
         title={t('chat_list.empty_employers_title')}
         message={
@@ -357,7 +360,7 @@ function EmptyTab({ t, tab, role }: { t: TFn; tab: TabKey; role?: string }) {
   // 'all' tab
   return (
     <SharedEmptyState
-      glyph="✉"
+      illustration="applicants"
       tone="hero"
       eyebrow={t('chat_list.empty_all_eyebrow')}
       title={t('chat_list.empty_all_title')}

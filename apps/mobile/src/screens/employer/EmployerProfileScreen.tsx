@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { Pressable, ScrollView, Switch, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -24,6 +25,7 @@ import {
   ThemeToggleCard,
   AccountSwitcherSheet,
   AccountSwitcherPill,
+  AnimatedPressable,
 } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { laborBudgetApi, type BudgetPeriod } from '@/api/laborBudget.api';
@@ -109,63 +111,67 @@ export function EmployerProfileScreen() {
     <Screen edges={['top']}>
       <ScrollView
         contentContainerStyle={{
-          padding: spacing.xl,
-          paddingTop: spacing['2xl'],
           paddingBottom: spacing['4xl'],
           gap: spacing['2xl'],
         }}
       >
-        {/* ─── Top-left account switcher (smart pill) ──────────────────
-            Same component as the seeker profile uses, but variant=light
-            because the employer profile has no gradient hero to sit on.
-            With exactly two accounts on device this collapses into a
-            one-tap quick-switch ("↺ Shree 👷"). */}
-        <View style={{ flexDirection: 'row' }}>
-          <AccountSwitcherPill
-            variant="light"
-            onAddAccount={() =>
-              navigation.navigate('AddAccountSignup', { role: 'seeker' })
-            }
-            onOpenSheet={() => setSwitcherVisible(true)}
-          />
-        </View>
-
-        {/* Identity */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg }}>
-          <Pressable onPress={onChangePhoto} disabled={photoMutation.isPending}>
-            <Avatar
-              name={user.companyName ?? user.name}
-              photoUrl={user.photoUrl}
-              size={84}
-              premium={user.isVerified}
+        {/* ─── Gradient hero banner ──────────────────────────────────── */}
+        <LinearGradient
+          colors={['#1D4ED8', '#2563EB', '#3B82F6']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ paddingTop: spacing.lg, paddingBottom: spacing['2xl'], paddingHorizontal: spacing.xl, gap: spacing.lg }}
+        >
+          {/* Account switcher — white on gradient */}
+          <View style={{ flexDirection: 'row' }}>
+            <AccountSwitcherPill
+              variant="onDark"
+              onAddAccount={() =>
+                navigation.navigate('AddAccountSignup', { role: 'seeker' })
+              }
+              onOpenSheet={() => setSwitcherVisible(true)}
             />
-          </Pressable>
-          <View style={{ flex: 1, gap: spacing.xs }}>
-            <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              {t('employer.profile.eyebrow')}
-            </Text>
-            <Text variant="display" weight="medium" display>
-              {user.companyName ?? user.name}
-            </Text>
-            <Pressable onPress={onChangePhoto} disabled={photoMutation.isPending}>
-              <Text variant="footnote" tone="hero">
-                {photoMutation.isPending
-                  ? t('employer.profile.photo_updating')
-                  : user.photoUrl
-                    ? t('employer.profile.photo_change')
-                    : t('employer.profile.photo_add')}
-              </Text>
-            </Pressable>
-            {photoError && (
-              <Text variant="footnote" tone="secondary">
-                {photoError}
-              </Text>
-            )}
           </View>
-        </View>
-        <Text variant="footnote" tone="secondary">
-          {user.email}
-        </Text>
+
+          {/* Identity */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg }}>
+            <Pressable onPress={onChangePhoto} disabled={photoMutation.isPending}>
+              <Avatar
+                name={user.companyName ?? user.name}
+                photoUrl={user.photoUrl}
+                size={84}
+                premium={user.isVerified}
+              />
+            </Pressable>
+            <View style={{ flex: 1, gap: spacing.xs }}>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.7)', letterSpacing: 1.2 }}>
+                {t('employer.profile.eyebrow')}
+              </Text>
+              <Text style={{ fontSize: 22, fontWeight: '700', color: '#FFFFFF' }}>
+                {user.companyName ?? user.name}
+              </Text>
+              <Pressable onPress={onChangePhoto} disabled={photoMutation.isPending}>
+                <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>
+                  {photoMutation.isPending
+                    ? t('employer.profile.photo_updating')
+                    : user.photoUrl
+                      ? t('employer.profile.photo_change')
+                      : t('employer.profile.photo_add')}
+                </Text>
+              </Pressable>
+              {photoError && (
+                <Text style={{ fontSize: 12, color: 'rgba(255,200,200,0.9)' }}>
+                  {photoError}
+                </Text>
+              )}
+            </View>
+          </View>
+          <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>
+            {user.email}
+          </Text>
+        </LinearGradient>
+
+        <View style={{ paddingHorizontal: spacing.xl, gap: spacing['2xl'] }}>
 
         <FavoritedByStat t={t} />
 
@@ -237,7 +243,7 @@ export function EmployerProfileScreen() {
             phone became required. Same OTP step the verification flow uses,
             but doesn't gate on selfie or GSTIN. */}
         {!user.phone ? (
-          <Pressable
+          <AnimatedPressable
             onPress={() => {
               haptic('selection');
               navigation.navigate('AddRecoveryPhone');
@@ -262,12 +268,12 @@ export function EmployerProfileScreen() {
                 <Pill label={t('employer.profile.recovery_pill')} tone="hero" />
               </View>
             </Card>
-          </Pressable>
+          </AnimatedPressable>
         ) : null}
 
         {/* Verification — tap to enter the OTP+selfie flow.
             Employers also need a valid GSTIN on file before the flow finalises. */}
-        <Pressable
+        <AnimatedPressable
           onPress={() => {
             if (user.isVerified) return;
             haptic('selection');
@@ -299,7 +305,7 @@ export function EmployerProfileScreen() {
               )}
             </View>
           </Card>
-        </Pressable>
+        </AnimatedPressable>
 
         <LaborBudgetCard t={t} />
 
@@ -308,6 +314,7 @@ export function EmployerProfileScreen() {
         <ThemeToggleCard />
 
         <Button label={t('employer.profile.cta_signout')} variant="secondary" onPress={() => void logout()} />
+        </View>
       </ScrollView>
 
       {/* Account switcher bottom sheet — same component the seeker
@@ -626,7 +633,7 @@ function SectionCard({
   t: TFn;
 }) {
   return (
-    <Pressable onPress={onPress}>
+    <AnimatedPressable onPress={onPress}>
       <Card>
         <View style={{ gap: spacing.sm }}>
           <View
@@ -656,7 +663,7 @@ function SectionCard({
           </Text>
         </View>
       </Card>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 

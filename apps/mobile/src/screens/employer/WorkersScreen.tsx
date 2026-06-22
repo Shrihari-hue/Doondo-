@@ -23,7 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, Avatar, SkeletonCard, EmptyState, OfflineBanner } from '@/components';
+import { Screen, Text, Avatar, SkeletonCard, EmptyState, OfflineBanner, BlurOverlay, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { applicationsApi, type ApplicantEntry } from '@/api/applications.api';
@@ -80,8 +80,8 @@ export function WorkersScreen() {
   const [search, setSearch] = useState('');
 
   const bg = isLight ? '#F9FAFB' : '#0C0A0E';
-  const surface = isLight ? '#FFFFFF' : '#1A1A1A';
-  const border = isLight ? '#E5E7EB' : '#2A2A2A';
+  const surface = isLight ? '#FFFFFF' : '#0D0D0D';
+  const border = isLight ? '#E5E7EB' : '#1E1E1E';
   const textPrimary = isLight ? '#111827' : '#F9FAFB';
   const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
 
@@ -167,7 +167,7 @@ export function WorkersScreen() {
         <View style={{ paddingHorizontal: spacing.xl, paddingVertical: spacing.sm,
           backgroundColor: surface, borderBottomWidth: 0.5, borderBottomColor: border }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-            backgroundColor: isLight ? '#F3F4F6' : '#2A2A2A', borderRadius: 10, paddingHorizontal: spacing.md, height: 38 }}>
+            backgroundColor: isLight ? '#F3F4F6' : '#1E1E1E', borderRadius: 10, paddingHorizontal: spacing.md, height: 38 }}>
             <Feather name="search" size={15} color={textSecondary} />
             <TextInput
               value={search}
@@ -231,7 +231,7 @@ export function WorkersScreen() {
           refreshControl={
             <RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} tintColor={BLUE} />
           }>
-          {query.isLoading ? (
+          {(query.isLoading || query.isRefetching) ? (
             <><SkeletonCard lines={3} /><SkeletonCard lines={3} /><SkeletonCard lines={3} /></>
           ) : query.isError ? (
             <EmptyState glyph="✕" tone="warning" eyebrow="Offline" title="Could not load workers"
@@ -309,11 +309,11 @@ function WorkerCard({
   const filled = (score / 100) * circumference;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({
+    <AnimatedPressable onPress={onPress} style={{
       backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border,
-      padding: spacing.md, gap: spacing.md, opacity: pressed ? 0.9 : 1,
+      padding: spacing.md, gap: spacing.md,
       shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
-    })}>
+    }}>
       {/* Top row */}
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
         <View style={{ position: 'relative' }}>
@@ -391,7 +391,8 @@ function WorkerCard({
 
       {/* Trust score breakdown popover */}
       <Modal visible={showTrust} transparent animationType="fade" onRequestClose={() => setShowTrust(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: spacing.xl }}
+        <BlurOverlay>
+        <Pressable style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }}
           onPress={() => setShowTrust(false)}>
           <Pressable onPress={(e) => e.stopPropagation?.()}
             style={{ backgroundColor: surface, borderRadius: 20, padding: spacing.xl, gap: spacing.lg, width: '100%' }}>
@@ -450,12 +451,13 @@ function WorkerCard({
             </Pressable>
           </Pressable>
         </Pressable>
+      </BlurOverlay>
       </Modal>
 
       {/* More action sheet */}
       <Modal visible={showMore} transparent animationType="slide" onRequestClose={() => setShowMore(false)}>
         <Pressable
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
           onPress={() => setShowMore(false)}
         >
           <Pressable onPress={(e) => e.stopPropagation?.()}
@@ -488,6 +490,6 @@ function WorkerCard({
           </Pressable>
         </Pressable>
       </Modal>
-    </Pressable>
+    </AnimatedPressable>
   );
 }

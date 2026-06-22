@@ -32,7 +32,7 @@ import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Text } from '@/components';
+import { Text, BlurOverlay} from '@/components';
 import { useTranslate } from '@/i18n/useTranslate';
 import { haptic } from '@/lib/haptics';
 import { reelsApi, type PublicReel } from '@/api/reels.api';
@@ -325,7 +325,6 @@ export function ReelFeedScreen() {
           }}
           hitSlop={12}
           style={{
-            backgroundColor: 'rgba(0,0,0,0.45)',
             borderRadius: radii.pill,
             paddingHorizontal: spacing.md,
             paddingVertical: 6,

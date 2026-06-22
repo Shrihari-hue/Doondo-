@@ -4,8 +4,8 @@
  * All data derived from the cached applicationsApi query — no new endpoint.
  */
 
-import { useMemo } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Animated, Pressable, ScrollView, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
@@ -35,37 +35,59 @@ const STATUS_COLORS: Record<string, string> = {
 
 const WEEK_LABELS = ['5w', '4w', '3w', '2w', '1w', 'Now'];
 
-/** Bar chart using pure RN Views */
+/** Interactive bar chart — tap a bar to show its value tooltip */
 function BarChart({
-  data, colors, labels, height = 160, textColor,
+  data, colors, labels, height = 160, textColor, surfaceBg,
 }: {
   data: number[]; colors: string[]; labels: string[];
-  height?: number; textColor: string;
+  height?: number; textColor: string; surfaceBg: string;
 }) {
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const maxVal = Math.max(...data, 1);
-  const barH = height - 24; // 24 = label space
+  const barH = height - 24;
 
   return (
-    <View style={{ height, flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
-      {data.map((val, i) => {
-        const filled = (val / maxVal) * barH;
-        const empty  = barH - filled;
-        return (
-          <View key={i} style={{ flex: 1, alignItems: 'center', gap: 4 }}>
-            <View style={{ width: '100%', height: barH, justifyContent: 'flex-end', alignItems: 'center' }}>
-              <View style={{ height: empty }} />
-              <View style={{ width: '80%', height: Math.max(filled, val > 0 ? 3 : 0), borderRadius: 4,
-                backgroundColor: colors[i % colors.length] }}>
-                {val > 0 && (
-                  <Text style={{ fontSize: 9, fontWeight: '700', color: '#FFFFFF',
-                    textAlign: 'center', marginTop: -12 }}>{val}</Text>
-                )}
+    <View>
+      {/* Tooltip */}
+      {activeIdx !== null && (
+        <View style={{
+          position: 'absolute', top: -36, alignSelf: 'center',
+          backgroundColor: '#1F2937', borderRadius: 8,
+          paddingHorizontal: 10, paddingVertical: 5, zIndex: 10,
+        }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
+            {labels[activeIdx]}: {data[activeIdx]}
+          </Text>
+        </View>
+      )}
+      <View style={{ height, flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
+        {data.map((val, i) => {
+          const filled = (val / maxVal) * barH;
+          const isActive = activeIdx === i;
+          return (
+            <Pressable
+              key={i}
+              style={{ flex: 1, alignItems: 'center', gap: 4 }}
+              onPress={() => { setActiveIdx(isActive ? null : i); }}
+              accessibilityRole="button"
+              accessibilityLabel={`${labels[i]}: ${val}`}
+            >
+              <View style={{ width: '100%', height: barH, justifyContent: 'flex-end', alignItems: 'center' }}>
+                <View style={{
+                  width: isActive ? '90%' : '75%',
+                  height: Math.max((val / maxVal) * barH, val > 0 ? 4 : 0),
+                  borderRadius: 5,
+                  backgroundColor: colors[i % colors.length],
+                  opacity: activeIdx !== null && !isActive ? 0.4 : 1,
+                }} />
               </View>
-            </View>
-            <Text style={{ fontSize: 9, color: textColor, textAlign: 'center' }}>{labels[i]}</Text>
-          </View>
-        );
-      })}
+              <Text style={{ fontSize: 9, color: isActive ? colors[i % colors.length] : textColor, fontWeight: isActive ? '700' : '400', textAlign: 'center' }}>
+                {labels[i]}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -94,8 +116,8 @@ export function EmployerAnalyticsScreen() {
   const { scheme }  = useTheme();
   const isLight     = scheme !== 'dark';
 
-  const surface       = isLight ? '#FFFFFF' : '#1A1A1A';
-  const border        = isLight ? '#E5E7EB' : '#2A2A2A';
+  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
+  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
   const textPrimary   = isLight ? '#111827' : '#F9FAFB';
   const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
   const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
@@ -199,7 +221,7 @@ export function EmployerAnalyticsScreen() {
                   <Text style={{ fontSize: 13, fontWeight: '600', color: textPrimary, textTransform: 'capitalize' }}>{s}</Text>
                   <Text style={{ fontSize: 13, fontWeight: '700', color: STATUS_COLORS[s] }}>{count}</Text>
                 </View>
-                <View style={{ height: 8, borderRadius: 4, backgroundColor: isLight ? '#F3F4F6' : '#2A2A2A', overflow: 'hidden' }}>
+                <View style={{ height: 8, borderRadius: 4, backgroundColor: isLight ? '#F3F4F6' : '#1E1E1E', overflow: 'hidden' }}>
                   <View style={{ width: `${Math.round(pct * 100)}%`, height: 8, borderRadius: 4, backgroundColor: STATUS_COLORS[s] }} />
                 </View>
               </View>
@@ -220,6 +242,7 @@ export function EmployerAnalyticsScreen() {
             colors={[GREEN, GREEN, GREEN, GREEN, GREEN, GREEN]}
             labels={WEEK_LABELS}
             textColor={textSecondary}
+            surfaceBg={surface}
           />
         </View>
 
@@ -231,6 +254,7 @@ export function EmployerAnalyticsScreen() {
             colors={[AMBER, BLUE, GREEN, RED]}
             labels={['New', 'Short', 'Hired', 'Rej.']}
             textColor={textSecondary}
+            surfaceBg={surface}
           />
           {/* Legend */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' }}>
@@ -260,7 +284,7 @@ export function EmployerAnalyticsScreen() {
                     </Text>
                   </View>
                   {/* Applicants bar (grey bg) with hired overlay (green) */}
-                  <View style={{ height: 10, borderRadius: 5, backgroundColor: isLight ? '#F3F4F6' : '#2A2A2A', overflow: 'hidden' }}>
+                  <View style={{ height: 10, borderRadius: 5, backgroundColor: isLight ? '#F3F4F6' : '#1E1E1E', overflow: 'hidden' }}>
                     <View style={{ width: `${Math.round(hireRatePct * 100)}%`, height: 10, borderRadius: 5, backgroundColor: GREEN }} />
                   </View>
                   <View style={{ flexDirection: 'row', gap: spacing.md }}>

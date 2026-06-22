@@ -16,7 +16,7 @@ import * as Sharing from 'expo-sharing';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, Card, Avatar, EmptyState, LoadingSpinner, Button, TextField } from '@/components';
+import { Screen, Text, Card, Avatar, EmptyState, LoadingSpinner, Button, TextField, BlurOverlay} from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { haptic } from '@/lib/haptics';
@@ -669,7 +669,7 @@ export function WorkforceScreen() {
       >
         <Pressable
           onPress={() => setRehireFor(null)}
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
         >
           <Pressable
             onPress={() => undefined}
@@ -728,7 +728,7 @@ export function WorkforceScreen() {
       >
         <Pressable
           onPress={() => setDeployFor(null)}
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
         >
           <Pressable
             onPress={() => undefined}
@@ -787,7 +787,7 @@ export function WorkforceScreen() {
       >
         <Pressable
           onPress={() => setBuilderOpen(false)}
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
         >
           <Pressable
             onPress={() => undefined}

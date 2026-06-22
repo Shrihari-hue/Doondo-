@@ -76,7 +76,17 @@ export type SecureKey =
    * Employer notification preferences — JSON blob of toggle states
    * (newApplicant, interviewReminder, workerAbsent, payrollDue).
    */
-  | 'notifPrefs';
+  | 'notifPrefs'
+  /**
+   * Employer shortlist folders — JSON map of folderId → { name, applicationIds[] }.
+   * Lets employers organise applicants into named buckets.
+   */
+  | 'shortlistFolders'
+  /**
+   * Recent global search queries — JSON array of strings, newest first,
+   * capped at 5. Powers the spotlight search overlay.
+   */
+  | 'recentSearches';
 
 const PREFIX = 'doondo:';
 const memoryFallback = new Map<string, string>();

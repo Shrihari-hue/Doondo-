@@ -117,10 +117,24 @@ export type AppStackParamList = {
   Roster: undefined;
   /** Modal: employer analytics dashboard. */
   EmployerAnalytics: undefined;
-  /** Modal: post a new job (employer). */
-  PostJob: undefined;
+  /** Modal: post a new job (employer), or edit/duplicate an existing one. */
+  PostJob: {
+    /** When set, the screen runs in "edit" mode — PATCH instead of POST. */
+    editJobId?: string;
+    /** When set, fields are pre-filled for a duplicate (no editJobId). */
+    prefill?: {
+      title: string;
+      description: string;
+      type: string;
+      amount: string;
+      period: string;
+      skills: string[];
+    };
+  } | undefined;
   /** Modal: employer notification preferences — per-event toggles persisted to secureStore. */
   NotifPreferences: undefined;
+  /** Modal: time-off / absence requests from hired workers — approve or deny. */
+  TimeOffRequests: undefined;
   /** Modal: full-screen conversation thread. */
   Conversation: { conversationId: string };
   /** Modal: edit a profile section (seeker or employer). */

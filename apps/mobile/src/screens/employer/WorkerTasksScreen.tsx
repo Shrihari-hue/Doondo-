@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
 import { spacing } from '@doondo/tokens';
-import { Screen, Text } from '@/components';
+import { Screen, Text, BlurOverlay} from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import type { AppStackParamList } from '@/navigation/types';
@@ -78,8 +78,8 @@ export function WorkerTasksScreen() {
   const [newPri, setNewPri]       = useState<TaskPriority>('Medium');
   const [newDueDays, setNewDueDays] = useState<number>(0); // 0=Today, 1=Tomorrow, 3, 7
 
-  const surface       = isLight ? '#FFFFFF' : '#1A1A1A';
-  const border        = isLight ? '#E5E7EB' : '#2A2A2A';
+  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
+  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
   const textPrimary   = isLight ? '#111827' : '#F9FAFB';
   const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
   const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
@@ -238,7 +238,8 @@ export function WorkerTasksScreen() {
 
       {/* Add Task Modal */}
       <Modal visible={showAdd} transparent animationType="slide" onRequestClose={() => setShowAdd(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
+        <BlurOverlay>
+        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
             padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -271,7 +272,7 @@ export function WorkerTasksScreen() {
                   return (
                     <Pressable key={p} onPress={() => setNewPri(p)}
                       style={{ flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10,
-                        backgroundColor: active ? sty.bg : (isLight ? '#F3F4F6' : '#2A2A2A'),
+                        backgroundColor: active ? sty.bg : (isLight ? '#F3F4F6' : '#1E1E1E'),
                         borderWidth: active ? 1.5 : 1, borderColor: active ? sty.fg : border }}>
                       <Text style={{ fontSize: 13, fontWeight: '700', color: active ? sty.fg : textSecondary }}>{p}</Text>
                     </Pressable>
@@ -311,6 +312,7 @@ export function WorkerTasksScreen() {
             </Pressable>
           </View>
         </View>
+      </BlurOverlay>
       </Modal>
     </Screen>
   );

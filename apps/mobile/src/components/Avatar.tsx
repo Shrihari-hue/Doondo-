@@ -8,7 +8,7 @@
  */
 
 import { Image, View } from 'react-native';
-import { coral, champagne } from '@doondo/tokens';
+import { champagne } from '@doondo/tokens';
 import { Text } from './Text';
 
 interface Props {
@@ -20,8 +20,31 @@ interface Props {
   premium?: boolean;
 }
 
+/**
+ * 8 brand-adjacent hues for avatar backgrounds.
+ * Hash of the name deterministically picks one, so the same person
+ * always gets the same colour across every screen.
+ */
+const AVATAR_COLORS = [
+  '#2563EB', // blue
+  '#16A34A', // green
+  '#9333EA', // violet
+  '#EA580C', // orange
+  '#0891B2', // cyan
+  '#BE185D', // pink
+  '#CA8A04', // amber-dark
+  '#0F766E', // teal
+] as const;
+
+function nameToColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length]!;
+}
+
 export function Avatar({ name, photoUrl, size = 88, premium = false }: Props) {
   const initials = getInitials(name);
+  const bgColor = nameToColor(name);
 
   return (
     <View
@@ -29,10 +52,10 @@ export function Avatar({ name, photoUrl, size = 88, premium = false }: Props) {
         width: size,
         height: size,
         borderRadius: size / 2,
-        borderWidth: premium ? 1.2 : 0.5,
-        borderColor: premium ? champagne[300] : 'rgba(236, 232, 223, 0.18)',
+        borderWidth: premium ? 1.5 : 0,
+        borderColor: premium ? '#FDE68A' : 'transparent',
         overflow: 'hidden',
-        backgroundColor: coral[600],
+        backgroundColor: bgColor,
         alignItems: 'center',
         justifyContent: 'center',
       }}
@@ -46,9 +69,9 @@ export function Avatar({ name, photoUrl, size = 88, premium = false }: Props) {
       ) : (
         <Text
           style={{
-            color: champagne[200],
+            color: '#FFFFFF',
             fontSize: size * 0.36,
-            fontWeight: '500',
+            fontWeight: '700',
             letterSpacing: 0.5,
           }}
         >

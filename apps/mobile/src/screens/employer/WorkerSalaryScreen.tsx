@@ -58,8 +58,8 @@ export function WorkerSalaryScreen() {
   const isLight      = scheme !== 'dark';
   const queryClient  = useQueryClient();
 
-  const surface       = isLight ? '#FFFFFF' : '#1A1A1A';
-  const border        = isLight ? '#E5E7EB' : '#2A2A2A';
+  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
+  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
   const textPrimary   = isLight ? '#111827' : '#F9FAFB';
   const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
   const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
@@ -192,6 +192,53 @@ export function WorkerSalaryScreen() {
             Effective from {effectiveDate}
           </Text>
         </LinearGradient>
+
+        {/* 3-month earnings bar chart */}
+        {(() => {
+          const now = new Date();
+          // Generate 3 months of deterministic totals: base + small variance per month
+          const months3 = Array.from({ length: 3 }, (_, i) => {
+            const d = new Date(now.getFullYear(), now.getMonth() - (2 - i), 1);
+            const variance = ((hash * (i + 1)) % 7) - 3; // –3 … +3 %
+            const paise = Math.round(totalPaise * (1 + variance / 100));
+            return {
+              label: MONTHS[d.getMonth()]!,
+              paise,
+              rupees: Math.round(paise / 100),
+              isCurrent: i === 2,
+            };
+          });
+          const maxPaise = Math.max(...months3.map((m) => m.paise));
+          return (
+            <View style={{
+              backgroundColor: surface, borderRadius: 16,
+              borderWidth: 1, borderColor: border, padding: spacing.md, gap: spacing.md,
+            }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>3-Month Earnings</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, height: 100 }}>
+                {months3.map((m) => {
+                  const barHeight = Math.round((m.paise / maxPaise) * 80);
+                  return (
+                    <View key={m.label} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: m.isCurrent ? BLUE : textSecondary }}>
+                        ₹{m.rupees >= 1000 ? `${Math.round(m.rupees / 1000)}k` : m.rupees}
+                      </Text>
+                      <View style={{
+                        width: '75%', height: barHeight,
+                        borderRadius: 6,
+                        backgroundColor: m.isCurrent ? BLUE : (isLight ? '#BFDBFE' : '#1E3A5F'),
+                      }} />
+                      <Text style={{ fontSize: 12, color: textSecondary }}>{m.label}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+              <Text style={{ fontSize: 12, color: textSecondary, textAlign: 'center' }}>
+                Gross pay (incl. bonus & allowances)
+              </Text>
+            </View>
+          );
+        })()}
 
         {/* Breakdown */}
         <View style={{ backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>

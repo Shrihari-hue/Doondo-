@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, SkeletonCard } from '@/components';
+import { Screen, Text, SkeletonCard, BlurOverlay} from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
 import { haptic } from '@/lib/haptics';
@@ -44,8 +44,8 @@ export function RunPayrollScreen() {
   const isLight    = scheme !== 'dark';
   const qc         = useQueryClient();
 
-  const surface       = isLight ? '#FFFFFF' : '#1A1A1A';
-  const border        = isLight ? '#E5E7EB' : '#2A2A2A';
+  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
+  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
   const textPrimary   = isLight ? '#111827' : '#F9FAFB';
   const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
   const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
@@ -291,7 +291,6 @@ export function RunPayrollScreen() {
       {celebrated && (
         <Animated.View style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.6)',
           alignItems: 'center', justifyContent: 'center',
           opacity: celebOpacity,
         }}

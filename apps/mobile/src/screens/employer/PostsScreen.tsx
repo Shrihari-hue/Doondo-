@@ -14,12 +14,14 @@
 
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { Feather } from '@expo/vector-icons';
 import { radii, spacing } from '@doondo/tokens';
-import { Screen, Text, Card, Pill, Button, SkeletonCard, EmptyState } from '@/components';
+import { Screen, Text, Card, Pill, Button, SkeletonCard, EmptyState, BlurOverlay, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { jobsApi } from '@/api/jobs.api';
@@ -32,6 +34,24 @@ import { JobIcon } from './JobIcon';
 const BLUE  = '#2563EB';
 const GREEN = '#16A34A';
 const AMBER = '#F59E0B';
+const RED   = '#EF4444';
+
+/**
+ * Returns a health colour for an active job:
+ *   green  = healthy (≥3 applicants, posted <48h)
+ *   amber  = slow    (<3 applicants within 48h)
+ *   red    = stale   (posted >7 days, no new apps in 48h)
+ * Closed/filled jobs return null (no indicator).
+ */
+function jobHealthColor(job: PublicJob, stats?: JobStats): string | null {
+  if (job.status !== 'active' && job.status !== 'paused') return null;
+  const ageMs = Date.now() - new Date(job.createdAt).getTime();
+  const ageDays = ageMs / 86_400_000;
+  const apps = stats?.applicants ?? 0;
+  if (ageDays > 7 && apps < 3) return RED;
+  if (ageDays > 2 && apps < 3) return AMBER;
+  return GREEN;
+}
 
 type JobStats = { applicants: number; hired: number };
 
@@ -42,6 +62,7 @@ export function PostsScreen() {
   const navigation = useNavigation<Nav>();
   const { theme } = useTheme();
   const t = useTranslate();
+  const insets = useSafeAreaInsets();
 
   const query = useQuery({
     queryKey: ['jobs', 'mine'],
@@ -96,8 +117,9 @@ export function PostsScreen() {
       >
         <Header onPostJob={onPostJob} count={jobs.length} t={t} />
 
-        {query.isLoading ? (
+        {(query.isLoading || query.isRefetching) ? (
           <View style={{ gap: spacing.md }}>
+            <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
           </View>
@@ -142,6 +164,31 @@ export function PostsScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* ── Sticky Post a Job FAB ── */}
+      <AnimatedPressable
+        onPress={onPostJob}
+        style={{
+          position: 'absolute',
+          right: 20,
+          bottom: insets.bottom + 16,
+          backgroundColor: BLUE,
+          borderRadius: 28,
+          paddingVertical: 13,
+          paddingHorizontal: 20,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          shadowColor: BLUE,
+          shadowOpacity: 0.4,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 8,
+        }}
+      >
+        <Feather name="plus" size={18} color="#FFFFFF" />
+        <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>Post a Job</Text>
+      </AnimatedPressable>
     </Screen>
   );
 }
@@ -256,9 +303,19 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
     navigation.navigate('JobApplicants', { jobId: job.id, jobTitle: job.title });
   };
 
+  const healthColor = jobHealthColor(job, stats);
+
   return (
     <Card premium={job.status === 'filled'}>
       <View style={{ gap: spacing.md }}>
+        {/* Health indicator — coloured left accent bar */}
+        {healthColor && (
+          <View style={{
+            position: 'absolute', left: 0, top: 0, bottom: 0,
+            width: 4, borderRadius: 4,
+            backgroundColor: healthColor,
+          }} />
+        )}
         {/* Row 1 — icon, title block, status pill, kebab */}
         <View
           style={{
@@ -395,8 +452,31 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
           </View>
         </View>
 
+        {/* Fill-rate progress bar — shown for multi-headcount jobs */}
+        {job.headcount > 1 && (
+          <View style={{ gap: 5 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text variant="footnote" tone="secondary">
+                {stats?.hired ?? 0} / {job.headcount} positions filled
+              </Text>
+              <Text variant="footnote" weight="semibold" style={{
+                color: (stats?.hired ?? 0) >= job.headcount ? GREEN : BLUE,
+              }}>
+                {Math.round(((stats?.hired ?? 0) / job.headcount) * 100)}%
+              </Text>
+            </View>
+            <View style={{ height: 6, borderRadius: 3, backgroundColor: isLight ? '#E5E7EB' : '#374151' }}>
+              <View style={{
+                height: 6, borderRadius: 3,
+                width: `${Math.min(100, Math.round(((stats?.hired ?? 0) / job.headcount) * 100))}%`,
+                backgroundColor: (stats?.hired ?? 0) >= job.headcount ? GREEN : BLUE,
+              }} />
+            </View>
+          </View>
+        )}
+
         {/* Row 2 — full-width "View applicants" inset row */}
-        <Pressable onPress={goToApplicants}>
+        <AnimatedPressable onPress={goToApplicants}>
           <View
             style={{
               flexDirection: 'row',
@@ -436,7 +516,7 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
               ›
             </Text>
           </View>
-        </Pressable>
+        </AnimatedPressable>
 
         {/* Row 3 — primary actions, only on open jobs */}
         {open && (
@@ -476,15 +556,73 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
             />
           </View>
         )}
+
+        {/* Edit / Duplicate row — always visible on open jobs */}
+        {open && (
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Pressable
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('PostJob', {
+                  editJobId: job.id,
+                  prefill: {
+                    title: job.title,
+                    description: job.description ?? '',
+                    type: job.type,
+                    amount: String(Math.round((job.pay?.amount ?? 0) / 100)),
+                    period: job.pay?.period ?? 'day',
+                    skills: job.skills ?? [],
+                  },
+                });
+              }}
+              style={({ pressed }) => ({
+                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                gap: 5, paddingVertical: 9, borderRadius: 10,
+                backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
+                borderWidth: 1, borderColor: BLUE + '40',
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Text style={{ fontSize: 13 }}>✏️</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: BLUE }}>Edit</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('PostJob', {
+                  prefill: {
+                    title: job.title,
+                    description: job.description ?? '',
+                    type: job.type,
+                    amount: String(Math.round((job.pay?.amount ?? 0) / 100)),
+                    period: job.pay?.period ?? 'day',
+                    skills: job.skills ?? [],
+                  },
+                });
+              }}
+              style={({ pressed }) => ({
+                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                gap: 5, paddingVertical: 9, borderRadius: 10,
+                backgroundColor: isLight ? '#F5F3FF' : '#2E1B5C',
+                borderWidth: 1, borderColor: '#7C3AED40',
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Text style={{ fontSize: 13 }}>📋</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#7C3AED' }}>Duplicate</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
       {/* Boost promo sheet */}
       <Modal visible={showBoost} transparent animationType="slide" onRequestClose={() => setShowBoost(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}
+        <BlurOverlay>
+        <Pressable style={{ flex: 1, justifyContent: 'flex-end' }}
           onPress={() => setShowBoost(false)}>
           <Pressable onPress={(e) => e.stopPropagation?.()}>
             <View style={{
-              backgroundColor: isLight ? '#FFFFFF' : '#1A1A1A',
+              backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
               borderTopLeftRadius: 24, borderTopRightRadius: 24,
               padding: spacing.xl, gap: spacing.lg,
               paddingBottom: spacing['2xl'],
@@ -543,6 +681,7 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
             </View>
           </Pressable>
         </Pressable>
+      </BlurOverlay>
       </Modal>
     </Card>
   );

@@ -92,8 +92,8 @@ export function NotifPreferencesScreen() {
   const { scheme } = useTheme();
   const isLight    = scheme !== 'dark';
 
-  const surface       = isLight ? '#FFFFFF' : '#1A1A1A';
-  const border        = isLight ? '#E5E7EB' : '#2A2A2A';
+  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
+  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
   const textPrimary   = isLight ? '#111827' : '#F9FAFB';
   const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
   const bg            = isLight ? '#F9FAFB' : '#0C0A0E';

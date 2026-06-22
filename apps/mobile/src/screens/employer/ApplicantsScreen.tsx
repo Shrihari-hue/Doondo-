@@ -8,14 +8,17 @@
  *   - Sticky bottom bar with Shortlist / Reject when items are selected
  */
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   ActivityIndicator,
   Dimensions,
   Modal,
+  PanResponder,
   Pressable,
   RefreshControl,
   ScrollView,
+  Share,
   TextInput,
   View,
 } from 'react-native';
@@ -29,10 +32,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, SkeletonCard, EmptyState, OfflineBanner, Avatar } from '@/components';
+import { Screen, Text, SkeletonCard, EmptyState, OfflineBanner, Avatar, BlurOverlay} from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi, type ApplicantEntry } from '@/api/applications.api';
 import { chatApi } from '@/api/chat.api';
+import { getSecure, setSecure } from '@/lib/secureStore';
 import { haptic } from '@/lib/haptics';
 import { VoiceRecorder, type VoiceRecordingResult } from '@/lib/chatVoice';
 import type { ApplicationStatus } from '@/api/types';
@@ -80,6 +84,56 @@ export function ApplicantsScreen() {
   const [bulkMsgText, setBulkMsgText] = useState('');
   const [bulkMsgSending, setBulkMsgSending] = useState(false);
 
+  // Shortlist folders
+  type Folder = { name: string; applicationIds: string[] };
+  const [folders, setFolders] = useState<Record<string, Folder>>({});
+  const [showFolders, setShowFolders] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getSecure('shortlistFolders').then((raw) => {
+      if (raw) setFolders(JSON.parse(raw) as Record<string, Folder>);
+    });
+  }, []);
+
+  async function saveFolders(next: Record<string, Folder>) {
+    setFolders(next);
+    await setSecure('shortlistFolders', JSON.stringify(next));
+  }
+
+  async function createFolder() {
+    const name = newFolderName.trim();
+    if (!name) return;
+    haptic('selection');
+    const id = `folder_${Date.now()}`;
+    await saveFolders({ ...folders, [id]: { name, applicationIds: [] } });
+    setNewFolderName('');
+  }
+
+  async function addToFolder(folderId: string, applicationId: string) {
+    haptic('success');
+    const folder = folders[folderId];
+    if (!folder) return;
+    if (folder.applicationIds.includes(applicationId)) return;
+    await saveFolders({ ...folders, [folderId]: { ...folder, applicationIds: [...folder.applicationIds, applicationId] } });
+  }
+
+  async function removeFromFolder(folderId: string, applicationId: string) {
+    haptic('selection');
+    const folder = folders[folderId];
+    if (!folder) return;
+    await saveFolders({ ...folders, [folderId]: { ...folder, applicationIds: folder.applicationIds.filter((id) => id !== applicationId) } });
+  }
+
+  async function deleteFolder(folderId: string) {
+    haptic('medium');
+    const next = { ...folders };
+    delete next[folderId];
+    await saveFolders(next);
+    if (activeFolderId === folderId) setActiveFolderId(null);
+  }
+
   // Voice-to-shortlist state
   const [listening, setListening] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('');
@@ -93,6 +147,24 @@ export function ApplicantsScreen() {
   });
 
   const allApplicants = query.data?.applications ?? [];
+
+  /** Compute a 0–100 fit score for an applicant against their job. */
+  function computeFitScore(a: ApplicantEntry): number {
+    let score = 40; // base
+    // Skills overlap: each matching skill adds points (max 40)
+    const jobSkills = (a.job?.skills ?? []).map((s) => s.toLowerCase());
+    const seekerSkills = (a.seeker?.skills ?? []).map((s) => s.toLowerCase());
+    if (jobSkills.length > 0) {
+      const overlap = seekerSkills.filter((s) => jobSkills.some((j) => j.includes(s) || s.includes(j))).length;
+      score += Math.min(40, Math.round((overlap / jobSkills.length) * 40));
+    }
+    // Trust/verification bonus (max 15)
+    if (a.seeker?.isVerified) score += 10;
+    if ((a.seeker as any)?.trustScore >= 80) score += 5;
+    // Experience bonus (max 5)
+    if ((a.seeker as any)?.yearsOfExperience >= 2) score += 5;
+    return Math.min(100, score);
+  }
 
   const counts = useMemo(() => ({
     all:         allApplicants.length,
@@ -232,6 +304,33 @@ export function ApplicantsScreen() {
 
   const isBulkPending = bulkShortlist.isPending || bulkReject.isPending;
 
+  // ── Undo toast for reject actions ────────────────────────────────────────
+  const [undoToast, setUndoToast] = useState<{ label: string; ids: string[] } | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  function showUndoToast(label: string, ids: string[]) {
+    setUndoToast({ label, ids });
+    Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    undoTimerRef.current = setTimeout(() => {
+      commitReject(ids);
+    }, 3500);
+  }
+
+  function handleUndo() {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    Animated.timing(toastOpacity, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => setUndoToast(null));
+    haptic('selection');
+  }
+
+  async function commitReject(ids: string[]) {
+    Animated.timing(toastOpacity, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => setUndoToast(null));
+    await Promise.all(ids.map((id) => applicationsApi.reject(id)));
+    haptic('success');
+    void queryClient.invalidateQueries({ queryKey: ['applicants', 'employer'] });
+  }
+
   async function sendBulkMessage() {
     const text = bulkMsgText.trim();
     if (!text) return;
@@ -296,7 +395,7 @@ export function ApplicantsScreen() {
                 <Pressable onPress={() => void startVoiceListen()} hitSlop={8}>
                   <View style={{
                     width: 32, height: 32, borderRadius: 16,
-                    backgroundColor: listening ? RED : (isLight ? '#F3F4F6' : '#2A2A2A'),
+                    backgroundColor: listening ? RED : (isLight ? '#F3F4F6' : '#1E1E1E'),
                     alignItems: 'center', justifyContent: 'center',
                   }}>
                     <Feather name="mic" size={15} color={listening ? '#FFFFFF' : textSecondary} />
@@ -315,6 +414,9 @@ export function ApplicantsScreen() {
                         borderRadius: 4, backgroundColor: BLUE }} />
                     )}
                   </View>
+                </Pressable>
+                <Pressable onPress={() => { haptic('selection'); setShowFolders(true); }} hitSlop={8}>
+                  <Feather name="folder" size={20} color={Object.keys(folders).length > 0 ? BLUE : textPrimary} />
                 </Pressable>
                 <Pressable onPress={() => setSelectMode(true)} hitSlop={8}>
                   <Text style={{ fontSize: 14, fontWeight: '600', color: BLUE }}>Select</Text>
@@ -347,7 +449,7 @@ export function ApplicantsScreen() {
                 </Text>
                 {tab.count > 0 && (
                   <View style={{
-                    backgroundColor: active ? BLUE : (isLight ? '#F3F4F6' : '#2A2A2A'),
+                    backgroundColor: active ? BLUE : (isLight ? '#F3F4F6' : '#1E1E1E'),
                     borderRadius: 10, minWidth: 20, height: 20,
                     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5,
                   }}>
@@ -422,17 +524,25 @@ export function ApplicantsScreen() {
               <RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} tintColor={BLUE} />
             }
           >
-            {query.isLoading ? (
+            {(query.isLoading || query.isRefetching) ? (
               <><SkeletonCard lines={2} /><SkeletonCard lines={2} /><SkeletonCard lines={2} /></>
             ) : query.isError ? (
               <EmptyState glyph="✕" tone="warning" eyebrow="Offline" title="Could not load applicants"
                 message="Check your connection and pull to refresh." tall />
             ) : applicants.length === 0 ? (
-              <EmptyState glyph="◔" tone="hero"
+              <EmptyState
+                glyph={filter === 'all' ? '📋' : '◔'}
+                tone="hero"
                 eyebrow={filter === 'all' ? 'No applicants yet' : `No ${filter} applicants`}
-                title={filter === 'all' ? 'Waiting for applicants' : 'Nothing here'}
-                message={filter === 'all' ? 'Post a job and applicants will appear here.' : 'Try a different filter.'}
-                tall />
+                title={filter === 'all' ? 'Post a job to start receiving applications' : `No applicants in "${filter}" stage`}
+                message={filter === 'all' ? 'Active job posts automatically surface here when workers apply.' : 'Switch filters or check back soon.'}
+                cta={
+                  filter === 'all'
+                    ? { label: '+ Post a Job', onPress: () => { haptic('selection'); navigation.navigate('PostJob'); } }
+                    : { label: 'Show all applicants', onPress: () => { setFilter('all'); } }
+                }
+                tall
+              />
             ) : (
               applicants.map((a) => (
                 <View key={a.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
@@ -448,11 +558,21 @@ export function ApplicantsScreen() {
                     </Pressable>
                   )}
                   <View style={{ flex: 1 }}>
-                    <ApplicantCard
-                      applicant={a}
-                      showJobTitle
-                      onLongPress={!selectMode ? () => enterSelectMode(a.id) : undefined}
-                    />
+                    <SwipeableRow
+                      disabled={selectMode}
+                      onSwipeLeft={() => showUndoToast('1 rejected', [a.id])}
+                      onSwipeRight={() => {
+                        haptic('success');
+                        moveCard.mutate({ id: a.id, to: 'shortlisted' });
+                      }}
+                    >
+                      <ApplicantCard
+                        applicant={a}
+                        showJobTitle
+                        onLongPress={!selectMode ? () => enterSelectMode(a.id) : undefined}
+                        fitScore={computeFitScore(a)}
+                      />
+                    </SwipeableRow>
                   </View>
                 </View>
               ))
@@ -477,7 +597,7 @@ export function ApplicantsScreen() {
           <View style={{
             position: 'absolute', left: 0, right: 0, bottom: 0,
             paddingBottom: insets.bottom + spacing.sm, paddingHorizontal: spacing.xl,
-            paddingTop: spacing.md, backgroundColor: isLight ? '#FFFFFF' : '#1A1A1A',
+            paddingTop: spacing.md, backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
             borderTopWidth: 1, borderTopColor: border, gap: spacing.sm,
             shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: -4 },
           }}>
@@ -499,6 +619,22 @@ export function ApplicantsScreen() {
                 <Text style={{ fontSize: 14, fontWeight: '700', color: BLUE }}>Compare Side-by-Side</Text>
               </Pressable>
             )}
+            {/* Save to Folder */}
+            {Object.keys(folders).length > 0 && (
+              <Pressable onPress={() => {
+                haptic('selection');
+                // Add all selected to first folder for quick action, or open folder picker
+                setShowFolders(true);
+              }}
+                style={({ pressed }) => ({
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  borderRadius: 12, paddingVertical: 10, borderWidth: 1.5, borderColor: '#16A34A',
+                  opacity: pressed ? 0.75 : 1,
+                })}>
+                <Feather name="folder-plus" size={15} color="#16A34A" />
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#16A34A' }}>Save to Folder</Text>
+              </Pressable>
+            )}
             {/* Message Selected */}
             <Pressable onPress={() => { haptic('selection'); setShowBulkMsg(true); }}
               style={({ pressed }) => ({
@@ -510,16 +646,19 @@ export function ApplicantsScreen() {
               <Text style={{ fontSize: 14, fontWeight: '700', color: '#7C3AED' }}>Message {selected.size} Selected</Text>
             </Pressable>
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <Pressable disabled={isBulkPending} onPress={() => bulkReject.mutate()}
+              <Pressable disabled={isBulkPending} onPress={() => {
+                  haptic('medium');
+                  const ids = [...selected];
+                  exitSelectMode();
+                  showUndoToast(`${ids.length} rejected`, ids);
+                }}
                 style={({ pressed }) => ({
                   flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
                   borderRadius: 12, paddingVertical: 13, borderWidth: 1.5, borderColor: RED,
                   opacity: pressed || isBulkPending ? 0.7 : 1,
                 })}>
-                {bulkReject.isPending
-                  ? <ActivityIndicator size="small" color={RED} />
-                  : <><Feather name="x-circle" size={16} color={RED} />
-                     <Text style={{ fontSize: 15, fontWeight: '700', color: RED }}>Reject</Text></>}
+                <Feather name="x-circle" size={16} color={RED} />
+                <Text style={{ fontSize: 15, fontWeight: '700', color: RED }}>Reject</Text>
               </Pressable>
               <Pressable disabled={isBulkPending} onPress={() => bulkShortlist.mutate()}
                 style={({ pressed }) => ({
@@ -554,7 +693,7 @@ export function ApplicantsScreen() {
               {/* Header */}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
                 paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.xl,
-                paddingBottom: spacing.md, backgroundColor: isLight ? '#FFFFFF' : '#1A1A1A',
+                paddingBottom: spacing.md, backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
                 borderBottomWidth: 0.5, borderBottomColor: border }}>
                 <Pressable hitSlop={12} onPress={() => setShowCompare(false)}>
                   <Feather name="x" size={22} color={textPrimary} />
@@ -567,7 +706,7 @@ export function ApplicantsScreen() {
                 <View style={{ flexDirection: 'row', gap: spacing.md }}>
                   {cols.map((ap) => (
                     <View key={ap.id} style={{ flex: 1, alignItems: 'center', gap: spacing.sm,
-                      backgroundColor: isLight ? '#FFFFFF' : '#1A1A1A', borderRadius: 16,
+                      backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D', borderRadius: 16,
                       borderWidth: 1, borderColor: border, padding: spacing.md }}>
                       <Avatar name={ap.seeker?.name ?? 'A'} photoUrl={ap.seeker?.photoUrl ?? null} size={56} premium={ap.seeker?.isVerified} />
                       <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary, textAlign: 'center' }} numberOfLines={1}>
@@ -593,7 +732,7 @@ export function ApplicantsScreen() {
                   { label: 'Status', fn: (ap: ApplicantEntry) => ap.status.charAt(0).toUpperCase() + ap.status.slice(1) },
                   { label: 'Applied', fn: (ap: ApplicantEntry) => new Date(ap.timeline.appliedAt).toLocaleDateString() },
                 ].map((row) => (
-                  <View key={row.label} style={{ backgroundColor: isLight ? '#FFFFFF' : '#1A1A1A',
+                  <View key={row.label} style={{ backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
                     borderRadius: 12, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
                     <View style={{ backgroundColor: isLight ? '#F9FAFB' : '#111', paddingHorizontal: spacing.md, paddingVertical: 6 }}>
                       <Text style={{ fontSize: 12, fontWeight: '600', color: textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 }}>{row.label}</Text>
@@ -647,14 +786,15 @@ export function ApplicantsScreen() {
 
       {/* ── Advanced filter bottom sheet ── */}
       <Modal visible={showFilter} transparent animationType="slide" onRequestClose={() => setShowFilter(false)}>
+        <BlurOverlay>
         <Pressable
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
           onPress={() => setShowFilter(false)}
         >
           <Pressable
             onPress={(e) => e.stopPropagation?.()}
             style={{
-              backgroundColor: isLight ? '#FFFFFF' : '#1A1A1A',
+              backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
               borderTopLeftRadius: 24, borderTopRightRadius: 24,
               padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg,
             }}
@@ -679,7 +819,7 @@ export function ApplicantsScreen() {
                 placeholder="e.g. Koramangala"
                 placeholderTextColor={isLight ? '#9CA3AF' : '#6B7280'}
                 style={{
-                  borderWidth: 1, borderColor: isLight ? '#E5E7EB' : '#2A2A2A',
+                  borderWidth: 1, borderColor: isLight ? '#E5E7EB' : '#1E1E1E',
                   borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
                   fontSize: 14, color: isLight ? '#111827' : '#F9FAFB',
                   backgroundColor: isLight ? '#F9FAFB' : '#111111',
@@ -699,7 +839,7 @@ export function ApplicantsScreen() {
                       style={{
                         paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
                         borderWidth: active ? 1.5 : 1,
-                        borderColor: active ? BLUE : (isLight ? '#E5E7EB' : '#2A2A2A'),
+                        borderColor: active ? BLUE : (isLight ? '#E5E7EB' : '#1E1E1E'),
                         backgroundColor: active ? BLUE_LIGHT : 'transparent',
                       }}>
                       <Text style={{ fontSize: 13, fontWeight: active ? '700' : '500',
@@ -721,7 +861,7 @@ export function ApplicantsScreen() {
                 placeholder="e.g. Plumber, Electrician"
                 placeholderTextColor={isLight ? '#9CA3AF' : '#6B7280'}
                 style={{
-                  borderWidth: 1, borderColor: isLight ? '#E5E7EB' : '#2A2A2A',
+                  borderWidth: 1, borderColor: isLight ? '#E5E7EB' : '#1E1E1E',
                   borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
                   fontSize: 14, color: isLight ? '#111827' : '#F9FAFB',
                   backgroundColor: isLight ? '#F9FAFB' : '#111111',
@@ -747,16 +887,94 @@ export function ApplicantsScreen() {
             </Pressable>
           </Pressable>
         </Pressable>
+        </BlurOverlay>
+      </Modal>
+
+      {/* ── Shortlist Folders Sheet ── */}
+      <Modal visible={showFolders} transparent animationType="slide" onRequestClose={() => setShowFolders(false)}>
+        <BlurOverlay>
+        <Pressable style={{ flex: 1, justifyContent: 'flex-end' }} onPress={() => setShowFolders(false)}>
+          <Pressable onPress={(e) => e.stopPropagation?.()}>
+            <View style={{
+              backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+              borderTopLeftRadius: 24, borderTopRightRadius: 24,
+              padding: spacing.xl, gap: spacing.lg, paddingBottom: spacing['2xl'],
+              maxHeight: '75%',
+            }}>
+              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#374151', alignSelf: 'center' }} />
+              <Text style={{ fontSize: 20, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>📁 Shortlist Folders</Text>
+
+              {/* Create new folder */}
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <TextInput
+                  value={newFolderName}
+                  onChangeText={setNewFolderName}
+                  placeholder="New folder name…"
+                  placeholderTextColor={isLight ? '#9CA3AF' : '#6B7280'}
+                  style={{
+                    flex: 1, borderWidth: 1, borderColor: isLight ? '#E5E7EB' : '#374151',
+                    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9,
+                    fontSize: 14, color: isLight ? '#111827' : '#F9FAFB',
+                    backgroundColor: isLight ? '#F9FAFB' : '#111111',
+                  }}
+                  onSubmitEditing={() => void createFolder()}
+                />
+                <Pressable
+                  onPress={() => void createFolder()}
+                  style={({ pressed }) => ({
+                    paddingHorizontal: 16, paddingVertical: 9, borderRadius: 10,
+                    backgroundColor: BLUE, opacity: pressed ? 0.7 : 1,
+                    alignItems: 'center', justifyContent: 'center',
+                  })}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>Create</Text>
+                </Pressable>
+              </View>
+
+              {/* Folder list */}
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 300 }}>
+                {Object.keys(folders).length === 0 ? (
+                  <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 14, color: isLight ? '#9CA3AF' : '#6B7280' }}>No folders yet. Create one above.</Text>
+                  </View>
+                ) : (
+                  Object.entries(folders).map(([id, folder]) => (
+                    <Pressable
+                      key={id}
+                      onPress={() => { haptic('selection'); setActiveFolderId(id); setShowFolders(false); }}
+                      style={({ pressed }) => ({
+                        flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                        paddingVertical: spacing.md,
+                        borderBottomWidth: 1, borderBottomColor: isLight ? '#F3F4F6' : '#1E1E1E',
+                        opacity: pressed ? 0.7 : 1,
+                      })}
+                    >
+                      <Text style={{ fontSize: 20 }}>📁</Text>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '600', color: isLight ? '#111827' : '#F9FAFB' }}>{folder.name}</Text>
+                        <Text style={{ fontSize: 12, color: isLight ? '#6B7280' : '#9CA3AF' }}>{folder.applicationIds.length} applicants</Text>
+                      </View>
+                      <Pressable onPress={() => void deleteFolder(id)} hitSlop={8}>
+                        <Feather name="trash-2" size={16} color="#EF4444" />
+                      </Pressable>
+                    </Pressable>
+                  ))
+                )}
+              </ScrollView>
+            </View>
+          </Pressable>
+        </Pressable>
+      </BlurOverlay>
       </Modal>
 
       {/* ── Bulk message composer ── */}
       <Modal visible={showBulkMsg} transparent animationType="slide" onRequestClose={() => setShowBulkMsg(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} onPress={() => setShowBulkMsg(false)}>
+        <BlurOverlay>
+        <Pressable style={{ flex: 1 }} onPress={() => setShowBulkMsg(false)}>
           <Pressable
             onPress={(e) => e.stopPropagation?.()}
             style={{
               position: 'absolute', bottom: 0, left: 0, right: 0,
-              backgroundColor: isLight ? '#FFFFFF' : '#1A1A1A',
+              backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
               borderTopLeftRadius: 24, borderTopRightRadius: 24,
               padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl,
               gap: spacing.md,
@@ -778,7 +996,7 @@ export function ApplicantsScreen() {
               numberOfLines={4}
               autoFocus
               style={{
-                borderWidth: 1, borderColor: isLight ? '#E5E7EB' : '#2A2A2A',
+                borderWidth: 1, borderColor: isLight ? '#E5E7EB' : '#1E1E1E',
                 borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12,
                 fontSize: 15, color: isLight ? '#111827' : '#F9FAFB',
                 backgroundColor: isLight ? '#F9FAFB' : '#111111',
@@ -804,8 +1022,118 @@ export function ApplicantsScreen() {
             </Pressable>
           </Pressable>
         </Pressable>
+      </BlurOverlay>
       </Modal>
+
+      {/* ── Undo Toast ── */}
+      {undoToast && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            bottom: insets.bottom + 90,
+            left: 16, right: 16,
+            backgroundColor: '#1F2937',
+            borderRadius: 14,
+            paddingVertical: 12, paddingHorizontal: 16,
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+            opacity: toastOpacity,
+            shadowColor: '#000',
+            shadowOpacity: 0.25, shadowRadius: 10,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 10,
+          }}
+        >
+          <Text style={{ fontSize: 14, color: '#F9FAFB', fontWeight: '500', flex: 1 }}>
+            {undoToast.label}
+          </Text>
+          <Pressable onPress={handleUndo} hitSlop={12}
+            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, paddingLeft: 16 })}>
+            <Text style={{ fontSize: 14, fontWeight: '800', color: '#60A5FA' }}>Undo</Text>
+          </Pressable>
+        </Animated.View>
+      )}
     </Screen>
+  );
+}
+
+// ── Swipeable row wrapper ─────────────────────────────────────────────────────
+function SwipeableRow({
+  children,
+  onSwipeLeft,
+  onSwipeRight,
+  disabled = false,
+}: {
+  children: React.ReactNode;
+  onSwipeLeft: () => void;
+  onSwipeRight: () => void;
+  disabled?: boolean;
+}) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const THRESHOLD = 80;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_e, gs) => !disabled && Math.abs(gs.dx) > 8 && Math.abs(gs.dy) < 20,
+      onPanResponderMove: (_e, gs) => {
+        if (!disabled) translateX.setValue(gs.dx);
+      },
+      onPanResponderRelease: (_e, gs) => {
+        if (disabled) return;
+        if (gs.dx < -THRESHOLD) {
+          // Swipe left → reject
+          Animated.timing(translateX, { toValue: -120, duration: 150, useNativeDriver: true }).start(() => {
+            onSwipeLeft();
+            Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+          });
+        } else if (gs.dx > THRESHOLD) {
+          // Swipe right → shortlist
+          Animated.timing(translateX, { toValue: 120, duration: 150, useNativeDriver: true }).start(() => {
+            onSwipeRight();
+            Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+          });
+        } else {
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+      },
+    }),
+  ).current;
+
+  // Background hint colors based on drag direction
+  const bgColor = translateX.interpolate({
+    inputRange: [-120, 0, 120],
+    outputRange: ['#FEE2E2', 'transparent', '#DCFCE7'],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <View style={{ overflow: 'hidden', borderRadius: 12 }}>
+      {/* Background reveal */}
+      <Animated.View style={{
+        position: 'absolute', inset: 0,
+        backgroundColor: bgColor,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+      }}>
+        <View style={{ alignItems: 'center', gap: 4 }}>
+          <Feather name="check-circle" size={22} color="#16A34A" />
+          <Text style={{ fontSize: 10, fontWeight: '700', color: '#16A34A' }}>Shortlist</Text>
+        </View>
+        <View style={{ alignItems: 'center', gap: 4 }}>
+          <Feather name="x-circle" size={22} color="#EF4444" />
+          <Text style={{ fontSize: 10, fontWeight: '700', color: '#EF4444' }}>Reject</Text>
+        </View>
+      </Animated.View>
+      {/* Draggable card */}
+      <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
+        {children}
+      </Animated.View>
+    </View>
   );
 }
 
@@ -823,7 +1151,7 @@ function KanbanCard({ applicant, colKey, isLight, border, textPrimary, textSecon
   onMove: (to: 'shortlisted' | 'hired' | 'rejected') => void;
 }) {
   const [showMoveSheet, setShowMoveSheet] = useState(false);
-  const surface = isLight ? '#FFFFFF' : '#1A1A1A';
+  const surface = isLight ? '#FFFFFF' : '#0D0D0D';
   const name = applicant.seeker?.name ?? 'Applicant';
   const role = applicant.job?.title ?? applicant.seeker?.skills?.[0] ?? '—';
   const hash = [...applicant.id].reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -879,7 +1207,8 @@ function KanbanCard({ applicant, colKey, isLight, border, textPrimary, textSecon
 
       {/* Move sheet */}
       <Modal visible={showMoveSheet} transparent animationType="slide" onRequestClose={() => setShowMoveSheet(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}
+        <BlurOverlay>
+        <Pressable style={{ flex: 1, justifyContent: 'flex-end' }}
           onPress={() => setShowMoveSheet(false)}>
           <Pressable onPress={(e) => e.stopPropagation?.()}>
             <View style={{ backgroundColor: surface, borderTopLeftRadius: 20, borderTopRightRadius: 20,
@@ -910,6 +1239,7 @@ function KanbanCard({ applicant, colKey, isLight, border, textPrimary, textSecon
             </View>
           </Pressable>
         </Pressable>
+      </BlurOverlay>
       </Modal>
     </>
   );

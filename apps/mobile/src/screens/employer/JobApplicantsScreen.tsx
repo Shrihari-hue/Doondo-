@@ -12,7 +12,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, SkeletonCard, EmptyState, Card, TextField, Button } from '@/components';
+import { Screen, Text, SkeletonCard, EmptyState, Card, TextField, Button, BlurOverlay} from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { applicationsApi } from '@/api/applications.api';
@@ -362,7 +362,7 @@ export function JobApplicantsScreen() {
       >
         <Pressable
           onPress={() => setComposerOpen(false)}
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
         >
           <Pressable
             onPress={() => undefined}
@@ -401,7 +401,7 @@ export function JobApplicantsScreen() {
       >
         <Pressable
           onPress={() => setBriefingOpen(false)}
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
         >
           <Pressable
             onPress={() => undefined}

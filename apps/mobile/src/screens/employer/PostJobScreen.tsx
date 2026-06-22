@@ -1,9 +1,10 @@
 /**
- * PostJobScreen — modal form to create a job.
+ * PostJobScreen — modal form to create, edit, or duplicate a job.
  *
- * Single screen, sectioned: Title & description → Type & pay →
- * Location → Skills. Save calls jobsApi.create and pops back to the
- * Posts list, which refetches.
+ * Modes (driven by route params):
+ *   - Create (default): no params → POST /jobs
+ *   - Edit:   { editJobId, prefill } → PATCH /jobs/:id
+ *   - Duplicate: { prefill } (no editJobId) → POST /jobs with fields pre-filled
  *
  * Pay amounts are entered in rupees in the UI but stored in paise on
  * the backend. We convert at the boundary.
@@ -21,16 +22,18 @@ import {
   View,
 } from 'react-native';
 import { getSecure, setSecure } from '@/lib/secureStore';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, TextField, Button, FormError, Pill } from '@/components';
+import { Screen, Text, TextField, Button, FormError, Pill, Avatar, BlurOverlay} from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { jobsApi, type CreateJobPayload } from '@/api/jobs.api';
+import { applicationsApi, type ApplicantEntry } from '@/api/applications.api';
+import { chatApi } from '@/api/chat.api';
 import { skillTestsApi } from '@/api/skillTests.api';
 import { getCurrentCoords } from '@/lib/location';
 import { haptic } from '@/lib/haptics';
@@ -61,7 +64,8 @@ import type { JobDraft } from '@/api/postDraft.api';
 const DRAFT_DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-type Nav = NativeStackNavigationProp<AppStackParamList, 'PostJob'>;
+type Nav   = NativeStackNavigationProp<AppStackParamList, 'PostJob'>;
+type Route = RouteProp<AppStackParamList, 'PostJob'>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 const JOB_TYPE_OPTIONS: Array<{ key: JobType; labelKey: string }> = [
@@ -82,8 +86,12 @@ const PAY_PERIOD_OPTIONS: Array<{ key: PayPeriod; labelKey: string }> = [
 
 export function PostJobScreen() {
   const navigation = useNavigation<Nav>();
+  const route      = useRoute<Route>();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  // Prefill from duplicate / edit params
+  const routeParams = route.params;
   const { theme } = useTheme();
   const t = useTranslate();
 
@@ -95,17 +103,18 @@ export function PostJobScreen() {
   // Job category (UI only for now — sent inside description/title context)
   const [category, setCategory] = useState('');
 
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const pf = routeParams?.prefill;
+  const [title, setTitle] = useState(pf?.title ?? '');
+  const [description, setDescription] = useState(pf?.description ?? '');
   // Optional voice description — recorded inline, stored as a base64
   // data URL alongside the text description. Capped at 60 seconds.
   const [audio, setAudio] = useState<VoiceRecordingResult | null>(null);
   const [recording, setRecording] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const recorderRef = useRef<VoiceRecorder | null>(null);
-  const [type, setType] = useState<JobType>('gig');
-  const [amount, setAmount] = useState('');
-  const [period, setPeriod] = useState<PayPeriod>('day');
+  const [type, setType] = useState<JobType>((pf?.type as JobType) ?? 'gig');
+  const [amount, setAmount] = useState(pf?.amount ?? '');
+  const [period, setPeriod] = useState<PayPeriod>((pf?.period as PayPeriod) ?? 'day');
   // Location — pre-fill from the employer's saved business location if any.
   const [city, setCity] = useState(user?.employerLocation?.city ?? user?.location?.city ?? '');
   const [area, setArea] = useState(user?.employerLocation?.area ?? user?.location?.area ?? '');
@@ -123,7 +132,7 @@ export function PostJobScreen() {
         : null,
   );
   const [detecting, setDetecting] = useState(false);
-  const [skills, setSkills] = useState<string[]>([]);
+  const [skills, setSkills] = useState<string[]>(pf?.skills ?? []);
   const [skillDraft, setSkillDraft] = useState('');
   const [requiredSkillTestId, setRequiredSkillTestId] = useState<string | null>(null);
   const [headcount, setHeadcount] = useState('1');
@@ -170,6 +179,38 @@ export function PostJobScreen() {
       .then((raw) => { if (raw) setTemplates(JSON.parse(raw) as JobTemplate[]); })
       .catch(() => {});
   }, []);
+
+  // ── Re-hire suggestions (shown after a successful new publish) ──────────
+  const [showReHire, setShowReHire] = useState(false);
+  const [reHireInvited, setReHireInvited] = useState<Set<string>>(new Set());
+
+  const pastWorkersQuery = useQuery({
+    queryKey: ['applicants', 'employer', 'rehire'],
+    queryFn: () => applicationsApi.listForEmployer({ limit: 200 }),
+    enabled: showReHire,
+    staleTime: 5 * 60_000,
+  });
+
+  /** Hired workers whose past job type matches the current posting type */
+  const reHireSuggestions: ApplicantEntry[] = (pastWorkersQuery.data?.applications ?? [])
+    .filter((a) => a.status === 'hired' && a.job?.type === type && a.seeker?.id)
+    .slice(0, 5);
+
+  async function inviteWorker(app: ApplicantEntry) {
+    if (!app.seeker?.id || reHireInvited.has(app.id)) return;
+    haptic('selection');
+    try {
+      const { conversationId } = await chatApi.ensureFromApplication(app.id);
+      await chatApi.sendMessage(
+        conversationId,
+        `Hi ${app.seeker.name ?? 'there'}! We just posted a new ${type.replace('_', ' ')} role — ${title.trim() || 'similar to your previous job'} — and thought of you first. Interested?`,
+      );
+      setReHireInvited((prev) => new Set([...prev, app.id]));
+      haptic('success');
+    } catch {
+      haptic('error');
+    }
+  }
 
   async function saveTemplate() {
     if (!title.trim()) { Alert.alert('Enter a title', 'Add a job title before saving as template.'); return; }
@@ -298,12 +339,20 @@ export function PostJobScreen() {
         womenSafety:
           countWomenSafetySignals(womenSafety) > 0 ? womenSafety : undefined,
       };
-      return jobsApi.create(body);
+      const editJobId = routeParams?.editJobId;
+      return editJobId
+        ? jobsApi.update(editJobId, body)
+        : jobsApi.create(body);
     },
     onSuccess: () => {
       haptic('success');
       void queryClient.invalidateQueries({ queryKey: ['jobs', 'mine'] });
-      navigation.goBack();
+      // For new posts only (not edit/duplicate): show re-hire suggestions
+      if (!routeParams?.editJobId) {
+        setShowReHire(true);
+      } else {
+        navigation.goBack();
+      }
     },
     onError: (err) => {
       haptic('error');
@@ -392,7 +441,7 @@ export function PostJobScreen() {
               color: textColor,
             }}
           >
-            Post a Job
+            {routeParams?.editJobId ? 'Edit Job' : 'Post a Job'}
           </Text>
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             {templates.length > 0 && (
@@ -1183,7 +1232,9 @@ export function PostJobScreen() {
               })}
             >
               <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>
-                {mutation.isPending ? 'Publishing…' : 'Publish Job'}
+                {mutation.isPending
+                  ? (routeParams?.editJobId ? 'Saving…' : 'Publishing…')
+                  : (routeParams?.editJobId ? 'Save Changes' : 'Publish Job')}
               </Text>
             </Pressable>
             {validationReason && !mutation.isPending && (
@@ -1197,8 +1248,9 @@ export function PostJobScreen() {
 
       {/* ── Job Templates Sheet ── */}
       <Modal visible={showTemplates} transparent animationType="slide" onRequestClose={() => setShowTemplates(false)}>
+        <BlurOverlay>
         <Pressable
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }}
+          style={{ flex: 1 }}
           onPress={() => setShowTemplates(false)}
         >
           <Pressable
@@ -1262,6 +1314,108 @@ export function PostJobScreen() {
                 </Text>
               )}
             </ScrollView>
+          </Pressable>
+        </Pressable>
+        </BlurOverlay>
+      </Modal>
+
+      {/* ── Re-hire Suggestions Modal (shown after successful new publish) ── */}
+      <Modal
+        visible={showReHire}
+        transparent
+        animationType="slide"
+        onRequestClose={() => { setShowReHire(false); navigation.goBack(); }}
+      >
+        <Pressable
+          style={{ flex: 1, justifyContent: 'flex-end' }}
+          onPress={() => { setShowReHire(false); navigation.goBack(); }}
+        >
+          <Pressable onPress={(e) => e.stopPropagation?.()}>
+            <View style={{
+              backgroundColor: '#FFFFFF',
+              borderTopLeftRadius: 24, borderTopRightRadius: 24,
+              padding: spacing.xl, gap: spacing.lg,
+              paddingBottom: insets.bottom + spacing.xl,
+              maxHeight: '80%',
+            }}>
+              {/* Handle */}
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center' }} />
+
+              {/* Header */}
+              <View style={{ gap: 4 }}>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>🎉 Job posted!</Text>
+                {reHireSuggestions.length > 0 ? (
+                  <Text style={{ fontSize: 14, color: '#6B7280' }}>
+                    Workers you've hired before might be a great fit. Send them a quick invite?
+                  </Text>
+                ) : (
+                  <Text style={{ fontSize: 14, color: '#6B7280' }}>
+                    Your job is live. No past workers match this role type yet.
+                  </Text>
+                )}
+              </View>
+
+              {/* Suggestions list */}
+              {pastWorkersQuery.isLoading ? (
+                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                  <Text style={{ color: '#9CA3AF', fontSize: 14 }}>Loading suggestions…</Text>
+                </View>
+              ) : reHireSuggestions.length > 0 ? (
+                <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 280 }}>
+                  {reHireSuggestions.map((app) => {
+                    const invited = reHireInvited.has(app.id);
+                    return (
+                      <View
+                        key={app.id}
+                        style={{
+                          flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                          paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+                        }}
+                      >
+                        <Avatar name={app.seeker?.name ?? '?'} photoUrl={app.seeker?.photoUrl ?? null} size={42} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 15, fontWeight: '600', color: '#111827' }}>{app.seeker?.name ?? 'Worker'}</Text>
+                          <Text style={{ fontSize: 12, color: '#6B7280' }}>Hired for: {app.job?.title ?? 'previous role'}</Text>
+                        </View>
+                        <Pressable
+                          onPress={() => void inviteWorker(app)}
+                          disabled={invited}
+                          style={({ pressed }) => ({
+                            paddingHorizontal: 14, paddingVertical: 8,
+                            borderRadius: 20,
+                            backgroundColor: invited ? '#F3F4F6' : (pressed ? '#1D4ED8' : BLUE),
+                            borderWidth: invited ? 1 : 0,
+                            borderColor: '#E5E7EB',
+                          })}
+                        >
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: invited ? '#9CA3AF' : '#FFFFFF' }}>
+                            {invited ? 'Invited ✓' : 'Invite'}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              ) : null}
+
+              {/* Done button */}
+              <Pressable
+                onPress={() => { setShowReHire(false); navigation.goBack(); }}
+                style={({ pressed }) => ({
+                  paddingVertical: 14, borderRadius: 14,
+                  backgroundColor: reHireSuggestions.length > 0 ? '#F3F4F6' : BLUE,
+                  alignItems: 'center',
+                  opacity: pressed ? 0.8 : 1,
+                })}
+              >
+                <Text style={{
+                  fontSize: 16, fontWeight: '700',
+                  color: reHireSuggestions.length > 0 ? '#374151' : '#FFFFFF',
+                }}>
+                  {reHireSuggestions.length > 0 ? 'Done — Go to My Jobs' : 'View My Jobs'}
+                </Text>
+              </Pressable>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>

@@ -6,7 +6,8 @@
  *   View Profile (outline) · Shortlist (blue outline)
  */
 
-import { Pressable, View } from 'react-native';
+import { Animated, Pressable, View } from 'react-native';
+import { useEffect, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
@@ -29,13 +30,15 @@ interface Props {
   blind?: boolean;
   blindIndex?: number;
   onLongPress?: () => void;
+  /** 0–100 fit score to show as a colored badge */
+  fitScore?: number;
 }
 
 const BLUE = '#2563EB';
 const GREEN = '#16A34A';
 const GREEN_LIGHT = '#DCFCE7';
 
-export function ApplicantCard({ applicant, showJobTitle = false, blind = false, blindIndex, onLongPress }: Props) {
+export function ApplicantCard({ applicant, showJobTitle = false, blind = false, blindIndex, onLongPress, fitScore }: Props) {
   const navigation = useNavigation<Nav>();
   const { scheme } = useTheme();
   const isLight = scheme !== 'dark';
@@ -51,8 +54,8 @@ export function ApplicantCard({ applicant, showJobTitle = false, blind = false, 
   const isHired = applicant.status === 'hired';
   const isScheduled = (applicant as any).interview?.status === 'scheduled';
 
-  const cardBg = isLight ? '#FFFFFF' : '#1A1A1A';
-  const cardBorder = isLight ? '#E5E7EB' : '#2A2A2A';
+  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
+  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
   const textPrimary = isLight ? '#1F2937' : '#F9FAFB';
   const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
 
@@ -119,49 +122,27 @@ export function ApplicantCard({ applicant, showJobTitle = false, blind = false, 
           </View>
         </View>
 
-        {/* Right: status badge + time */}
+        {/* Right: fit score badge + time */}
         <View style={{ alignItems: 'flex-end', gap: 4 }}>
-          {isNew && (
-            <View
-              style={{
-                backgroundColor: GREEN_LIGHT,
-                borderRadius: 20,
-                paddingHorizontal: 10,
-                paddingVertical: 3,
-              }}
-            >
-              <Text style={{ fontSize: 11, fontWeight: '700', color: GREEN }}>New</Text>
-            </View>
-          )}
-          {isShortlisted && (
-            <View
-              style={{
-                backgroundColor: '#EFF6FF',
-                borderRadius: 20,
-                paddingHorizontal: 10,
-                paddingVertical: 3,
-              }}
-            >
-              <Text style={{ fontSize: 11, fontWeight: '700', color: BLUE }}>Shortlisted</Text>
-            </View>
-          )}
-          {isHired && (
-            <View
-              style={{
-                backgroundColor: '#F0FDF4',
-                borderRadius: 20,
-                paddingHorizontal: 10,
-                paddingVertical: 3,
-              }}
-            >
-              <Text style={{ fontSize: 11, fontWeight: '700', color: '#15803D' }}>Hired</Text>
-            </View>
-          )}
-          {isScheduled && (
-            <View style={{ backgroundColor: '#ECFDF5', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
-              flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <Feather name="calendar" size={9} color="#059669" />
-              <Text style={{ fontSize: 10, fontWeight: '700', color: '#059669' }}>Scheduled</Text>
+          {fitScore !== undefined && (
+            <View style={{
+              paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
+              backgroundColor:
+                fitScore >= 80 ? '#F0FDF4' :
+                fitScore >= 55 ? '#FFFBEB' : '#FEF2F2',
+              borderWidth: 0.5,
+              borderColor:
+                fitScore >= 80 ? '#86EFAC' :
+                fitScore >= 55 ? '#FDE68A' : '#FCA5A5',
+            }}>
+              <Text style={{
+                fontSize: 11, fontWeight: '700',
+                color:
+                  fitScore >= 80 ? '#15803D' :
+                  fitScore >= 55 ? '#B45309' : '#DC2626',
+              }}>
+                {fitScore}% match
+              </Text>
             </View>
           )}
           <Text style={{ fontSize: 11, color: textSecondary }}>
@@ -169,6 +150,9 @@ export function ApplicantCard({ applicant, showJobTitle = false, blind = false, 
           </Text>
         </View>
       </View>
+
+      {/* ── Pipeline progress strip ── */}
+      <PipelineStrip status={applicant.status} isScheduled={isScheduled} isLight={isLight} />
 
       {/* ── Action buttons ── */}
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: 2 }}>
@@ -216,6 +200,96 @@ export function ApplicantCard({ applicant, showJobTitle = false, blind = false, 
         </Pressable>
       </View>
     </Pressable>
+  );
+}
+
+type PipelineStatus = 'pending' | 'shortlisted' | 'hired' | 'rejected' | string;
+
+const PIPELINE_STEPS = [
+  { key: 'pending',    label: 'Applied' },
+  { key: 'shortlisted', label: 'Shortlisted' },
+  { key: 'interview',  label: 'Interview' },
+  { key: 'hired',      label: 'Hired' },
+] as const;
+
+function stepIndex(status: PipelineStatus, isScheduled: boolean): number {
+  if (status === 'hired') return 3;
+  if (isScheduled || status === 'interview') return 2;
+  if (status === 'shortlisted') return 1;
+  return 0;
+}
+
+function PipelineStrip({
+  status,
+  isScheduled,
+  isLight,
+}: {
+  status: PipelineStatus;
+  isScheduled: boolean;
+  isLight: boolean;
+}) {
+  const active = stepIndex(status, isScheduled);
+  const isRejected = status === 'rejected';
+
+  // Pulse animation for the active dot
+  const pulseScale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.spring(pulseScale, { toValue: 1.4, useNativeDriver: true, speed: 4, bounciness: 8 }),
+        Animated.spring(pulseScale, { toValue: 1.0, useNativeDriver: true, speed: 4, bounciness: 8 }),
+      ]),
+      { iterations: 2 },
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [status]);
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      {PIPELINE_STEPS.map((step, i) => {
+        const isDone = i <= active && !isRejected;
+        const isCurrent = i === active && !isRejected;
+        const dotColor = isRejected ? '#EF4444' : isDone ? BLUE : (isLight ? '#D1D5DB' : '#374151');
+        const labelColor = isRejected && isCurrent ? '#EF4444' : isCurrent ? BLUE : (isLight ? '#9CA3AF' : '#6B7280');
+
+        return (
+          <View key={step.key} style={{ flex: 1, alignItems: 'center', gap: 3 }}>
+            {/* Dot + connecting line */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+              {i > 0 && (
+                <View style={{
+                  flex: 1, height: 1.5,
+                  backgroundColor: i <= active && !isRejected ? BLUE : (isLight ? '#E5E7EB' : '#374151'),
+                }} />
+              )}
+              {isCurrent ? (
+                <Animated.View style={{
+                  width: 10, height: 10, borderRadius: 5,
+                  backgroundColor: isRejected ? '#EF4444' : BLUE,
+                  transform: [{ scale: pulseScale }],
+                }} />
+              ) : (
+                <View style={{
+                  width: 7, height: 7, borderRadius: 4,
+                  backgroundColor: dotColor,
+                }} />
+              )}
+              {i < PIPELINE_STEPS.length - 1 && (
+                <View style={{
+                  flex: 1, height: 1.5,
+                  backgroundColor: i < active && !isRejected ? BLUE : (isLight ? '#E5E7EB' : '#374151'),
+                }} />
+              )}
+            </View>
+            {/* Label */}
+            <Text style={{ fontSize: 9, fontWeight: isCurrent ? '700' : '400', color: labelColor }}>
+              {isRejected && isCurrent ? 'Rejected' : step.label}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
   );
 }
 

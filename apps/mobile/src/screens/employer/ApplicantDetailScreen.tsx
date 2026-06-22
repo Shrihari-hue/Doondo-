@@ -23,7 +23,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, TextField, FormError, PaymentConfirmationPanel, CraftShowcase, HireCelebration, DisputeSection } from '@/components';
+import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, TextField, FormError, PaymentConfirmationPanel, CraftShowcase, HireCelebration, DisputeSection, BlurOverlay} from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { applicationsApi, type ApplicantEntry, type SchedulePayload } from '@/api/applications.api';
@@ -44,6 +44,7 @@ import { pickChatImage } from '@/lib/chatImage';
 import { UpiPaymentPanel } from './UpiPaymentPanel';
 import { ApiError } from '@/api/errors';
 import { haptic } from '@/lib/haptics';
+import { reelsApi } from '@/api/reels.api';
 import { useUnratedApplications } from '@/hooks/useRatings';
 import { openResume, formatResumeSize } from '@/lib/resume';
 import { prettifySkill } from '@/lib/trades';
@@ -91,10 +92,17 @@ export function ApplicantDetailScreen() {
   const textPrimary   = isLight ? '#111827' : '#F9FAFB';
   const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
   const subtleBg      = isLight ? '#F9FAFB' : '#1E1E1E';
-  const borderColor   = isLight ? '#E5E7EB' : '#2A2A2A';
+  const borderColor   = isLight ? '#E5E7EB' : '#1E1E1E';
   const t = useTranslate();
   const [showHired, setShowHired] = useState(false);
   const [showHireConfirm, setShowHireConfirm] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState<Record<string, boolean>>({});
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackShowedUp, setFeedbackShowedUp] = useState<boolean | null>(null);
+  const [feedbackImpression, setFeedbackImpression] = useState(0); // 1-5
+  const [feedbackNextStep, setFeedbackNextStep] = useState<'hire' | 'followup' | 'pass' | ''>('');
+  const [feedbackDismissed, setFeedbackDismissed] = useState(false);
   const [showScheduleSheet, setShowScheduleSheet] = useState(false);
   const [scheduleDateOffset, setScheduleDateOffset] = useState(0);  // days from today
   const [scheduleHour, setScheduleHour]             = useState(10); // 10 AM default
@@ -126,6 +134,15 @@ export function ApplicantDetailScreen() {
     queryKey: ['jobs', 'mine', 'open'],
     queryFn: () => jobsApi.listMine({ status: 'active', limit: 10 }),
     staleTime: 2 * 60_000,
+  });
+
+  // Fetch the seeker's Hire Reel (video intro) if they have one.
+  const seekerIdForReel = query.data?.seeker?.id;
+  const reelQuery = useQuery({
+    queryKey: ['reel', 'seeker', seekerIdForReel],
+    queryFn: () => reelsApi.forSeeker(seekerIdForReel!),
+    enabled: !!seekerIdForReel,
+    staleTime: 5 * 60_000,
   });
 
   // Record a profile-view impression on the seeker. Idempotent within a
@@ -340,10 +357,183 @@ export function ApplicantDetailScreen() {
             applicant.job?.location?.area ?? applicant.job?.location?.city ?? 'Ready for the next step',
           ]}
           primaryLabel="Back to applicants"
-          onPrimary={() => { setShowHired(false); navigation.goBack(); }}
+          onPrimary={() => { setShowHired(false); setShowOnboarding(true); }}
           onClose={() => { setShowHired(false); navigation.goBack(); }}
         />
       )}
+      {/* ── Day-1 Onboarding Checklist ── */}
+      <Modal visible={showOnboarding} transparent animationType="slide" onRequestClose={() => { setShowOnboarding(false); navigation.goBack(); }}>
+        <BlurOverlay>
+        <Pressable style={{ flex: 1, justifyContent: 'flex-end' }}
+          onPress={() => { setShowOnboarding(false); navigation.goBack(); }}>
+          <Pressable onPress={(e) => e.stopPropagation?.()}>
+            <View style={{
+              backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+              borderTopLeftRadius: 24, borderTopRightRadius: 24,
+              padding: spacing.xl, gap: spacing.lg,
+              paddingBottom: spacing['2xl'],
+            }}>
+              {/* Handle */}
+              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#374151', alignSelf: 'center' }} />
+
+              <View style={{ gap: spacing.xs }}>
+                <Text style={{ fontSize: 22, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>
+                  🎉 Day 1 Checklist
+                </Text>
+                <Text style={{ fontSize: 14, color: isLight ? '#6B7280' : '#9CA3AF' }}>
+                  Make sure {name.split(' ')[0]}'s first day goes smoothly.
+                </Text>
+              </View>
+
+              {[
+                { key: 'id',       emoji: '🪪', label: 'Verify ID & documents' },
+                { key: 'uniform',  emoji: '👕', label: 'Provide uniform / PPE if needed' },
+                { key: 'shift',    emoji: '🕘', label: 'Confirm first shift time & location' },
+                { key: 'payroll',  emoji: '💳', label: 'Add to payroll / collect bank details' },
+                { key: 'intro',    emoji: '👋', label: 'Introduce to team and workspace' },
+              ].map((item) => (
+                <Pressable
+                  key={item.key}
+                  onPress={() => {
+                    haptic('selection');
+                    setOnboardingChecked((prev) => ({ ...prev, [item.key]: !prev[item.key] }));
+                  }}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                    paddingVertical: spacing.sm, opacity: pressed ? 0.75 : 1,
+                  })}
+                >
+                  <View style={{
+                    width: 26, height: 26, borderRadius: 8,
+                    borderWidth: 2,
+                    borderColor: onboardingChecked[item.key] ? '#16A34A' : (isLight ? '#D1D5DB' : '#374151'),
+                    backgroundColor: onboardingChecked[item.key] ? '#16A34A' : 'transparent',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {onboardingChecked[item.key] && (
+                      <Feather name="check" size={14} color="#FFFFFF" />
+                    )}
+                  </View>
+                  <Text style={{ fontSize: 16 }}>{item.emoji}</Text>
+                  <Text style={{
+                    flex: 1, fontSize: 15, fontWeight: '500',
+                    color: onboardingChecked[item.key]
+                      ? (isLight ? '#9CA3AF' : '#6B7280')
+                      : (isLight ? '#111827' : '#F9FAFB'),
+                    textDecorationLine: onboardingChecked[item.key] ? 'line-through' : 'none',
+                  }}>
+                    {item.label}
+                  </Text>
+                </Pressable>
+              ))}
+
+              <Pressable
+                onPress={() => { haptic('success'); setShowOnboarding(false); navigation.goBack(); }}
+                style={({ pressed }) => ({
+                  backgroundColor: '#16A34A', borderRadius: 12, paddingVertical: 14,
+                  alignItems: 'center', opacity: pressed ? 0.85 : 1, marginTop: spacing.sm,
+                })}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+                  {Object.values(onboardingChecked).filter(Boolean).length >= 5 ? '✓ All done!' : 'Done for now'}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </BlurOverlay>
+      </Modal>
+
+      {/* ── Interview Feedback Modal ── */}
+      <Modal visible={showFeedback} transparent animationType="slide" onRequestClose={() => setShowFeedback(false)}>
+        <BlurOverlay>
+        <Pressable style={{ flex: 1, justifyContent: 'flex-end' }}
+          onPress={() => setShowFeedback(false)}>
+          <Pressable onPress={(e) => e.stopPropagation?.()}>
+            <View style={{
+              backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+              borderTopLeftRadius: 24, borderTopRightRadius: 24,
+              padding: spacing.xl, gap: spacing.lg, paddingBottom: spacing['2xl'],
+            }}>
+              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#374151', alignSelf: 'center' }} />
+              <Text style={{ fontSize: 20, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>📋 Interview Feedback</Text>
+
+              {/* Showed up? */}
+              <View style={{ gap: spacing.sm }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: isLight ? '#374151' : '#D1D5DB' }}>Did {name.split(' ')[0]} show up?</Text>
+                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                  {[{ val: true, label: '✅ Yes' }, { val: false, label: '❌ No-show' }].map(({ val, label }) => (
+                    <Pressable key={label} onPress={() => { haptic('selection'); setFeedbackShowedUp(val); }}
+                      style={({ pressed }) => ({
+                        flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+                        borderWidth: 1.5,
+                        borderColor: feedbackShowedUp === val ? '#2563EB' : (isLight ? '#E5E7EB' : '#374151'),
+                        backgroundColor: feedbackShowedUp === val ? '#EFF6FF' : 'transparent',
+                        opacity: pressed ? 0.75 : 1,
+                      })}>
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: feedbackShowedUp === val ? '#2563EB' : (isLight ? '#6B7280' : '#9CA3AF') }}>{label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              {/* Impression 1-5 stars */}
+              <View style={{ gap: spacing.sm }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: isLight ? '#374151' : '#D1D5DB' }}>Overall impression</Text>
+                <View style={{ flexDirection: 'row', gap: spacing.md }}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Pressable key={n} onPress={() => { haptic('selection'); setFeedbackImpression(n); }} hitSlop={8}>
+                      <Text style={{ fontSize: 28, opacity: n <= feedbackImpression ? 1 : 0.25 }}>⭐</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              {/* Next step */}
+              <View style={{ gap: spacing.sm }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: isLight ? '#374151' : '#D1D5DB' }}>Next step</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+                  {[
+                    { val: 'hire' as const,      label: '🤝 Hire' },
+                    { val: 'followup' as const,  label: '📞 Follow up' },
+                    { val: 'pass' as const,      label: '👋 Pass' },
+                  ].map(({ val, label }) => (
+                    <Pressable key={val} onPress={() => { haptic('selection'); setFeedbackNextStep(val); }}
+                      style={({ pressed }) => ({
+                        paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+                        borderWidth: 1.5,
+                        borderColor: feedbackNextStep === val ? '#2563EB' : (isLight ? '#E5E7EB' : '#374151'),
+                        backgroundColor: feedbackNextStep === val ? '#EFF6FF' : 'transparent',
+                        opacity: pressed ? 0.75 : 1,
+                      })}>
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: feedbackNextStep === val ? '#2563EB' : (isLight ? '#6B7280' : '#9CA3AF') }}>{label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              <Pressable
+                onPress={() => {
+                  haptic('success');
+                  setShowFeedback(false);
+                  setFeedbackDismissed(true);
+                  if (feedbackNextStep === 'hire') transition.mutate('hired');
+                  else if (feedbackNextStep === 'pass') transition.mutate('rejected');
+                }}
+                disabled={feedbackShowedUp === null || feedbackImpression === 0 || feedbackNextStep === ''}
+                style={({ pressed }) => ({
+                  backgroundColor: '#2563EB', borderRadius: 12, paddingVertical: 14,
+                  alignItems: 'center', opacity: pressed || (feedbackShowedUp === null || feedbackImpression === 0 || feedbackNextStep === '') ? 0.5 : 1,
+                })}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>Save Feedback</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </BlurOverlay>
+      </Modal>
+
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
 
         {/* Hero photo */}
@@ -361,14 +551,14 @@ export function ApplicantDetailScreen() {
           <View style={{ position: 'absolute', top: insets.top + spacing.sm, left: 0, right: 0,
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl }}>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}
-              style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' }}>
+              style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
               <Feather name="arrow-left" size={20} color="#FFFFFF" />
             </Pressable>
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
                 <Feather name="heart" size={18} color="#FFFFFF" />
               </View>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
                 <Feather name="share-2" size={18} color="#FFFFFF" />
               </View>
             </View>
@@ -581,6 +771,35 @@ export function ApplicantDetailScreen() {
           </Pressable>
         )}
 
+        {/* Interview feedback nudge — shown when scheduled interview has passed and not dismissed */}
+        {(() => {
+          const iv = applicant.interview;
+          if (!iv || iv.status !== 'scheduled' || feedbackDismissed) return null;
+          const isPast = new Date(iv.scheduledFor).getTime() < Date.now();
+          if (!isPast) return null;
+          return (
+            <Pressable
+              onPress={() => { haptic('selection'); setShowFeedback(true); }}
+              style={({ pressed }) => ({
+                flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                marginHorizontal: spacing.xl, marginTop: spacing.md,
+                padding: spacing.md, borderRadius: 12,
+                backgroundColor: '#FFFBEB', borderWidth: 0.5, borderColor: '#FDE68A',
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Text style={{ fontSize: 20 }}>📋</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#92400E' }}>Interview Feedback</Text>
+                <Text style={{ fontSize: 12, color: '#B45309' }}>Your interview with {name.split(' ')[0]} has passed — leave feedback.</Text>
+              </View>
+              <Pressable onPress={(e) => { e.stopPropagation?.(); setFeedbackDismissed(true); }} hitSlop={8}>
+                <Feather name="x" size={16} color="#B45309" />
+              </Pressable>
+            </Pressable>
+          );
+        })()}
+
         {/* Tabs */}
         <View style={{ flexDirection: 'row', marginTop: spacing.lg, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
           {([
@@ -615,6 +834,17 @@ export function ApplicantDetailScreen() {
         {/* Profile tab */}
         {activeTab === 'profile' && (
           <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg, gap: spacing['2xl'] }}>
+
+            {/* Video pitch card — shown when the seeker has a Hire Reel */}
+            {reelQuery.data?.reel ? (
+              <VideoPitchCard
+                reel={reelQuery.data.reel}
+                isLight={isLight}
+                textPrimary={textPrimary}
+                textSecondary={textSecondary}
+              />
+            ) : null}
+
             <View style={{ gap: spacing.md }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary }}>
                 About {name.split(' ')[0]}
@@ -948,10 +1178,11 @@ export function ApplicantDetailScreen() {
 
       {/* ── Schedule Interview bottom sheet ── */}
       <Modal visible={showScheduleSheet} transparent animationType="slide" onRequestClose={() => setShowScheduleSheet(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}
+        <BlurOverlay>
+        <Pressable style={{ flex: 1, justifyContent: 'flex-end' }}
           onPress={() => setShowScheduleSheet(false)}>
           <Pressable onPress={(e) => e.stopPropagation?.()}
-            style={{ backgroundColor: isLight ? '#FFFFFF' : '#1A1A1A',
+            style={{ backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
               borderTopLeftRadius: 24, borderTopRightRadius: 24,
               padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg }}>
             {/* Handle */}
@@ -1044,6 +1275,7 @@ export function ApplicantDetailScreen() {
             </Pressable>
           </Pressable>
         </Pressable>
+      </BlurOverlay>
       </Modal>
 
       {/* ── Hire confirmation bottom sheet ── */}
@@ -1054,13 +1286,13 @@ export function ApplicantDetailScreen() {
         onRequestClose={() => setShowHireConfirm(false)}
       >
         <Pressable
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
           onPress={() => setShowHireConfirm(false)}
         >
           <Pressable
             onPress={(e) => e.stopPropagation?.()}
             style={{
-              backgroundColor: isLight ? '#FFFFFF' : '#1A1A1A',
+              backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
               borderTopLeftRadius: 24, borderTopRightRadius: 24,
               padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl,
               gap: spacing.lg,
@@ -1125,6 +1357,90 @@ export function ApplicantDetailScreen() {
 }
 
 // ─── One-tap call ───────────────────────────────────────────────────────────
+
+// ─── Video Pitch Card ────────────────────────────────────────────────────────
+
+function VideoPitchCard({
+  reel,
+  isLight,
+  textPrimary,
+  textSecondary,
+}: {
+  reel: { videoUrl: string; thumbnailUrl: string | null; durationSeconds: number; caption: string | null };
+  isLight: boolean;
+  textPrimary: string;
+  textSecondary: string;
+}) {
+  const dur = reel.durationSeconds;
+  const durLabel = dur >= 60 ? `${Math.floor(dur / 60)}m ${dur % 60}s` : `${dur}s`;
+  const surface = isLight ? '#FFFFFF' : '#0D0D0D';
+  const border  = isLight ? '#E5E7EB' : '#1E1E1E';
+
+  function openVideo() {
+    haptic('selection');
+    void Linking.openURL(reel.videoUrl).catch(() => undefined);
+  }
+
+  return (
+    <View style={{
+      backgroundColor: surface, borderRadius: 16,
+      borderWidth: 1, borderColor: border, overflow: 'hidden',
+    }}>
+      {/* Header */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: border }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={{ fontSize: 16 }}>🎬</Text>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>Video Pitch</Text>
+        </View>
+        <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
+          backgroundColor: '#EFF6FF', borderWidth: 0.5, borderColor: '#BFDBFE' }}>
+          <Text style={{ fontSize: 12, fontWeight: '600', color: '#2563EB' }}>{durLabel}</Text>
+        </View>
+      </View>
+
+      {/* Thumbnail / Play area */}
+      <Pressable
+        onPress={openVideo}
+        style={({ pressed }) => ({
+          aspectRatio: 16 / 9, backgroundColor: '#0F172A',
+          alignItems: 'center', justifyContent: 'center',
+          opacity: pressed ? 0.85 : 1,
+        })}
+      >
+        {reel.thumbnailUrl ? (
+          <Image
+            source={{ uri: reel.thumbnailUrl }}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+            resizeMode="cover"
+          />
+        ) : null}
+        {/* Gradient overlay so play button is always visible */}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+        {/* Play button */}
+        <View style={{
+          width: 60, height: 60, borderRadius: 30,
+          backgroundColor: 'rgba(255,255,255,0.92)',
+          alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Feather name="play" size={26} color="#111827" style={{ marginLeft: 3 }} />
+        </View>
+        <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 8 }}>
+          Tap to play in browser
+        </Text>
+      </Pressable>
+
+      {/* Caption */}
+      {reel.caption ? (
+        <View style={{ paddingHorizontal: 14, paddingVertical: 10 }}>
+          <Text style={{ fontSize: 13, color: textSecondary, lineHeight: 18 }}>{reel.caption}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Reveal the seeker's phone number and open the device dialer. Backed

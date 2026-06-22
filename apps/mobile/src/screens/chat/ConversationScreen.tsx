@@ -44,7 +44,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { spacing, radii, champagne } from '@doondo/tokens';
-import { Screen, Text, Avatar, LoadingSpinner, Pill } from '@/components';
+import { Screen, Text, Avatar, LoadingSpinner, Pill, BlurOverlay} from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { useAuth } from '@/hooks/useAuth';
@@ -900,7 +900,7 @@ function ConversationScreenInner() {
       >
         <Pressable
           onPress={() => setLangSheetOpen(false)}
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
         >
           <Pressable
             onPress={() => undefined}
@@ -1689,7 +1689,6 @@ function VideoAttachment({
             color: '#FFFFFF',
             fontSize: 11,
             fontWeight: '600',
-            backgroundColor: 'rgba(0,0,0,0.55)',
             paddingHorizontal: 6,
             paddingVertical: 2,
             borderRadius: 4,

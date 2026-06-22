@@ -92,6 +92,7 @@ import { RunPayrollScreen } from '@/screens/employer/RunPayrollScreen';
 import { WorkerPerformanceScreen } from '@/screens/employer/WorkerPerformanceScreen';
 import { NotifPreferencesScreen } from '@/screens/employer/NotifPreferencesScreen';
 import { RosterScreen } from '@/screens/employer/RosterScreen';
+import { TimeOffRequestsScreen } from '@/screens/employer/TimeOffRequestsScreen';
 import { EmployerAnalyticsScreen } from '@/screens/employer/EmployerAnalyticsScreen';
 import { PostJobScreen } from '@/screens/employer/PostJobScreen';
 import { ConversationScreen } from '@/screens/chat/ConversationScreen';
@@ -207,6 +208,11 @@ export function AppNavigator() {
       <Stack.Screen
         name="Roster"
         component={RosterScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="TimeOffRequests"
+        component={TimeOffRequestsScreen}
         options={{ presentation: 'card', animation: 'slide_from_right' }}
       />
       <Stack.Screen

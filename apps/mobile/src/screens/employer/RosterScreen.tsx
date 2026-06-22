@@ -5,7 +5,8 @@
  */
 
 import { useState } from 'react';
-import { Modal, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
+import { BlurOverlay } from '@/components';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +18,7 @@ import { Screen, Text, SkeletonCard, EmptyState, Avatar } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { rosterApi, type RosterEntry, type RosterWorker } from '@/api/roster.api';
 import { applicationsApi, type ApplicantEntry } from '@/api/applications.api';
+import { chatApi } from '@/api/chat.api';
 import { haptic } from '@/lib/haptics';
 import type { AppStackParamList } from '@/navigation/types';
 
@@ -40,13 +42,16 @@ export function RosterScreen() {
   const isLight     = scheme !== 'dark';
   const qc          = useQueryClient();
 
-  const surface       = isLight ? '#FFFFFF' : '#1A1A1A';
-  const border        = isLight ? '#E5E7EB' : '#2A2A2A';
+  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
+  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
   const textPrimary   = isLight ? '#111827' : '#F9FAFB';
   const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
   const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
 
   const [slotPick, setSlotPick] = useState<SlotPick>(null);
+  const [showCrewMsg, setShowCrewMsg] = useState(false);
+  const [crewMsgText, setCrewMsgText] = useState('');
+  const [crewMsgSending, setCrewMsgSending] = useState(false);
 
   const query = useQuery({
     queryKey: ['roster'],
@@ -97,6 +102,30 @@ export function RosterScreen() {
   const entries = query.data?.entries ?? [];
   const todayJS = new Date().getDay();
 
+  const hiredApplications = (workersQuery.data?.applications ?? []).filter((a: ApplicantEntry) => a.status === 'hired');
+
+  async function sendCrewMessage() {
+    const text = crewMsgText.trim();
+    if (!text || hiredApplications.length === 0) return;
+    setCrewMsgSending(true);
+    haptic('selection');
+    try {
+      await Promise.all(
+        hiredApplications.map(async (a: ApplicantEntry) => {
+          const { conversationId } = await chatApi.ensureFromApplication(a.id);
+          await chatApi.sendMessage(conversationId, text);
+        }),
+      );
+      haptic('success');
+      setCrewMsgText('');
+      setShowCrewMsg(false);
+    } catch {
+      haptic('error');
+    } finally {
+      setCrewMsgSending(false);
+    }
+  }
+
   // Workers available to assign (hired, not already on the selected entry)
   const availableWorkers = (workersQuery.data?.applications ?? []).filter((a: ApplicantEntry) => {
     if (!slotPick) return false;
@@ -114,7 +143,9 @@ export function RosterScreen() {
           <Feather name="arrow-left" size={22} color={textPrimary} />
         </Pressable>
         <Text style={{ fontSize: 17, fontWeight: '700', color: textPrimary }}>Weekly Roster</Text>
-        <View style={{ width: 22 }} />
+        <Pressable hitSlop={12} onPress={() => { haptic('selection'); setShowCrewMsg(true); }}>
+          <Feather name="message-circle" size={22} color={BLUE} />
+        </Pressable>
       </View>
 
       <ScrollView
@@ -270,8 +301,9 @@ export function RosterScreen() {
 
       {/* Worker Picker Sheet */}
       <Modal visible={slotPick !== null} transparent animationType="slide" onRequestClose={() => setSlotPick(null)}>
+        <BlurOverlay>
         <Pressable
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }}
+          style={{ flex: 1 }}
           onPress={() => setSlotPick(null)}
         >
           <Pressable
@@ -344,6 +376,80 @@ export function RosterScreen() {
             </ScrollView>
           </Pressable>
         </Pressable>
+        </BlurOverlay>
+      </Modal>
+
+      {/* ── Crew Message Composer ── */}
+      <Modal visible={showCrewMsg} transparent animationType="slide" onRequestClose={() => setShowCrewMsg(false)}>
+        <BlurOverlay>
+        <Pressable
+          style={{ flex: 1, justifyContent: 'flex-end' }}
+          onPress={() => setShowCrewMsg(false)}
+        >
+          <Pressable onPress={(e) => e.stopPropagation?.()}>
+            <View style={{
+              backgroundColor: surface,
+              borderTopLeftRadius: 24, borderTopRightRadius: 24,
+              padding: spacing.xl, gap: spacing.lg,
+              paddingBottom: insets.bottom + spacing.xl,
+            }}>
+              {/* Handle */}
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center' }} />
+
+              {/* Title row */}
+              <View style={{ gap: 4 }}>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: textPrimary }}>Message All Crew</Text>
+                <Text style={{ fontSize: 13, color: textSecondary }}>
+                  Sends to {hiredApplications.length} hired worker{hiredApplications.length !== 1 ? 's' : ''}
+                </Text>
+              </View>
+
+              {/* Text input */}
+              <TextInput
+                value={crewMsgText}
+                onChangeText={setCrewMsgText}
+                placeholder="Type your message…"
+                placeholderTextColor={textSecondary}
+                multiline
+                numberOfLines={4}
+                style={{
+                  backgroundColor: isLight ? '#F3F4F6' : '#1E1E1E',
+                  borderRadius: 12,
+                  padding: spacing.md,
+                  fontSize: 15,
+                  color: textPrimary,
+                  minHeight: 100,
+                  textAlignVertical: 'top',
+                }}
+              />
+
+              {/* Send button */}
+              <Pressable
+                onPress={() => void sendCrewMessage()}
+                disabled={crewMsgSending || !crewMsgText.trim() || hiredApplications.length === 0}
+                style={({ pressed }) => ({
+                  backgroundColor: BLUE,
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  opacity: (crewMsgSending || !crewMsgText.trim() || hiredApplications.length === 0) ? 0.5 : pressed ? 0.8 : 1,
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  gap: 8,
+                })}
+              >
+                {crewMsgSending
+                  ? <ActivityIndicator size="small" color="#FFFFFF" />
+                  : <Feather name="send" size={16} color="#FFFFFF" />
+                }
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+                  {crewMsgSending ? 'Sending…' : 'Send to All'}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+        </BlurOverlay>
       </Modal>
     </Screen>
   );
