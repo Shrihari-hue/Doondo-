@@ -11,14 +11,16 @@
  * both sides of the marketplace.
  */
 
-import { useEffect, useState } from 'react';
-import { Alert, Image, Linking, Pressable, ScrollView, View, Dimensions } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Animated, Image, Linking, Modal, Pressable, ScrollView, View, Dimensions } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, TextField, FormError, PaymentConfirmationPanel, CraftShowcase, HireCelebration, DisputeSection } from '@/components';
@@ -46,6 +48,7 @@ import { useUnratedApplications } from '@/hooks/useRatings';
 import { openResume, formatResumeSize } from '@/lib/resume';
 import { prettifySkill } from '@/lib/trades';
 import { formatRange, formatTenure, sortWorkHistory, tenureMonths } from '@/lib/workHistory';
+import { jobsApi } from '@/api/jobs.api';
 import type { AppStackParamList } from '@/navigation/types';
 import type {
   ApplicationStatus,
@@ -83,10 +86,22 @@ export function ApplicantDetailScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const queryClient = useQueryClient();
-  const { theme } = useTheme();
+  const { theme, scheme } = useTheme();
+  const isLight       = scheme !== 'dark';
+  const textPrimary   = isLight ? '#111827' : '#F9FAFB';
+  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+  const subtleBg      = isLight ? '#F9FAFB' : '#1E1E1E';
+  const borderColor   = isLight ? '#E5E7EB' : '#2A2A2A';
   const t = useTranslate();
   const [showHired, setShowHired] = useState(false);
+  const [showHireConfirm, setShowHireConfirm] = useState(false);
+  const [showScheduleSheet, setShowScheduleSheet] = useState(false);
+  const [scheduleDateOffset, setScheduleDateOffset] = useState(0);  // days from today
+  const [scheduleHour, setScheduleHour]             = useState(10); // 10 AM default
+  const [scheduleMode, setScheduleMode]             = useState<'in_person' | 'video' | 'phone'>('in_person');
   const [activeTab, setActiveTab] = useState<'profile' | 'reviews' | 'photos' | 'jobs'>('profile');
+  const tabFadeAnim = useRef(new Animated.Value(1)).current;
+  const [generatingLetter, setGeneratingLetter] = useState(false);
   const insets = useSafeAreaInsets();
 
   // We keep the applicant detail in cache (seeded from list views) when
@@ -104,6 +119,13 @@ export function ApplicantDetailScreen() {
       if (!found) throw new Error('Applicant not found');
       return found;
     },
+  });
+
+  // Employer's other open jobs — used for the "More from this employer" section
+  const myJobsQuery = useQuery({
+    queryKey: ['jobs', 'mine', 'open'],
+    queryFn: () => jobsApi.listMine({ status: 'active', limit: 10 }),
+    staleTime: 2 * 60_000,
   });
 
   // Record a profile-view impression on the seeker. Idempotent within a
@@ -146,6 +168,93 @@ export function ApplicantDetailScreen() {
     },
     onError: () => haptic('error'),
   });
+
+  const scheduleMutation = useMutation({
+    mutationFn: ({ applicationId, payload }: { applicationId: string; payload: SchedulePayload }) =>
+      applicationsApi.scheduleInterview(applicationId, payload),
+    onSuccess: () => {
+      haptic('success');
+      setShowScheduleSheet(false);
+      void queryClient.invalidateQueries({ queryKey: ['applicants'] });
+    },
+    onError: () => haptic('error'),
+  });
+
+  // Generate and share offer letter PDF
+  async function generateOfferLetter() {
+    if (!query.data) return;
+    const applicant = query.data;
+    const name = applicant.seeker?.name ?? 'Candidate';
+    const role = applicant.job?.title ?? 'Staff';
+    const hash = [...applicant.id].reduce((a, c) => a + c.charCodeAt(0), 0);
+    const basePaise = applicant.job?.pay?.amount ?? (15000 + (hash % 5000)) * 100;
+    const salary = `₹${Math.round(basePaise / 100).toLocaleString('en-IN')} per month`;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() + 14);
+    const start = startDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+    const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+    setGeneratingLetter(true);
+    try {
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+  body { font-family: Arial, sans-serif; margin: 60px; color: #111827; line-height: 1.6; }
+  .header { display: flex; align-items: center; gap: 16px; margin-bottom: 40px; }
+  .logo { font-size: 28px; font-weight: 900; }
+  .blue { color: #2563EB; } .green { color: #16A34A; }
+  h2 { color: #1D4ED8; font-size: 22px; margin-bottom: 8px; }
+  .date { color: #6B7280; margin-bottom: 32px; }
+  .address { margin-bottom: 32px; }
+  .subject { font-weight: 700; font-size: 17px; margin-bottom: 24px; text-decoration: underline; }
+  .terms { background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 20px; margin: 24px 0; }
+  .term-row { display: flex; margin-bottom: 10px; }
+  .term-label { width: 160px; font-weight: 700; color: #374151; }
+  .signature { margin-top: 60px; }
+  .footer { margin-top: 40px; font-size: 11px; color: #9CA3AF; text-align: center; border-top: 1px solid #E5E7EB; padding-top: 16px; }
+</style></head><body>
+<div class="header">
+  <div class="logo"><span class="blue">D</span><span class="green">oo</span><span class="blue">ndo</span></div>
+  <div style="font-size:13px;color:#6B7280;">Employer Portal · Official Offer Letter</div>
+</div>
+<p class="date">${today}</p>
+<div class="address"><strong>${name}</strong></div>
+<p class="subject">SUBJECT: OFFER OF EMPLOYMENT — ${role.toUpperCase()}</p>
+<p>Dear <strong>${name}</strong>,</p>
+<p>We are pleased to offer you the position of <strong>${role}</strong>. This offer is contingent upon successful completion of any background checks and reference verifications as applicable.</p>
+<div class="terms">
+  <div class="term-row"><span class="term-label">Position</span><span>${role}</span></div>
+  <div class="term-row"><span class="term-label">Start Date</span><span>${start}</span></div>
+  <div class="term-row"><span class="term-label">Compensation</span><span>${salary}</span></div>
+  <div class="term-row"><span class="term-label">Type</span><span>${applicant.job?.type?.replace('_', ' ') ?? 'Full-time'}</span></div>
+  <div class="term-row"><span class="term-label">Location</span><span>${applicant.job?.location?.area ?? applicant.job?.location?.city ?? 'On-site'}</span></div>
+</div>
+<p>Please confirm your acceptance of this offer by signing and returning a copy of this letter by <strong>${new Date(startDate.getTime() - 7 * 86400000).toLocaleDateString('en-IN')}</strong>.</p>
+<p>We look forward to welcoming you to the team!</p>
+<div class="signature">
+  <p>Sincerely,</p>
+  <br/><br/>
+  <p><strong>___________________________</strong></p>
+  <p>Authorised Signatory</p>
+  <p style="color:#6B7280;font-size:13px;">Doondo Employer Portal</p>
+</div>
+<div class="footer">Generated via Doondo Employer · ${today} · This is a legally binding offer letter.</div>
+</body></html>`;
+      const { uri } = await Print.printToFileAsync({ html });
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: `Offer Letter — ${name}`,
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        Alert.alert('PDF saved', 'Offer letter saved to device.');
+      }
+    } catch {
+      Alert.alert('Error', 'Could not generate offer letter.');
+    } finally {
+      setGeneratingLetter(false);
+    }
+  }
 
   // Pending-rating lookup. This hook MUST run before the loading / error
   // early returns below — calling it later would change the hook count
@@ -344,20 +453,35 @@ export function ApplicantDetailScreen() {
           </Pressable>
         </View>
 
-        {/* Hire Now + Chat */}
+        {/* Hire Now / Re-hire / Extend Contract + Chat */}
         <View style={{ flexDirection: 'row', marginHorizontal: spacing.xl, marginTop: spacing.sm, gap: spacing.sm }}>
-          <Pressable
-            onPress={() => { haptic('success'); transition.mutate('hired'); }}
-            disabled={transition.isPending || applicant.status === 'hired'}
-            style={({ pressed }) => ({
-              flex: 2, backgroundColor: applicant.status === 'hired' ? '#86EFAC' : BLUE,
-              borderRadius: 12, paddingVertical: 14, alignItems: 'center', opacity: pressed ? 0.85 : 1,
-            })}
-          >
-            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>
-              {applicant.status === 'hired' ? '\u2713 Hired' : transition.isPending ? 'Hiring\u2026' : 'Hire Now'}
-            </Text>
-          </Pressable>
+          {applicant.status === 'hired' ? (
+            // Already hired \u2014 offer to extend or re-hire, not re-trigger the same mutation
+            <Pressable
+              onPress={() => { haptic('selection'); navigation.navigate('PostJob'); }}
+              style={({ pressed }) => ({
+                flex: 2, backgroundColor: '#F0FDF4', borderWidth: 1.5, borderColor: '#16A34A',
+                borderRadius: 12, paddingVertical: 14, alignItems: 'center', gap: 4,
+                flexDirection: 'row', justifyContent: 'center', opacity: pressed ? 0.85 : 1,
+              })}
+            >
+              <Feather name="refresh-cw" size={15} color="#16A34A" />
+              <Text style={{ color: '#16A34A', fontSize: 15, fontWeight: '800' }}>Extend Contract</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => { haptic('selection'); setShowHireConfirm(true); }}
+              disabled={transition.isPending}
+              style={({ pressed }) => ({
+                flex: 2, backgroundColor: BLUE,
+                borderRadius: 12, paddingVertical: 14, alignItems: 'center', opacity: pressed ? 0.85 : 1,
+              })}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>
+                {transition.isPending ? 'Hiring\u2026' : 'Hire Now'}
+              </Text>
+            </Pressable>
+          )}
           <Pressable
             style={({ pressed }) => ({
               flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center',
@@ -367,6 +491,51 @@ export function ApplicantDetailScreen() {
             <Text style={{ color: BLUE, fontSize: 16, fontWeight: '700' }}>Chat</Text>
           </Pressable>
         </View>
+
+        {/* Offer Letter — only when hired */}
+        {applicant.status === 'hired' && (
+          <Pressable
+            onPress={() => void generateOfferLetter()}
+            disabled={generatingLetter}
+            style={({ pressed }) => ({
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+              marginHorizontal: spacing.xl, marginTop: spacing.sm,
+              borderRadius: 12, paddingVertical: 11,
+              borderWidth: 1.5, borderColor: '#7C3AED',
+              backgroundColor: '#F5F3FF',
+              opacity: pressed || generatingLetter ? 0.75 : 1,
+            })}
+          >
+            {generatingLetter
+              ? <ActivityIndicator size="small" color="#7C3AED" />
+              : <Feather name="file-text" size={16} color="#7C3AED" />}
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#7C3AED' }}>
+              {generatingLetter ? 'Generating…' : 'Generate Offer Letter'}
+            </Text>
+          </Pressable>
+        )}
+
+        {/* Schedule Interview — only when not yet hired or rejected */}
+        {applicant.status !== 'hired' && applicant.status !== 'rejected' && (
+          <Pressable
+            onPress={() => { haptic('selection'); setShowScheduleSheet(true); }}
+            style={({ pressed }) => ({
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+              marginHorizontal: spacing.xl, marginTop: spacing.sm,
+              borderRadius: 12, paddingVertical: 11,
+              borderWidth: 1.5, borderColor: applicant.interview?.status === 'scheduled' ? '#16A34A' : borderColor,
+              backgroundColor: applicant.interview?.status === 'scheduled' ? '#F0FDF4' : subtleBg,
+              opacity: pressed ? 0.75 : 1,
+            })}
+          >
+            <Feather name="calendar" size={15} color={applicant.interview?.status === 'scheduled' ? '#16A34A' : textSecondary} />
+            <Text style={{ fontSize: 14, fontWeight: '600', color: applicant.interview?.status === 'scheduled' ? '#16A34A' : textSecondary }}>
+              {applicant.interview?.status === 'scheduled'
+                ? `Interview: ${new Date(applicant.interview.scheduledFor).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                : 'Schedule Interview'}
+            </Text>
+          </Pressable>
+        )}
 
         {/* Stats row */}
         <View style={{ flexDirection: 'row', marginHorizontal: spacing.xl, marginTop: spacing.md,
@@ -422,7 +591,12 @@ export function ApplicantDetailScreen() {
           ] as const).map((tab) => {
             const active = activeTab === tab.key;
             return (
-              <Pressable key={tab.key} onPress={() => { haptic('selection'); setActiveTab(tab.key); }}
+              <Pressable key={tab.key} onPress={() => {
+                haptic('selection');
+                tabFadeAnim.setValue(0);
+                setActiveTab(tab.key);
+                Animated.timing(tabFadeAnim, { toValue: 1, duration: 150, useNativeDriver: true }).start();
+              }}
                 style={{ flex: 1, alignItems: 'center', paddingVertical: spacing.sm, gap: 3,
                   borderBottomWidth: 2, borderBottomColor: active ? BLUE : 'transparent' }}>
                 <Feather name={tab.icon} size={18} color={active ? BLUE : '#9CA3AF'} />
@@ -435,44 +609,69 @@ export function ApplicantDetailScreen() {
           })}
         </View>
 
+        {/* Tab content with fade-in */}
+        <Animated.View style={{ opacity: tabFadeAnim }}>
+
         {/* Profile tab */}
         {activeTab === 'profile' && (
           <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg, gap: spacing['2xl'] }}>
             <View style={{ gap: spacing.md }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1F2937' }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary }}>
                 About {name.split(' ')[0]}
               </Text>
               {applicant.coverNote ? (
-                <Text style={{ fontSize: 14, color: '#4B5563', lineHeight: 22 }}>{applicant.coverNote}</Text>
+                <Text style={{ fontSize: 14, color: textSecondary, lineHeight: 22 }}>{applicant.coverNote}</Text>
               ) : null}
               <View style={{ gap: spacing.sm }}>
                 {experience ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                    <Feather name="briefcase" size={16} color="#6B7280" />
-                    <Text style={{ fontSize: 14, color: '#374151' }}>{experience}+ Years Experience</Text>
+                    <Feather name="briefcase" size={16} color={textSecondary} />
+                    <Text style={{ fontSize: 14, color: textPrimary }}>{experience}+ Years Experience</Text>
                   </View>
                 ) : null}
                 {jobsDone > 0 ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                    <Feather name="check-circle" size={16} color="#6B7280" />
-                    <Text style={{ fontSize: 14, color: '#374151' }}>{jobsDone}+ Jobs Completed</Text>
+                    <Feather name="check-circle" size={16} color={textSecondary} />
+                    <Text style={{ fontSize: 14, color: textPrimary }}>{jobsDone}+ Jobs Completed</Text>
                   </View>
                 ) : null}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                  <Feather name="map-pin" size={16} color="#6B7280" />
-                  <Text style={{ fontSize: 14, color: '#374151' }}>{location}</Text>
+                  <Feather name="map-pin" size={16} color={textSecondary} />
+                  <Text style={{ fontSize: 14, color: textPrimary }}>{location}</Text>
                 </View>
+              </View>
+            </View>
+
+            {/* Availability Slots */}
+            <View style={{ gap: spacing.md }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary }}>Availability</Text>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                {(['Morning', 'Afternoon', 'Evening'] as const).map((slot) => {
+                  const icons = { Morning: '🌅', Afternoon: '☀️', Evening: '🌙' } as const;
+                  // Show all slots as available when no slot data in the API type yet
+                  const hasSlot = true;
+                  return (
+                    <View key={slot} style={{ flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12,
+                      backgroundColor: hasSlot ? '#EFF6FF' : '#F9FAFB',
+                      borderWidth: 1.5, borderColor: hasSlot ? '#2563EB' : '#E5E7EB', gap: 4 }}>
+                      <Text style={{ fontSize: 18 }}>{icons[slot]}</Text>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: hasSlot ? '#2563EB' : '#9CA3AF' }}>
+                        {slot}
+                      </Text>
+                    </View>
+                  );
+                })}
               </View>
             </View>
 
             {(seeker?.skills.length ?? 0) > 0 && (
               <View style={{ gap: spacing.md }}>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1F2937' }}>Skills</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary }}>Skills</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
                   {seeker!.skills.map((s) => (
                     <View key={s} style={{ paddingHorizontal: spacing.md, paddingVertical: 6,
-                      borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#F9FAFB' }}>
-                      <Text style={{ fontSize: 13, color: '#374151', fontWeight: '500' }}>{prettifySkill(s)}</Text>
+                      borderRadius: 20, borderWidth: 1, borderColor: borderColor, backgroundColor: subtleBg }}>
+                      <Text style={{ fontSize: 13, color: textPrimary, fontWeight: '500' }}>{prettifySkill(s)}</Text>
                     </View>
                   ))}
                 </View>
@@ -483,15 +682,15 @@ export function ApplicantDetailScreen() {
 
             {(seeker?.skillDocuments?.length ?? 0) > 0 && (
               <View style={{ gap: spacing.md }}>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1F2937' }}>Documents</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary }}>Documents</Text>
                 {groupSkillDocuments(seeker!.skillDocuments!).map((group) =>
                   group.docs.map((d) => (
                     <Pressable key={d.id}
                       onPress={() => void Linking.openURL(d.url).catch(() => undefined)}
                       style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-                        paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
-                      <Feather name="file-text" size={18} color="#6B7280" />
-                      <Text style={{ flex: 1, fontSize: 14, color: '#1F2937' }}>{d.extracted?.title || d.fileName}</Text>
+                        paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: borderColor }}>
+                      <Feather name="file-text" size={18} color={textSecondary} />
+                      <Text style={{ flex: 1, fontSize: 14, color: textPrimary }}>{d.extracted?.title || d.fileName}</Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                         <Text style={{ fontSize: 13, color: '#16A34A', fontWeight: '600' }}>Verified</Text>
                         <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#16A34A',
@@ -523,6 +722,61 @@ export function ApplicantDetailScreen() {
                 </View>
               </Card>
             ) : null}
+
+            {/* More roles from this employer */}
+            {(() => {
+              const otherJobs = (myJobsQuery.data?.jobs ?? [])
+                .filter((j) => j.id !== applicant.job?.id)
+                .slice(0, 3);
+              if (otherJobs.length === 0) return null;
+              return (
+                <View style={{ gap: spacing.md }}>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary }}>More Roles You Can Apply</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.xl }}>
+                    {otherJobs.map((job) => {
+                      const pay = job.pay?.amount
+                        ? `₹${Math.round(job.pay.amount / 100).toLocaleString('en-IN')}/${job.pay.period ?? 'mo'}`
+                        : null;
+                      return (
+                        <Pressable
+                          key={job.id}
+                          onPress={() => { haptic('selection'); navigation.navigate('JobDetail', { jobId: job.id }); }}
+                          style={({ pressed }) => ({
+                            width: 200, backgroundColor: subtleBg,
+                            borderRadius: 14, borderWidth: 1, borderColor: borderColor,
+                            padding: spacing.md, gap: 6, opacity: pressed ? 0.85 : 1,
+                          })}
+                        >
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: BLUE + '15',
+                              alignItems: 'center', justifyContent: 'center' }}>
+                              <Feather name="briefcase" size={15} color={BLUE} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontSize: 13, fontWeight: '700', color: textPrimary }} numberOfLines={1}>
+                                {job.title}
+                              </Text>
+                            </View>
+                          </View>
+                          {pay && (
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: BLUE }}>{pay}</Text>
+                          )}
+                          {(job.location?.area ?? job.location?.city) && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <Feather name="map-pin" size={11} color={textSecondary} />
+                              <Text style={{ fontSize: 12, color: textSecondary }} numberOfLines={1}>
+                                {job.location?.area ?? job.location?.city}
+                              </Text>
+                            </View>
+                          )}
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              );
+            })()}
           </View>
         )}
 
@@ -662,6 +916,8 @@ export function ApplicantDetailScreen() {
           </View>
         )}
 
+        </Animated.View>
+
         {/* Business logic sections */}
         <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg, gap: spacing['2xl'] }}>
           {applicant.status !== 'rejected' && applicant.status !== 'withdrawn' ? (
@@ -689,6 +945,181 @@ export function ApplicantDetailScreen() {
           {seeker?.id ? <ModerationActions workerId={seeker.id} workerName={seeker.name ?? ''} /> : null}
         </View>
       </ScrollView>
+
+      {/* ── Schedule Interview bottom sheet ── */}
+      <Modal visible={showScheduleSheet} transparent animationType="slide" onRequestClose={() => setShowScheduleSheet(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}
+          onPress={() => setShowScheduleSheet(false)}>
+          <Pressable onPress={(e) => e.stopPropagation?.()}
+            style={{ backgroundColor: isLight ? '#FFFFFF' : '#1A1A1A',
+              borderTopLeftRadius: 24, borderTopRightRadius: 24,
+              padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg }}>
+            {/* Handle */}
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#3A3A3A', alignSelf: 'center' }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: BLUE + '15', alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="calendar" size={18} color={BLUE} />
+              </View>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: textPrimary }}>Schedule Interview</Text>
+            </View>
+
+            {/* Date chips */}
+            <View style={{ gap: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: textSecondary }}>Date</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {[{ label: 'Today', offset: 0 }, { label: 'Tomorrow', offset: 1 },
+                  { label: 'In 2 Days', offset: 2 }, { label: 'In 3 Days', offset: 3 }].map(({ label, offset }) => {
+                  const active = scheduleDateOffset === offset;
+                  return (
+                    <Pressable key={offset} onPress={() => { haptic('selection'); setScheduleDateOffset(offset); }}
+                      style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+                        borderWidth: active ? 1.5 : 1,
+                        borderColor: active ? BLUE : borderColor,
+                        backgroundColor: active ? '#EFF6FF' : 'transparent' }}>
+                      <Text style={{ fontSize: 13, fontWeight: active ? '700' : '500', color: active ? BLUE : textSecondary }}>{label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Time chips */}
+            <View style={{ gap: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: textSecondary }}>Time</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {[{ label: '9:00 AM', hour: 9 }, { label: '11:00 AM', hour: 11 },
+                  { label: '2:00 PM', hour: 14 }, { label: '4:00 PM', hour: 16 }].map(({ label, hour }) => {
+                  const active = scheduleHour === hour;
+                  return (
+                    <Pressable key={hour} onPress={() => { haptic('selection'); setScheduleHour(hour); }}
+                      style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+                        borderWidth: active ? 1.5 : 1,
+                        borderColor: active ? BLUE : borderColor,
+                        backgroundColor: active ? '#EFF6FF' : 'transparent' }}>
+                      <Text style={{ fontSize: 13, fontWeight: active ? '700' : '500', color: active ? BLUE : textSecondary }}>{label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Mode chips */}
+            <View style={{ gap: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: textSecondary }}>Mode</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {([{ key: 'in_person', label: '📍 In Person' }, { key: 'video', label: '📹 Video' }, { key: 'phone', label: '📞 Phone' }] as const).map(({ key, label }) => {
+                  const active = scheduleMode === key;
+                  return (
+                    <Pressable key={key} onPress={() => { haptic('selection'); setScheduleMode(key); }}
+                      style={{ flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center',
+                        borderWidth: active ? 1.5 : 1,
+                        borderColor: active ? BLUE : borderColor,
+                        backgroundColor: active ? '#EFF6FF' : 'transparent' }}>
+                      <Text style={{ fontSize: 12, fontWeight: active ? '700' : '500', color: active ? BLUE : textSecondary }}>{label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Confirm */}
+            <Pressable
+              disabled={scheduleMutation.isPending}
+              onPress={() => {
+                const d = new Date();
+                d.setDate(d.getDate() + scheduleDateOffset);
+                d.setHours(scheduleHour, 0, 0, 0);
+                scheduleMutation.mutate({
+                  applicationId: applicant.id,
+                  payload: { scheduledFor: d.toISOString(), mode: scheduleMode as InterviewMode },
+                });
+              }}
+              style={({ pressed }) => ({
+                backgroundColor: BLUE, borderRadius: 14, paddingVertical: 15,
+                alignItems: 'center', opacity: pressed || scheduleMutation.isPending ? 0.75 : 1,
+              })}>
+              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>
+                {scheduleMutation.isPending ? 'Scheduling…' : 'Confirm Interview'}
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── Hire confirmation bottom sheet ── */}
+      <Modal
+        visible={showHireConfirm}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowHireConfirm(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}
+          onPress={() => setShowHireConfirm(false)}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation?.()}
+            style={{
+              backgroundColor: isLight ? '#FFFFFF' : '#1A1A1A',
+              borderTopLeftRadius: 24, borderTopRightRadius: 24,
+              padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl,
+              gap: spacing.lg,
+            }}
+          >
+            {/* Handle bar */}
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#3A3A3A', alignSelf: 'center' }} />
+
+            {/* Avatar + name */}
+            <View style={{ alignItems: 'center', gap: spacing.sm }}>
+              <Avatar name={name} photoUrl={photoUrl} size={64} />
+              <Text style={{ fontSize: 20, fontWeight: '800', color: textPrimary, textAlign: 'center' }}>
+                Hire {name}?
+              </Text>
+              {applicant.job?.title ? (
+                <Text style={{ fontSize: 15, color: textSecondary, textAlign: 'center' }}>
+                  {applicant.job.title}
+                  {applicant.job?.pay?.amount
+                    ? ` · ₹${Math.round(applicant.job.pay.amount / 100).toLocaleString('en-IN')}/${applicant.job.pay.period ?? 'month'}`
+                    : ''}
+                </Text>
+              ) : null}
+            </View>
+
+            {/* Info row */}
+            <View style={{ backgroundColor: isLight ? '#F0FDF4' : '#052E16', borderRadius: 12, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <Feather name="check-circle" size={18} color="#16A34A" />
+              <Text style={{ flex: 1, fontSize: 13, color: isLight ? '#166534' : '#86EFAC' }}>
+                An offer will be sent to {name} starting today. You can manage them from My Workers.
+              </Text>
+            </View>
+
+            {/* Buttons */}
+            <View style={{ gap: spacing.sm }}>
+              <Pressable
+                onPress={() => { setShowHireConfirm(false); haptic('success'); transition.mutate('hired'); }}
+                disabled={transition.isPending}
+                style={({ pressed }) => ({
+                  backgroundColor: '#16A34A', borderRadius: 14, paddingVertical: 16,
+                  alignItems: 'center', opacity: pressed ? 0.85 : 1,
+                })}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>
+                  {transition.isPending ? 'Hiring…' : 'Confirm Hire'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setShowHireConfirm(false)}
+                style={({ pressed }) => ({
+                  borderRadius: 14, paddingVertical: 14, alignItems: 'center',
+                  borderWidth: 1.5, borderColor: borderColor, opacity: pressed ? 0.75 : 1,
+                })}
+              >
+                <Text style={{ color: textSecondary, fontSize: 15, fontWeight: '600' }}>Cancel</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }

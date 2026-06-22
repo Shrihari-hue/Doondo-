@@ -11,7 +11,7 @@
  *   - Why Employers love Doondo
  */
 
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -65,6 +65,87 @@ export function EmployerHomeScreen() {
   const activeJobs = jobsQuery.data?.jobs ?? [];
   const applications = useMemo(() => appsQuery.data?.applications ?? [], [appsQuery.data]);
   const hiredCount = useMemo(() => applications.filter((a) => a.status === 'hired').length, [applications]);
+
+  // Hired "this week" — compare appliedAt to 7 days ago
+  const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const hiredThisWeek = useMemo(
+    () => applications.filter((a) => a.status === 'hired' && new Date(a.timeline.appliedAt).getTime() > oneWeekAgo).length,
+    [applications],
+  );
+
+  const counts = useMemo(() => ({
+    pending:     applications.filter((a) => a.status === 'pending').length,
+    shortlisted: applications.filter((a) => a.status === 'shortlisted').length,
+    openRoles:   jobsQuery.data?.jobs.filter((j) => j.status === 'active').length ?? 0,
+  }), [applications, jobsQuery.data]);
+
+  // ── Live activity feed — derived from applications cache ──────────────────
+  type FeedEvent = { key: string; icon: string; text: string; time: string; bg: string };
+
+  const feedEvents = useMemo<FeedEvent[]>(() => {
+    const events: FeedEvent[] = [];
+
+    for (const a of applications) {
+      const name = a.seeker?.name ?? 'A worker';
+      const job  = a.job?.title ?? 'a job';
+
+      if (a.status === 'hired' && a.timeline.hiredAt) {
+        events.push({
+          key:  `hire-${a.id}`,
+          icon: '🎉',
+          text: `${name} hired for ${job}`,
+          time: a.timeline.hiredAt,
+          bg:   '#F0FDF4',
+        });
+      }
+      if (a.status === 'shortlisted' && a.timeline.shortlistedAt) {
+        events.push({
+          key:  `short-${a.id}`,
+          icon: '⭐',
+          text: `${name} shortlisted for ${job}`,
+          time: a.timeline.shortlistedAt,
+          bg:   '#EFF6FF',
+        });
+      }
+      if (a.status === 'pending' && a.timeline.appliedAt) {
+        events.push({
+          key:  `apply-${a.id}`,
+          icon: '👤',
+          text: `${name} applied for ${job}`,
+          time: a.timeline.appliedAt,
+          bg:   '#FFFBEB',
+        });
+      }
+      if (a.interview && a.interview.scheduledAt) {
+        events.push({
+          key:  `intv-${a.id}`,
+          icon: '📅',
+          text: `Interview with ${name} scheduled`,
+          time: a.interview.scheduledAt,
+          bg:   '#EDE9FE',
+        });
+      }
+    }
+
+    // Sort newest first, cap at 6
+    return events
+      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+      .slice(0, 6);
+  }, [applications]);
+
+  const formatEventTime = useCallback((iso: string): string => {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMins = Math.floor(diffMs / 60_000);
+    if (diffMins < 1)   return 'Just now';
+    if (diffMins < 60)  return `${diffMins}m ago`;
+    const diffHrs = Math.floor(diffMins / 60);
+    if (diffHrs < 24)   return `${diffHrs}h ago`;
+    const diffDays = Math.floor(diffHrs / 24);
+    if (diffDays === 1) return 'Yesterday';
+    return `${diffDays}d ago`;
+  }, []);
 
   function newAppsForJob(jobId: string) {
     return applications.filter((a) => a.jobId === jobId && a.status === 'pending').length;
@@ -128,14 +209,24 @@ export function EmployerHomeScreen() {
 
           <Pressable
             hitSlop={12}
-            onPress={() => {
-              haptic('selection');
-              navigation.navigate('Notifications');
-            }}
+            onPress={() => { haptic('selection'); navigation.navigate('NotifPreferences'); }}
             accessibilityRole="button"
             accessibilityLabel="Notifications"
+            style={{ position: 'relative' }}
           >
             <Feather name="bell" size={22} color={textPrimary} />
+            {counts.pending > 0 && (
+              <View style={{
+                position: 'absolute', top: -4, right: -6,
+                minWidth: 16, height: 16, borderRadius: 8,
+                backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center',
+                paddingHorizontal: 3, borderWidth: 1.5, borderColor: bg,
+              }}>
+                <Text style={{ fontSize: 9, fontWeight: '800', color: '#FFFFFF' }}>
+                  {counts.pending > 99 ? '99+' : String(counts.pending)}
+                </Text>
+              </View>
+            )}
           </Pressable>
         </View>
 
@@ -176,19 +267,63 @@ export function EmployerHomeScreen() {
             </Pressable>
           </View>
 
-          {/* ── Workforce Stats Row ── */}
+          {/* ── Live Quick Stats ── */}
           <View style={{ flexDirection: 'row', marginHorizontal: spacing.xl, marginBottom: spacing.md,
-            borderRadius: radii.lg, borderWidth: 1, borderColor: cardBorder, backgroundColor: cardBg, overflow: 'hidden' }}>
+            gap: spacing.sm }}>
             {[
-              { value: String(hiredCount), label: 'Active Workers' },
-              { value: `${hiredCount}/${hiredCount}`, label: 'Attendance Today' },
-              { value: hiredCount > 0 ? `₹${(hiredCount * 18000).toLocaleString('en-IN')}` : '₹0', label: 'Upcoming Payments' },
-            ].map((stat, i) => (
-              <View key={stat.label} style={{ flex: 1, alignItems: 'center', paddingVertical: spacing.md,
-                borderRightWidth: i < 2 ? 1 : 0, borderRightColor: cardBorder }}>
-                <Text style={{ fontSize: 17, fontWeight: '800', color: textPrimary }}>{stat.value}</Text>
-                <Text style={{ fontSize: 10, color: textSecondary, marginTop: 2, textAlign: 'center' }}>{stat.label}</Text>
-              </View>
+              {
+                value: counts.openRoles,
+                label: 'Open Roles',
+                icon: 'briefcase' as const,
+                color: BLUE,
+                bg: BLUE_LIGHT,
+                onPress: () => navigation.navigate('EmployerJobs' as never),
+              },
+              {
+                value: counts.pending,
+                label: 'New Apps',
+                icon: 'users' as const,
+                color: AMBER,
+                bg: '#FFFBEB',
+                onPress: () => navigation.navigate('EmployerJobs' as never),
+              },
+              {
+                value: counts.shortlisted,
+                label: 'Shortlisted',
+                icon: 'bookmark' as const,
+                color: '#7C3AED',
+                bg: '#F5F3FF',
+                onPress: () => navigation.navigate('EmployerJobs' as never),
+              },
+              {
+                value: hiredThisWeek,
+                label: 'Hired/wk',
+                icon: 'user-check' as const,
+                color: GREEN_DARK,
+                bg: '#F0FDF4',
+                onPress: () => navigation.navigate('Workers' as never),
+              },
+            ].map((stat) => (
+              <Pressable
+                key={stat.label}
+                onPress={() => { haptic('selection'); stat.onPress(); }}
+                style={({ pressed }) => ({
+                  flex: 1, backgroundColor: stat.bg, borderRadius: 14, padding: spacing.sm,
+                  alignItems: 'center', gap: 4, opacity: pressed ? 0.8 : 1,
+                  borderWidth: 1, borderColor: stat.color + '30',
+                })}
+              >
+                <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: stat.color + '20',
+                  alignItems: 'center', justifyContent: 'center' }}>
+                  <Feather name={stat.icon} size={15} color={stat.color} />
+                </View>
+                <Text style={{ fontSize: 20, fontWeight: '900', color: stat.color, lineHeight: 24 }}>
+                  {appsQuery.isLoading ? '—' : String(stat.value)}
+                </Text>
+                <Text style={{ fontSize: 10, fontWeight: '600', color: stat.color + 'CC', textAlign: 'center', lineHeight: 13 }}>
+                  {stat.label}
+                </Text>
+              </Pressable>
             ))}
           </View>
 
@@ -316,10 +451,10 @@ export function EmployerHomeScreen() {
             }}
           >
             {([
-              { icon: 'calendar', label: 'Attendance', bg: BLUE_LIGHT, onPress: () => navigation.navigate('Workers' as never) },
-              { icon: 'dollar-sign', label: 'Salary', bg: '#F0FDF4', onPress: () => haptic('selection') },
-              { icon: 'clipboard', label: 'Assign Task', bg: '#EDE9FE', onPress: () => haptic('selection') },
-              { icon: 'bar-chart-2', label: 'Analytics', bg: '#FFF7ED', onPress: () => haptic('selection') },
+              { icon: 'calendar', label: 'Attendance', bg: BLUE_LIGHT, onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
+              { icon: 'dollar-sign', label: 'Salary', bg: '#F0FDF4', onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
+              { icon: 'clipboard', label: 'Assign Task', bg: '#EDE9FE', onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
+              { icon: 'bar-chart-2', label: 'Analytics', bg: '#FFF7ED', onPress: () => { haptic('selection'); navigation.navigate('EmployerAnalytics' as never); } },
             ] as const).map((item) => (
               <Pressable
                 key={item.label}
@@ -359,30 +494,32 @@ export function EmployerHomeScreen() {
             ))}
           </View>
 
-          {/* ── Recent Activity ── */}
+          {/* ── Recent Activity (live) ── */}
           <View style={{ paddingHorizontal: spacing.xl, marginBottom: spacing.lg }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary }}>Recent Activity</Text>
-              <Pressable hitSlop={8} onPress={() => navigation.navigate('Workers' as never)}>
+              <Pressable hitSlop={8} onPress={() => navigation.navigate('Applicants' as never)}>
                 <Text style={{ fontSize: 13, fontWeight: '600', color: BLUE }}>View all</Text>
               </Pressable>
             </View>
             <View style={{ backgroundColor: cardBg, borderRadius: radii.lg, borderWidth: 1, borderColor: cardBorder, overflow: 'hidden' }}>
-              {[
-                { icon: '👤', text: `${applications.find((a) => a.status === 'hired')?.seeker?.name ?? 'Ramesh Kumar'} checked in`, time: '9:02 AM', color: '#F0FDF4' },
-                { icon: '✓',  text: `${applications.filter((a) => a.status === 'hired')[1]?.seeker?.name ?? 'Suresh B.'} completed a task`, time: '12:47 PM', color: '#EFF6FF' },
-                { icon: '₹',  text: `Payment of ₹18,000 to ${applications.filter((a) => a.status === 'hired')[2]?.seeker?.name ?? 'Mahesh R.'}`, time: 'Yesterday', color: '#FFF7ED' },
-              ].map((item, i) => (
-                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-                  padding: spacing.md, borderBottomWidth: i < 2 ? 1 : 0, borderBottomColor: cardBorder }}>
-                  <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: item.color,
-                    alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontSize: 16 }}>{item.icon}</Text>
-                  </View>
-                  <Text style={{ flex: 1, fontSize: 13, color: textPrimary }}>{item.text}</Text>
-                  <Text style={{ fontSize: 12, color: textSecondary }}>{item.time}</Text>
+              {feedEvents.length === 0 ? (
+                <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 13, color: textSecondary }}>No activity yet — post a job to get started.</Text>
                 </View>
-              ))}
+              ) : (
+                feedEvents.map((event, i) => (
+                  <View key={event.key} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                    padding: spacing.md, borderBottomWidth: i < feedEvents.length - 1 ? 1 : 0, borderBottomColor: cardBorder }}>
+                    <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: event.bg,
+                      alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontSize: 16 }}>{event.icon}</Text>
+                    </View>
+                    <Text style={{ flex: 1, fontSize: 13, color: textPrimary }} numberOfLines={2}>{event.text}</Text>
+                    <Text style={{ fontSize: 12, color: textSecondary, flexShrink: 0 }}>{formatEventTime(event.time)}</Text>
+                  </View>
+                ))
+              )}
             </View>
           </View>
 

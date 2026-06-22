@@ -10,12 +10,15 @@ import {
   createBottomTabNavigator,
   type BottomTabBarProps,
 } from '@react-navigation/bottom-tabs';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { spacing } from '@doondo/tokens';
 import { Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
+import type { AppStackParamList } from './types';
 import { EmployerHomeScreen } from '@/screens/employer/EmployerHomeScreen';
 import { PostsScreen } from '@/screens/employer/PostsScreen';
 import { WorkersScreen } from '@/screens/employer/WorkersScreen';
@@ -34,7 +37,7 @@ const TAB_META: Record<
 > = {
   EmployerHome: { label: 'Home', icon: 'home' },
   EmployerJobs: { label: 'Jobs', icon: 'briefcase' },
-  Workers: { label: 'Workers', icon: 'users' },
+  Workers: { label: 'My Workers', icon: 'users' },
   Chat: { label: 'Chat', icon: 'message-circle' },
   EmployerProfile: { label: 'You', icon: 'user' },
 };
@@ -60,9 +63,10 @@ export function EmployerTabNavigator() {
 }
 
 function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-  const { theme, scheme } = useTheme();
+  const { scheme } = useTheme();
   const isLight = scheme !== 'dark';
   const insets = useSafeAreaInsets();
+  const rootNav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
 
   const activeColor = BLUE;
   const inactiveColor = isLight ? '#9CA3AF' : '#6B7280';
@@ -101,7 +105,7 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
         };
 
         if (isMidFAB) {
-          // Raised blue mic FAB in the centre
+          // Raised blue mic FAB in the centre — opens VoiceAgent modal
           return (
             <View
               key={route.key}
@@ -110,7 +114,7 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Voice search"
-                onPress={() => { haptic('medium'); onPress(); }}
+                onPress={() => { haptic('medium'); rootNav.navigate('VoiceAgent'); }}
                 style={({ pressed }) => ({
                   width: 58,
                   height: 58,

@@ -109,8 +109,18 @@ export type AppStackParamList = {
   WorkerActivity: { applicationId: string; workerName: string };
   /** Modal: worker's verified documents. */
   WorkerDocuments: { applicationId: string; workerName: string };
+  /** Modal: monthly performance review form for a hired worker. */
+  WorkerPerformance: { applicationId: string; workerName: string };
+  /** Modal: batch payroll summary — mark all workers as paid. */
+  RunPayroll: undefined;
+  /** Modal: weekly roster / schedule grid. */
+  Roster: undefined;
+  /** Modal: employer analytics dashboard. */
+  EmployerAnalytics: undefined;
   /** Modal: post a new job (employer). */
   PostJob: undefined;
+  /** Modal: employer notification preferences — per-event toggles persisted to secureStore. */
+  NotifPreferences: undefined;
   /** Modal: full-screen conversation thread. */
   Conversation: { conversationId: string };
   /** Modal: edit a profile section (seeker or employer). */

@@ -21,4 +21,9 @@ export interface RosterEntry {
 
 export const rosterApi = {
   list: () => apiRequest<{ entries: RosterEntry[] }>('/roster'),
+  assign: (jobId: string, workerId: string, days: number[]) =>
+    apiRequest<{ ok: boolean }>('/roster/assign', {
+      method: 'POST',
+      body: JSON.stringify({ jobId, workerId, days }),
+    }),
 };

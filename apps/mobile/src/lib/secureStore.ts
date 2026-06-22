@@ -66,7 +66,17 @@ export type SecureKey =
    * newest first, capped at 5. Powers one-tap re-selection in the
    * location picker.
    */
-  | 'jobSearchRecents';
+  | 'jobSearchRecents'
+  /**
+   * Employer job post templates — JSON array of JobTemplate objects,
+   * saved from PostJobScreen, capped at 10. Employer-only.
+   */
+  | 'jobTemplates'
+  /**
+   * Employer notification preferences — JSON blob of toggle states
+   * (newApplicant, interviewReminder, workerAbsent, payrollDue).
+   */
+  | 'notifPrefs';
 
 const PREFIX = 'doondo:';
 const memoryFallback = new Map<string, string>();

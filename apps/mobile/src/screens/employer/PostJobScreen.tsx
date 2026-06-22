@@ -9,15 +9,18 @@
  * the backend. We convert at the boundary.
  */
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   TextInput,
   View,
 } from 'react-native';
+import { getSecure, setSecure } from '@/lib/secureStore';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -155,6 +158,47 @@ export function PostJobScreen() {
     harassmentPolicy: false,
   });
   const [error, setError] = useState<string | null>(null);
+
+  // ── Job templates ────────────────────────────────────────────────────────
+  type JobTemplate = { id: string; name: string; title: string; description: string;
+    type: JobType; amount: string; period: PayPeriod; skills: string[]; savedAt: string; };
+  const [templates, setTemplates] = useState<JobTemplate[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  useEffect(() => {
+    getSecure('jobTemplates')
+      .then((raw) => { if (raw) setTemplates(JSON.parse(raw) as JobTemplate[]); })
+      .catch(() => {});
+  }, []);
+
+  async function saveTemplate() {
+    if (!title.trim()) { Alert.alert('Enter a title', 'Add a job title before saving as template.'); return; }
+    const name = title.trim();
+    const tpl: JobTemplate = { id: Date.now().toString(), name, title: title.trim(),
+      description: description.trim(), type, amount, period, skills, savedAt: new Date().toISOString() };
+    const updated = [tpl, ...templates.filter((t) => t.name !== name)].slice(0, 10);
+    setTemplates(updated);
+    await setSecure('jobTemplates', JSON.stringify(updated));
+    haptic('success');
+    Alert.alert('Saved!', `"${name}" saved as a template.`);
+  }
+
+  function applyTemplate(tpl: JobTemplate) {
+    setTitle(tpl.title);
+    setDescription(tpl.description);
+    setType(tpl.type);
+    setAmount(tpl.amount);
+    setPeriod(tpl.period);
+    setSkills(tpl.skills);
+    setShowTemplates(false);
+    haptic('success');
+  }
+
+  async function deleteTemplate(id: string) {
+    const updated = templates.filter((t) => t.id !== id);
+    setTemplates(updated);
+    await setSecure('jobTemplates', JSON.stringify(updated));
+  }
 
   /**
    * Pre-fill the form from a spoken draft. We only ever *set* the fields
@@ -346,11 +390,20 @@ export function PostJobScreen() {
               fontSize: 17,
               fontWeight: '700',
               color: textColor,
-              marginRight: 34, // offset for back arrow
             }}
           >
             Post a Job
           </Text>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            {templates.length > 0 && (
+              <Pressable hitSlop={8} onPress={() => { haptic('selection'); setShowTemplates(true); }}>
+                <Feather name="layers" size={20} color={BLUE} />
+              </Pressable>
+            )}
+            <Pressable hitSlop={8} onPress={() => void saveTemplate()}>
+              <Feather name="bookmark" size={20} color={textColor} />
+            </Pressable>
+          </View>
         </View>
 
         <ScrollView
@@ -511,11 +564,13 @@ export function PostJobScreen() {
             <Text style={{ fontSize: 14, fontWeight: '600', color: labelColor }}>
               Job Type
             </Text>
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
               {([
                 { key: 'full_time' as JobType, label: 'Full Time' },
                 { key: 'part_time' as JobType, label: 'Part Time' },
                 { key: 'gig' as JobType, label: 'One Time' },
+                { key: 'shift' as JobType, label: 'Shift' },
+                { key: 'contract' as JobType, label: 'Contract' },
               ]).map((opt) => {
                 const active = type === opt.key;
                 return (
@@ -579,6 +634,30 @@ export function PostJobScreen() {
             <Text style={{ fontSize: 14, fontWeight: '600', color: labelColor }}>
               Expected Salary
             </Text>
+            {/* Quick-pick presets */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: spacing.sm, paddingBottom: 2 }}>
+              {(period === 'month'
+                ? [{ label: '₹8K', val: '8000' }, { label: '₹12K', val: '12000' }, { label: '₹18K', val: '18000' }, { label: '₹25K', val: '25000' }, { label: '₹40K', val: '40000' }]
+                : period === 'day'
+                ? [{ label: '₹300', val: '300' }, { label: '₹500', val: '500' }, { label: '₹700', val: '700' }, { label: '₹1000', val: '1000' }]
+                : period === 'hour'
+                ? [{ label: '₹50', val: '50' }, { label: '₹80', val: '80' }, { label: '₹120', val: '120' }, { label: '₹200', val: '200' }]
+                : [{ label: '₹2K', val: '2000' }, { label: '₹5K', val: '5000' }, { label: '₹10K', val: '10000' }]
+              ).map((p) => (
+                <Pressable key={p.val} onPress={() => { setAmount(p.val); haptic('selection'); }}
+                  style={({ pressed }) => ({
+                    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+                    borderWidth: amount === p.val ? 1.5 : 1,
+                    borderColor: amount === p.val ? BLUE : inputBorder,
+                    backgroundColor: amount === p.val ? '#EFF6FF' : '#FAFAFA',
+                    opacity: pressed ? 0.8 : 1,
+                  })}>
+                  <Text style={{ fontSize: 13, fontWeight: amount === p.val ? '700' : '500',
+                    color: amount === p.val ? BLUE : textColor }}>{p.label}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
               {/* ₹ prefix + amount */}
               <View
@@ -1115,6 +1194,77 @@ export function PostJobScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* ── Job Templates Sheet ── */}
+      <Modal visible={showTemplates} transparent animationType="slide" onRequestClose={() => setShowTemplates(false)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }}
+          onPress={() => setShowTemplates(false)}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation?.()}
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: '#FFFFFF',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              paddingTop: 12,
+              paddingBottom: insets.bottom + 24,
+              maxHeight: '80%',
+            }}
+          >
+            {/* Drag handle */}
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginBottom: 16 }} />
+            <Text style={{ fontSize: 17, fontWeight: '700', color: textColor, marginHorizontal: 20, marginBottom: 16 }}>
+              Saved Templates
+            </Text>
+            <ScrollView style={{ paddingHorizontal: 20 }}>
+              {templates.map((tpl) => (
+                <View
+                  key={tpl.id}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: inputBorder,
+                    borderRadius: 14,
+                    padding: 14,
+                    marginBottom: 12,
+                    backgroundColor: isLight ? '#F9FAFB' : '#1F2937',
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: textColor, flex: 1 }} numberOfLines={1}>{tpl.name}</Text>
+                    <Pressable hitSlop={8} onPress={() => { haptic('selection'); void deleteTemplate(tpl.id); }}>
+                      <Feather name="trash-2" size={16} color="#EF4444" />
+                    </Pressable>
+                  </View>
+                  <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 10 }} numberOfLines={2}>
+                    {tpl.description || tpl.title}
+                  </Text>
+                  <Pressable
+                    onPress={() => { applyTemplate(tpl); setShowTemplates(false); haptic('success'); }}
+                    style={({ pressed }) => ({
+                      backgroundColor: pressed ? '#1D4ED8' : BLUE,
+                      borderRadius: 10,
+                      paddingVertical: 9,
+                      alignItems: 'center',
+                    })}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>Use Template</Text>
+                  </Pressable>
+                </View>
+              ))}
+              {templates.length === 0 && (
+                <Text style={{ fontSize: 14, color: '#9CA3AF', textAlign: 'center', marginTop: 20 }}>
+                  No saved templates yet. Fill out the form and tap the bookmark icon to save one.
+                </Text>
+              )}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }

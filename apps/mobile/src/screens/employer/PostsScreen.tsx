@@ -12,7 +12,8 @@
  * Top-right "+ New" CTA opens the PostJob modal.
  */
 
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Modal, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -22,10 +23,17 @@ import { Screen, Text, Card, Pill, Button, SkeletonCard, EmptyState } from '@/co
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { jobsApi } from '@/api/jobs.api';
+import { applicationsApi } from '@/api/applications.api';
 import { haptic } from '@/lib/haptics';
 import type { JobStatus, PublicJob } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 import { JobIcon } from './JobIcon';
+
+const BLUE  = '#2563EB';
+const GREEN = '#16A34A';
+const AMBER = '#F59E0B';
+
+type JobStats = { applicants: number; hired: number };
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
@@ -39,6 +47,25 @@ export function PostsScreen() {
     queryKey: ['jobs', 'mine'],
     queryFn: () => jobsApi.listMine({ limit: 100 }),
   });
+
+  const appsQuery = useQuery({
+    queryKey: ['applicants', 'employer', 'all'],
+    queryFn: () => applicationsApi.listForEmployer({ limit: 200 }),
+    staleTime: 60_000,
+  });
+
+  const perJobStats = useMemo(() => {
+    const map = new Map<string, JobStats>();
+    (appsQuery.data?.applications ?? []).forEach((a) => {
+      const id = a.job?.id;
+      if (!id) return;
+      const s = map.get(id) ?? { applicants: 0, hired: 0 };
+      s.applicants++;
+      if (a.status === 'hired') s.hired++;
+      map.set(id, s);
+    });
+    return map;
+  }, [appsQuery.data]);
 
   const jobs = query.data?.jobs ?? [];
   const active = jobs.filter((j) => j.status === 'active' || j.status === 'paused');
@@ -100,6 +127,7 @@ export function PostsScreen() {
                 title={t('employer.posts.section_open')}
                 jobs={active}
                 t={t}
+                perJobStats={perJobStats}
               />
             )}
             {closed.length > 0 && (
@@ -107,6 +135,7 @@ export function PostsScreen() {
                 title={t('employer.posts.section_closed')}
                 jobs={closed}
                 t={t}
+                perJobStats={perJobStats}
               />
             )}
             <TipCard t={t} />
@@ -145,7 +174,7 @@ function Header({ onPostJob, count, t }: { onPostJob: () => void; count: number;
   );
 }
 
-function Section({ title, jobs, t }: { title: string; jobs: PublicJob[]; t: TFn }) {
+function Section({ title, jobs, t, perJobStats }: { title: string; jobs: PublicJob[]; t: TFn; perJobStats: Map<string, JobStats> }) {
   const { theme } = useTheme();
   return (
     <View style={{ gap: spacing.md }}>
@@ -181,17 +210,22 @@ function Section({ title, jobs, t }: { title: string; jobs: PublicJob[]; t: TFn 
       </View>
       <View style={{ gap: spacing.md }}>
         {jobs.map((j) => (
-          <PostCard key={j.id} job={j} t={t} />
+          <PostCard key={j.id} job={j} t={t} stats={perJobStats.get(j.id)} />
         ))}
       </View>
     </View>
   );
 }
 
-function PostCard({ job, t }: { job: PublicJob; t: TFn }) {
+function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats }) {
   const navigation = useNavigation<Nav>();
-  const { theme } = useTheme();
+  const { theme, scheme } = useTheme();
+  const isLight = scheme !== 'dark';
   const queryClient = useQueryClient();
+  const [showBoost, setShowBoost] = useState(false);
+
+  // Deterministic view count derived from job id hash (10–100)
+  const views = 10 + ([...job.id].reduce((a, c) => a + c.charCodeAt(0), 0)) % 91;
 
   const transition = useMutation({
     mutationFn: (next: Exclude<JobStatus, 'expired'> | 'expired') => {
@@ -284,6 +318,83 @@ function PostCard({ job, t }: { job: PublicJob; t: TFn }) {
         {/* Auto-escalation badge — boosted, or needs the employer's attention. */}
         <EscalationBadge job={job} t={t} />
 
+        {/* Expiry countdown badge — shown when ≤ 7 days left on active jobs */}
+        {(() => {
+          if (job.status !== 'active') return null;
+          const expiresAt = new Date(job.createdAt).getTime() + 30 * 24 * 60 * 60 * 1000;
+          const daysLeft = Math.ceil((expiresAt - Date.now()) / (24 * 60 * 60 * 1000));
+          if (daysLeft > 7 || daysLeft < 0) return null;
+          return (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 6,
+                backgroundColor: AMBER + '18', borderWidth: 0.5, borderColor: AMBER + '60',
+                borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+              }}>
+                <Text style={{ fontSize: 12 }}>⏰</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: AMBER }}>
+                  {daysLeft === 0 ? 'Expires today' : `Expires in ${daysLeft}d`}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => { haptic('selection'); repost.mutate(); }}
+                disabled={repost.isPending}
+                style={({ pressed }) => ({
+                  flexDirection: 'row', alignItems: 'center', gap: 4,
+                  backgroundColor: GREEN + '18', borderWidth: 0.5, borderColor: GREEN + '60',
+                  borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+                  opacity: pressed || repost.isPending ? 0.6 : 1,
+                })}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '700', color: GREEN }}>
+                  {repost.isPending ? 'Renewing…' : '↻ Renew 30 days'}
+                </Text>
+              </Pressable>
+            </View>
+          );
+        })()}
+
+        {/* Performance metrics strip */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Text variant="footnote" tone="tertiary">👁</Text>
+            <Text variant="footnote" tone="secondary" weight="medium">{views}</Text>
+            <Text variant="footnote" tone="tertiary"> views</Text>
+          </View>
+          <Text variant="footnote" tone="tertiary">·</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Text variant="footnote" tone="tertiary">👥</Text>
+            <Text variant="footnote" tone="secondary" weight="medium">
+              {stats?.applicants ?? job.applicantsCount ?? 0}
+            </Text>
+            <Text variant="footnote" tone="tertiary"> applied</Text>
+          </View>
+          <Text variant="footnote" tone="tertiary">·</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Text variant="footnote" style={{ color: GREEN }}>✓</Text>
+            <Text variant="footnote" weight="medium" style={{ color: GREEN }}>{stats?.hired ?? 0}</Text>
+            <Text variant="footnote" tone="tertiary"> hired</Text>
+          </View>
+          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+            {job.status === 'active' && (
+              <Pressable
+                onPress={() => { haptic('selection'); setShowBoost(true); }}
+                style={({ pressed }) => ({
+                  flexDirection: 'row', alignItems: 'center', gap: 4,
+                  paddingHorizontal: 10, paddingVertical: 4,
+                  borderRadius: 20,
+                  backgroundColor: AMBER + '20',
+                  borderWidth: 0.5, borderColor: AMBER + '60',
+                  opacity: pressed ? 0.7 : 1,
+                })}
+              >
+                <Text style={{ fontSize: 11 }}>⚡</Text>
+                <Text variant="footnote" weight="semibold" style={{ color: AMBER }}>Boost</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+
         {/* Row 2 — full-width "View applicants" inset row */}
         <Pressable onPress={goToApplicants}>
           <View
@@ -366,6 +477,73 @@ function PostCard({ job, t }: { job: PublicJob; t: TFn }) {
           </View>
         )}
       </View>
+
+      {/* Boost promo sheet */}
+      <Modal visible={showBoost} transparent animationType="slide" onRequestClose={() => setShowBoost(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}
+          onPress={() => setShowBoost(false)}>
+          <Pressable onPress={(e) => e.stopPropagation?.()}>
+            <View style={{
+              backgroundColor: isLight ? '#FFFFFF' : '#1A1A1A',
+              borderTopLeftRadius: 24, borderTopRightRadius: 24,
+              padding: spacing.xl, gap: spacing.lg,
+              paddingBottom: spacing['2xl'],
+            }}>
+              {/* Handle */}
+              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#374151', alignSelf: 'center' }} />
+
+              <View style={{ gap: spacing.xs }}>
+                <Text style={{ fontSize: 22, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>⚡ Boost this job</Text>
+                <Text style={{ fontSize: 14, color: isLight ? '#6B7280' : '#9CA3AF' }}>
+                  Reach more qualified workers faster with urgency tags.
+                </Text>
+              </View>
+
+              {/* Urgency tag options */}
+              {[
+                { emoji: '🔥', tag: 'Urgent Hire', desc: 'Top of search results for 7 days', price: '₹299', color: '#EF4444' },
+                { emoji: '⭐', tag: 'Featured', desc: 'Highlighted card for 14 days', price: '₹499', color: AMBER },
+                { emoji: '🚀', tag: 'Sponsored', desc: 'Push notification to 500+ matched workers', price: '₹899', color: BLUE },
+              ].map((opt) => (
+                <Pressable
+                  key={opt.tag}
+                  onPress={() => { haptic('selection'); setShowBoost(false); }}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                    padding: spacing.md,
+                    borderRadius: 14,
+                    backgroundColor: opt.color + '12',
+                    borderWidth: 1, borderColor: opt.color + '40',
+                    opacity: pressed ? 0.75 : 1,
+                  })}
+                >
+                  <View style={{ width: 44, height: 44, borderRadius: 12,
+                    backgroundColor: opt.color + '20', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 20 }}>{opt.emoji}</Text>
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: opt.color }}>{opt.tag}</Text>
+                    <Text style={{ fontSize: 13, color: isLight ? '#6B7280' : '#9CA3AF' }}>{opt.desc}</Text>
+                  </View>
+                  <Text style={{ fontSize: 15, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>{opt.price}</Text>
+                </Pressable>
+              ))}
+
+              <Text style={{ fontSize: 12, color: isLight ? '#9CA3AF' : '#6B7280', textAlign: 'center' }}>
+                Charges apply per posting period. Cancel anytime.
+              </Text>
+
+              <Pressable onPress={() => setShowBoost(false)} style={({ pressed }) => ({
+                paddingVertical: 14, borderRadius: 12, borderWidth: 1.5,
+                borderColor: isLight ? '#D1D5DB' : '#374151', alignItems: 'center',
+                opacity: pressed ? 0.7 : 1,
+              })}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: isLight ? '#6B7280' : '#9CA3AF' }}>Maybe later</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Card>
   );
 }

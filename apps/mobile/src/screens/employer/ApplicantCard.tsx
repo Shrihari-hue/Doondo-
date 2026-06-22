@@ -28,13 +28,14 @@ interface Props {
   showJobTitle?: boolean;
   blind?: boolean;
   blindIndex?: number;
+  onLongPress?: () => void;
 }
 
 const BLUE = '#2563EB';
 const GREEN = '#16A34A';
 const GREEN_LIGHT = '#DCFCE7';
 
-export function ApplicantCard({ applicant, showJobTitle = false, blind = false, blindIndex }: Props) {
+export function ApplicantCard({ applicant, showJobTitle = false, blind = false, blindIndex, onLongPress }: Props) {
   const navigation = useNavigation<Nav>();
   const { scheme } = useTheme();
   const isLight = scheme !== 'dark';
@@ -48,6 +49,7 @@ export function ApplicantCard({ applicant, showJobTitle = false, blind = false, 
   const isNew = applicant.status === 'pending';
   const isShortlisted = applicant.status === 'shortlisted';
   const isHired = applicant.status === 'hired';
+  const isScheduled = (applicant as any).interview?.status === 'scheduled';
 
   const cardBg = isLight ? '#FFFFFF' : '#1A1A1A';
   const cardBorder = isLight ? '#E5E7EB' : '#2A2A2A';
@@ -64,8 +66,10 @@ export function ApplicantCard({ applicant, showJobTitle = false, blind = false, 
     : null;
 
   return (
-    <View
-      style={{
+    <Pressable
+      onLongPress={onLongPress}
+      delayLongPress={350}
+      style={({ pressed }) => ({
         backgroundColor: cardBg,
         borderWidth: 1,
         borderColor: cardBorder,
@@ -77,7 +81,8 @@ export function ApplicantCard({ applicant, showJobTitle = false, blind = false, 
         shadowRadius: 4,
         shadowOffset: { width: 0, height: 1 },
         elevation: 1,
-      }}
+        opacity: pressed && onLongPress ? 0.85 : 1,
+      })}
     >
       {/* ── Top row: Avatar + Info + Status badge ── */}
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
@@ -152,6 +157,13 @@ export function ApplicantCard({ applicant, showJobTitle = false, blind = false, 
               <Text style={{ fontSize: 11, fontWeight: '700', color: '#15803D' }}>Hired</Text>
             </View>
           )}
+          {isScheduled && (
+            <View style={{ backgroundColor: '#ECFDF5', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
+              flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              <Feather name="calendar" size={9} color="#059669" />
+              <Text style={{ fontSize: 10, fontWeight: '700', color: '#059669' }}>Scheduled</Text>
+            </View>
+          )}
           <Text style={{ fontSize: 11, color: textSecondary }}>
             {timeSince(applicant.timeline.appliedAt, t)}
           </Text>
@@ -203,7 +215,7 @@ export function ApplicantCard({ applicant, showJobTitle = false, blind = false, 
           </Text>
         </Pressable>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

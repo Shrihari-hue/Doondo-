@@ -88,6 +88,11 @@ import { WorkerSalaryScreen } from '@/screens/employer/WorkerSalaryScreen';
 import { WorkerTasksScreen } from '@/screens/employer/WorkerTasksScreen';
 import { WorkerActivityScreen } from '@/screens/employer/WorkerActivityScreen';
 import { WorkerDocumentsScreen } from '@/screens/employer/WorkerDocumentsScreen';
+import { RunPayrollScreen } from '@/screens/employer/RunPayrollScreen';
+import { WorkerPerformanceScreen } from '@/screens/employer/WorkerPerformanceScreen';
+import { NotifPreferencesScreen } from '@/screens/employer/NotifPreferencesScreen';
+import { RosterScreen } from '@/screens/employer/RosterScreen';
+import { EmployerAnalyticsScreen } from '@/screens/employer/EmployerAnalyticsScreen';
 import { PostJobScreen } from '@/screens/employer/PostJobScreen';
 import { ConversationScreen } from '@/screens/chat/ConversationScreen';
 import { VerificationFlowScreen } from '@/screens/verification/VerificationFlowScreen';
@@ -182,6 +187,31 @@ export function AppNavigator() {
       <Stack.Screen
         name="WorkerDocuments"
         component={WorkerDocumentsScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="WorkerPerformance"
+        component={WorkerPerformanceScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="NotifPreferences"
+        component={NotifPreferencesScreen}
+        options={{ presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="RunPayroll"
+        component={RunPayrollScreen}
+        options={{ presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="Roster"
+        component={RosterScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="EmployerAnalytics"
+        component={EmployerAnalyticsScreen}
         options={{ presentation: 'card', animation: 'slide_from_right' }}
       />
       <Stack.Screen
