@@ -13,7 +13,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Text, Avatar } from '@/components';
+import { Text, Avatar, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
@@ -128,12 +128,14 @@ export function ApplicantCard({ applicant, showJobTitle = false, blind = false, 
             <View style={{
               paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
               backgroundColor:
-                fitScore >= 80 ? '#F0FDF4' :
-                fitScore >= 55 ? '#FFFBEB' : '#FEF2F2',
+                fitScore >= 80 ? (isLight ? '#F0FDF4' : '#052E16') :
+                fitScore >= 55 ? (isLight ? '#FFFBEB' : '#2A1A00') :
+                                 (isLight ? '#FEF2F2' : '#3B0A0A'),
               borderWidth: 0.5,
               borderColor:
-                fitScore >= 80 ? '#86EFAC' :
-                fitScore >= 55 ? '#FDE68A' : '#FCA5A5',
+                fitScore >= 80 ? (isLight ? '#86EFAC' : '#166534') :
+                fitScore >= 55 ? (isLight ? '#FDE68A' : '#78350F') :
+                                 (isLight ? '#FCA5A5' : '#7F1D1D'),
             }}>
               <Text style={{
                 fontSize: 11, fontWeight: '700',
@@ -156,48 +158,45 @@ export function ApplicantCard({ applicant, showJobTitle = false, blind = false, 
 
       {/* ── Action buttons ── */}
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: 2 }}>
-        <Pressable
+        <AnimatedPressable
           onPress={() => {
             haptic('selection');
             navigation.navigate('ApplicantDetail', { applicationId: applicant.id });
           }}
           accessibilityRole="button"
-          style={({ pressed }) => ({
+          style={{
             flex: 1,
             paddingVertical: 9,
             borderRadius: radii.lg,
             borderWidth: 1,
             borderColor: cardBorder,
             alignItems: 'center',
-            opacity: pressed ? 0.75 : 1,
-          })}
+          }}
         >
           <Text style={{ fontSize: 13, fontWeight: '600', color: textPrimary }}>
             View Profile
           </Text>
-        </Pressable>
+        </AnimatedPressable>
 
-        <Pressable
+        <AnimatedPressable
           onPress={() => {
             haptic('selection');
-            // Shortlist action — navigate to detail or trigger shortlist
             navigation.navigate('ApplicantDetail', { applicationId: applicant.id });
           }}
           accessibilityRole="button"
-          style={({ pressed }) => ({
+          style={{
             flex: 1,
             paddingVertical: 9,
             borderRadius: radii.lg,
             borderWidth: 1.5,
             borderColor: BLUE,
             alignItems: 'center',
-            opacity: pressed ? 0.75 : 1,
-          })}
+          }}
         >
           <Text style={{ fontSize: 13, fontWeight: '700', color: BLUE }}>
             Shortlist
           </Text>
-        </Pressable>
+        </AnimatedPressable>
       </View>
     </Pressable>
   );

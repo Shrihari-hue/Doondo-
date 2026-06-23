@@ -227,11 +227,11 @@ export function WorkerActivityScreen() {
 
         {/* Info banner when using fallback */}
         {!hasRealData && (
-          <View style={{ backgroundColor: '#F8FAFF', borderRadius: 10, padding: spacing.md,
+          <View style={{ backgroundColor: isLight ? '#F8FAFF' : '#1E2A3A', borderRadius: 10, padding: spacing.md,
             flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-            borderWidth: 1, borderColor: '#DBEAFE' }}>
+            borderWidth: 1, borderColor: isLight ? '#DBEAFE' : '#1E3A5F' }}>
             <Feather name="info" size={14} color={BLUE} />
-            <Text style={{ flex: 1, fontSize: 12, color: '#1D4ED8', lineHeight: 17 }}>
+            <Text style={{ flex: 1, fontSize: 12, color: isLight ? '#1D4ED8' : '#93C5FD', lineHeight: 17 }}>
               Detailed activity will populate once this worker starts logging shifts via Doondo.
             </Text>
           </View>

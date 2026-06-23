@@ -296,12 +296,17 @@ function WorkerCard({
 }) {
   const [showMore, setShowMore] = useState(false);
   const [showTrust, setShowTrust] = useState(false);
+  const { scheme } = useTheme();
+  const isCardLight = scheme !== 'dark';
   const name = entry.seeker?.name ?? 'Worker';
   const role = entry.job?.title ?? entry.seeker?.skills?.[0] ?? 'Worker';
 
   const statusColor = wf === 'active' ? GREEN : wf === 'on_leave' ? AMBER : wf === 'absent' ? RED : '#9CA3AF';
   const statusLabel = wf === 'active' ? 'Active' : wf === 'on_leave' ? 'On Leave' : wf === 'absent' ? 'Absent' : 'Past';
-  const statusBg = wf === 'active' ? '#F0FDF4' : wf === 'on_leave' ? '#FFFBEB' : wf === 'absent' ? '#FEF2F2' : '#F3F4F6';
+  const statusBg = wf === 'active' ? (isCardLight ? '#F0FDF4' : '#052E16')
+    : wf === 'on_leave' ? (isCardLight ? '#FFFBEB' : '#2A1A00')
+    : wf === 'absent' ? (isCardLight ? '#FEF2F2' : '#3B0A0A')
+    : (isCardLight ? '#F3F4F6' : '#1F2937');
 
   // Trust score ring — SVG-like with a View + border trick
   const ringSize = 52;

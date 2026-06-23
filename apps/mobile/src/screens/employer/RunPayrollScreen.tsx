@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, SkeletonCard, BlurOverlay} from '@/components';
+import { Screen, Text, SkeletonCard, BlurOverlay, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
 import { haptic } from '@/lib/haptics';
@@ -232,7 +232,7 @@ export function RunPayrollScreen() {
 
                   <View style={{ width: 50, alignItems: 'center' }}>
                     {row.paid ? (
-                      <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, backgroundColor: '#F0FDF4' }}>
+                      <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, backgroundColor: isLight ? '#F0FDF4' : '#052E16' }}>
                         <Text style={{ fontSize: 10, fontWeight: '700', color: GREEN }}>Paid</Text>
                       </View>
                     ) : (
@@ -241,6 +241,7 @@ export function RunPayrollScreen() {
                         <Text style={{ fontSize: 10, fontWeight: '600', color: textSecondary }}>Due</Text>
                       </View>
                     )}
+
                   </View>
                 </Pressable>
               ))}
@@ -267,15 +268,14 @@ export function RunPayrollScreen() {
               </Text>
             </View>
           )}
-          <Pressable
+          <AnimatedPressable
             onPress={markPaid}
             disabled={!anyChecked}
-            style={({ pressed }) => ({
+            style={{
               backgroundColor: anyChecked ? GREEN : isLight ? '#D1D5DB' : '#374151',
               borderRadius: 14, paddingVertical: 15, alignItems: 'center',
               flexDirection: 'row', justifyContent: 'center', gap: 8,
-              opacity: pressed ? 0.85 : 1,
-            })}
+            }}
           >
             <Feather name="check-circle" size={20} color="#FFFFFF" />
             <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
@@ -283,7 +283,7 @@ export function RunPayrollScreen() {
                 ? `Mark ${rows.filter((r) => r.checked && !r.paid).length === rows.filter((r) => !r.paid).length ? 'All' : 'Selected'} as Paid`
                 : 'Select workers to pay'}
             </Text>
-          </Pressable>
+          </AnimatedPressable>
         </View>
       )}
 

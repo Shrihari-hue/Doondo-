@@ -468,7 +468,7 @@ export function ApplicantDetailScreen() {
                         flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
                         borderWidth: 1.5,
                         borderColor: feedbackShowedUp === val ? '#2563EB' : (isLight ? '#E5E7EB' : '#374151'),
-                        backgroundColor: feedbackShowedUp === val ? '#EFF6FF' : 'transparent',
+                        backgroundColor: feedbackShowedUp === val ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent',
                         opacity: pressed ? 0.75 : 1,
                       })}>
                       <Text style={{ fontSize: 14, fontWeight: '600', color: feedbackShowedUp === val ? '#2563EB' : (isLight ? '#6B7280' : '#9CA3AF') }}>{label}</Text>
@@ -503,7 +503,7 @@ export function ApplicantDetailScreen() {
                         paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
                         borderWidth: 1.5,
                         borderColor: feedbackNextStep === val ? '#2563EB' : (isLight ? '#E5E7EB' : '#374151'),
-                        backgroundColor: feedbackNextStep === val ? '#EFF6FF' : 'transparent',
+                        backgroundColor: feedbackNextStep === val ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent',
                         opacity: pressed ? 0.75 : 1,
                       })}>
                       <Text style={{ fontSize: 14, fontWeight: '600', color: feedbackNextStep === val ? '#2563EB' : (isLight ? '#6B7280' : '#9CA3AF') }}>{label}</Text>
@@ -618,11 +618,11 @@ export function ApplicantDetailScreen() {
         <View style={{ flexDirection: 'row', marginHorizontal: spacing.xl, marginTop: spacing.md, gap: spacing.sm }}>
           {(['Aadhaar', 'Police', 'Address', 'Experience'] as const).map((label) => (
             <View key={label} style={{ flex: 1, alignItems: 'center', gap: 4, padding: spacing.sm,
-              borderRadius: 12, backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0' }}>
-              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' }}>
+              borderRadius: 12, backgroundColor: isLight ? '#F0FDF4' : '#052E16', borderWidth: 1, borderColor: isLight ? '#BBF7D0' : '#166534' }}>
+              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: isLight ? '#DCFCE7' : '#052E16', alignItems: 'center', justifyContent: 'center' }}>
                 <Feather name="shield" size={16} color="#16A34A" />
               </View>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: '#1F2937', textAlign: 'center' }}>{label}</Text>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: textPrimary, textAlign: 'center' }}>{label}</Text>
               <Text style={{ fontSize: 10, color: '#16A34A', fontWeight: '600' }}>Verified</Text>
             </View>
           ))}
@@ -631,12 +631,12 @@ export function ApplicantDetailScreen() {
         {/* Salary */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
           marginHorizontal: spacing.xl, marginTop: spacing.md, padding: spacing.md,
-          borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' }}>
+          borderRadius: 12, borderWidth: 1, borderColor: borderColor, backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D' }}>
           <View>
-            <Text style={{ fontSize: 22, fontWeight: '800', color: '#1F2937' }}>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: textPrimary }}>
               {'₹'}{payAmount.toLocaleString('en-IN')} / {payPeriod}
             </Text>
-            <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Expected Salary</Text>
+            <Text style={{ fontSize: 12, color: textSecondary, marginTop: 2 }}>Expected Salary</Text>
           </View>
           <Pressable style={{ paddingHorizontal: spacing.md, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5, borderColor: BLUE }}>
             <Text style={{ fontSize: 13, fontWeight: '700', color: BLUE }}>Negotiate</Text>
@@ -650,7 +650,7 @@ export function ApplicantDetailScreen() {
             <Pressable
               onPress={() => { haptic('selection'); navigation.navigate('PostJob'); }}
               style={({ pressed }) => ({
-                flex: 2, backgroundColor: '#F0FDF4', borderWidth: 1.5, borderColor: '#16A34A',
+                flex: 2, backgroundColor: isLight ? '#F0FDF4' : '#052E16', borderWidth: 1.5, borderColor: '#16A34A',
                 borderRadius: 12, paddingVertical: 14, alignItems: 'center', gap: 4,
                 flexDirection: 'row', justifyContent: 'center', opacity: pressed ? 0.85 : 1,
               })}
@@ -692,7 +692,7 @@ export function ApplicantDetailScreen() {
               marginHorizontal: spacing.xl, marginTop: spacing.sm,
               borderRadius: 12, paddingVertical: 11,
               borderWidth: 1.5, borderColor: '#7C3AED',
-              backgroundColor: '#F5F3FF',
+              backgroundColor: isLight ? '#F5F3FF' : '#2D1B69',
               opacity: pressed || generatingLetter ? 0.75 : 1,
             })}
           >
@@ -729,16 +729,16 @@ export function ApplicantDetailScreen() {
 
         {/* Stats row */}
         <View style={{ flexDirection: 'row', marginHorizontal: spacing.xl, marginTop: spacing.md,
-          borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF', overflow: 'hidden' }}>
+          borderRadius: 12, borderWidth: 1, borderColor: borderColor, backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D', overflow: 'hidden' }}>
           {[
             { label: 'Jobs Completed', value: jobsDone > 0 ? String(jobsDone) : '—' },
             { label: 'Repeat Clients', value: (seeker as any)?.repeatClientRate ? `${(seeker as any).repeatClientRate}%` : '—' },
             { label: 'On-time Rate', value: (seeker as any)?.onTimeRate ? `${(seeker as any).onTimeRate}%` : '—' },
           ].map((stat, i, arr) => (
             <View key={stat.label} style={{ flex: 1, alignItems: 'center', paddingVertical: spacing.md,
-              borderRightWidth: i < arr.length - 1 ? 1 : 0, borderRightColor: '#E5E7EB' }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: '#1F2937' }}>{stat.value}</Text>
-              <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2, textAlign: 'center' }}>{stat.label}</Text>
+              borderRightWidth: i < arr.length - 1 ? 1 : 0, borderRightColor: borderColor }}>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: textPrimary }}>{stat.value}</Text>
+              <Text style={{ fontSize: 11, color: textSecondary, marginTop: 2, textAlign: 'center' }}>{stat.label}</Text>
             </View>
           ))}
         </View>
@@ -784,14 +784,14 @@ export function ApplicantDetailScreen() {
                 flexDirection: 'row', alignItems: 'center', gap: spacing.md,
                 marginHorizontal: spacing.xl, marginTop: spacing.md,
                 padding: spacing.md, borderRadius: 12,
-                backgroundColor: '#FFFBEB', borderWidth: 0.5, borderColor: '#FDE68A',
+                backgroundColor: isLight ? '#FFFBEB' : '#2A1A00', borderWidth: 0.5, borderColor: isLight ? '#FDE68A' : '#78350F',
                 opacity: pressed ? 0.7 : 1,
               })}
             >
               <Text style={{ fontSize: 20 }}>📋</Text>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#92400E' }}>Interview Feedback</Text>
-                <Text style={{ fontSize: 12, color: '#B45309' }}>Your interview with {name.split(' ')[0]} has passed — leave feedback.</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: isLight ? '#92400E' : '#FCD34D' }}>Interview Feedback</Text>
+                <Text style={{ fontSize: 12, color: isLight ? '#B45309' : '#FCD34D' }}>Your interview with {name.split(' ')[0]} has passed — leave feedback.</Text>
               </View>
               <Pressable onPress={(e) => { e.stopPropagation?.(); setFeedbackDismissed(true); }} hitSlop={8}>
                 <Feather name="x" size={16} color="#B45309" />
@@ -882,8 +882,8 @@ export function ApplicantDetailScreen() {
                   const hasSlot = true;
                   return (
                     <View key={slot} style={{ flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12,
-                      backgroundColor: hasSlot ? '#EFF6FF' : '#F9FAFB',
-                      borderWidth: 1.5, borderColor: hasSlot ? '#2563EB' : '#E5E7EB', gap: 4 }}>
+                      backgroundColor: hasSlot ? (isLight ? '#EFF6FF' : '#1E3A5F') : subtleBg,
+                      borderWidth: 1.5, borderColor: hasSlot ? '#2563EB' : borderColor, gap: 4 }}>
                       <Text style={{ fontSize: 18 }}>{icons[slot]}</Text>
                       <Text style={{ fontSize: 12, fontWeight: '700', color: hasSlot ? '#2563EB' : '#9CA3AF' }}>
                         {slot}
@@ -1032,7 +1032,7 @@ export function ApplicantDetailScreen() {
                   return (
                     <View key={star} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Text style={{ fontSize: 11, color: '#6B7280', width: 8 }}>{star}</Text>
-                      <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: '#F3F4F6' }}>
+                      <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: isLight ? '#F3F4F6' : '#1E1E1E' }}>
                         <View style={{ width: `${pct}%`, height: 6, borderRadius: 3, backgroundColor: '#FBBF24' }} />
                       </View>
                     </View>
@@ -1043,7 +1043,7 @@ export function ApplicantDetailScreen() {
 
             {/* What employers say */}
             <View style={{ gap: spacing.md }}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: '#1F2937' }}>What employers say</Text>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>What employers say</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
                 {[
                   { tag: 'Punctual', count: 96 }, { tag: 'Good Work', count: 88 },
@@ -1052,7 +1052,7 @@ export function ApplicantDetailScreen() {
                 ].map((item) => (
                   <View key={item.tag} style={{ flexDirection: 'row', alignItems: 'center', gap: 4,
                     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
-                    backgroundColor: '#F0F9FF', borderWidth: 1, borderColor: '#BAE6FD' }}>
+                    backgroundColor: isLight ? '#F0F9FF' : '#1E3A5F', borderWidth: 1, borderColor: isLight ? '#BAE6FD' : '#1E3A5F' }}>
                     <Text style={{ fontSize: 13, color: '#0369A1', fontWeight: '600' }}>{item.tag}</Text>
                     <Text style={{ fontSize: 12, color: '#0284C7' }}>({item.count})</Text>
                   </View>
@@ -1064,23 +1064,23 @@ export function ApplicantDetailScreen() {
             <View style={{ gap: spacing.md }}>
               {(seeker as any)?.reviews?.length > 0
                 ? (seeker as any).reviews.slice(0, 5).map((rev: any, i: number) => (
-                    <View key={i} style={{ paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', gap: 6 }}>
+                    <View key={i} style={{ paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: borderColor, gap: 6 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center' }}>
+                          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: isLight ? '#E5E7EB' : '#1F2937', alignItems: 'center', justifyContent: 'center' }}>
                             <Feather name="user" size={18} color="#9CA3AF" />
                           </View>
                           <View>
-                            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937' }}>{rev.reviewerName ?? 'Employer'}</Text>
-                            <Text style={{ fontSize: 11, color: '#9CA3AF' }}>{rev.jobTitle ?? ''}</Text>
+                            <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary }}>{rev.reviewerName ?? 'Employer'}</Text>
+                            <Text style={{ fontSize: 11, color: textSecondary }}>{rev.jobTitle ?? ''}</Text>
                           </View>
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                           <Text style={{ fontSize: 13, color: '#FBBF24' }}>{'\u2605'}</Text>
-                          <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>{rev.rating?.toFixed(1)}</Text>
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: textPrimary }}>{rev.rating?.toFixed(1)}</Text>
                         </View>
                       </View>
-                      {rev.comment ? <Text style={{ fontSize: 13, color: '#4B5563', lineHeight: 20 }}>{rev.comment}</Text> : null}
+                      {rev.comment ? <Text style={{ fontSize: 13, color: textSecondary, lineHeight: 20 }}>{rev.comment}</Text> : null}
                     </View>
                   ))
                 : (
@@ -1089,23 +1089,23 @@ export function ApplicantDetailScreen() {
                       { name: 'Employer', job: 'Booked for work', rating: 5.0, comment: 'Excellent work! Very professional and completed the work on time.', ago: '2 days ago' },
                       { name: 'Employer', job: 'Booked for work', rating: 5.0, comment: 'Very polite and skilled. Highly recommended.', ago: '1 week ago' },
                     ].map((rev, i) => (
-                      <View key={i} style={{ paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', gap: 6 }}>
+                      <View key={i} style={{ paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: borderColor, gap: 6 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center' }}>
+                            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: isLight ? '#E5E7EB' : '#1F2937', alignItems: 'center', justifyContent: 'center' }}>
                               <Feather name="user" size={18} color="#9CA3AF" />
                             </View>
                             <View>
-                              <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937' }}>{rev.name}</Text>
-                              <Text style={{ fontSize: 11, color: '#9CA3AF' }}>{rev.job} \u00b7 {rev.ago}</Text>
+                              <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary }}>{rev.name}</Text>
+                              <Text style={{ fontSize: 11, color: textSecondary }}>{rev.job} \u00b7 {rev.ago}</Text>
                             </View>
                           </View>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                             <Text style={{ fontSize: 13, color: '#FBBF24' }}>{'\u2605'}</Text>
-                            <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>{rev.rating.toFixed(1)}</Text>
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: textPrimary }}>{rev.rating.toFixed(1)}</Text>
                           </View>
                         </View>
-                        <Text style={{ fontSize: 13, color: '#4B5563', lineHeight: 20 }}>{rev.comment}</Text>
+                        <Text style={{ fontSize: 13, color: textSecondary, lineHeight: 20 }}>{rev.comment}</Text>
                       </View>
                     ))}
                   </View>
@@ -1206,7 +1206,7 @@ export function ApplicantDetailScreen() {
                       style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
                         borderWidth: active ? 1.5 : 1,
                         borderColor: active ? BLUE : borderColor,
-                        backgroundColor: active ? '#EFF6FF' : 'transparent' }}>
+                        backgroundColor: active ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent' }}>
                       <Text style={{ fontSize: 13, fontWeight: active ? '700' : '500', color: active ? BLUE : textSecondary }}>{label}</Text>
                     </Pressable>
                   );
@@ -1226,7 +1226,7 @@ export function ApplicantDetailScreen() {
                       style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
                         borderWidth: active ? 1.5 : 1,
                         borderColor: active ? BLUE : borderColor,
-                        backgroundColor: active ? '#EFF6FF' : 'transparent' }}>
+                        backgroundColor: active ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent' }}>
                       <Text style={{ fontSize: 13, fontWeight: active ? '700' : '500', color: active ? BLUE : textSecondary }}>{label}</Text>
                     </Pressable>
                   );
@@ -1245,7 +1245,7 @@ export function ApplicantDetailScreen() {
                       style={{ flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center',
                         borderWidth: active ? 1.5 : 1,
                         borderColor: active ? BLUE : borderColor,
-                        backgroundColor: active ? '#EFF6FF' : 'transparent' }}>
+                        backgroundColor: active ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent' }}>
                       <Text style={{ fontSize: 12, fontWeight: active ? '700' : '500', color: active ? BLUE : textSecondary }}>{label}</Text>
                     </Pressable>
                   );
@@ -1394,7 +1394,7 @@ function VideoPitchCard({
           <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>Video Pitch</Text>
         </View>
         <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
-          backgroundColor: '#EFF6FF', borderWidth: 0.5, borderColor: '#BFDBFE' }}>
+          backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F', borderWidth: 0.5, borderColor: isLight ? '#BFDBFE' : '#1E3A5F' }}>
           <Text style={{ fontSize: 12, fontWeight: '600', color: '#2563EB' }}>{durLabel}</Text>
         </View>
       </View>

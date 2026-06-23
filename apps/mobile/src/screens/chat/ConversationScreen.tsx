@@ -898,6 +898,7 @@ function ConversationScreenInner() {
         animationType="slide"
         onRequestClose={() => setLangSheetOpen(false)}
       >
+        <BlurOverlay>
         <Pressable
           onPress={() => setLangSheetOpen(false)}
           style={{ flex: 1, justifyContent: 'flex-end' }}
@@ -987,6 +988,7 @@ function ConversationScreenInner() {
             })}
           </Pressable>
         </Pressable>
+        </BlurOverlay>
       </Modal>
     </Screen>
   );

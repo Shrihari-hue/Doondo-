@@ -699,7 +699,7 @@ export function PostJobScreen() {
                     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
                     borderWidth: amount === p.val ? 1.5 : 1,
                     borderColor: amount === p.val ? BLUE : inputBorder,
-                    backgroundColor: amount === p.val ? '#EFF6FF' : '#FAFAFA',
+                    backgroundColor: amount === p.val ? (isLight ? '#EFF6FF' : '#1E3A5F') : (isLight ? '#FAFAFA' : '#1F2937'),
                     opacity: pressed ? 0.8 : 1,
                   })}>
                   <Text style={{ fontSize: 13, fontWeight: amount === p.val ? '700' : '500',

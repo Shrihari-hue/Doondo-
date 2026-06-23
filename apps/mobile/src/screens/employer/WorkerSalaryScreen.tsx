@@ -16,7 +16,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
 import { spacing } from '@doondo/tokens';
-import { Screen, Text, SkeletonCard } from '@/components';
+import { Screen, Text, SkeletonCard, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
 import type { AppStackParamList } from '@/navigation/types';
@@ -215,23 +215,40 @@ export function WorkerSalaryScreen() {
               borderWidth: 1, borderColor: border, padding: spacing.md, gap: spacing.md,
             }}>
               <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>3-Month Earnings</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, height: 100 }}>
+              {/* Amount labels — above bars so they never clip */}
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                {months3.map((m) => (
+                  <Text key={m.label} style={{
+                    flex: 1, textAlign: 'center',
+                    fontSize: 11, fontWeight: '600',
+                    color: m.isCurrent ? BLUE : textSecondary,
+                  }}>
+                    ₹{m.rupees >= 1000 ? `${Math.round(m.rupees / 1000)}k` : m.rupees}
+                  </Text>
+                ))}
+              </View>
+              {/* Bars — fixed-height container, bars align to bottom */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, height: 72 }}>
                 {months3.map((m) => {
-                  const barHeight = Math.round((m.paise / maxPaise) * 80);
+                  const barHeight = Math.round((m.paise / maxPaise) * 72);
                   return (
-                    <View key={m.label} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
-                      <Text style={{ fontSize: 11, fontWeight: '600', color: m.isCurrent ? BLUE : textSecondary }}>
-                        ₹{m.rupees >= 1000 ? `${Math.round(m.rupees / 1000)}k` : m.rupees}
-                      </Text>
-                      <View style={{
-                        width: '75%', height: barHeight,
-                        borderRadius: 6,
-                        backgroundColor: m.isCurrent ? BLUE : (isLight ? '#BFDBFE' : '#1E3A5F'),
-                      }} />
-                      <Text style={{ fontSize: 12, color: textSecondary }}>{m.label}</Text>
-                    </View>
+                    <View key={m.label} style={{
+                      flex: 1, height: barHeight, borderRadius: 6,
+                      backgroundColor: m.isCurrent ? BLUE : (isLight ? '#BFDBFE' : '#1E3A5F'),
+                    }} />
                   );
                 })}
+              </View>
+              {/* Month labels — below bars */}
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                {months3.map((m) => (
+                  <Text key={m.label} style={{
+                    flex: 1, textAlign: 'center',
+                    fontSize: 12, color: textSecondary,
+                  }}>
+                    {m.label}
+                  </Text>
+                ))}
               </View>
               <Text style={{ fontSize: 12, color: textSecondary, textAlign: 'center' }}>
                 Gross pay (incl. bonus & allowances)
@@ -269,7 +286,7 @@ export function WorkerSalaryScreen() {
               paddingHorizontal: spacing.md, paddingVertical: 14,
               borderTopWidth: i > 0 ? 1 : 0, borderTopColor: border }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: '#F0FDF4',
+                <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: isLight ? '#F0FDF4' : '#052E16',
                   alignItems: 'center', justifyContent: 'center' }}>
                   <Feather name="check-circle" size={16} color={GREEN} />
                 </View>
@@ -277,7 +294,7 @@ export function WorkerSalaryScreen() {
               </View>
               <View style={{ alignItems: 'flex-end', gap: 2 }}>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary }}>{row.amount}</Text>
-                <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20, backgroundColor: '#F0FDF4' }}>
+                <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20, backgroundColor: isLight ? '#F0FDF4' : '#052E16' }}>
                   <Text style={{ fontSize: 11, fontWeight: '700', color: GREEN }}>Paid</Text>
                 </View>
               </View>
@@ -286,31 +303,28 @@ export function WorkerSalaryScreen() {
         </View>
 
         {/* Download Payslip */}
-        <Pressable
+        <AnimatedPressable
           onPress={() => void sharePayslip()}
           disabled={sharing}
-          style={({ pressed }) => ({
+          style={{
             flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
             borderRadius: 12, paddingVertical: 13, borderWidth: 1.5, borderColor: BLUE,
-            opacity: pressed || sharing ? 0.7 : 1,
-          })}>
+            opacity: sharing ? 0.7 : 1,
+          }}>
           {sharing
             ? <ActivityIndicator size="small" color={BLUE} />
             : <Feather name="download" size={16} color={BLUE} />}
           <Text style={{ fontSize: 15, fontWeight: '700', color: BLUE }}>
             {sharing ? 'Generating…' : 'Download Payslip (PDF)'}
           </Text>
-        </Pressable>
+        </AnimatedPressable>
 
         {/* Pay now */}
-        <Pressable style={({ pressed }) => ({
-          backgroundColor: BLUE, borderRadius: 12, paddingVertical: 15,
-          alignItems: 'center', opacity: pressed ? 0.85 : 1,
-        })}>
+        <AnimatedPressable style={{ backgroundColor: BLUE, borderRadius: 12, paddingVertical: 15, alignItems: 'center' }}>
           <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
             Pay {name.split(' ')[0]} — {formatINR(totalPaise)}
           </Text>
-        </Pressable>
+        </AnimatedPressable>
       </ScrollView>
     </Screen>
   );

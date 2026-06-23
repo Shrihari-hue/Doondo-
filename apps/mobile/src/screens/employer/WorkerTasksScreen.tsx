@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import {
-  Alert, Modal, Pressable, ScrollView, TextInput, TouchableOpacity, View,
+  Alert, Modal, Pressable, ScrollView, TextInput, View,
 } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
 import { spacing } from '@doondo/tokens';
-import { Screen, Text, BlurOverlay} from '@/components';
+import { Screen, Text, BlurOverlay, EmptyState, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import type { AppStackParamList } from '@/navigation/types';
@@ -51,17 +51,21 @@ const SEED_TASKS: Task[] = [
     date: 'Done: 10 Jun',priority: 'Medium', status: 'completed',   icon: 'wind' },
 ];
 
-const PRIORITY_STYLE: Record<TaskPriority, { bg: string; fg: string }> = {
-  High:   { bg: '#FEF2F2', fg: ORANGE },
-  Medium: { bg: '#FFFBEB', fg: AMBER },
-  Low:    { bg: '#F0FDF4', fg: GREEN },
-};
+function getPriorityStyle(isLight: boolean): Record<TaskPriority, { bg: string; fg: string }> {
+  return {
+    High:   { bg: isLight ? '#FEF2F2' : '#3B0A0A', fg: ORANGE },
+    Medium: { bg: isLight ? '#FFFBEB' : '#2A1A00', fg: AMBER },
+    Low:    { bg: isLight ? '#F0FDF4' : '#052E16', fg: GREEN },
+  };
+}
 
-const STATUS_STYLE: Record<TaskStatus, { bg: string; fg: string; label: string }> = {
-  pending:     { bg: '#F3F4F6', fg: '#6B7280', label: 'Pending' },
-  in_progress: { bg: '#EFF6FF', fg: BLUE,      label: 'In Progress' },
-  completed:   { bg: '#F0FDF4', fg: GREEN,      label: 'Completed' },
-};
+function getStatusStyle(isLight: boolean): Record<TaskStatus, { bg: string; fg: string; label: string }> {
+  return {
+    pending:     { bg: isLight ? '#F3F4F6' : '#1F2937', fg: '#6B7280', label: 'Pending' },
+    in_progress: { bg: isLight ? '#EFF6FF' : '#1E3A5F', fg: BLUE,      label: 'In Progress' },
+    completed:   { bg: isLight ? '#F0FDF4' : '#052E16', fg: GREEN,      label: 'Completed' },
+  };
+}
 
 export function WorkerTasksScreen() {
   const navigation  = useNavigation<Nav>();
@@ -84,6 +88,9 @@ export function WorkerTasksScreen() {
   const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
   const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
   const inputBg       = isLight ? '#F9FAFB' : '#0C0A0E';
+
+  const PRIORITY_STYLE = getPriorityStyle(isLight);
+  const STATUS_STYLE   = getStatusStyle(isLight);
 
   const counts = {
     pending:     tasks.filter((t) => t.status === 'pending').length,
@@ -174,13 +181,13 @@ export function WorkerTasksScreen() {
       <ScrollView style={{ flex: 1, backgroundColor: bg }}
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.md, paddingBottom: 60 }}>
         {visible.length === 0 && (
-          <View style={{ alignItems: 'center', paddingVertical: 48 }}>
-            <Text style={{ fontSize: 32 }}>📋</Text>
-            <Text style={{ fontSize: 15, color: textSecondary, marginTop: 12 }}>No tasks here</Text>
-            <Pressable onPress={() => setShowAdd(true)} style={{ marginTop: 12 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: BLUE }}>+ Assign one</Text>
-            </Pressable>
-          </View>
+          <EmptyState
+            illustration="calendar"
+            tone="hero"
+            title="No tasks here"
+            message={tab === 'completed' ? 'Completed tasks will appear here.' : 'Assign a task to get started.'}
+            cta={tab !== 'completed' ? { label: '+ Assign Task', onPress: () => setShowAdd(true) } : undefined}
+          />
         )}
 
         {visible.map((task) => {
@@ -191,7 +198,7 @@ export function WorkerTasksScreen() {
               borderWidth: 1, borderColor: border, padding: spacing.md, gap: spacing.sm,
               shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } }}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
-                <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#EFF6FF',
+                <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
                   alignItems: 'center', justifyContent: 'center' }}>
                   <Feather name={task.icon} size={20} color={BLUE} />
                 </View>
@@ -219,17 +226,17 @@ export function WorkerTasksScreen() {
                   <Text style={{ fontSize: 11, fontWeight: '700', color: pr.fg }}>{task.priority}</Text>
                 </View>
                 {task.status !== 'completed' && (
-                  <Pressable onPress={() => advanceTask(task.id)} hitSlop={8}
+                  <AnimatedPressable onPress={() => advanceTask(task.id)} hitSlop={8}
                     style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
-                      backgroundColor: '#EFF6FF', marginLeft: 4 }}>
+                      backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F', marginLeft: 4 }}>
                     <Text style={{ fontSize: 11, fontWeight: '700', color: BLUE }}>
                       {task.status === 'pending' ? '▶ Start' : '✓ Done'}
                     </Text>
-                  </Pressable>
+                  </AnimatedPressable>
                 )}
-                <Pressable onPress={() => deleteTask(task.id)} hitSlop={8}>
+                <AnimatedPressable onPress={() => deleteTask(task.id)} hitSlop={8} scaleValue={0.85}>
                   <Feather name="trash-2" size={14} color="#EF4444" />
-                </Pressable>
+                </AnimatedPressable>
               </View>
             </View>
           );
@@ -239,7 +246,7 @@ export function WorkerTasksScreen() {
       {/* Add Task Modal */}
       <Modal visible={showAdd} transparent animationType="slide" onRequestClose={() => setShowAdd(false)}>
         <BlurOverlay>
-        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+        <Pressable style={{ flex: 1, justifyContent: 'flex-end' }} onPress={() => setShowAdd(false)}>
           <View style={{ backgroundColor: surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
             padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -270,12 +277,12 @@ export function WorkerTasksScreen() {
                   const active = newPri === p;
                   const sty = PRIORITY_STYLE[p];
                   return (
-                    <Pressable key={p} onPress={() => setNewPri(p)}
+                    <AnimatedPressable key={p} onPress={() => setNewPri(p)} scaleValue={0.97}
                       style={{ flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10,
                         backgroundColor: active ? sty.bg : (isLight ? '#F3F4F6' : '#1E1E1E'),
                         borderWidth: active ? 1.5 : 1, borderColor: active ? sty.fg : border }}>
                       <Text style={{ fontSize: 13, fontWeight: '700', color: active ? sty.fg : textSecondary }}>{p}</Text>
-                    </Pressable>
+                    </AnimatedPressable>
                   );
                 })}
               </View>
@@ -294,7 +301,7 @@ export function WorkerTasksScreen() {
                         paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
                         borderWidth: active ? 1.5 : 1,
                         borderColor: active ? BLUE : border,
-                        backgroundColor: active ? '#EFF6FF' : 'transparent',
+                        backgroundColor: active ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent',
                       }}>
                       <Text style={{ fontSize: 13, fontWeight: active ? '700' : '500',
                         color: active ? BLUE : textSecondary }}>{label}</Text>
@@ -311,7 +318,7 @@ export function WorkerTasksScreen() {
               <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>Assign Task</Text>
             </Pressable>
           </View>
-        </View>
+        </Pressable>
       </BlurOverlay>
       </Modal>
     </Screen>

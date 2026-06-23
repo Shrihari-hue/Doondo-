@@ -165,7 +165,7 @@ export function NotifPreferencesScreen() {
 
         {/* Info banner */}
         <View style={{
-          backgroundColor: '#EFF6FF', borderRadius: radii.lg, borderWidth: 0.5, borderColor: '#BFDBFE',
+          backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F', borderRadius: radii.lg, borderWidth: 0.5, borderColor: isLight ? '#BFDBFE' : '#1E3A5F',
           padding: spacing.md, flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md,
         }}>
           <Text style={{ fontSize: 18 }}>🔔</Text>

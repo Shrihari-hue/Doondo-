@@ -20,7 +20,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text } from '@/components';
+import { Screen, Text, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { getSecure, setSecure } from '@/lib/secureStore';
@@ -218,7 +218,7 @@ export function WorkerPerformanceScreen() {
 
         {/* Worker name banner */}
         <View style={{
-          backgroundColor: '#EFF6FF', borderRadius: radii.lg, padding: spacing.md,
+          backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F', borderRadius: radii.lg, padding: spacing.md,
           flexDirection: 'row', alignItems: 'center', gap: spacing.md,
         }}>
           <View style={{
@@ -230,11 +230,11 @@ export function WorkerPerformanceScreen() {
             </Text>
           </View>
           <View>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#1E3A8A' }}>{workerName}</Text>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: isLight ? '#1E3A8A' : '#93C5FD' }}>{workerName}</Text>
             <Text style={{ fontSize: 13, color: '#3B82F6' }}>Monthly Review · {monthLabel}</Text>
           </View>
           {saved && (
-            <View style={{ marginLeft: 'auto', backgroundColor: '#D1FAE5', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
+            <View style={{ marginLeft: 'auto', backgroundColor: isLight ? '#D1FAE5' : '#052E16', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
               <Text style={{ fontSize: 12, fontWeight: '700', color: GREEN }}>✓ Saved</Text>
             </View>
           )}
@@ -283,7 +283,7 @@ export function WorkerPerformanceScreen() {
         {/* Overall average */}
         {overallAvg && (
           <View style={{
-            backgroundColor: '#F0FDF4', borderRadius: radii.lg, borderWidth: 1, borderColor: '#BBF7D0',
+            backgroundColor: isLight ? '#F0FDF4' : '#052E16', borderRadius: radii.lg, borderWidth: 1, borderColor: isLight ? '#BBF7D0' : '#166534',
             padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md,
           }}>
             <Text style={{ fontSize: 28 }}>🏆</Text>
@@ -313,15 +313,12 @@ export function WorkerPerformanceScreen() {
         </View>
 
         {/* Save button */}
-        <Pressable
+        <AnimatedPressable
           onPress={() => void saveReview()}
-          style={({ pressed }) => ({
-            backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 16,
-            alignItems: 'center', opacity: pressed ? 0.85 : 1,
-          })}
+          style={{ backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 16, alignItems: 'center' }}
         >
           <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>Save Review</Text>
-        </Pressable>
+        </AnimatedPressable>
 
         {/* Export PDF */}
         <Pressable

@@ -13,7 +13,7 @@ import { Feather } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 
 import { spacing } from '@doondo/tokens';
-import { Screen, Text } from '@/components';
+import { Screen, Text, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { timesheetApi } from '@/api/timesheet.api';
@@ -169,11 +169,11 @@ export function WorkerAttendanceScreen() {
 
         {/* "Coming soon" banner when per-day API data isn't available yet */}
         {!hasRealData && !tsQuery.isLoading && (
-          <View style={{ backgroundColor: '#FFFBEB', borderRadius: 12, padding: spacing.md,
+          <View style={{ backgroundColor: isLight ? '#FFFBEB' : '#2A1A00', borderRadius: 12, padding: spacing.md,
             flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-            borderWidth: 1, borderColor: '#FDE68A' }}>
+            borderWidth: 1, borderColor: isLight ? '#FDE68A' : '#78350F' }}>
             <Feather name="info" size={16} color={AMBER} />
-            <Text style={{ flex: 1, fontSize: 13, color: '#92400E', lineHeight: 18 }}>
+            <Text style={{ flex: 1, fontSize: 13, color: isLight ? '#92400E' : '#FCD34D', lineHeight: 18 }}>
               Detailed per-day attendance will appear here once the worker starts logging shifts via the Doondo app.
             </Text>
           </View>
@@ -326,12 +326,12 @@ export function WorkerAttendanceScreen() {
           </View>
         </View>
 
-        <Pressable style={({ pressed }) => ({
+        <AnimatedPressable style={{
           backgroundColor: surface, borderRadius: 12, borderWidth: 1.5, borderColor: BLUE,
-          paddingVertical: 14, alignItems: 'center', opacity: pressed ? 0.75 : 1,
-        })}>
+          paddingVertical: 14, alignItems: 'center',
+        }}>
           <Text style={{ fontSize: 15, fontWeight: '700', color: BLUE }}>View Attendance History</Text>
-        </Pressable>
+        </AnimatedPressable>
       </ScrollView>
     </Screen>
   );

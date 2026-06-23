@@ -12,7 +12,7 @@ import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
 import { spacing } from '@doondo/tokens';
-import { Screen, Text } from '@/components';
+import { Screen, Text, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import type { AppStackParamList } from '@/navigation/types';
@@ -42,12 +42,14 @@ const BASE_DOCS: Omit<DocItem, 'id'>[] = [
   { icon: 'file-text',   label: 'Agreement',              status: 'Signed'   },
 ];
 
-const STATUS_STYLE: Record<DocStatus, { color: string; bg: string }> = {
-  Verified:  { color: GREEN,      bg: '#F0FDF4' },
-  Signed:    { color: BLUE,       bg: '#EFF6FF' },
-  Pending:   { color: '#F59E0B',  bg: '#FFFBEB' },
-  Uploading: { color: '#8B5CF6',  bg: '#F5F3FF' },
-};
+function getStatusStyle(isLight: boolean): Record<DocStatus, { color: string; bg: string }> {
+  return {
+    Verified:  { color: GREEN,     bg: isLight ? '#F0FDF4' : '#052E16' },
+    Signed:    { color: BLUE,      bg: isLight ? '#EFF6FF' : '#1E3A5F' },
+    Pending:   { color: '#F59E0B', bg: isLight ? '#FFFBEB' : '#2A1A00' },
+    Uploading: { color: '#8B5CF6', bg: isLight ? '#F5F3FF' : '#2D1B69' },
+  };
+}
 
 export function WorkerDocumentsScreen() {
   const navigation  = useNavigation<Nav>();
@@ -61,6 +63,8 @@ export function WorkerDocumentsScreen() {
   const textPrimary   = isLight ? '#111827' : '#F9FAFB';
   const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
   const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
+
+  const STATUS_STYLE = getStatusStyle(isLight);
 
   const [docs, setDocs] = useState<DocItem[]>(
     BASE_DOCS.map((d, i) => ({ ...d, id: String(i) }))
@@ -130,7 +134,7 @@ export function WorkerDocumentsScreen() {
                   borderBottomColor: border, opacity: pressed && !isUploading ? 0.75 : 1,
                 })}>
                 <View style={{ width: 42, height: 42, borderRadius: 10,
-                  backgroundColor: isUploading ? '#F5F3FF' : '#F3F4F6',
+                  backgroundColor: isUploading ? (isLight ? '#F5F3FF' : '#2D1B69') : (isLight ? '#F3F4F6' : '#1F2937'),
                   alignItems: 'center', justifyContent: 'center' }}>
                   {isUploading
                     ? <Feather name="upload-cloud" size={19} color="#8B5CF6" />
@@ -155,14 +159,13 @@ export function WorkerDocumentsScreen() {
           })}
         </View>
 
-        <Pressable onPress={handleUpload} style={({ pressed }) => ({
+        <AnimatedPressable onPress={handleUpload} style={{
           backgroundColor: BLUE, borderRadius: 12, paddingVertical: 15,
           flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-          opacity: pressed ? 0.85 : 1,
-        })}>
+        }}>
           <Feather name="upload" size={18} color="#FFFFFF" />
           <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>Upload New Document</Text>
-        </Pressable>
+        </AnimatedPressable>
 
         <View style={{ backgroundColor: isLight ? '#F8FAFF' : '#1A1F2E', borderRadius: 10, padding: spacing.md,
           flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm,

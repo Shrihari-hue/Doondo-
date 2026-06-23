@@ -599,7 +599,8 @@ function AvailabilityRow({
   travelEstimated?: boolean;
   t: TFn;
 }) {
-  const { theme } = useTheme();
+  const { theme, scheme } = useTheme();
+  const isLight = scheme !== 'dark';
   const minutesLeft = Math.max(
     0,
     Math.round((new Date(item.until).getTime() - Date.now()) / 60_000),
@@ -681,9 +682,9 @@ function AvailabilityRow({
                   paddingHorizontal: spacing.sm,
                   paddingVertical: 2,
                   borderRadius: radii.pill,
-                  backgroundColor: '#EFF6FF',
+                  backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
                   borderWidth: 0.5,
-                  borderColor: '#BFDBFE',
+                  borderColor: isLight ? '#BFDBFE' : '#1E3A5F',
                 }}
               >
                 {emoji ? <Text style={{ fontSize: 12 }}>{emoji}</Text> : null}

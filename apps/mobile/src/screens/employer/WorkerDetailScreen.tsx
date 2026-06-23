@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, Avatar, SkeletonCard, EmptyState } from '@/components';
+import { Screen, Text, Avatar, SkeletonCard, EmptyState, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { applicationsApi } from '@/api/applications.api';
@@ -127,8 +127,12 @@ export function WorkerDetailScreen() {
         </Pressable>
         <Text style={{ fontSize: 17, fontWeight: '700', color: textPrimary }}>Worker Details</Text>
         <View style={{ flexDirection: 'row', gap: spacing.md }}>
-          <Pressable hitSlop={12}><Feather name="edit-2" size={19} color={textPrimary} /></Pressable>
-          <Pressable hitSlop={12}><Feather name="more-horizontal" size={19} color={textPrimary} /></Pressable>
+          <AnimatedPressable hitSlop={12} onPress={() => haptic('selection')}>
+            <Feather name="edit-2" size={19} color={textPrimary} />
+          </AnimatedPressable>
+          <AnimatedPressable hitSlop={12} onPress={() => haptic('selection')}>
+            <Feather name="more-horizontal" size={19} color={textPrimary} />
+          </AnimatedPressable>
         </View>
       </View>
 
@@ -149,7 +153,7 @@ export function WorkerDetailScreen() {
                     <Feather name="check" size={12} color="#FFFFFF" />
                   </View>
                 )}
-                <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20, backgroundColor: '#F0FDF4' }}>
+                <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20, backgroundColor: isLight ? '#F0FDF4' : '#052E16' }}>
                   <Text style={{ fontSize: 11, fontWeight: '700', color: GREEN }}>Active</Text>
                 </View>
               </View>
@@ -183,9 +187,9 @@ export function WorkerDetailScreen() {
 
         {/* "—" values banner */}
         {(phone === '—' || workingHours === '—') && (
-          <View style={{ backgroundColor: '#F8FAFF', borderRadius: 10, padding: spacing.md,
+          <View style={{ backgroundColor: isLight ? '#F8FAFF' : '#1E2A3A', borderRadius: 10, padding: spacing.md,
             flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-            borderWidth: 1, borderColor: '#DBEAFE' }}>
+            borderWidth: 1, borderColor: isLight ? '#DBEAFE' : '#1E3A5F' }}>
             <Feather name="info" size={14} color={BLUE} />
             <Text style={{ flex: 1, fontSize: 12, color: '#1D4ED8', lineHeight: 17 }}>
               Some details show "—" because the worker hasn't filled their profile or started shifts yet.
@@ -198,7 +202,7 @@ export function WorkerDetailScreen() {
           {INFO_ROWS.map((row, i) => (
             <View key={row.label} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md,
               padding: spacing.md, borderBottomWidth: i < INFO_ROWS.length - 1 ? 1 : 0, borderBottomColor: border }}>
-              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#EFF6FF',
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
                 alignItems: 'center', justifyContent: 'center' }}>
                 <Feather name={row.icon} size={17} color={BLUE} />
               </View>
@@ -214,7 +218,7 @@ export function WorkerDetailScreen() {
 
         {/* Message + Call */}
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <Pressable
+          <AnimatedPressable
             onPress={async () => {
               haptic('selection');
               try {
@@ -224,14 +228,14 @@ export function WorkerDetailScreen() {
                 Alert.alert('Could not open chat', 'Please try again.');
               }
             }}
-            style={({ pressed }) => ({
+            style={{
               flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-              backgroundColor: BLUE, borderRadius: 12, paddingVertical: 13, opacity: pressed ? 0.85 : 1,
-            })}>
+              backgroundColor: BLUE, borderRadius: 12, paddingVertical: 13,
+            }}>
             <Feather name="message-square" size={18} color="#FFFFFF" />
             <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>Message</Text>
-          </Pressable>
-          <Pressable
+          </AnimatedPressable>
+          <AnimatedPressable
             onPress={() => {
               if (phone === '—') { Alert.alert('No number', 'This worker hasn\'t shared a phone number yet.'); return; }
               haptic('selection');
@@ -239,19 +243,19 @@ export function WorkerDetailScreen() {
                 Alert.alert('Cannot call', 'Unable to open the dialer.')
               );
             }}
-            style={({ pressed }) => ({
+            style={{
               flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-              borderRadius: 12, paddingVertical: 13, borderWidth: 1.5, borderColor: BLUE, opacity: pressed ? 0.75 : 1,
-            })}>
+              borderRadius: 12, paddingVertical: 13, borderWidth: 1.5, borderColor: BLUE,
+            }}>
             <Feather name="phone" size={18} color={BLUE} />
             <Text style={{ fontSize: 15, fontWeight: '700', color: BLUE }}>Call</Text>
-          </Pressable>
-          <Pressable style={({ pressed }) => ({
+          </AnimatedPressable>
+          <AnimatedPressable style={{
             width: 48, height: 48, borderRadius: 12, borderWidth: 1.5, borderColor: border,
-            alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.75 : 1,
-          })}>
+            alignItems: 'center', justifyContent: 'center',
+          }}>
             <Feather name="more-horizontal" size={18} color={textSecondary} />
-          </Pressable>
+          </AnimatedPressable>
         </View>
 
         {/* Quick navigation */}
@@ -259,20 +263,20 @@ export function WorkerDetailScreen() {
           <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>Manage</Text>
           <View style={{ backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
             {QUICK_NAV.map((item, i) => (
-              <Pressable key={item.route}
+              <AnimatedPressable key={item.route} scaleValue={0.98}
                 onPress={() => { haptic('selection'); navigation.navigate(item.route, { applicationId: w.id, workerName: name }); }}
-                style={({ pressed }) => ({
+                style={{
                   flexDirection: 'row', alignItems: 'center', gap: spacing.md,
                   padding: spacing.md, borderBottomWidth: i < QUICK_NAV.length - 1 ? 1 : 0,
-                  borderBottomColor: border, opacity: pressed ? 0.75 : 1,
-                })}>
-                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#EFF6FF',
+                  borderBottomColor: border,
+                }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
                   alignItems: 'center', justifyContent: 'center' }}>
                   <Feather name={item.icon} size={17} color={BLUE} />
                 </View>
                 <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: textPrimary }}>{item.label}</Text>
                 <Feather name="chevron-right" size={16} color={textSecondary} />
-              </Pressable>
+              </AnimatedPressable>
             ))}
           </View>
         </View>

@@ -233,7 +233,7 @@ export function EmployerAnalyticsScreen() {
         <View style={{ backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border, padding: spacing.lg, gap: spacing.md }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>Hires — Last 6 Weeks</Text>
-            <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, backgroundColor: '#F0FDF4' }}>
+            <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, backgroundColor: isLight ? '#F0FDF4' : '#052E16' }}>
               <Text style={{ fontSize: 11, fontWeight: '700', color: GREEN }}>+{statusCounts.hired} total</Text>
             </View>
           </View>

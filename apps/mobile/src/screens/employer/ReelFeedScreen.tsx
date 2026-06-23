@@ -328,6 +328,7 @@ export function ReelFeedScreen() {
             borderRadius: radii.pill,
             paddingHorizontal: spacing.md,
             paddingVertical: 6,
+            backgroundColor: 'rgba(0,0,0,0.45)',
           }}
         >
           <Text variant="footnote" weight="medium" style={{ color: '#FFFFFF' }}>

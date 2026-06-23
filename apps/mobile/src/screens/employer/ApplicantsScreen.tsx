@@ -470,10 +470,10 @@ export function ApplicantsScreen() {
             refreshControl={<RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} tintColor={BLUE} />}
           >
             {([
-              { key: 'pending',     label: 'New',         color: '#F59E0B', bg: '#FFFBEB', count: counts.pending },
-              { key: 'shortlisted', label: 'Shortlisted', color: BLUE,      bg: BLUE_LIGHT, count: counts.shortlisted },
-              { key: 'hired',       label: 'Hired',       color: GREEN,     bg: '#F0FDF4', count: counts.hired },
-              { key: 'rejected',    label: 'Rejected',    color: '#EF4444', bg: '#FEF2F2',
+              { key: 'pending',     label: 'New',         color: '#F59E0B', bg: isLight ? '#FFFBEB' : '#2A1A00', count: counts.pending },
+              { key: 'shortlisted', label: 'Shortlisted', color: BLUE,      bg: isLight ? BLUE_LIGHT : '#1E3A5F', count: counts.shortlisted },
+              { key: 'hired',       label: 'Hired',       color: GREEN,     bg: isLight ? '#F0FDF4' : '#052E16', count: counts.hired },
+              { key: 'rejected',    label: 'Rejected',    color: '#EF4444', bg: isLight ? '#FEF2F2' : '#3B0A0A',
                 count: allApplicants.filter((a) => a.status === 'rejected').length },
             ] as const).map((col) => {
               const colApplicants = allApplicants.filter((a) => a.status === col.key);

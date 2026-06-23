@@ -125,7 +125,7 @@ export function EmployerHomeScreen() {
           icon: '🎉',
           text: `${name} hired for ${job}`,
           time: a.timeline.hiredAt,
-          bg:   '#F0FDF4',
+          bg:   isLight ? '#F0FDF4' : '#052E16',
         });
       }
       if (a.status === 'shortlisted' && a.timeline.shortlistedAt) {
@@ -134,7 +134,7 @@ export function EmployerHomeScreen() {
           icon: '⭐',
           text: `${name} shortlisted for ${job}`,
           time: a.timeline.shortlistedAt,
-          bg:   '#EFF6FF',
+          bg:   isLight ? '#EFF6FF' : '#1E3A5F',
         });
       }
       if (a.status === 'pending' && a.timeline.appliedAt) {
@@ -143,7 +143,7 @@ export function EmployerHomeScreen() {
           icon: '👤',
           text: `${name} applied for ${job}`,
           time: a.timeline.appliedAt,
-          bg:   '#FFFBEB',
+          bg:   isLight ? '#FFFBEB' : '#2A1A00',
         });
       }
       if (a.interview && a.interview.scheduledAt) {
@@ -413,12 +413,12 @@ export function EmployerHomeScreen() {
           {expiringDocs.length > 0 && (
             <View style={{
               marginHorizontal: spacing.xl, marginBottom: spacing.md,
-              backgroundColor: '#FFFBEB', borderRadius: 14, borderWidth: 1, borderColor: '#FDE68A',
+              backgroundColor: isLight ? '#FFFBEB' : '#2A1A00', borderRadius: 14, borderWidth: 1, borderColor: isLight ? '#FDE68A' : '#78350F',
               padding: spacing.md, gap: spacing.sm,
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                 <Text style={{ fontSize: 16 }}>⚠️</Text>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#92400E' }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: isLight ? '#92400E' : '#FCD34D' }}>
                   Documents expiring soon
                 </Text>
               </View>
@@ -429,10 +429,10 @@ export function EmployerHomeScreen() {
                   style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm })}
                 >
                   <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: AMBER }} />
-                  <Text style={{ flex: 1, fontSize: 13, color: '#78350F' }} numberOfLines={1}>
+                  <Text style={{ flex: 1, fontSize: 13, color: isLight ? '#78350F' : '#FDE68A' }} numberOfLines={1}>
                     {alert.workerName} — {alert.docTitle}
                   </Text>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#B45309' }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: isLight ? '#B45309' : '#FCD34D' }}>
                     {alert.daysLeft}d left
                   </Text>
                 </Pressable>
@@ -881,7 +881,7 @@ export function EmployerHomeScreen() {
                     group: 'Interviews',
                     icon: 'calendar' as const,
                     color: '#7C3AED',
-                    bg: '#F5F3FF',
+                    bg: isLight ? '#F5F3FF' : '#2D1B69',
                     items: applications.filter((a) => (a as any).interview?.scheduledAt).slice(0, 2).map((a) => ({
                       id: a.id,
                       text: `Interview with ${a.seeker?.name ?? 'a candidate'} coming up`,
@@ -892,7 +892,7 @@ export function EmployerHomeScreen() {
                     group: 'Documents',
                     icon: 'file-text' as const,
                     color: AMBER,
-                    bg: '#FFFBEB',
+                    bg: isLight ? '#FFFBEB' : '#2A1A00',
                     items: expiringDocs.map((d) => ({
                       id: d.applicationId,
                       text: `${d.workerName}'s ${d.docTitle} expires in ${d.daysLeft}d`,
