@@ -127,10 +127,67 @@ export function WorkerDetailScreen() {
         </Pressable>
         <Text style={{ fontSize: 17, fontWeight: '700', color: textPrimary }}>Worker Details</Text>
         <View style={{ flexDirection: 'row', gap: spacing.md }}>
-          <AnimatedPressable hitSlop={12} onPress={() => haptic('selection')}>
+          <AnimatedPressable
+            hitSlop={12}
+            onPress={() => {
+              haptic('selection');
+              navigation.navigate('ApplicantDetail', { applicationId: w.id });
+            }}>
             <Feather name="edit-2" size={19} color={textPrimary} />
           </AnimatedPressable>
-          <AnimatedPressable hitSlop={12} onPress={() => haptic('selection')}>
+          <AnimatedPressable
+            hitSlop={12}
+            onPress={() => {
+              haptic('selection');
+              Alert.alert(name, `Worker ID: ${workerId}`, [
+                {
+                  text: 'View Full Profile',
+                  onPress: () => navigation.navigate('ApplicantDetail', { applicationId: w.id }),
+                },
+                {
+                  text: 'Message',
+                  onPress: async () => {
+                    try {
+                      const { conversationId } = await chatApi.ensureFromApplication(w.id);
+                      navigation.navigate('Conversation', { conversationId });
+                    } catch {
+                      Alert.alert('Could not open chat', 'Please try again.');
+                    }
+                  },
+                },
+                {
+                  text: 'Mark on Leave',
+                  onPress: () =>
+                    Alert.alert('Mark on Leave', `Mark ${name} as on leave for today?`, [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Confirm',
+                        onPress: () => {
+                          haptic('notification');
+                          Alert.alert('Done', `${name} has been marked on leave.`);
+                        },
+                      },
+                    ]),
+                },
+                {
+                  text: 'Remove from Team',
+                  style: 'destructive',
+                  onPress: () =>
+                    Alert.alert('Remove from Team', `Are you sure you want to remove ${name} from your team? This cannot be undone.`, [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Remove',
+                        style: 'destructive',
+                        onPress: () => {
+                          haptic('notification');
+                          navigation.goBack();
+                        },
+                      },
+                    ]),
+                },
+                { text: 'Cancel', style: 'cancel' },
+              ]);
+            }}>
             <Feather name="more-horizontal" size={19} color={textPrimary} />
           </AnimatedPressable>
         </View>

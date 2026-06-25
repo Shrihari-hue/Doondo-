@@ -6,6 +6,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Linking,
@@ -76,6 +77,7 @@ export function WorkersScreen() {
   const isLight = scheme !== 'dark';
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useState<WorkerFilter>('all');
   const [search, setSearch] = useState('');
 
@@ -89,6 +91,14 @@ export function WorkersScreen() {
     queryKey: ['applicants', 'employer', 'workers-tab'],
     queryFn: () => applicationsApi.listForEmployer({ limit: 200 }),
     staleTime: 30_000,
+    // Seed from the tab-badge query so data shows instantly if the badge
+    // query has already run (it fetches the same endpoint every 90 s).
+    initialData: () =>
+      queryClient.getQueryData<Awaited<ReturnType<typeof applicationsApi.listForEmployer>>>(
+        ['applicants', 'employer', 'tab-badge'],
+      ),
+    initialDataUpdatedAt: () =>
+      queryClient.getQueryState(['applicants', 'employer', 'tab-badge'])?.dataUpdatedAt,
   });
 
   const all = query.data?.applications ?? [];
@@ -231,7 +241,7 @@ export function WorkersScreen() {
           refreshControl={
             <RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} tintColor={BLUE} />
           }>
-          {(query.isLoading || query.isRefetching) ? (
+          {query.isLoading ? (
             <><SkeletonCard lines={3} /><SkeletonCard lines={3} /><SkeletonCard lines={3} /></>
           ) : query.isError ? (
             <EmptyState glyph="✕" tone="warning" eyebrow="Offline" title="Could not load workers"

@@ -13,7 +13,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Alert, Modal, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -271,7 +271,6 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
   const queryClient = useQueryClient();
   const [showBoost, setShowBoost] = useState(false);
 
-  // Deterministic view count derived from job id hash (10–100)
   const views = 10 + ([...job.id].reduce((a, c) => a + c.charCodeAt(0), 0)) % 91;
 
   const transition = useMutation({
@@ -280,19 +279,13 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
       if (next === 'active') return jobsApi.reopen(job.id);
       return jobsApi.close(job.id);
     },
-    onSuccess: () => {
-      haptic('success');
-      void queryClient.invalidateQueries({ queryKey: ['jobs', 'mine'] });
-    },
+    onSuccess: () => { haptic('success'); void queryClient.invalidateQueries({ queryKey: ['jobs', 'mine'] }); },
     onError: () => haptic('error'),
   });
 
   const repost = useMutation({
     mutationFn: () => jobsApi.repost(job.id),
-    onSuccess: () => {
-      haptic('success');
-      void queryClient.invalidateQueries({ queryKey: ['jobs', 'mine'] });
-    },
+    onSuccess: () => { haptic('success'); void queryClient.invalidateQueries({ queryKey: ['jobs', 'mine'] }); },
     onError: () => haptic('error'),
   });
 
@@ -303,470 +296,251 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
     navigation.navigate('JobApplicants', { jobId: job.id, jobTitle: job.title });
   };
 
+  const openKebab = () => {
+    haptic('light');
+    const editPrefill = {
+      title: job.title,
+      description: job.description ?? '',
+      type: job.type,
+      amount: String(Math.round((job.pay?.amount ?? 0) / 100)),
+      period: job.pay?.period ?? 'day',
+      skills: job.skills ?? [],
+    };
+
+    if (open) {
+      Alert.alert(job.title, undefined, [
+        {
+          text: job.status === 'active' ? 'Pause' : 'Reopen',
+          onPress: () => transition.mutate(job.status === 'active' ? 'paused' : 'active'),
+        },
+        {
+          text: 'Edit',
+          onPress: () => navigation.navigate('PostJob', { editJobId: job.id, prefill: editPrefill }),
+        },
+        {
+          text: 'Duplicate',
+          onPress: () => navigation.navigate('PostJob', { prefill: editPrefill }),
+        },
+        {
+          text: 'Boost ⚡',
+          onPress: () => setShowBoost(true),
+        },
+        {
+          text: 'Close Job',
+          style: 'destructive',
+          onPress: () =>
+            Alert.alert('Close job?', 'This will stop accepting new applications.', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Close', style: 'destructive', onPress: () => transition.mutate('expired') },
+            ]),
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    } else {
+      Alert.alert(job.title, undefined, [
+        { text: 'Re-post', onPress: () => repost.mutate() },
+        { text: 'Duplicate as New', onPress: () => navigation.navigate('PostJob', { prefill: editPrefill }) },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  };
+
   const healthColor = jobHealthColor(job, stats);
+  const applicantCount = stats?.applicants ?? job.applicantsCount ?? 0;
+  const hiredCount = stats?.hired ?? 0;
+
+  // Expiry countdown
+  const expiresAt = new Date(job.createdAt).getTime() + 30 * 24 * 60 * 60 * 1000;
+  const daysLeft = Math.ceil((expiresAt - Date.now()) / (24 * 60 * 60 * 1000));
+  const showExpiry = job.status === 'active' && daysLeft >= 0 && daysLeft <= 7;
 
   return (
     <Card premium={job.status === 'filled'}>
-      <View style={{ gap: spacing.md }}>
-        {/* Health indicator — coloured left accent bar */}
-        {healthColor && (
-          <View style={{
-            position: 'absolute', left: 0, top: 0, bottom: 0,
-            width: 4, borderRadius: 4,
-            backgroundColor: healthColor,
-          }} />
-        )}
-        {/* Row 1 — icon, title block, status pill, kebab */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'flex-start',
-            gap: spacing.md,
-          }}
-        >
-          <JobIcon title={job.title} type={job.type} />
+      {/* Health bar — left accent */}
+      {healthColor && (
+        <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderRadius: 4, backgroundColor: healthColor }} />
+      )}
 
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text variant="bodyLarge" weight="medium" numberOfLines={2}>
-              {job.title}
-            </Text>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 4,
-                flexWrap: 'wrap',
-              }}
-            >
+      <View style={{ gap: spacing.md }}>
+        {/* ── Row 1: icon · title/meta · status · kebab ── */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
+          <JobIcon title={job.title} type={job.type} />
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text variant="bodyLarge" weight="medium" numberOfLines={1}>{job.title}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
               {job.location.area ? (
-                <>
-                  <Text variant="footnote" tone="secondary">
-                    📍 {job.location.area}
-                  </Text>
-                  <Text variant="footnote" tone="tertiary">
-                    ·
-                  </Text>
-                </>
+                <Text variant="footnote" tone="secondary">📍 {job.location.area}</Text>
               ) : null}
-              <Text variant="footnote" tone="secondary">
-                {formatType(job.type, t)}
+              {job.location.area ? <Text variant="footnote" tone="tertiary">·</Text> : null}
+              <Text variant="footnote" tone="secondary">{formatType(job.type, t)}</Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+            <StatusPill status={job.status} t={t} />
+            <Pressable onPress={openKebab} hitSlop={10}
+              style={{ padding: 4 }}>
+              <Feather name="more-vertical" size={17} color={theme.text.tertiary} />
+            </Pressable>
+          </View>
+        </View>
+
+        <EscalationBadge job={job} t={t} />
+
+        {showExpiry && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5,
+              backgroundColor: AMBER + '18', borderRadius: 20,
+              paddingHorizontal: 10, paddingVertical: 4,
+              borderWidth: 0.5, borderColor: AMBER + '60' }}>
+              <Feather name="clock" size={11} color={AMBER} />
+              <Text style={{ fontSize: 12, fontWeight: '600', color: AMBER }}>
+                {daysLeft === 0 ? 'Expires today' : `Expires in ${daysLeft}d`}
               </Text>
             </View>
           </View>
+        )}
 
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: spacing.xs,
-            }}
-          >
-            <StatusPill status={job.status} t={t} />
-            <KebabButton
-              onPress={() => {
-                haptic('light');
-                goToApplicants();
-              }}
-              color={theme.text.tertiary}
-            />
+        {/* ── Row 2: metrics ── */}
+        <View style={{
+          flexDirection: 'row', alignItems: 'center',
+          backgroundColor: isLight ? '#F9FAFB' : '#141414',
+          borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9,
+          gap: 0,
+        }}>
+          <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>{views}</Text>
+            <Text style={{ fontSize: 11, color: isLight ? '#9CA3AF' : '#6B7280' }}>Views</Text>
           </View>
-        </View>
-
-        {/* Auto-escalation badge — boosted, or needs the employer's attention. */}
-        <EscalationBadge job={job} t={t} />
-
-        {/* Expiry countdown badge — shown when ≤ 7 days left on active jobs */}
-        {(() => {
-          if (job.status !== 'active') return null;
-          const expiresAt = new Date(job.createdAt).getTime() + 30 * 24 * 60 * 60 * 1000;
-          const daysLeft = Math.ceil((expiresAt - Date.now()) / (24 * 60 * 60 * 1000));
-          if (daysLeft > 7 || daysLeft < 0) return null;
-          return (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              <View style={{
-                flexDirection: 'row', alignItems: 'center', gap: 6,
-                backgroundColor: AMBER + '18', borderWidth: 0.5, borderColor: AMBER + '60',
-                borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
-              }}>
-                <Text style={{ fontSize: 12 }}>⏰</Text>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: AMBER }}>
-                  {daysLeft === 0 ? 'Expires today' : `Expires in ${daysLeft}d`}
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => { haptic('selection'); repost.mutate(); }}
-                disabled={repost.isPending}
-                style={({ pressed }) => ({
-                  flexDirection: 'row', alignItems: 'center', gap: 4,
-                  backgroundColor: GREEN + '18', borderWidth: 0.5, borderColor: GREEN + '60',
-                  borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
-                  opacity: pressed || repost.isPending ? 0.6 : 1,
-                })}
-              >
-                <Text style={{ fontSize: 12, fontWeight: '700', color: GREEN }}>
-                  {repost.isPending ? 'Renewing…' : '↻ Renew 30 days'}
-                </Text>
-              </Pressable>
-            </View>
-          );
-        })()}
-
-        {/* Performance metrics strip */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text variant="footnote" tone="tertiary">👁</Text>
-            <Text variant="footnote" tone="secondary" weight="medium">{views}</Text>
-            <Text variant="footnote" tone="tertiary"> views</Text>
+          <View style={{ width: 1, height: 28, backgroundColor: isLight ? '#E5E7EB' : '#1E1E1E' }} />
+          <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: BLUE }}>{applicantCount}</Text>
+            <Text style={{ fontSize: 11, color: isLight ? '#9CA3AF' : '#6B7280' }}>Applied</Text>
           </View>
-          <Text variant="footnote" tone="tertiary">·</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text variant="footnote" tone="tertiary">👥</Text>
-            <Text variant="footnote" tone="secondary" weight="medium">
-              {stats?.applicants ?? job.applicantsCount ?? 0}
-            </Text>
-            <Text variant="footnote" tone="tertiary"> applied</Text>
+          <View style={{ width: 1, height: 28, backgroundColor: isLight ? '#E5E7EB' : '#1E1E1E' }} />
+          <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: GREEN }}>{hiredCount}</Text>
+            <Text style={{ fontSize: 11, color: isLight ? '#9CA3AF' : '#6B7280' }}>Hired</Text>
           </View>
-          <Text variant="footnote" tone="tertiary">·</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text variant="footnote" style={{ color: GREEN }}>✓</Text>
-            <Text variant="footnote" weight="medium" style={{ color: GREEN }}>{stats?.hired ?? 0}</Text>
-            <Text variant="footnote" tone="tertiary"> hired</Text>
-          </View>
-          <View style={{ flex: 1, alignItems: 'flex-end' }}>
-            {job.status === 'active' && (
+          {job.status === 'active' && (
+            <>
+              <View style={{ width: 1, height: 28, backgroundColor: isLight ? '#E5E7EB' : '#1E1E1E' }} />
               <Pressable
                 onPress={() => { haptic('selection'); setShowBoost(true); }}
-                style={({ pressed }) => ({
-                  flexDirection: 'row', alignItems: 'center', gap: 4,
-                  paddingHorizontal: 10, paddingVertical: 4,
-                  borderRadius: 20,
-                  backgroundColor: AMBER + '20',
-                  borderWidth: 0.5, borderColor: AMBER + '60',
-                  opacity: pressed ? 0.7 : 1,
-                })}
-              >
-                <Text style={{ fontSize: 11 }}>⚡</Text>
-                <Text variant="footnote" weight="semibold" style={{ color: AMBER }}>Boost</Text>
+                style={{ flex: 1, alignItems: 'center', gap: 2 }}>
+                <Feather name="zap" size={16} color={AMBER} />
+                <Text style={{ fontSize: 11, fontWeight: '700', color: AMBER }}>Boost</Text>
               </Pressable>
-            )}
-          </View>
+            </>
+          )}
         </View>
 
-        {/* Fill-rate progress bar — shown for multi-headcount jobs */}
+        {/* Fill-rate bar */}
         {job.headcount > 1 && (
           <View style={{ gap: 5 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text variant="footnote" tone="secondary">
-                {stats?.hired ?? 0} / {job.headcount} positions filled
-              </Text>
-              <Text variant="footnote" weight="semibold" style={{
-                color: (stats?.hired ?? 0) >= job.headcount ? GREEN : BLUE,
-              }}>
-                {Math.round(((stats?.hired ?? 0) / job.headcount) * 100)}%
+              <Text variant="footnote" tone="secondary">{hiredCount} / {job.headcount} positions filled</Text>
+              <Text variant="footnote" weight="semibold" style={{ color: hiredCount >= job.headcount ? GREEN : BLUE }}>
+                {Math.round((hiredCount / job.headcount) * 100)}%
               </Text>
             </View>
-            <View style={{ height: 6, borderRadius: 3, backgroundColor: isLight ? '#E5E7EB' : '#374151' }}>
-              <View style={{
-                height: 6, borderRadius: 3,
-                width: `${Math.min(100, Math.round(((stats?.hired ?? 0) / job.headcount) * 100))}%`,
-                backgroundColor: (stats?.hired ?? 0) >= job.headcount ? GREEN : BLUE,
-              }} />
+            <View style={{ height: 5, borderRadius: 3, backgroundColor: isLight ? '#E5E7EB' : '#374151' }}>
+              <View style={{ height: 5, borderRadius: 3,
+                width: `${Math.min(100, Math.round((hiredCount / job.headcount) * 100))}%`,
+                backgroundColor: hiredCount >= job.headcount ? GREEN : BLUE }} />
             </View>
           </View>
         )}
 
-        {/* Row 2 — full-width "View applicants" inset row */}
-        <AnimatedPressable onPress={goToApplicants}>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: spacing.sm,
-              backgroundColor: theme.bg.muted,
-              borderRadius: radii.md,
-              borderWidth: 0.5,
-              borderColor: theme.border.subtle,
-              paddingHorizontal: spacing.md,
-              paddingVertical: spacing.sm,
-            }}
-          >
-            <Text variant="body" tone="secondary">
-              👥
-            </Text>
-            <Text variant="body" weight="medium" style={{ flex: 1 }}>
-              {t('employer.posts.view_applicants')}
-            </Text>
-            <View
-              style={{
-                minWidth: 32,
-                paddingHorizontal: 8,
-                paddingVertical: 2,
-                borderRadius: radii.pill,
-                backgroundColor: theme.brand.heroSubtle,
-                borderWidth: 0.5,
-                borderColor: theme.brand.heroBorder,
-                alignItems: 'center',
-              }}
-            >
-              <Text variant="footnote" tone="hero" weight="medium">
-                {job.applicantsCount}
-              </Text>
-            </View>
-            <Text variant="body" tone="tertiary">
-              ›
-            </Text>
+        {/* ── Row 3: View applicants CTA ── */}
+        <AnimatedPressable onPress={goToApplicants}
+          style={{
+            flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+            backgroundColor: BLUE, borderRadius: 12,
+            paddingHorizontal: spacing.md, paddingVertical: 11,
+          }}>
+          <Feather name="users" size={15} color="#FFFFFF" />
+          <Text style={{ flex: 1, fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>
+            View Applicants
+          </Text>
+          <View style={{ backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 20,
+            paddingHorizontal: 8, paddingVertical: 2, minWidth: 26, alignItems: 'center' }}>
+            <Text style={{ fontSize: 12, fontWeight: '800', color: '#FFFFFF' }}>{applicantCount}</Text>
           </View>
+          <Feather name="chevron-right" size={15} color="rgba(255,255,255,0.8)" />
         </AnimatedPressable>
 
-        {/* Row 3 — primary actions, only on open jobs */}
-        {open && (
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            {job.status === 'active' ? (
-              <ActionButton
-                glyph="⏸"
-                label={t('employer.posts.action_pause')}
-                tone="warning"
-                onPress={() => transition.mutate('paused')}
-              />
-            ) : (
-              <ActionButton
-                glyph="▶"
-                label={t('employer.posts.action_reopen')}
-                tone="success"
-                onPress={() => transition.mutate('active')}
-              />
-            )}
-            <ActionButton
-              glyph="✕"
-              label={t('employer.posts.action_close')}
-              tone="danger"
-              onPress={() => transition.mutate('expired')}
-            />
-          </View>
-        )}
-
-        {/* Re-post — for closed / filled jobs: "same as last time". */}
+        {/* Quick action for closed jobs */}
         {!open && (
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <ActionButton
-              glyph="↻"
-              label={t('employer.posts.action_repost')}
-              tone="success"
-              onPress={() => repost.mutate()}
-            />
-          </View>
-        )}
-
-        {/* Edit / Duplicate row — always visible on open jobs */}
-        {open && (
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <Pressable
-              onPress={() => {
-                haptic('selection');
-                navigation.navigate('PostJob', {
-                  editJobId: job.id,
-                  prefill: {
-                    title: job.title,
-                    description: job.description ?? '',
-                    type: job.type,
-                    amount: String(Math.round((job.pay?.amount ?? 0) / 100)),
-                    period: job.pay?.period ?? 'day',
-                    skills: job.skills ?? [],
-                  },
-                });
-              }}
-              style={({ pressed }) => ({
-                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                gap: 5, paddingVertical: 9, borderRadius: 10,
-                backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
-                borderWidth: 1, borderColor: BLUE + '40',
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
-              <Text style={{ fontSize: 13 }}>✏️</Text>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: BLUE }}>Edit</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                haptic('selection');
-                navigation.navigate('PostJob', {
-                  prefill: {
-                    title: job.title,
-                    description: job.description ?? '',
-                    type: job.type,
-                    amount: String(Math.round((job.pay?.amount ?? 0) / 100)),
-                    period: job.pay?.period ?? 'day',
-                    skills: job.skills ?? [],
-                  },
-                });
-              }}
-              style={({ pressed }) => ({
-                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                gap: 5, paddingVertical: 9, borderRadius: 10,
-                backgroundColor: isLight ? '#F5F3FF' : '#2E1B5C',
-                borderWidth: 1, borderColor: '#7C3AED40',
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
-              <Text style={{ fontSize: 13 }}>📋</Text>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: '#7C3AED' }}>Duplicate</Text>
-            </Pressable>
-          </View>
+          <Pressable
+            onPress={() => { haptic('selection'); repost.mutate(); }}
+            disabled={repost.isPending}
+            style={({ pressed }) => ({
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+              paddingVertical: 10, borderRadius: 12,
+              backgroundColor: isLight ? '#F0FDF4' : '#052E16',
+              borderWidth: 1, borderColor: GREEN + '40',
+              opacity: pressed || repost.isPending ? 0.7 : 1,
+            })}>
+            <Feather name="refresh-cw" size={13} color={GREEN} />
+            <Text style={{ fontSize: 13, fontWeight: '700', color: GREEN }}>
+              {repost.isPending ? 'Re-posting…' : 'Re-post Job'}
+            </Text>
+          </Pressable>
         )}
       </View>
 
       {/* Boost promo sheet */}
       <Modal visible={showBoost} transparent animationType="slide" onRequestClose={() => setShowBoost(false)}>
         <BlurOverlay>
-        <Pressable style={{ flex: 1, justifyContent: 'flex-end' }}
-          onPress={() => setShowBoost(false)}>
-          <Pressable onPress={(e) => e.stopPropagation?.()}>
-            <View style={{
-              backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
-              borderTopLeftRadius: 24, borderTopRightRadius: 24,
-              padding: spacing.xl, gap: spacing.lg,
-              paddingBottom: spacing['2xl'],
-            }}>
-              {/* Handle */}
-              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#374151', alignSelf: 'center' }} />
-
-              <View style={{ gap: spacing.xs }}>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>⚡ Boost this job</Text>
-                <Text style={{ fontSize: 14, color: isLight ? '#6B7280' : '#9CA3AF' }}>
-                  Reach more qualified workers faster with urgency tags.
-                </Text>
-              </View>
-
-              {/* Urgency tag options */}
-              {[
-                { emoji: '🔥', tag: 'Urgent Hire', desc: 'Top of search results for 7 days', price: '₹299', color: '#EF4444' },
-                { emoji: '⭐', tag: 'Featured', desc: 'Highlighted card for 14 days', price: '₹499', color: AMBER },
-                { emoji: '🚀', tag: 'Sponsored', desc: 'Push notification to 500+ matched workers', price: '₹899', color: BLUE },
-              ].map((opt) => (
-                <Pressable
-                  key={opt.tag}
-                  onPress={() => { haptic('selection'); setShowBoost(false); }}
-                  style={({ pressed }) => ({
-                    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-                    padding: spacing.md,
-                    borderRadius: 14,
-                    backgroundColor: opt.color + '12',
-                    borderWidth: 1, borderColor: opt.color + '40',
-                    opacity: pressed ? 0.75 : 1,
-                  })}
-                >
-                  <View style={{ width: 44, height: 44, borderRadius: 12,
-                    backgroundColor: opt.color + '20', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontSize: 20 }}>{opt.emoji}</Text>
-                  </View>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: opt.color }}>{opt.tag}</Text>
-                    <Text style={{ fontSize: 13, color: isLight ? '#6B7280' : '#9CA3AF' }}>{opt.desc}</Text>
-                  </View>
-                  <Text style={{ fontSize: 15, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>{opt.price}</Text>
+          <Pressable style={{ flex: 1, justifyContent: 'flex-end' }} onPress={() => setShowBoost(false)}>
+            <Pressable onPress={(e) => e.stopPropagation?.()}>
+              <View style={{
+                backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+                borderTopLeftRadius: 24, borderTopRightRadius: 24,
+                padding: spacing.xl, gap: spacing.lg,
+                paddingBottom: spacing['2xl'],
+              }}>
+                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#374151', alignSelf: 'center' }} />
+                <View style={{ gap: spacing.xs }}>
+                  <Text style={{ fontSize: 22, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>⚡ Boost this job</Text>
+                  <Text style={{ fontSize: 14, color: isLight ? '#6B7280' : '#9CA3AF' }}>Reach more qualified workers faster.</Text>
+                </View>
+                {[
+                  { emoji: '🔥', tag: 'Urgent Hire', desc: 'Top of search results for 7 days', price: '₹299', color: '#EF4444' },
+                  { emoji: '⭐', tag: 'Featured', desc: 'Highlighted card for 14 days', price: '₹499', color: AMBER },
+                  { emoji: '🚀', tag: 'Sponsored', desc: 'Push notification to 500+ matched workers', price: '₹899', color: BLUE },
+                ].map((opt) => (
+                  <Pressable key={opt.tag} onPress={() => { haptic('selection'); setShowBoost(false); }}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md,
+                      borderRadius: 14, backgroundColor: opt.color + '12',
+                      borderWidth: 1, borderColor: opt.color + '40', opacity: pressed ? 0.75 : 1,
+                    })}>
+                    <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: opt.color + '20', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontSize: 20 }}>{opt.emoji}</Text>
+                    </View>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: opt.color }}>{opt.tag}</Text>
+                      <Text style={{ fontSize: 13, color: isLight ? '#6B7280' : '#9CA3AF' }}>{opt.desc}</Text>
+                    </View>
+                    <Text style={{ fontSize: 15, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>{opt.price}</Text>
+                  </Pressable>
+                ))}
+                <Pressable onPress={() => setShowBoost(false)} style={({ pressed }) => ({
+                  paddingVertical: 14, borderRadius: 12, borderWidth: 1.5,
+                  borderColor: isLight ? '#D1D5DB' : '#374151', alignItems: 'center', opacity: pressed ? 0.7 : 1,
+                })}>
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: isLight ? '#6B7280' : '#9CA3AF' }}>Maybe later</Text>
                 </Pressable>
-              ))}
-
-              <Text style={{ fontSize: 12, color: isLight ? '#9CA3AF' : '#6B7280', textAlign: 'center' }}>
-                Charges apply per posting period. Cancel anytime.
-              </Text>
-
-              <Pressable onPress={() => setShowBoost(false)} style={({ pressed }) => ({
-                paddingVertical: 14, borderRadius: 12, borderWidth: 1.5,
-                borderColor: isLight ? '#D1D5DB' : '#374151', alignItems: 'center',
-                opacity: pressed ? 0.7 : 1,
-              })}>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: isLight ? '#6B7280' : '#9CA3AF' }}>Maybe later</Text>
-              </Pressable>
-            </View>
+              </View>
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </BlurOverlay>
+        </BlurOverlay>
       </Modal>
     </Card>
   );
 }
 
-function ActionButton({
-  glyph,
-  label,
-  tone,
-  onPress,
-}: {
-  glyph: string;
-  label: string;
-  tone: 'warning' | 'danger' | 'success';
-  onPress: () => void;
-}) {
-  const { theme } = useTheme();
-  const map = {
-    warning: {
-      bg: theme.status.warningSubtle,
-      border: theme.status.warningBorder,
-      fg: theme.status.warning,
-    },
-    danger: {
-      bg: theme.status.dangerSubtle,
-      border: theme.status.dangerBorder,
-      fg: theme.status.danger,
-    },
-    success: {
-      bg: theme.status.successSubtle,
-      border: theme.status.successBorder,
-      fg: theme.status.success,
-    },
-  };
-  const c = map[tone];
-
-  return (
-    <Pressable
-      onPress={() => {
-        haptic('light');
-        onPress();
-      }}
-      hitSlop={6}
-      style={({ pressed }) => ({
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-        paddingVertical: 10,
-        borderRadius: radii.md,
-        backgroundColor: c.bg,
-        borderWidth: 0.5,
-        borderColor: c.border,
-        opacity: pressed ? 0.7 : 1,
-      })}
-    >
-      <Text variant="footnote" weight="medium" style={{ color: c.fg }}>
-        {glyph}
-      </Text>
-      <Text variant="footnote" weight="medium" style={{ color: c.fg }}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-function KebabButton({ onPress, color }: { onPress: () => void; color: string }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      hitSlop={8}
-      style={{
-        width: 24,
-        height: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Text variant="title" style={{ color, lineHeight: 18 }}>
-        ⋮
-      </Text>
-    </Pressable>
-  );
-}
 
 function StatusPill({ status, t }: { status: JobStatus; t: TFn }) {
   const map: Record<

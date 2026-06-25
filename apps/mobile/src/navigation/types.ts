@@ -163,6 +163,10 @@ export type AppStackParamList = {
    * FAB mic.
    */
   VoiceAgent: undefined;
+  /** Modal: employer voice assistant — speak to find workers, view applicants, post jobs. */
+  EmployerVoiceAgent: undefined;
+  /** Screen: employer wallet top-up via UPI. */
+  WalletTopUp: undefined;
   /**
    * Modal: "Doondo for Women" hub — Women's Mode toggle, a curated feed
    * of women-safe jobs, safe-work guidance, and the safety tools.

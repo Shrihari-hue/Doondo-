@@ -26,6 +26,8 @@ import { EmployerTabNavigator } from './EmployerTabNavigator';
 import { JobDetailScreen } from '@/screens/seeker/JobDetailScreen';
 import { EditProfileScreen } from '@/screens/seeker/EditProfileScreen';
 import { VoiceAgentScreen } from '@/screens/seeker/VoiceAgentScreen';
+import { EmployerVoiceAgentScreen } from '@/screens/employer/EmployerVoiceAgentScreen';
+import { WalletTopUpScreen } from '@/screens/employer/WalletTopUpScreen';
 import { WomenHubScreen } from '@/screens/seeker/WomenHubScreen';
 import { RecordReelScreen } from '@/screens/seeker/RecordReelScreen';
 import { ReelFeedScreen } from '@/screens/employer/ReelFeedScreen';
@@ -259,6 +261,16 @@ export function AppNavigator() {
       <Stack.Screen
         name="VoiceAgent"
         component={VoiceAgentScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="EmployerVoiceAgent"
+        component={EmployerVoiceAgentScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="WalletTopUp"
+        component={WalletTopUpScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen

@@ -35,6 +35,7 @@ import { useFestival, isFestivalJob, type Festival } from '@/lib/festivals';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
 import { AvailabilityBeaconChip } from './AvailabilityBeacon';
+import { HeroBannerCarousel } from './HeroBannerCarousel';
 import type { PublicJob, PublicUser } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 import type { Coords } from '@/lib/location';
@@ -116,7 +117,7 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
   const renderHeader = useMemo(
     () => (
       <View style={{ gap: spacing.lg, marginBottom: spacing.md }}>
-        <HeroCard onExplore={onExploreJobs} t={t} />
+        <HeroBannerCarousel onExploreJobs={onExploreJobs} navigation={navigation} t={t} />
         <AvailabilityBeaconChip coords={coords} user={user} />
         <View style={{ gap: spacing.sm }}>
           <View
@@ -218,7 +219,7 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
         </View>
       </View>
     ),
-    [tradeFilters, theme, coords, user, onExploreJobs, t],
+    [tradeFilters, theme, coords, user, onExploreJobs, navigation, t],
   );
 
   if (!coords) {
@@ -287,136 +288,6 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
         )
       }
     />
-  );
-}
-
-// ─── Hero card — deep navy gradient w/ megaphone ────────────────────────────
-
-function HeroCard({ onExplore, t }: { onExplore: () => void; t: TFn }) {
-  return (
-    <View
-      style={{
-        borderRadius: 20,
-        overflow: 'hidden',
-        shadowColor: '#172554',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.28,
-        shadowRadius: 20,
-        elevation: 8,
-        backgroundColor: '#1E1B4B',
-      }}
-    >
-      <LinearGradient
-        colors={['#1E1B4B', '#172554', '#0F1A45']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{
-          paddingVertical: spacing.xl,
-          paddingHorizontal: spacing.xl,
-          minHeight: 200,
-          flexDirection: 'row',
-          alignItems: 'center',
-        }}
-      >
-        <View style={{ flex: 1, gap: spacing.sm }}>
-          <Text
-            style={{
-              fontSize: 10,
-              fontWeight: '700',
-              letterSpacing: 2,
-              color: 'rgba(255,255,255,0.65)',
-            }}
-          >
-            {t('home.hero.eyebrow')}
-          </Text>
-          <Text
-            style={{
-              fontSize: 24,
-              lineHeight: 30,
-              fontWeight: '700',
-              color: '#FFFFFF',
-              letterSpacing: -0.5,
-              maxWidth: 220,
-            }}
-          >
-            {t('home.hero.headline')}
-          </Text>
-          {/* The white pill background lives on a wrapper View so it can't
-             drop out during state transitions and leave dark-navy text
-             invisible on the navy hero. Pressable handles only feedback. */}
-          <View
-            style={{
-              alignSelf: 'flex-start',
-              marginTop: spacing.xs,
-              borderRadius: radii.pill,
-              backgroundColor: '#FFFFFF',
-              shadowColor: '#0F172A',
-              shadowOffset: { width: 0, height: 3 },
-              shadowOpacity: 0.22,
-              shadowRadius: 10,
-              elevation: 4,
-            }}
-          >
-            <Pressable
-              onPress={() => {
-                haptic('selection');
-                onExplore();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={t('home.hero.cta_a11y')}
-              style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
-            >
-              {/* Layout (the row direction + padding) lives on this static
-                 inner View. Keeping `flexDirection: 'row'` on the Pressable
-                 style function let RN collapse it to a column on some
-                 builds — that pushed the arrow onto its own line and made
-                 the label overflow the pill. */}
-              <View
-                style={{
-                  paddingVertical: 12,
-                  paddingHorizontal: spacing.lg,
-                  borderRadius: radii.pill,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: '800',
-                    color: '#0F1A45',
-                    letterSpacing: 0.1,
-                  }}
-                >
-                  {t('home.hero.cta')}
-                </Text>
-                <Text style={{ fontSize: 14, color: '#0F1A45', fontWeight: '800' }}>
-                  →
-                </Text>
-              </View>
-            </Pressable>
-          </View>
-        </View>
-        {/* Megaphone illustration — large emoji at low opacity gives the
-           silhouette the mockup shows without bundling an SVG asset. */}
-        <View
-          style={{
-            position: 'absolute',
-            right: -20,
-            top: 10,
-            bottom: 10,
-            width: 180,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: 0.85,
-          }}
-          pointerEvents="none"
-        >
-          <Text style={{ fontSize: 140, lineHeight: 160 }}>📣</Text>
-        </View>
-      </LinearGradient>
-    </View>
   );
 }
 

@@ -18,6 +18,7 @@ import {
   RefreshControl,
   ScrollView,
   View,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -50,6 +51,7 @@ export function EmployerHomeScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const [showMenu, setShowMenu] = useState(false);
 
   const jobsQuery = useQuery({
     queryKey: ['jobs', 'mine', 'active'],
@@ -234,7 +236,7 @@ export function EmployerHomeScreen() {
         >
           <Pressable
             hitSlop={12}
-            onPress={() => haptic('selection')}
+            onPress={() => { haptic('selection'); setShowMenu(true); }}
             accessibilityRole="button"
             accessibilityLabel="Menu"
           >
@@ -462,7 +464,7 @@ export function EmployerHomeScreen() {
           </AnimatedPressable>
 
           {/* ── Hire More Workers ── */}
-          <AnimatedPressable onPress={() => { haptic('selection'); navigation.navigate('Workers' as never); }}
+          <AnimatedPressable onPress={() => { haptic('selection'); navigation.navigate('AvailableWorkers' as never); }}
             style={{
               marginHorizontal: spacing.xl, marginBottom: spacing.lg,
               backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 13,
@@ -566,7 +568,10 @@ export function EmployerHomeScreen() {
                 paddingHorizontal: spacing.md,
                 paddingVertical: spacing.sm,
               }}
-              onPress={() => haptic('selection')}
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('WalletTopUp');
+              }}
             >
               <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>
                 Add Money
@@ -839,6 +844,48 @@ export function EmployerHomeScreen() {
           </View>
         </ScrollView>
       </View>
+
+      {/* ── Hamburger Menu ── */}
+      <Modal visible={showMenu} transparent animationType="slide" onRequestClose={() => setShowMenu(false)}>
+        <BlurOverlay>
+          <Pressable style={{ flex: 1, justifyContent: 'flex-end' }} onPress={() => setShowMenu(false)}>
+            <Pressable onPress={(e) => e.stopPropagation?.()}>
+              <View style={{
+                backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+                borderTopLeftRadius: 24, borderTopRightRadius: 24,
+                paddingBottom: insets.bottom + spacing.xl,
+                paddingTop: spacing.md,
+              }}>
+                <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#333', alignSelf: 'center', marginBottom: spacing.lg }} />
+                <Text style={{ fontSize: 18, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB', paddingHorizontal: spacing.xl, marginBottom: spacing.md }}>Quick Access</Text>
+                {([
+                  { icon: 'bar-chart-2' as const, label: 'Analytics',              color: BLUE,        onPress: () => navigation.navigate('EmployerAnalytics') },
+                  { icon: 'calendar'    as const, label: 'Roster & Schedule',       color: '#7C3AED',   onPress: () => navigation.navigate('Roster') },
+                  { icon: 'dollar-sign' as const, label: 'Run Payroll',             color: '#16A34A',   onPress: () => navigation.navigate('RunPayroll') },
+                  { icon: 'clock'       as const, label: 'Time-Off Requests',       color: AMBER,       onPress: () => navigation.navigate('TimeOffRequests') },
+                  { icon: 'bell'        as const, label: 'Notification Settings',   color: '#6B7280',   onPress: () => navigation.navigate('NotifPreferences') },
+                  { icon: 'settings'    as const, label: 'Settings',                color: '#6B7280',   onPress: () => navigation.navigate('Settings') },
+                ] as { icon: React.ComponentProps<typeof Feather>['name']; label: string; color: string; onPress: () => void }[]).map((item) => (
+                  <Pressable
+                    key={item.label}
+                    onPress={() => { haptic('selection'); setShowMenu(false); item.onPress(); }}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                      paddingHorizontal: spacing.xl, paddingVertical: 14,
+                      opacity: pressed ? 0.7 : 1,
+                    })}>
+                    <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: item.color + '18', alignItems: 'center', justifyContent: 'center' }}>
+                      <Feather name={item.icon} size={18} color={item.color} />
+                    </View>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: isLight ? '#111827' : '#F9FAFB' }}>{item.label}</Text>
+                    <Feather name="chevron-right" size={16} color={isLight ? '#9CA3AF' : '#6B7280'} style={{ marginLeft: 'auto' }} />
+                  </Pressable>
+                ))}
+              </View>
+            </Pressable>
+          </Pressable>
+        </BlurOverlay>
+      </Modal>
 
       {/* ── Notification Tray ── */}
 

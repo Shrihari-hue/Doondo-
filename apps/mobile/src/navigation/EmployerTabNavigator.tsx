@@ -215,12 +215,12 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
           return (
             <View
               key={route.key}
-              style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }}
+              style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', overflow: 'visible' }}
             >
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Voice search"
-                onPress={() => { haptic('medium'); rootNav.navigate('VoiceAgent'); }}
+                onPress={() => { haptic('medium'); rootNav.navigate('EmployerVoiceAgent'); }}
                 onLongPress={() => { haptic('medium'); setShowSearch(true); }}
                 style={({ pressed }) => ({
                   width: 58,
@@ -229,16 +229,20 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
                   backgroundColor: BLUE,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  marginBottom: 4,
-                  shadowColor: BLUE,
-                  shadowOpacity: 0.45,
-                  shadowRadius: 10,
-                  shadowOffset: { width: 0, height: 4 },
-                  elevation: 8,
+                  // White ring separates the FAB from the white tab bar in light mode
+                  borderWidth: 3,
+                  borderColor: barBg,
+                  // Lift it above the tab bar
+                  marginBottom: 10,
+                  shadowColor: '#000000',
+                  shadowOpacity: 0.25,
+                  shadowRadius: 8,
+                  shadowOffset: { width: 0, height: -2 },
+                  elevation: 12,
                   opacity: pressed ? 0.85 : 1,
                 })}
               >
-                <Feather name="mic" size={26} color="#FFFFFF" />
+                <Feather name="mic" size={24} color="#FFFFFF" />
               </Pressable>
             </View>
           );

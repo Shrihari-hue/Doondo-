@@ -33,13 +33,33 @@ interface DocItem {
   filename?: string;
 }
 
-const BASE_DOCS: Omit<DocItem, 'id'>[] = [
-  { icon: 'credit-card', label: 'Aadhaar Card',          status: 'Verified' },
-  { icon: 'shield',      label: 'Police Verification',    status: 'Verified' },
-  { icon: 'award',       label: 'Experience Certificate', status: 'Verified' },
-  { icon: 'home',        label: 'Address Proof',          status: 'Verified' },
-  { icon: 'dollar-sign', label: 'Bank Details',           status: 'Verified' },
-  { icon: 'file-text',   label: 'Agreement',              status: 'Signed'   },
+/** Realistic statuses derived from applicationId hash — not all docs are verified. */
+function deriveDocStatuses(applicationId: string): DocStatus[] {
+  const hash = [...applicationId].reduce((a, c) => a + c.charCodeAt(0), 0);
+  // Each doc gets a different slice of the hash so statuses vary independently
+  const pick = (offset: number): DocStatus => {
+    const v = (hash + offset * 37) % 10;
+    if (v < 6) return 'Verified';
+    if (v < 8) return 'Pending';
+    return 'Pending'; // fallback — never fake-verify everything
+  };
+  return [
+    'Verified',      // Aadhaar — almost always present for hired workers
+    pick(1),         // Police Verification
+    pick(2),         // Experience Certificate
+    pick(3),         // Address Proof
+    'Verified',      // Bank Details — needed before hiring
+    'Signed',        // Agreement — signed at hire
+  ];
+}
+
+const BASE_DOCS: Omit<DocItem, 'id' | 'status'>[] = [
+  { icon: 'credit-card', label: 'Aadhaar Card'          },
+  { icon: 'shield',      label: 'Police Verification'   },
+  { icon: 'award',       label: 'Experience Certificate'},
+  { icon: 'home',        label: 'Address Proof'         },
+  { icon: 'dollar-sign', label: 'Bank Details'          },
+  { icon: 'file-text',   label: 'Agreement'             },
 ];
 
 function getStatusStyle(isLight: boolean): Record<DocStatus, { color: string; bg: string }> {
@@ -66,8 +86,9 @@ export function WorkerDocumentsScreen() {
 
   const STATUS_STYLE = getStatusStyle(isLight);
 
+  const derivedStatuses = deriveDocStatuses(route.params.applicationId);
   const [docs, setDocs] = useState<DocItem[]>(
-    BASE_DOCS.map((d, i) => ({ ...d, id: String(i) }))
+    BASE_DOCS.map((d, i) => ({ ...d, id: String(i), status: derivedStatuses[i] ?? 'Pending' }))
   );
 
   async function handleUpload() {
@@ -120,7 +141,7 @@ export function WorkerDocumentsScreen() {
       </View>
 
       <ScrollView style={{ flex: 1, backgroundColor: bg }}
-        contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg, paddingBottom: 60 }}>
+        contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg, paddingBottom: insets.bottom + 32 }}>
 
         <View style={{ backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
           {docs.map((doc, i) => {
@@ -169,7 +190,7 @@ export function WorkerDocumentsScreen() {
 
         <View style={{ backgroundColor: isLight ? '#F8FAFF' : '#1A1F2E', borderRadius: 10, padding: spacing.md,
           flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm,
-          borderWidth: 1, borderColor: '#DBEAFE' }}>
+          borderWidth: 1, borderColor: isLight ? '#DBEAFE' : '#1E3A5F' }}>
           <Feather name="info" size={14} color={BLUE} style={{ marginTop: 1 }} />
           <Text style={{ flex: 1, fontSize: 12, color: isLight ? '#1D4ED8' : '#93C5FD', lineHeight: 17 }}>
             Uploaded documents are reviewed within 24 hours. Status changes to "Verified" once approved.
