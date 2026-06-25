@@ -27,6 +27,7 @@ import * as coursesController from '@/modules/courses/courses.controller';
 import * as endorsementController from '@/modules/endorsements/endorsement.controller';
 import * as skillTestController from '@/modules/skillTests/skillTests.controller';
 import * as profileViewService from '@/modules/me/profileView.service';
+import { sendProfileViewPush } from '@/lib/push';
 import * as doondoScoreService from '@/modules/users/doondoScore.service';
 import * as scoreCredentialController from '@/modules/users/scoreCredential.controller';
 import * as resumeRewriteService from '@/modules/resumeRewrite/resumeRewrite.service';
@@ -166,16 +167,32 @@ v1.get('/seekers/:id/badges', requireAuth, coursesController.listSeekerBadges);
 
 // Profile-view impression — employer hits this on ApplicantDetail mount.
 // Idempotent within a UTC day per (seeker, viewer); see profileView.service.
+// When it's a new view (first time this employer views today), we also fire
+// a push to the seeker so they see it in their phone's notification bar.
 v1.post(
   '/seekers/:id/view',
   requireAuth,
   requireRole('employer'),
   async (req, res, next) => {
     try {
-      await profileViewService.recordView({
+      const { isNew } = await profileViewService.recordView({
         seekerId: req.params.id!,
         viewerId: req.user!.id,
       });
+      if (isNew) {
+        // Load the employer's display name for the notification body.
+        const viewer = await UserModel.findById(req.user!.id)
+          .select('companyName name')
+          .lean();
+        const viewerName =
+          (viewer as { companyName?: string; name?: string } | null)?.companyName ||
+          (viewer as { companyName?: string; name?: string } | null)?.name ||
+          'An employer';
+        void sendProfileViewPush({
+          seekerId: req.params.id!,
+          viewerName,
+        });
+      }
       res.json({ ok: true });
     } catch (err) {
       next(err);

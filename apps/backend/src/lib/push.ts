@@ -1259,6 +1259,50 @@ export async function sendHireCelebrationPush(input: {
 }
 
 /**
+ * Profile viewed — push to a seeker when an employer views their profile
+ * for the first time on a given day. Deduplication (one push per
+ * employer per day) is enforced upstream by `recordView` returning
+ * `isNew`; this helper should only be called when `isNew === true`.
+ *
+ * The employer's name is shown in the body so the seeker knows it's a
+ * real company looking — not a generic "someone" ping. The deeplink
+ * sends them to their own Profile screen where the "X viewed your
+ * profile this week" card lives.
+ */
+export async function sendProfileViewPush(input: {
+  seekerId: string;
+  viewerName: string;
+}): Promise<void> {
+  const title = 'Someone viewed your profile';
+  const body = `${input.viewerName} just checked out your profile.`;
+
+  void notifications.record({
+    recipientId: input.seekerId,
+    kind: 'profile_viewed',
+    title,
+    body,
+    deeplink: { screen: 'Profile' },
+  });
+
+  const tokens = await tokensFor(input.seekerId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'jobs',
+      data: {
+        type: 'profile:viewed',
+        deeplink: { screen: 'Profile' },
+      },
+    })),
+  );
+}
+
+/**
  * Trust Circle hire ping — a quiet proud update to matched Doondo
  * contacts when someone in their circle gets hired.
  */

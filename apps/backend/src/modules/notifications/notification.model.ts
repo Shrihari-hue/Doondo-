@@ -59,6 +59,7 @@ export const NOTIFICATION_KINDS = [
   'dispute_update',           // a dispute you're part of got a reply or was closed
   'job_escalated',            // a stalling job was auto-boosted / needs attention
   'reached_home_safe',        // a worker confirmed they got home safely (to circle)
+  'profile_viewed',           // an employer viewed this seeker's profile
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

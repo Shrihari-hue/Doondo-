@@ -17,23 +17,29 @@ function dayKey(d: Date = new Date()): string {
  * (seekerId, viewerId) pair — re-loads by the same employer don't bump
  * the counter twice. Self-views (viewer === seeker) are ignored so a
  * seeker never inflates their own number by previewing their profile.
+ *
+ * Returns `{ isNew: true }` when this is the first view of the day for
+ * this pair so the caller can fire a push notification exactly once per
+ * employer per day.
  */
 export async function recordView(input: {
   seekerId: string | Types.ObjectId;
   viewerId: string | Types.ObjectId;
-}): Promise<void> {
+}): Promise<{ isNew: boolean }> {
   const sid = new Types.ObjectId(input.seekerId);
   const vid = new Types.ObjectId(input.viewerId);
-  if (sid.equals(vid)) return;
+  if (sid.equals(vid)) return { isNew: false };
   try {
-    await ProfileViewModel.updateOne(
+    const result = await ProfileViewModel.updateOne(
       { seekerId: sid, viewerId: vid, day: dayKey() },
       { $setOnInsert: { seekerId: sid, viewerId: vid, day: dayKey() } },
       { upsert: true },
     );
+    return { isNew: result.upsertedCount === 1 };
   } catch {
     // Best-effort — duplicate-key races collapse to a no-op, which is
     // the intent (one view per day per pair).
+    return { isNew: false };
   }
 }
 
