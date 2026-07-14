@@ -197,7 +197,7 @@ export function EmployerAnalyticsScreen() {
 
       <OfflineBanner />
       <ScrollView style={{ flex: 1, backgroundColor: bg }}
-        contentContainerStyle={{ padding: spacing.xl, gap: spacing.xl, paddingBottom: 80 }}>
+        contentContainerStyle={{ padding: spacing.xl, gap: spacing.xl, paddingBottom: insets.bottom + 32 }}>
 
         {/* KPI cards */}
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>

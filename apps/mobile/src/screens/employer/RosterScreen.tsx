@@ -151,7 +151,7 @@ export function RosterScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={{ backgroundColor: bg }}
-        contentContainerStyle={{ paddingBottom: 80 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
         refreshControl={
           <RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} tintColor={BLUE} />
         }

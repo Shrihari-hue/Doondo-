@@ -224,8 +224,12 @@ export function WorkersScreen() {
             return (
               <Pressable key={tab.key}
                 onPress={() => { haptic('selection'); setFilter(tab.key); }}
-                style={{ paddingHorizontal: spacing.md, paddingVertical: 7, borderRadius: radii.pill,
-                  borderBottomWidth: active ? 2 : 0, borderBottomColor: BLUE }}>
+                style={{
+                  paddingHorizontal: spacing.md, paddingVertical: 7, borderRadius: radii.pill,
+                  backgroundColor: active ? BLUE + '18' : 'transparent',
+                  borderWidth: active ? 1 : 0,
+                  borderColor: active ? BLUE + '40' : 'transparent',
+                }}>
                 <Text style={{ fontSize: 13, fontWeight: active ? '700' : '500',
                   color: active ? BLUE : textSecondary }}>
                   {tab.label}
@@ -237,7 +241,7 @@ export function WorkersScreen() {
 
         {/* List */}
         <ScrollView showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ padding: spacing.xl, paddingBottom: 100, gap: spacing.md }}
+          contentContainerStyle={{ padding: spacing.xl, paddingBottom: insets.bottom + 32, gap: spacing.md }}
           refreshControl={
             <RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} tintColor={BLUE} />
           }>

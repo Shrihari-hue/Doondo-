@@ -138,7 +138,7 @@ export function RunPayrollScreen() {
       </View>
 
       <ScrollView style={{ flex: 1, backgroundColor: bg }}
-        contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg, paddingBottom: 120 }}>
+        contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg, paddingBottom: insets.bottom + 100 }}>
 
         {query.isLoading ? (
           <><SkeletonCard lines={3} /><SkeletonCard lines={3} /></>

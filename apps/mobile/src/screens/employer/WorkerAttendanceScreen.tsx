@@ -165,7 +165,7 @@ export function WorkerAttendanceScreen() {
       </View>
 
       <ScrollView style={{ flex: 1, backgroundColor: bg }}
-        contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg, paddingBottom: 60 }}>
+        contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg, paddingBottom: insets.bottom + 32 }}>
 
         {/* "Coming soon" banner when per-day API data isn't available yet */}
         {!hasRealData && !tsQuery.isLoading && (

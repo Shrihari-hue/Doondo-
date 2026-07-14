@@ -103,7 +103,8 @@ export function PostsScreen() {
         contentContainerStyle={{
           padding: spacing.xl,
           paddingTop: spacing['2xl'],
-          paddingBottom: spacing['4xl'],
+          // FAB is 56px tall + 16px gap + insets.bottom — leave enough room
+          paddingBottom: insets.bottom + 96,
           gap: spacing['2xl'],
           flexGrow: 1,
         }}

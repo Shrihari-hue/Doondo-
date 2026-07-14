@@ -26,6 +26,7 @@ import {
   type ViewToken,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { useEvent } from 'expo';
@@ -237,6 +238,7 @@ export function ReelFeedScreen() {
   const navigation = useNavigation<Nav>();
   const t = useTranslate();
   const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   const feedQuery = useQuery({
     queryKey: ['reels', 'feed'],
@@ -310,7 +312,7 @@ export function ReelFeedScreen() {
       <View
         style={{
           position: 'absolute',
-          top: spacing['2xl'],
+          top: insets.top + spacing.sm,
           left: spacing.lg,
           right: spacing.lg,
           flexDirection: 'row',

@@ -208,7 +208,7 @@ export function WalletTopUpScreen() {
       </View>
 
       <ScrollView style={{ flex: 1, backgroundColor: bg }}
-        contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg, paddingBottom: 60 }}>
+        contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg, paddingBottom: insets.bottom + 32 }}>
 
         {/* ── STEP 1: Amount selection ── */}
         {step === 'amount' && (

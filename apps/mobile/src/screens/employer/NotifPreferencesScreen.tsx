@@ -161,7 +161,7 @@ export function NotifPreferencesScreen() {
         </Pressable>
       </View>
 
-      <ScrollView style={{ backgroundColor: bg }} contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg }}>
+      <ScrollView style={{ backgroundColor: bg }} contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg, paddingBottom: insets.bottom + 32 }}>
 
         {/* Info banner */}
         <View style={{

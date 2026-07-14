@@ -211,39 +211,46 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
         };
 
         if (isMidFAB) {
-          // Raised blue mic FAB in the centre — opens VoiceAgent modal
+          // Raised mic FAB — floats above the tab bar in both light and dark themes
           return (
             <View
               key={route.key}
               style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', overflow: 'visible' }}
             >
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Voice search"
-                onPress={() => { haptic('medium'); rootNav.navigate('EmployerVoiceAgent'); }}
-                onLongPress={() => { haptic('medium'); setShowSearch(true); }}
-                style={({ pressed }) => ({
-                  width: 58,
-                  height: 58,
-                  borderRadius: 29,
-                  backgroundColor: BLUE,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  // White ring separates the FAB from the white tab bar in light mode
-                  borderWidth: 3,
-                  borderColor: barBg,
-                  // Lift it above the tab bar
-                  marginBottom: 10,
-                  shadowColor: '#000000',
-                  shadowOpacity: 0.25,
-                  shadowRadius: 8,
-                  shadowOffset: { width: 0, height: -2 },
-                  elevation: 12,
-                  opacity: pressed ? 0.85 : 1,
-                })}
-              >
-                <Feather name="mic" size={24} color="#FFFFFF" />
-              </Pressable>
+              {/* Outer ring — always visible: white in dark mode, light-blue tinted in light mode */}
+              <View style={{
+                width: 66,
+                height: 66,
+                borderRadius: 33,
+                backgroundColor: isLight ? '#EFF6FF' : '#1E2A3A',
+                alignItems: 'center',
+                justifyContent: 'center',
+                // Lift above the tab bar
+                transform: [{ translateY: -10 }],
+                shadowColor: '#000',
+                shadowOpacity: isLight ? 0.12 : 0.5,
+                shadowRadius: 12,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 14,
+              }}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Voice search"
+                  onPress={() => { haptic('medium'); rootNav.navigate('EmployerVoiceAgent'); }}
+                  onLongPress={() => { haptic('medium'); setShowSearch(true); }}
+                  style={({ pressed }) => ({
+                    width: 54,
+                    height: 54,
+                    borderRadius: 27,
+                    backgroundColor: BLUE,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: pressed ? 0.8 : 1,
+                  })}
+                >
+                  <Feather name="mic" size={22} color="#FFFFFF" />
+                </Pressable>
+              </View>
             </View>
           );
         }

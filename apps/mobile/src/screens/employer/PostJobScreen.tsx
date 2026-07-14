@@ -403,19 +403,20 @@ export function PostJobScreen() {
 
   const canSave = validationReason === null && !mutation.isPending;
 
-  const isLight = true; // PostJob is always light-themed per design
+  const { scheme } = useTheme();
+  const isLight = scheme !== 'dark';
   const BLUE = '#2563EB';
-  const BLUE_LIGHT = '#EFF6FF';
-  const inputBorder = '#E5E7EB';
-  const labelColor = '#374151';
-  const placeholderColor = '#9CA3AF';
-  const textColor = '#1F2937';
+  const BLUE_LIGHT = isLight ? '#EFF6FF' : '#1E3A5F';
+  const inputBorder = isLight ? '#E5E7EB' : '#374151';
+  const labelColor = isLight ? '#374151' : '#D1D5DB';
+  const placeholderColor = isLight ? '#9CA3AF' : '#6B7280';
+  const textColor = isLight ? '#1F2937' : '#F9FAFB';
 
   return (
     <Screen edges={[]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1, backgroundColor: '#FFFFFF' }}
+        style={{ flex: 1, backgroundColor: isLight ? '#FFFFFF' : '#0C0A0E' }}
       >
         {/* ── Header ── */}
         <View
@@ -458,7 +459,7 @@ export function PostJobScreen() {
         <ScrollView
           contentContainerStyle={{
             padding: spacing.xl,
-            paddingBottom: spacing['7xl'],
+            paddingBottom: insets.bottom + spacing['4xl'],
             gap: spacing.lg,
           }}
           keyboardShouldPersistTaps="handled"
