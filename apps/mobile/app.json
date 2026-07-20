@@ -28,9 +28,10 @@
         "NSLocationWhenInUseUsageDescription": "Doondo uses your location to find work near you.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Doondo uses your location to share live location with safety contacts when you choose to.",
         "NSCameraUsageDescription": "Doondo uses your camera for intro videos and verification.",
-        "NSMicrophoneUsageDescription": "Doondo uses your microphone for video calls and intro videos.",
+        "NSMicrophoneUsageDescription": "Doondo uses your microphone for voice job search.",
         "NSPhotoLibraryUsageDescription": "Doondo uses your photos to set your profile picture and resume.",
-        "NSContactsUsageDescription": "Doondo uses contacts so you can find friends already on Doondo and pick safety contacts. Phone numbers never leave your device in plaintext."
+        "NSContactsUsageDescription": "Doondo uses contacts so you can find friends already on Doondo and pick safety contacts. Phone numbers never leave your device in plaintext.",
+        "NSSpeechRecognitionUsageDescription": "Doondo uses speech recognition so you can search for jobs by voice."
       }
     },
     "android": {
@@ -44,7 +45,9 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
-        "android.permission.READ_CONTACTS"
+        "android.permission.READ_CONTACTS",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.WRITE_CONTACTS"
       ],
       "config": {
         "googleMaps": {
@@ -91,7 +94,9 @@
         {
           "microphonePermission": "Doondo uses your microphone for voice job search.",
           "speechRecognitionPermission": "Doondo uses speech recognition so you can search for jobs by voice.",
-          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
         }
       ]
     ],
@@ -100,15 +105,13 @@
     },
     "extra": {
       "eas": {
-        "projectId": "de88667b-29a8-4447-9a10-ef68ae6b0bd2"
+        "projectId": "dbb3797a-9660-4935-ae22-c6927d2513d4"
       }
     },
-    "owner": "shrihari23",
+    "owner": "yakshithk20",
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "updates": {
-      "url": "https://u.expo.dev/de88667b-29a8-4447-9a10-ef68ae6b0bd2"
-    }
+    "updates": {}
   }
 }

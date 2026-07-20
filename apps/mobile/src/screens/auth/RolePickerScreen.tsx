@@ -882,7 +882,7 @@ function HowItWorks({ compact, t }: { compact: boolean; t: TFn }) {
           gap: compact ? spacing.xs : spacing.md,
         }}
       >
-        {steps.map(([title, sub], idx) => (
+        {steps.map(([title, sub]) => (
           <View
             key={title}
             style={{
@@ -896,31 +896,6 @@ function HowItWorks({ compact, t }: { compact: boolean; t: TFn }) {
               alignItems: 'flex-start',
             }}
           >
-            <View
-              style={{
-                width: compact ? 28 : 36,
-                height: compact ? 28 : 36,
-                borderRadius: compact ? 14 : 18,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: isLight
-                  ? 'rgba(211, 165, 86, 0.16)'
-                  : 'rgba(141, 109, 255, 0.16)',
-                borderWidth: 0.5,
-                borderColor: theme.premium.hairline,
-              }}
-            >
-              <Text
-                variant="caption"
-                weight="medium"
-                style={{
-                  fontSize: compact ? 11 : 13,
-                  color: isLight ? '#A97215' : '#B08CFF',
-                }}
-              >
-                0{idx + 1}
-              </Text>
-            </View>
             <Text
               variant={compact ? 'footnote' : 'bodyLarge'}
               weight="medium"
