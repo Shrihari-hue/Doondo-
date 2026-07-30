@@ -7,14 +7,13 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { Types } from 'mongoose';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
 import { listPending, confirmSafe } from './homeSafe.service';
 
 const router = Router();
 
-const objectId = z.string().refine((v) => Types.ObjectId.isValid(v), { message: 'Invalid id' });
+const uuid = z.string().uuid({ message: 'Invalid id' });
 
 router.get('/pending', requireAuth, requireRole('seeker'), async (req, res, next) => {
   try {
@@ -29,7 +28,7 @@ router.post(
   '/:id/confirm',
   requireAuth,
   requireRole('seeker'),
-  validate(z.object({ params: z.object({ id: objectId }) })),
+  validate(z.object({ params: z.object({ id: uuid }) })),
   async (req, res, next) => {
     try {
       const check = await confirmSafe(req.user!.id, req.params.id!);

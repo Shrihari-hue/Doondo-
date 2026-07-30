@@ -18,6 +18,18 @@ const schema = z.object({
   MONGODB_URI: z.string().url().or(z.string().startsWith('mongodb')),
   MONGODB_DB_NAME: z.string().default('doondo'),
 
+  // ─── Postgres (Supabase) — Phase 1 of the Mongo → Postgres migration ──────
+  // Direct connection string from Supabase → Settings → Database →
+  // "Connection string" (Transaction/Session pooler URI). This is NOT the
+  // sb_publishable_/sb_secret_ API keys — those are for the PostgREST/Auth/
+  // Storage REST API, not a raw Postgres connection.
+  DATABASE_URL: z.string().startsWith('postgres'),
+  // Supabase project API — unused by app code today (kept for future
+  // Storage/PostgREST use), so all optional.
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
+  SUPABASE_SECRET_KEY: z.string().optional(),
+
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 chars'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 chars'),
   JWT_ACCESS_TTL: z.string().default('15m'),

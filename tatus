@@ -1,0 +1,27 @@
+ apps/backend/.env.example                                             |   14 [32m+[m
+ apps/backend/package.json                                             |    8 [32m+[m
+ apps/backend/src/config/env.ts                                        |   12 [32m+[m
+ apps/backend/src/index.ts                                             |   31 [32m+[m[31m-[m
+ apps/backend/src/lib/push.ts                                          |   18 [32m+[m[31m-[m
+ apps/backend/src/modules/applications/hiredNearby.service.ts          |  235 [32m+[m[31m------[m
+ apps/backend/src/modules/auth/auth.service.ts                         |  454 [32m++++++[m[31m-------[m
+ apps/backend/src/modules/employerResponse/employerResponse.service.ts |  135 [32m+[m[31m---[m
+ apps/backend/src/modules/homeSafe/homeSafe.routes.ts                  |    5 [32m+[m[31m-[m
+ apps/backend/src/modules/homeSafe/homeSafe.service.ts                 |  149 [32m+[m[31m----[m
+ apps/backend/src/modules/jobs/job.schemas.ts                          |    7 [32m+[m[31m-[m
+ apps/backend/src/modules/jobs/job.service.ts                          | 1150 [32m+++++++++++++[m[31m--------------------[m
+ apps/backend/src/modules/jobs/job.stats.controller.ts                 |   38 [32m+[m[31m-[m
+ apps/backend/src/modules/jobs/recommendations.service.ts              |  239 [32m+++[m[31m----[m
+ apps/backend/src/modules/moderation/moderation.service.ts             |   66 [32m+[m[31m-[m
+ apps/backend/src/modules/notifications/notification.service.ts        |  121 [32m+[m[31m---[m
+ apps/backend/src/modules/referrals/referral.service.ts                |  241 [32m+[m[31m------[m
+ apps/backend/src/modules/resumeRewrite/resumeRewrite.service.ts       |   37 [32m+[m[31m-[m
+ apps/backend/src/modules/users/streaks.service.ts                     |   20 [32m+[m[31m-[m
+ apps/backend/src/modules/verification/sms.ts                          |   66 [32m+[m[31m-[m
+ apps/backend/src/modules/verification/verification.controller.ts      |   10 [32m+[m[31m-[m
+ apps/backend/src/modules/verification/verification.service.ts         |  114 [32m++[m[31m--[m
+ apps/backend/src/modules/wallet/wallet.service.ts                     |  303 [32m+[m[31m--------[m
+ apps/mobile/android/app/src/main/res/values/strings.xml               |    2 [32m+[m[31m-[m
+ apps/mobile/app.json                                                  |    6 [32m+[m[31m-[m
+ pnpm-lock.yaml                                                        |  729 [32m+++++++++++++++++++++[m
+ 26 files changed, 1825 insertions(+), 2385 deletions(-)

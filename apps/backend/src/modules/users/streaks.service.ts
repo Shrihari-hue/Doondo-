@@ -25,10 +25,11 @@
  * worrying about double bumps from retries.
  */
 
-import { Types } from 'mongoose';
+import { eq } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { users, type StreaksJson } from '@/db/schema';
 import { logger } from '@/lib/logger';
 import { sendStreakMilestonePush } from '@/lib/push';
-import { UserModel } from './user.model';
 
 export type StreakKind = 'apply' | 'course' | 'shift';
 
@@ -55,7 +56,7 @@ export async function bumpStreak(
   const today = istDateString(new Date());
   const yesterday = istDateString(new Date(Date.now() - 24 * 60 * 60 * 1000));
 
-  const user = await UserModel.findById(userId).select('streaks name');
+  const [user] = await getDb().select({ streaks: users.streaks }).from(users).where(eq(users.id, userId)).limit(1);
   if (!user) return { bumped: false, current: 0, milestoneCrossed: null };
 
   const slot = user.streaks?.[kind] ?? { current: 0, longest: 0, totalDays: 0, lastDate: null };
@@ -83,17 +84,8 @@ export async function bumpStreak(
   }
 
   try {
-    await UserModel.updateOne(
-      { _id: new Types.ObjectId(userId) },
-      {
-        $set: {
-          [`streaks.${kind}.current`]: nextCurrent,
-          [`streaks.${kind}.longest`]: nextLongest,
-          [`streaks.${kind}.totalDays`]: nextTotalDays,
-          [`streaks.${kind}.lastDate`]: today,
-        },
-      },
-    );
+    const streaks: StreaksJson = { ...user.streaks, [kind]: { current: nextCurrent, longest: nextLongest, totalDays: nextTotalDays, lastDate: today } };
+    await getDb().update(users).set({ streaks }).where(eq(users.id, userId));
   } catch (err) {
     logger.warn({ err, userId, kind }, 'streak bump update failed');
     return { bumped: false, current: prevCurrent, milestoneCrossed: null };

@@ -11,7 +11,9 @@
  */
 
 import { logger } from './logger';
-import { UserModel } from '@/modules/users/user.model';
+import { eq, inArray } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { users } from '@/db/schema';
 import * as notifications from '@/modules/notifications/notification.service';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
@@ -53,8 +55,8 @@ async function sendRaw(payloads: PushPayload[]): Promise<void> {
 }
 
 async function tokensFor(userId: string): Promise<string[]> {
-  const u = await UserModel.findById(userId).select('expoPushTokens').lean();
-  return Array.isArray(u?.expoPushTokens) ? u!.expoPushTokens : [];
+  const [u] = await getDb().select({ expoPushTokens: users.expoPushTokens }).from(users).where(eq(users.id, userId)).limit(1);
+  return u?.expoPushTokens ?? [];
 }
 
 // ─── Public helpers ─────────────────────────────────────────────────────────
@@ -197,12 +199,10 @@ export async function sendNewJobPush(input: {
 }): Promise<void> {
   if (input.recipientIds.length === 0) return;
 
-  const users = await UserModel.find({ _id: { $in: input.recipientIds } })
-    .select('expoPushTokens')
-    .lean();
+  const matchedUsers = await getDb().select({ expoPushTokens: users.expoPushTokens }).from(users).where(inArray(users.id, input.recipientIds));
 
   const tokens: string[] = [];
-  for (const u of users) {
+  for (const u of matchedUsers) {
     if (Array.isArray(u.expoPushTokens)) tokens.push(...u.expoPushTokens);
   }
   if (tokens.length === 0) return;
@@ -239,9 +239,7 @@ export async function sendChatMessagePush(input: {
 }): Promise<void> {
   // Use sender's display name as the title — feels native, lets the
   // recipient know who messaged before they open the app.
-  const sender = await UserModel.findById(input.senderId)
-    .select('name companyName role photoUrl')
-    .lean();
+  const [sender] = await getDb().select({ name: users.name, companyName: users.companyName, role: users.role, photoUrl: users.photoUrl }).from(users).where(eq(users.id, input.senderId)).limit(1);
   const title =
     sender?.role === 'employer'
       ? (sender?.companyName ?? sender?.name ?? 'New message')

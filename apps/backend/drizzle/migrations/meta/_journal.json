@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1784813417185,
+      "tag": "0000_lowly_nocturne",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784820171060,
+      "tag": "0001_add_jobs_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785213927858,
+      "tag": "0002_watery_firebrand",
+      "breakpoints": true
+    }
+  ]
+}

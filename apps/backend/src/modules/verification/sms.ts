@@ -20,10 +20,12 @@
  */
 
 import bcrypt from 'bcrypt';
+import { and, eq } from 'drizzle-orm';
 import { env, isProduction } from '@/config/env';
 import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import { OtpChallengeModel } from './otpChallenge.model';
+import { getDb } from '@/db/client';
+import { otpChallenges } from '@/db/schema/auth';
 
 export interface OtpProvider {
   /**
@@ -64,17 +66,24 @@ class LocalOtpProvider implements OtpProvider {
   constructor(private deliver: RawSender) {}
 
   async sendOtp(userId: string, phone: string): Promise<void> {
+    const db = getDb();
     // Invalidate prior pending challenges so attempts can't carry over.
-    await OtpChallengeModel.updateMany(
-      { userId, phone, consumed: false },
-      { $set: { consumed: true } },
-    );
+    await db
+      .update(otpChallenges)
+      .set({ consumed: true })
+      .where(
+        and(
+          eq(otpChallenges.userId, userId),
+          eq(otpChallenges.phone, phone),
+          eq(otpChallenges.consumed, false),
+        ),
+      );
 
     const code = generateCode();
     const codeHash = await bcrypt.hash(code, 8);
     const expiresAt = new Date(Date.now() + env.OTP_TTL_SECONDS * 1000);
 
-    await OtpChallengeModel.create({
+    await db.insert(otpChallenges).values({
       userId,
       phone,
       codeHash,
@@ -87,39 +96,50 @@ class LocalOtpProvider implements OtpProvider {
   }
 
   async verifyOtp(userId: string, phone: string, code: string): Promise<true> {
-    const challenge = await OtpChallengeModel.findOne({
-      userId,
-      phone,
-      consumed: false,
-    })
-      .select('+codeHash')
-      .sort({ createdAt: -1 });
+    const db = getDb();
+    const challenge = await db.query.otpChallenges.findFirst({
+      where: and(
+        eq(otpChallenges.userId, userId),
+        eq(otpChallenges.phone, phone),
+        eq(otpChallenges.consumed, false),
+      ),
+      orderBy: (c, { desc }) => [desc(c.createdAt)],
+    });
 
     if (!challenge) throw errors.otpNotFound();
 
     if (challenge.expiresAt.getTime() <= Date.now()) {
-      challenge.consumed = true;
-      await challenge.save();
+      await db
+        .update(otpChallenges)
+        .set({ consumed: true })
+        .where(eq(otpChallenges.id, challenge.id));
       throw errors.otpExpired();
     }
 
     if (challenge.attempts >= env.OTP_MAX_ATTEMPTS) {
-      challenge.consumed = true;
-      await challenge.save();
+      await db
+        .update(otpChallenges)
+        .set({ consumed: true })
+        .where(eq(otpChallenges.id, challenge.id));
       throw errors.otpTooMany();
     }
 
-    challenge.attempts += 1;
-
+    const nextAttempts = challenge.attempts + 1;
     const ok = await bcrypt.compare(code.trim(), challenge.codeHash);
     if (!ok) {
-      await challenge.save();
-      if (challenge.attempts >= env.OTP_MAX_ATTEMPTS) throw errors.otpTooMany();
+      const maxedOut = nextAttempts >= env.OTP_MAX_ATTEMPTS;
+      await db
+        .update(otpChallenges)
+        .set({ attempts: nextAttempts, consumed: maxedOut })
+        .where(eq(otpChallenges.id, challenge.id));
+      if (maxedOut) throw errors.otpTooMany();
       throw errors.otpInvalid();
     }
 
-    challenge.consumed = true;
-    await challenge.save();
+    await db
+      .update(otpChallenges)
+      .set({ attempts: nextAttempts, consumed: true })
+      .where(eq(otpChallenges.id, challenge.id));
     return true;
   }
 }

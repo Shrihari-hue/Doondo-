@@ -1,25 +1,18 @@
 /**
- * Job recommendations — "for you" feed driven by resume + application
- * history rather than just geography.
+ * PostgreSQL-backed job recommendations.
  *
- * Scoring (kept simple, explicable, and tunable):
- *   - Skill match:     +5 per overlapping skill (max 25)
- *   - Distance:        +20 if < 2km, +10 if < 5km, +5 if < 10km
- *   - Work mode fit:   +10 if matches the seeker's preferred mode
- *   - Pay match:       +10 if pay is within ±20% of expectedSalary
- *   - Verified emp:    +5
- *   - History boost:   +10 if seeker has applied to a similar job before
- *
- * Returns top N. The frontend renders this as a "Recommended for you"
- * rail on the Home screen — independent of the nearby query so a worker
- * far from any post can still get suggestions.
+ * Application-history scoring is deliberately deferred: Applications still
+ * stores Mongo ObjectId job references, which cannot refer to UUID Jobs.
+ * The endpoint remains useful from the seeker's PostgreSQL profile, nearby
+ * jobs, pay, work mode, and employer-verification signals instead of
+ * attempting a Mongo lookup that would throw for every UUID seeker id.
  */
 
-import { Types, type PipelineStage } from 'mongoose';
-import { JobModel } from './job.model';
-import { UserModel } from '@/modules/users/user.model';
-import { ApplicationModel } from '@/modules/applications/application.model';
-import { formatRawJob } from './job.service';
+import { and, eq, inArray, sql } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { jobs } from '@/db/schema/jobs';
+import { users } from '@/db/schema/users';
+import { toPublicJob } from './job.serializers';
 import type { PublicJob } from './job.model';
 
 export interface ScoredJob extends PublicJob {
@@ -28,137 +21,155 @@ export interface ScoredJob extends PublicJob {
 }
 
 const HARD_LIMIT = 20;
+const CANDIDATE_LIMIT = 100;
+
+interface NearbyCandidate {
+  id: string;
+  distance_meters: number | string;
+}
 
 export async function recommendFor(
-  seekerId: string | Types.ObjectId,
+  seekerId: string,
   opts?: { limit?: number },
 ): Promise<ScoredJob[]> {
   const limit = Math.min(opts?.limit ?? 10, HARD_LIMIT);
-  const seeker = await UserModel.findById(seekerId).lean();
+  const db = getDb();
+  const seeker = await db.query.users.findFirst({
+    where: eq(users.id, seekerId),
+    columns: {
+      skills: true,
+      workType: true,
+      expectedSalary: true,
+      location: true,
+    },
+  });
   if (!seeker) return [];
 
-  const coords = (seeker as { location?: { geo?: { coordinates?: [number, number] } } })
-    .location?.geo?.coordinates;
-  const skills = new Set(
-    ((seeker as { skills?: string[] }).skills ?? []).map((s) => s.toLowerCase()),
-  );
-  const preferredMode = (seeker as { workType?: string | null }).workType ?? null;
-  const expected = (seeker as { expectedSalary?: { amount?: number } }).expectedSalary
-    ?.amount as number | undefined;
+  const coords = seeker.location?.coordinates ?? null;
+  const skills = new Set((seeker.skills ?? []).map((s) => s.toLowerCase()));
+  const preferredMode = seeker.workType ?? null;
+  const expected = seeker.expectedSalary?.amount;
 
-  // History — past job titles + skills the seeker applied to, used to
-  // boost similar listings.
-  const pastApps = await ApplicationModel.find({ seekerId: new Types.ObjectId(seekerId) })
-    .select('jobId')
-    .limit(50)
-    .lean();
-  const pastJobIds = pastApps
-    .map((a) => a.jobId as unknown as Types.ObjectId | undefined)
-    .filter((x): x is Types.ObjectId => Boolean(x));
-  const pastJobs = pastJobIds.length
-    ? await JobModel.find({ _id: { $in: pastJobIds } })
-        .select('skills type')
-        .lean()
+  // The spatial query preserves the legacy 30km/100-candidate behavior when
+  // a location is available. Without one, use the latest active postings.
+  const nearby = coords
+    ? await db.execute<NearbyCandidate>(sql`
+        SELECT id,
+          ST_Distance(
+            geo::geography,
+            ST_SetSRID(ST_MakePoint(${coords[0]}, ${coords[1]}), 4326)::geography
+          ) AS distance_meters
+        FROM jobs
+        WHERE status = 'active'
+          AND (crew_head_start_until IS NULL OR crew_head_start_until <= now())
+          AND ST_DWithin(
+            geo::geography,
+            ST_SetSRID(ST_MakePoint(${coords[0]}, ${coords[1]}), 4326)::geography,
+            30000
+          )
+        ORDER BY distance_meters ASC
+        LIMIT ${CANDIDATE_LIMIT}
+      `)
     : [];
-  const historySkills = new Set<string>();
-  for (const j of pastJobs) {
-    for (const s of (j.skills as string[] | undefined) ?? []) {
-      historySkills.add(s.toLowerCase());
-    }
-  }
 
-  // Candidate pool: active jobs near the seeker (if we have coords) or
-  // recent active jobs globally (fallback).
-  let candidates: Record<string, unknown>[];
-  if (coords) {
-    const pipeline: PipelineStage[] = [
-      {
-        $geoNear: {
-          near: { type: 'Point', coordinates: coords },
-          distanceField: 'distanceMeters',
-          maxDistance: 30_000,
-          spherical: true,
-          query: { status: 'active' },
+  const candidateIds = nearby.map((row) => row.id);
+  const candidateRows = coords
+    ? candidateIds.length
+      ? await db.query.jobs.findMany({
+          where: inArray(jobs.id, candidateIds),
+        })
+      : []
+    : await db.query.jobs.findMany({
+        where: and(
+          eq(jobs.status, 'active'),
+          sql`(${jobs.crewHeadStartUntil} IS NULL OR ${jobs.crewHeadStartUntil} <= now())`,
+        ),
+        orderBy: (job, { desc }) => [desc(job.createdAt)],
+        limit: 60,
+      });
+
+  const distances = new Map(
+    nearby.map((row) => [row.id, Number(row.distance_meters)]),
+  );
+  const employerIds = [...new Set(candidateRows.map((job) => job.employerId))];
+  const employers = employerIds.length
+    ? await db.query.users.findMany({
+        where: inArray(users.id, employerIds),
+        columns: {
+          id: true,
+          name: true,
+          isVerified: true,
+          photoUrl: true,
+          companyName: true,
         },
-      },
-      { $limit: 100 },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'employerId',
-          foreignField: '_id',
-          as: 'employer',
-          pipeline: [{ $project: { name: 1, isVerified: 1, photoUrl: 1, companyName: 1 } }],
-        },
-      },
-      { $unwind: { path: '$employer', preserveNullAndEmptyArrays: true } },
-    ];
-    candidates = await JobModel.aggregate(pipeline);
-  } else {
-    candidates = await JobModel.find({ status: 'active' })
-      .sort({ createdAt: -1 })
-      .limit(60)
-      .lean();
-  }
+      })
+    : [];
+  const employersById = new Map(employers.map((employer) => [employer.id, employer]));
 
   const scored: ScoredJob[] = [];
-  for (const raw of candidates) {
+  for (const job of candidateRows) {
     let score = 0;
-    const reasons: string[] = [];
-
-    const jobSkills = ((raw.skills as string[] | undefined) ?? []).map((s) =>
-      s.toLowerCase(),
-    );
-    const skillOverlap = jobSkills.filter((s) => skills.has(s)).length;
+    const scoreReasons: string[] = [];
+    const jobSkills = (job.skills ?? []).map((skill) => skill.toLowerCase());
+    const skillOverlap = jobSkills.filter((skill) => skills.has(skill)).length;
     if (skillOverlap > 0) {
       const add = Math.min(skillOverlap * 5, 25);
       score += add;
-      reasons.push(`+${add} skill match`);
+      scoreReasons.push(`+${add} skill match`);
     }
 
-    const dist = raw.distanceMeters as number | undefined;
-    if (typeof dist === 'number') {
-      if (dist < 2_000) {
+    const distanceMeters = distances.get(job.id);
+    if (distanceMeters !== undefined) {
+      if (distanceMeters < 2_000) {
         score += 20;
-        reasons.push('+20 very close');
-      } else if (dist < 5_000) {
+        scoreReasons.push('+20 very close');
+      } else if (distanceMeters < 5_000) {
         score += 10;
-        reasons.push('+10 nearby');
-      } else if (dist < 10_000) {
+        scoreReasons.push('+10 nearby');
+      } else if (distanceMeters < 10_000) {
         score += 5;
-        reasons.push('+5 in your area');
+        scoreReasons.push('+5 in your area');
       }
     }
 
-    if (preferredMode && raw.workMode === preferredMode) {
+    // Keep the legacy comparison semantics unchanged. A future profile
+    // migration can introduce a dedicated preferred work-mode field.
+    if (preferredMode && job.workMode === String(preferredMode)) {
       score += 10;
-      reasons.push('+10 work mode fit');
+      scoreReasons.push('+10 work mode fit');
     }
 
-    const pay = raw.pay as { amount?: number; amountMax?: number | null } | undefined;
-    if (expected && pay?.amount) {
-      const min = pay.amount;
-      const max = pay.amountMax ?? pay.amount;
-      const inBand = expected >= min * 0.8 && expected <= max * 1.2;
-      if (inBand) {
+    if (expected && job.payAmount) {
+      const max = job.payAmountMax ?? job.payAmount;
+      if (expected >= job.payAmount * 0.8 && expected <= max * 1.2) {
         score += 10;
-        reasons.push('+10 pay match');
+        scoreReasons.push('+10 pay match');
       }
     }
 
-    if (raw.employer && (raw.employer as { isVerified?: boolean }).isVerified) {
+    const employer = employersById.get(job.employerId);
+    if (employer?.isVerified) {
       score += 5;
-      reasons.push('+5 verified employer');
-    }
-
-    const historyHit = jobSkills.some((s) => historySkills.has(s));
-    if (historyHit) {
-      score += 10;
-      reasons.push('+10 like your past applications');
+      scoreReasons.push('+5 verified employer');
     }
 
     if (score <= 0) continue;
-    scored.push({ ...formatRawJob(raw), score, scoreReasons: reasons });
+    scored.push({
+      ...toPublicJob(job, {
+        distanceMeters,
+        employer: employer
+          ? {
+              id: employer.id,
+              name: employer.name,
+              isVerified: employer.isVerified,
+              photoUrl: employer.photoUrl ?? null,
+              companyName: employer.companyName ?? null,
+            }
+          : undefined,
+      }),
+      score,
+      scoreReasons,
+    });
   }
 
   scored.sort((a, b) => b.score - a.score);

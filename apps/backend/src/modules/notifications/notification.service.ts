@@ -1,112 +1,13 @@
-/**
- * Notifications service.
- *
- * `record(...)` is called from other modules whenever they fire a push.
- * It writes the in-app row so the bell sees the same event the push did.
- * Failure to record never breaks the caller — we log and move on.
- *
- * Mobile reads:
- *   - list({recipientId, limit, before}) — paginated feed
- *   - unreadCount(recipientId) — bell badge
- *   - markRead(notificationId, recipientId) — single
- *   - markAllRead(recipientId)
- */
-
-import { Types } from 'mongoose';
-import {
-  NotificationModel,
-  type NotificationKind,
-  type PublicNotification,
-} from './notification.model';
+import { and, desc, eq, isNull, lt, sql } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { notifications } from '@/db/schema';
+import type { NotificationKind, PublicNotification } from './notification.model';
 import { logger } from '@/lib/logger';
 
-interface RecordInput {
-  recipientId: string;
-  kind: NotificationKind;
-  title: string;
-  body: string;
-  deeplink?: { screen: string; params?: Record<string, unknown> };
-  imageUrl?: string | null;
-}
-
-/**
- * Persist a notification row. Best-effort — caller should never await this
- * if the user-facing action is more important than the notification record.
- */
-export async function record(input: RecordInput): Promise<void> {
-  try {
-    await NotificationModel.create({
-      recipientId: new Types.ObjectId(input.recipientId),
-      kind: input.kind,
-      title: input.title,
-      body: input.body,
-      deeplink: input.deeplink ?? null,
-      imageUrl: input.imageUrl ?? null,
-      readAt: null,
-    });
-  } catch (err) {
-    logger.warn({ err, recipientId: input.recipientId, kind: input.kind }, 'notification record failed');
-  }
-}
-
-interface ListInput {
-  recipientId: string;
-  limit?: number;
-  before?: string; // ISO date string for cursor pagination
-}
-
-export async function list(input: ListInput): Promise<{
-  notifications: PublicNotification[];
-  nextCursor: string | null;
-}> {
-  const limit = Math.min(input.limit ?? 20, 50);
-
-  const filter: Record<string, unknown> = {
-    recipientId: new Types.ObjectId(input.recipientId),
-  };
-  if (input.before) {
-    filter.createdAt = { $lt: new Date(input.before) };
-  }
-
-  const rows = await NotificationModel.find(filter).sort({ createdAt: -1 }).limit(limit + 1);
-
-  const hasMore = rows.length > limit;
-  const page = hasMore ? rows.slice(0, limit) : rows;
-  const nextCursor = hasMore && page.length > 0
-    ? page[page.length - 1]!.createdAt.toISOString()
-    : null;
-
-  return {
-    notifications: page.map((n) => n.toPublicJSON()),
-    nextCursor,
-  };
-}
-
-export async function unreadCount(recipientId: string): Promise<number> {
-  return NotificationModel.countDocuments({
-    recipientId: new Types.ObjectId(recipientId),
-    readAt: null,
-  });
-}
-
-export async function markRead(notificationId: string, recipientId: string): Promise<void> {
-  await NotificationModel.updateOne(
-    {
-      _id: new Types.ObjectId(notificationId),
-      recipientId: new Types.ObjectId(recipientId),
-      readAt: null,
-    },
-    { $set: { readAt: new Date() } },
-  );
-}
-
-export async function markAllRead(recipientId: string): Promise<{ updated: number }> {
-  const result = await NotificationModel.updateMany(
-    {
-      recipientId: new Types.ObjectId(recipientId),
-      readAt: null,
-    },
-    { $set: { readAt: new Date() } },
-  );
-  return { updated: result.modifiedCount };
-}
+interface RecordInput { recipientId: string; kind: NotificationKind; title: string; body: string; deeplink?: { screen: string; params?: Record<string, unknown> }; imageUrl?: string | null; }
+function toPublic(row: typeof notifications.$inferSelect): PublicNotification { return { id: row.id, kind: row.kind as NotificationKind, title: row.title, body: row.body, deeplink: row.deeplink as PublicNotification['deeplink'], imageUrl: row.imageUrl ?? null, read: row.readAt !== null, createdAt: row.createdAt.toISOString() }; }
+export async function record(input: RecordInput): Promise<void> { try { await getDb().insert(notifications).values({ recipientId: input.recipientId, kind: input.kind as typeof notifications.$inferInsert['kind'], title: input.title, body: input.body, deeplink: input.deeplink ?? null, imageUrl: input.imageUrl ?? null }); } catch (err) { logger.warn({ err, recipientId: input.recipientId, kind: input.kind }, 'notification record failed'); } }
+export async function list(input: { recipientId: string; limit?: number; before?: string }): Promise<{ notifications: PublicNotification[]; nextCursor: string | null }> { const limit = Math.min(input.limit ?? 20, 50); const where = input.before ? and(eq(notifications.recipientId, input.recipientId), lt(notifications.createdAt, new Date(input.before))) : eq(notifications.recipientId, input.recipientId); const rows = await getDb().select().from(notifications).where(where).orderBy(desc(notifications.createdAt)).limit(limit + 1); const page = rows.slice(0, limit); return { notifications: page.map(toPublic), nextCursor: rows.length > limit && page.length ? page[page.length - 1]!.createdAt.toISOString() : null }; }
+export async function unreadCount(recipientId: string): Promise<number> { const [row] = await getDb().select({ count: sql<number>`count(*)::int` }).from(notifications).where(and(eq(notifications.recipientId, recipientId), isNull(notifications.readAt))); return row?.count ?? 0; }
+export async function markRead(notificationId: string, recipientId: string): Promise<void> { await getDb().update(notifications).set({ readAt: new Date() }).where(and(eq(notifications.id, notificationId), eq(notifications.recipientId, recipientId), isNull(notifications.readAt))); }
+export async function markAllRead(recipientId: string): Promise<{ updated: number }> { const rows = await getDb().update(notifications).set({ readAt: new Date() }).where(and(eq(notifications.recipientId, recipientId), isNull(notifications.readAt))).returning({ id: notifications.id }); return { updated: rows.length }; }

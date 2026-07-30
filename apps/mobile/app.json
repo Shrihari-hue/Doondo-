@@ -109,9 +109,7 @@
       }
     },
     "owner": "yakshithk20",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {}
+    "runtimeVersion": "1.0.0",
+"updates": {}
   }
 }

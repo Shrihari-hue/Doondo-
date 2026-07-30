@@ -7,12 +7,11 @@
  */
 
 import { z } from 'zod';
-import { Types } from 'mongoose';
 import { JOB_TYPES, PAY_PERIODS, WORK_MODES } from './job.model';
 
-const objectIdSchema = z.string().refine((v) => Types.ObjectId.isValid(v), {
-  message: 'Invalid id',
-});
+// Job ids are Postgres UUIDs (Phase 2 of the Mongo→Postgres migration
+// ported the Jobs module) — was a Mongo ObjectId format check.
+const objectIdSchema = z.string().uuid({ message: 'Invalid id' });
 
 const lat = z.coerce.number().min(-90).max(90);
 const lng = z.coerce.number().min(-180).max(180);
