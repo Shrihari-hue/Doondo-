@@ -3,19 +3,15 @@
  */
 
 import { z } from 'zod';
-import { Types } from 'mongoose';
-
-const objectIdSchema = z.string().refine((v) => Types.ObjectId.isValid(v), {
-  message: 'Invalid id',
-});
+const uuidSchema = z.string().uuid({ message: 'Invalid id' });
 
 export const conversationIdParamsSchema = z.object({
-  params: z.object({ id: objectIdSchema }),
+  params: z.object({ id: uuidSchema }),
 });
 
 /** Params for the "retry translation of one message" endpoint. */
 export const retranslateSchema = z.object({
-  params: z.object({ id: objectIdSchema, messageId: objectIdSchema }),
+  params: z.object({ id: uuidSchema, messageId: uuidSchema }),
 });
 
 /**
@@ -25,12 +21,12 @@ export const retranslateSchema = z.object({
  */
 export const ensureConversationFromAppSchema = z.object({
   body: z.object({
-    applicationId: objectIdSchema,
+    applicationId: uuidSchema,
   }),
 });
 
 export const listMessagesSchema = z.object({
-  params: z.object({ id: objectIdSchema }),
+  params: z.object({ id: uuidSchema }),
   query: z.object({
     /** Cursor: createdAt of the oldest message you have. */
     before: z.string().datetime().optional(),
@@ -71,7 +67,7 @@ const attachmentSchema = z
   .optional();
 
 export const sendMessageSchema = z.object({
-  params: z.object({ id: objectIdSchema }),
+  params: z.object({ id: uuidSchema }),
   body: z
     .object({
       /** Text body OR caption. Required for text, optional for media. */

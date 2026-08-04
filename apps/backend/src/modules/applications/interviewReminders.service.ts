@@ -1,142 +1,82 @@
-/**
- * Interview reminders — pre-interview push to both sides.
- *
- * The Application document already carries an embedded `interview`
- * subdocument with `scheduledFor`. This sweep runs on a tight cadence
- * (every 15 min by default), finds interviews that:
- *   - are still scheduled (not cancelled / not completed),
- *   - start within the next `INTERVIEW_REMINDER_LEAD_MINUTES`,
- *   - haven't already had a reminder sent,
- * and sends one push to the seeker AND one to the employer.
- *
- * Idempotency lives on `interview.reminderSentAt`. A rescheduled
- * interview clears it (see scheduleInterview), so the new time gets
- * its own reminder.
- *
- * Production notes:
- *   - We bound the search window above by the lead time so a 3-day-out
- *     interview doesn't get a reminder today.
- *   - We bound it below by `now` so already-started interviews aren't
- *     spammed retroactively.
- *   - Per-app failures are swallowed so one bad row doesn't kill the
- *     batch.
- */
-
-import { Types } from 'mongoose';
+/** UUID-native interview reminder scheduler. */
+import { and, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { applications, jobs } from '@/db/schema';
 import { logger } from '@/lib/logger';
 import { sendInterviewReminderPush } from '@/lib/push';
 import { env } from '@/config/env';
-import { ApplicationModel } from './application.model';
-import { JobModel } from '@/modules/jobs/job.model';
-
 export interface InterviewReminderSweepSummary {
-  /** Total upcoming interviews considered in this run. */
   considered: number;
-  /** Reminders successfully marked + pushed (seeker side). */
   remindersSent: number;
-  /** Per-row push errors. */
   errors: number;
 }
-
 const BATCH_LIMIT = 200;
-
 export async function runInterviewReminderSweep(): Promise<InterviewReminderSweepSummary> {
-  const leadMinutes = env.INTERVIEW_REMINDER_LEAD_MINUTES;
-  const now = new Date();
-  const windowEnd = new Date(now.getTime() + leadMinutes * 60 * 1000);
-
-  const candidates = await ApplicationModel.find({
-    'interview.status': 'scheduled',
-    'interview.scheduledFor': { $gte: now, $lte: windowEnd },
-    'interview.reminderSentAt': null,
-  })
-    .limit(BATCH_LIMIT)
-    .lean();
-
-  const summary: InterviewReminderSweepSummary = {
-    considered: candidates.length,
-    remindersSent: 0,
-    errors: 0,
-  };
-
-  if (candidates.length === 0) {
-    return summary;
-  }
-
-  // Hydrate job titles once for the batch.
-  const jobIds = [...new Set(candidates.map((c) => c.jobId.toString()))];
-  const jobs = await JobModel.find({ _id: { $in: jobIds } })
-    .select('title')
-    .lean();
-  const jobTitleMap = new Map(
-    jobs.map((j) => [
-      (j._id as Types.ObjectId).toString(),
-      (j as { title?: string }).title ?? null,
-    ]),
-  );
-
-  // Mark them first so a partial failure doesn't leave us re-sweeping.
-  const ids = candidates.map((c) => c._id);
-  const markedAt = new Date();
-  await ApplicationModel.updateMany(
-    { _id: { $in: ids }, 'interview.reminderSentAt': null },
-    { $set: { 'interview.reminderSentAt': markedAt } },
-  );
-
-  for (const app of candidates) {
-    const interview = app.interview;
-    if (!interview) continue;
-    const minutesUntil = Math.max(
-      1,
-      Math.round(
-        (new Date(interview.scheduledFor).getTime() - now.getTime()) / 60_000,
+  const now = new Date(),
+    end = new Date(now.getTime() + env.INTERVIEW_REMINDER_LEAD_MINUTES * 60_000),
+    db = getDb();
+  const candidates = await db
+    .select()
+    .from(applications)
+    .where(
+      and(
+        eq(applications.interviewStatus, 'scheduled'),
+        gte(applications.interviewAt, now),
+        lte(applications.interviewAt, end),
       ),
-    );
-    const jobTitle = jobTitleMap.get(app.jobId.toString()) ?? undefined;
-
-    // Build the location line per mode so the push gives the seeker
-    // the next-action info without opening the app.
-    const locationLine =
-      interview.mode === 'in_person' && interview.location
-        ? `at ${interview.location}`
-        : interview.mode === 'video' && interview.meetingLink
-          ? interview.meetingLink
-          : null;
-
-    // Seeker side.
-    void sendInterviewReminderPush({
-      recipientId: app.seekerId.toString(),
-      jobTitle,
-      minutesUntil,
-      locationLine,
-      applicationId: (app._id as Types.ObjectId).toString(),
-    }).catch((err) => {
-      summary.errors += 1;
-      logger.warn(
-        { err, applicationId: (app._id as Types.ObjectId).toString() },
-        'interview reminder: seeker push failed',
-      );
-    });
-
-    // Employer side — same helper, different recipient. We deliberately
-    // don't skip when seeker push fails: the two pushes are independent.
-    void sendInterviewReminderPush({
-      recipientId: app.employerId.toString(),
-      jobTitle,
-      minutesUntil,
-      locationLine,
-      applicationId: (app._id as Types.ObjectId).toString(),
-    }).catch((err) => {
-      summary.errors += 1;
-      logger.warn(
-        { err, applicationId: (app._id as Types.ObjectId).toString() },
-        'interview reminder: employer push failed',
-      );
-    });
-
-    summary.remindersSent += 1;
+    )
+    .limit(BATCH_LIMIT);
+  const eligible = candidates.filter((a) => !a.interviewDetails?.reminderSentAt);
+  const summary = { considered: eligible.length, remindersSent: 0, errors: 0 };
+  if (!eligible.length) return summary;
+  const markedAt = new Date().toISOString();
+  const changed = await Promise.all(
+    eligible.map(async (a) => {
+      const details = a.interviewDetails ?? {};
+      const [row] = await db
+        .update(applications)
+        .set({ interviewDetails: { ...details, reminderSentAt: markedAt } })
+        .where(
+          and(
+            eq(applications.id, a.id),
+            eq(applications.interviewStatus, 'scheduled'),
+            sql`(${applications.interviewDetails}->>'reminderSentAt') IS NULL`,
+          ),
+        )
+        .returning({ id: applications.id });
+      return row?.id;
+    }),
+  );
+  const changedIds = new Set(changed.filter((id): id is string => Boolean(id)));
+  const titles = await db
+    .select({ id: jobs.id, title: jobs.title })
+    .from(jobs)
+    .where(inArray(jobs.id, [...new Set(eligible.map((a) => a.jobId))]));
+  const titleMap = new Map(titles.map((j) => [j.id, j.title]));
+  for (const app of eligible) {
+    if (!changedIds.has(app.id) || !app.interviewAt) continue;
+    const details = app.interviewDetails ?? {},
+      minutesUntil = Math.max(1, Math.round((app.interviewAt.getTime() - now.getTime()) / 60_000)),
+      locationLine =
+        app.interviewMode === 'in_person' && details.location
+          ? `at ${details.location}`
+          : app.interviewMode === 'video' && details.meetingLink
+            ? details.meetingLink
+            : null,
+      jobTitle = titleMap.get(app.jobId);
+    for (const recipientId of [app.seekerId, app.employerId])
+      void sendInterviewReminderPush({
+        recipientId,
+        jobTitle,
+        minutesUntil,
+        locationLine,
+        applicationId: app.id,
+      }).catch((err) => {
+        summary.errors++;
+        logger.warn({ err, applicationId: app.id }, 'interview reminder push failed');
+      });
+    summary.remindersSent++;
   }
-
   logger.info(summary, 'interview reminder sweep complete');
   return summary;
 }

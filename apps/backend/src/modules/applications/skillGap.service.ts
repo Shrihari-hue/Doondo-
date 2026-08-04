@@ -18,11 +18,10 @@
  * yet teaches — we still suggest the closest course to the trade).
  */
 
-import { Types } from 'mongoose';
+import { and, eq } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { applications, jobs, users } from '@/db/schema';
 import { errors } from '@/lib/errors';
-import { ApplicationModel } from './application.model';
-import { JobModel } from '@/modules/jobs/job.model';
-import { UserModel } from '@/modules/users/user.model';
 import { COURSES, type Course } from '@/modules/courses/courses.catalogue';
 
 export interface SkillGapResult {
@@ -64,9 +63,7 @@ export interface SkillGapResult {
  * that's what the job said.
  */
 export function diffSkills(jobSkills: string[], seekerSkills: string[]): string[] {
-  const seekerSet = new Set(
-    seekerSkills.filter(Boolean).map((s) => s.trim().toLowerCase()),
-  );
+  const seekerSet = new Set(seekerSkills.filter(Boolean).map((s) => s.trim().toLowerCase()));
   const seen = new Set<string>();
   const missing: string[] = [];
   for (const raw of jobSkills) {
@@ -141,10 +138,11 @@ export async function computeForApplication(input: {
   seekerId: string;
   applicationId: string;
 }): Promise<SkillGapResult> {
-  const app = await ApplicationModel.findOne({
-    _id: input.applicationId,
-    seekerId: new Types.ObjectId(input.seekerId),
-  }).lean();
+  const [app] = await getDb()
+    .select()
+    .from(applications)
+    .where(and(eq(applications.id, input.applicationId), eq(applications.seekerId, input.seekerId)))
+    .limit(1);
   if (!app) throw errors.applicationNotFound();
 
   // Prefer the persisted snapshot from the moment of rejection (set by
@@ -160,20 +158,25 @@ export async function computeForApplication(input: {
 
   if (!missingSkills) {
     const [job, seeker] = await Promise.all([
-      JobModel.findById(app.jobId).select('skills title').lean(),
-      UserModel.findById(input.seekerId).select('skills').lean(),
+      getDb()
+        .select({ skills: jobs.skills, title: jobs.title })
+        .from(jobs)
+        .where(eq(jobs.id, app.jobId))
+        .limit(1),
+      getDb()
+        .select({ skills: users.skills })
+        .from(users)
+        .where(eq(users.id, input.seekerId))
+        .limit(1),
     ]);
-    if (!job) {
+    if (!job[0]) {
       return { missingSkills: [], recommendedCourse: null, alternatives: [] };
     }
-    missingSkills = diffSkills(
-      (job.skills as string[] | undefined) ?? [],
-      (seeker as { skills?: string[] } | null)?.skills ?? [],
-    );
+    missingSkills = diffSkills(job[0].skills ?? [], seeker[0]?.skills ?? []);
     // Use the job title as a coarse trade hint for fallback ranking —
     // a string contains comparison handles "Delivery rider" hitting
     // the 'delivery' relevantTrades entry without a strict trade slug.
-    trade = ((job as { title?: string }).title ?? '').toLowerCase();
+    trade = job[0].title.toLowerCase();
   }
 
   if (missingSkills.length === 0) {
