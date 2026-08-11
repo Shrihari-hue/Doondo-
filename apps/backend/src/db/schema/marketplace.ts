@@ -10,7 +10,9 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  check,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { applications } from './applications';
 import { jobs } from './jobs';
 import { users } from './users';
@@ -21,6 +23,9 @@ export const walletKindEnum = pgEnum('wallet_kind', ['hire_payment', 'adjustment
 export const walletStatusEnum = pgEnum('wallet_status', ['pending', 'settled', 'reversed']);
 export const referralStatusEnum = pgEnum('referral_status', ['pending', 'hired', 'reverted']);
 export const homeSafeStatusEnum = pgEnum('home_safe_status', ['pending', 'safe']);
+export const ratingRoleEnum = pgEnum('rating_role', ['employer', 'seeker']);
+/** Role of the REVIEWEE on a rating — 'seeker' means a seeker received it. */
+export type RatingRole = (typeof ratingRoleEnum.enumValues)[number];
 export const notificationKindEnum = pgEnum('notification_kind', [
   'application_status', 'application_received', 'interview_scheduled', 'interview_rescheduled',
   'interview_cancelled', 'interview_reminder', 'new_message', 'rating_received',
@@ -118,6 +123,34 @@ export const homeSafeChecks = pgTable('home_safe_checks', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [index('home_safe_checks_seeker_status_started_idx').on(t.seekerId, t.status, t.startedAt), index('home_safe_checks_application_id_idx').on(t.applicationId), index('home_safe_checks_job_id_idx').on(t.jobId), index('home_safe_checks_employer_id_idx').on(t.employerId)]);
 
+// One rating per (reviewer, application) — a party rates the other side
+// once per job. `role` is the REVIEWEE's role: 'seeker' means a seeker
+// received the rating. `anonymous` only hides the reviewer identity in the
+// public view (see toPublicRating() in rating.service.ts) — reviewerId is
+// always stored for abuse review and the (reviewerId, applicationId)
+// uniqueness check.
+export const ratings = pgTable('ratings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  reviewerId: uuid('reviewer_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+  revieweeId: uuid('reviewee_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+  applicationId: uuid('application_id').notNull().references(() => applications.id, { onDelete: 'restrict' }),
+  jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'restrict' }),
+  role: ratingRoleEnum('role').notNull(),
+  score: integer('score').notNull(),
+  comment: varchar('comment', { length: 500 }),
+  tags: text('tags').array().notNull().default([]),
+  anonymous: boolean('anonymous').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (t) => [
+  uniqueIndex('ratings_reviewer_application_unique').on(t.reviewerId, t.applicationId),
+  index('ratings_reviewee_created_idx').on(t.revieweeId, t.createdAt),
+  index('ratings_reviewee_role_idx').on(t.revieweeId, t.role),
+  index('ratings_application_id_idx').on(t.applicationId),
+  index('ratings_job_id_idx').on(t.jobId),
+  check('ratings_score_check', sql`${t.score} BETWEEN 1 AND 5`),
+]);
+
 export const blockedWorkers = pgTable('blocked_workers', {
   id: uuid('id').primaryKey().defaultRandom(),
   employerId: uuid('employer_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
@@ -132,7 +165,7 @@ export const tailoredResumes = pgTable('tailored_resumes', {
   summary: text('summary').notNull(), pitch: text('pitch').notNull(),
   highlightedSkills: text('highlighted_skills').array().notNull().default([]),
   matchedSkills: text('matched_skills').array().notNull().default([]),
-  workBlurbs: jsonb('work_blurbs').notNull().default([]), provider: varchar('provider', { length: 32 }).notNull().default('mock'),
+  workBlurbs: jsonb('work_blurbs').$type<Array<{ company: string; role: string; blurb: string }>>().notNull().default([]), provider: varchar('provider', { length: 32 }).notNull().default('mock'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [uniqueIndex('tailored_resumes_seeker_job_unique').on(t.seekerId, t.jobId), index('tailored_resumes_job_id_idx').on(t.jobId)]);

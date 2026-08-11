@@ -1,7 +1,6 @@
 /**
  * Plain-function replacement for the Mongoose `Job.toPublicJSON()` instance
- * method / job.service.ts's `formatRawJob()` (aggregate rows), now that
- * rows come back from Drizzle/raw SQL as plain objects.
+ * method, now that rows come back from Drizzle/raw SQL as plain objects.
  */
 
 import type { jobs } from '@/db/schema/jobs';

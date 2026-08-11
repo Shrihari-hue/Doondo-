@@ -32,7 +32,9 @@ import { users } from './users';
 export const jobTypeEnum = pgEnum('job_type', ['full_time', 'part_time', 'gig', 'shift', 'contract']);
 export const workModeEnum = pgEnum('work_mode', ['onsite', 'hybrid', 'remote']);
 export const payPeriodEnum = pgEnum('pay_period', ['hour', 'day', 'week', 'month', 'fixed']);
+export type PayPeriod = (typeof payPeriodEnum.enumValues)[number];
 export const jobStatusEnum = pgEnum('job_status', ['active', 'paused', 'filled', 'expired']);
+export type JobType = (typeof jobTypeEnum.enumValues)[number];
 
 // ─── JSONB payload shapes (mirror the Mongoose sub-schemas) ────────────────
 

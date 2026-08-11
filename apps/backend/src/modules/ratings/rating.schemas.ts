@@ -1,12 +1,16 @@
 /**
- * Zod schemas for the ratings endpoints. The mongoose schema is the
- * source of truth for data shape; these enforce the request contract.
+ * Zod schemas for the ratings endpoints. The Postgres `ratings` table
+ * (src/db/schema/marketplace.ts) is the source of truth for data shape;
+ * these enforce the request contract.
+ *
+ * applicationId and the reviewee/user `id` param reference Applications
+ * and Users — all Postgres UUIDs — validate as UUIDs, not the old Mongo
+ * ObjectId hex format.
  */
 
 import { z } from 'zod';
 
-const objectIdRegex = /^[0-9a-fA-F]{24}$/;
-const objectId = z.string().regex(objectIdRegex, 'Invalid id');
+const objectId = z.string().uuid('Invalid id');
 
 export const createRatingBodySchema = z.object({
   body: z.object({

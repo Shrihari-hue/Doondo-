@@ -23,7 +23,7 @@ export interface ScoredJob extends PublicJob {
 const HARD_LIMIT = 20;
 const CANDIDATE_LIMIT = 100;
 
-interface NearbyCandidate {
+interface NearbyCandidate extends Record<string, unknown> {
   id: string;
   distance_meters: number | string;
 }

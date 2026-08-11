@@ -10,7 +10,6 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { Types } from 'mongoose';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
 import * as reelService from './reel.service';
@@ -102,7 +101,7 @@ router.get(
   validate(
     z.object({
       params: z.object({
-        id: z.string().refine((v) => Types.ObjectId.isValid(v), 'Invalid id'),
+        id: z.string().uuid('Invalid id'),
       }),
     }),
   ),

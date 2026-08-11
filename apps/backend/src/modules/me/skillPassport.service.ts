@@ -18,10 +18,10 @@
  * record. No new denormalised state.
  */
 
-import { Types } from 'mongoose';
+import { eq } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
-import { UserModel } from '@/modules/users/user.model';
-import { EndorsementModel } from '@/modules/endorsements/endorsement.model';
+import { getDb } from '@/db/client';
+import { endorsements, users } from '@/db/schema';
 import { computeForUser } from '@/modules/users/doondoScore.service';
 import { listPassedTests } from '@/modules/skillTests/skillTests.service';
 import { findSkillTest } from '@/modules/skillTests/skillTests.catalogue';
@@ -116,11 +116,14 @@ export function annotateSkills(
 export async function getSkillPassportForSeeker(
   userId: string,
 ): Promise<SkillPassport> {
-  const seekerOid = new Types.ObjectId(userId);
-  const [score, user, endorsements, passedTestIds] = await Promise.all([
+  const [score, [user], endorsementRows, passedTestIds] = await Promise.all([
     computeForUser(userId),
-    UserModel.findById(userId).select('skills experienceYears createdAt'),
-    EndorsementModel.find({ seekerId: seekerOid }).select('trade').lean(),
+    getDb()
+      .select({ skills: users.skills, experienceYears: users.experienceYears, createdAt: users.createdAt })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1),
+    getDb().select({ trade: endorsements.trade }).from(endorsements).where(eq(endorsements.seekerId, userId)),
     listPassedTests(userId),
   ]);
 
@@ -128,7 +131,7 @@ export async function getSkillPassportForSeeker(
 
   const skills = annotateSkills(
     user.skills ?? [],
-    endorsements.map((e) => (e as { trade?: string }).trade ?? ''),
+    endorsementRows.map((e) => e.trade ?? ''),
     passedTestIds,
   );
 
@@ -147,7 +150,7 @@ export async function getSkillPassportForSeeker(
     memberSince: user.createdAt.toISOString(),
     skills,
     endorsements: {
-      total: endorsements.length,
+      total: endorsementRows.length,
       verifiedTrades: score.breakdown.endorsements.uniqueTrades,
     },
     skillTests,

@@ -18,12 +18,12 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { Types } from 'mongoose';
+import { gt, and, eq } from 'drizzle-orm';
 import { errors, AppError } from '@/lib/errors';
-import { JobModel } from '@/modules/jobs/job.model';
-import { UserModel } from '@/modules/users/user.model';
-import { ApplicationModel } from '@/modules/applications/application.model';
-import { AvailabilityModel } from '@/modules/availabilities/availability.model';
+import { getDb } from '@/db/client';
+import { applications, availabilities, jobs, users } from '@/db/schema';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const ok = (req: Request, res: Response, status: number, data: unknown) => {
   res.status(status).json({ ok: true, data, requestId: req.id });
@@ -41,7 +41,7 @@ export async function revealEmployerContact(
   try {
     if (!req.user) throw errors.unauthorized();
     const jobId = req.params.id;
-    if (!jobId || !Types.ObjectId.isValid(jobId)) {
+    if (!jobId || !UUID_RE.test(jobId)) {
       throw new AppError({
         code: 'VALIDATION_FAILED',
         message: 'Invalid job id',
@@ -49,12 +49,12 @@ export async function revealEmployerContact(
       });
     }
 
-    const application = await ApplicationModel.findOne({
-      seekerId: new Types.ObjectId(req.user.id),
-      jobId: new Types.ObjectId(jobId),
-    })
-      .select('_id')
-      .lean();
+    const db = getDb();
+    const [application] = await db
+      .select({ id: applications.id })
+      .from(applications)
+      .where(and(eq(applications.seekerId, req.user.id), eq(applications.jobId, jobId)))
+      .limit(1);
 
     if (!application) {
       throw new AppError({
@@ -64,17 +64,19 @@ export async function revealEmployerContact(
       });
     }
 
-    const job = await JobModel.findById(jobId).select('employerId').lean();
+    const [job] = await db.select({ employerId: jobs.employerId }).from(jobs).where(eq(jobs.id, jobId)).limit(1);
     if (!job) throw errors.jobNotFound();
 
-    const employer = await UserModel.findById(job.employerId)
-      .select('name companyName phone')
-      .lean();
+    const [employer] = await db
+      .select({ id: users.id, name: users.name, companyName: users.companyName, phone: users.phone })
+      .from(users)
+      .where(eq(users.id, job.employerId))
+      .limit(1);
     if (!employer) throw errors.notFound('Employer not found');
 
     ok(req, res, 200, {
       contact: {
-        userId: (employer._id as Types.ObjectId).toString(),
+        userId: employer.id,
         name: employer.companyName ?? employer.name,
         phone: employer.phone ?? null,
       },
@@ -98,7 +100,7 @@ export async function revealSeekerContact(
   try {
     if (!req.user) throw errors.unauthorized();
     const seekerId = req.params.id;
-    if (!seekerId || !Types.ObjectId.isValid(seekerId)) {
+    if (!seekerId || !UUID_RE.test(seekerId)) {
       throw new AppError({
         code: 'VALIDATION_FAILED',
         message: 'Invalid seeker id',
@@ -106,19 +108,21 @@ export async function revealSeekerContact(
       });
     }
 
-    const seekerObjectId = new Types.ObjectId(seekerId);
-    const employerObjectId = new Types.ObjectId(req.user.id);
-
-    const [hasApplication, hasBeacon] = await Promise.all([
-      ApplicationModel.exists({
-        seekerId: seekerObjectId,
-        employerId: employerObjectId,
-      }),
-      AvailabilityModel.exists({
-        seekerId: seekerObjectId,
-        until: { $gt: new Date() },
-      }),
+    const db = getDb();
+    const [applicationRows, beaconRows] = await Promise.all([
+      db
+        .select({ id: applications.id })
+        .from(applications)
+        .where(and(eq(applications.seekerId, seekerId), eq(applications.employerId, req.user.id)))
+        .limit(1),
+      db
+        .select({ id: availabilities.id })
+        .from(availabilities)
+        .where(and(eq(availabilities.seekerId, seekerId), gt(availabilities.until, new Date())))
+        .limit(1),
     ]);
+    const hasApplication = applicationRows.length > 0;
+    const hasBeacon = beaconRows.length > 0;
 
     if (!hasApplication && !hasBeacon) {
       throw new AppError({
@@ -129,14 +133,16 @@ export async function revealSeekerContact(
       });
     }
 
-    const seeker = await UserModel.findById(seekerObjectId)
-      .select('name phone')
-      .lean();
+    const [seeker] = await db
+      .select({ id: users.id, name: users.name, phone: users.phone })
+      .from(users)
+      .where(eq(users.id, seekerId))
+      .limit(1);
     if (!seeker) throw errors.notFound('Worker not found');
 
     ok(req, res, 200, {
       contact: {
-        userId: (seeker._id as Types.ObjectId).toString(),
+        userId: seeker.id,
         name: seeker.name,
         phone: seeker.phone ?? null,
       },

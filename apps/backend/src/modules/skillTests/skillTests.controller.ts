@@ -1,7 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
-import { Types } from 'mongoose';
 import { errors, AppError } from '@/lib/errors';
 import * as service from './skillTests.service';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const ok = (req: Request, res: Response, status: number, data: unknown) => {
   res.status(status).json({ ok: true, data, requestId: req.id });
@@ -80,7 +81,7 @@ export async function listPassedForSeeker(
 ): Promise<void> {
   try {
     const id = req.params.id;
-    if (!id || !Types.ObjectId.isValid(id)) {
+    if (!id || !UUID_RE.test(id)) {
       throw new AppError({
         code: 'VALIDATION_FAILED',
         message: 'Invalid seeker id',

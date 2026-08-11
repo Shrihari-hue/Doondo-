@@ -3,9 +3,9 @@
  */
 
 import { z } from 'zod';
-import { HIRING_REQUEST_STATUSES } from './hiringRequest.model';
+import { HIRING_REQUEST_STATUSES } from '@/db/schema';
 
-const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id');
+const objectId = z.string().uuid('Invalid id');
 
 export const sendHiringRequestSchema = z.object({
   body: z

@@ -10,24 +10,25 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { Types } from 'mongoose';
+import { and, eq } from 'drizzle-orm';
 import { requireAuth } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
 import { errors } from '@/lib/errors';
-import { SiteBriefingModel, type SiteBriefing } from './siteBriefing.model';
-import { JobModel } from '@/modules/jobs/job.model';
-import { ApplicationModel } from '@/modules/applications/application.model';
+import { getDb } from '@/db/client';
+import { applications, jobs, siteBriefings } from '@/db/schema';
 
 const router = Router();
 
-const objectId = z.string().refine((v) => Types.ObjectId.isValid(v), { message: 'Invalid id' });
+const uuidId = z.string().uuid('Invalid id');
 const MAX_PHOTO_CHARS = 600_000;
 
-function toPublic(b: (SiteBriefing & { _id?: unknown }) | null) {
+type SiteBriefingRow = typeof siteBriefings.$inferSelect;
+
+function toPublic(b: SiteBriefingRow | undefined) {
   if (!b) return { text: '', photoUrls: [], audioUrl: null, exists: false };
   return {
-    text: b.text ?? '',
-    photoUrls: [...(b.photoUrls ?? [])],
+    text: b.text,
+    photoUrls: [...b.photoUrls],
     audioUrl: b.audioUrl ?? null,
     exists: true,
   };
@@ -36,25 +37,39 @@ function toPublic(b: (SiteBriefing & { _id?: unknown }) | null) {
 router.get(
   '/:jobId',
   requireAuth,
-  validate(z.object({ params: z.object({ jobId: objectId }) })),
+  validate(z.object({ params: z.object({ jobId: uuidId }) })),
   async (req, res, next) => {
     try {
       const jobId = req.params.jobId!;
       const userId = req.user!.id;
-      const job = await JobModel.findById(jobId).select('employerId').lean();
+      const [job] = await getDb()
+        .select({ employerId: jobs.employerId })
+        .from(jobs)
+        .where(eq(jobs.id, jobId))
+        .limit(1);
       if (!job) throw errors.jobNotFound();
-      const isEmployer = (job.employerId as unknown as Types.ObjectId).toString() === userId;
+      const isEmployer = job.employerId === userId;
       if (!isEmployer) {
         // A worker may read it only if they're hired on this job.
-        const hired = await ApplicationModel.exists({
-          jobId: new Types.ObjectId(jobId),
-          seekerId: new Types.ObjectId(userId),
-          status: 'hired',
-        });
+        const [hired] = await getDb()
+          .select({ id: applications.id })
+          .from(applications)
+          .where(
+            and(
+              eq(applications.jobId, jobId),
+              eq(applications.seekerId, userId),
+              eq(applications.status, 'hired'),
+            ),
+          )
+          .limit(1);
         if (!hired) throw errors.forbidden();
       }
-      const briefing = await SiteBriefingModel.findOne({ jobId: new Types.ObjectId(jobId) }).lean();
-      res.json({ ok: true, data: toPublic(briefing as SiteBriefing | null), requestId: req.id });
+      const [briefing] = await getDb()
+        .select()
+        .from(siteBriefings)
+        .where(eq(siteBriefings.jobId, jobId))
+        .limit(1);
+      res.json({ ok: true, data: toPublic(briefing), requestId: req.id });
     } catch (err) {
       next(err);
     }
@@ -66,7 +81,7 @@ router.put(
   requireAuth,
   validate(
     z.object({
-      params: z.object({ jobId: objectId }),
+      params: z.object({ jobId: uuidId }),
       body: z.object({
         text: z.string().max(1000).default(''),
         photoDataUrls: z.array(z.string().max(MAX_PHOTO_CHARS)).max(3).optional(),
@@ -77,11 +92,13 @@ router.put(
   async (req, res, next) => {
     try {
       const jobId = req.params.jobId!;
-      const job = await JobModel.findById(jobId).select('employerId').lean();
+      const [job] = await getDb()
+        .select({ employerId: jobs.employerId })
+        .from(jobs)
+        .where(eq(jobs.id, jobId))
+        .limit(1);
       if (!job) throw errors.jobNotFound();
-      if ((job.employerId as unknown as Types.ObjectId).toString() !== req.user!.id) {
-        throw errors.forbidden();
-      }
+      if (job.employerId !== req.user!.id) throw errors.forbidden();
       const body = req.body as {
         text: string;
         photoDataUrls?: string[];
@@ -90,19 +107,27 @@ router.put(
       const photos = (body.photoDataUrls ?? []).filter((u) => u.startsWith('data:image/'));
       const audio =
         body.audioDataUrl && body.audioDataUrl.startsWith('data:audio/') ? body.audioDataUrl : null;
-      const doc = await SiteBriefingModel.findOneAndUpdate(
-        { jobId: new Types.ObjectId(jobId) },
-        {
-          $set: {
-            employerId: new Types.ObjectId(req.user!.id),
+      const [doc] = await getDb()
+        .insert(siteBriefings)
+        .values({
+          jobId,
+          employerId: req.user!.id,
+          text: body.text.trim(),
+          photoUrls: photos,
+          audioUrl: audio,
+        })
+        .onConflictDoUpdate({
+          target: siteBriefings.jobId,
+          set: {
+            employerId: req.user!.id,
             text: body.text.trim(),
             photoUrls: photos,
             audioUrl: audio,
+            updatedAt: new Date(),
           },
-        },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
-      ).lean();
-      res.json({ ok: true, data: toPublic(doc as SiteBriefing | null), requestId: req.id });
+        })
+        .returning();
+      res.json({ ok: true, data: toPublic(doc), requestId: req.id });
     } catch (err) {
       next(err);
     }

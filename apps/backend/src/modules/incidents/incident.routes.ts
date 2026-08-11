@@ -9,25 +9,26 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { Types } from 'mongoose';
+import { and, desc, eq } from 'drizzle-orm';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
-import { IncidentLogModel, type IncidentLog } from './incident.model';
+import { getDb } from '@/db/client';
+import { incidentLogs } from '@/db/schema';
 
 const router = Router();
 
-const objectId = z.string().refine((v) => Types.ObjectId.isValid(v), {
-  message: 'Invalid id',
-});
+const uuidId = z.string().uuid('Invalid id');
 
 const MAX_PHOTO_CHARS = 600_000;
 
-function toPublic(r: IncidentLog & { _id: unknown }) {
+type IncidentLogRow = typeof incidentLogs.$inferSelect;
+
+function toPublic(r: IncidentLogRow) {
   return {
-    id: (r._id as Types.ObjectId).toString(),
+    id: r.id,
     note: r.note,
     photoUrl: r.photoUrl ?? null,
-    createdAt: (r as { createdAt?: Date }).createdAt?.toISOString() ?? new Date().toISOString(),
+    createdAt: r.createdAt.toISOString(),
   };
 }
 
@@ -38,8 +39,8 @@ router.post(
   validate(
     z.object({
       body: z.object({
-        workerId: objectId,
-        applicationId: objectId.optional(),
+        workerId: uuidId,
+        applicationId: uuidId.optional(),
         note: z.string().trim().min(1).max(500),
         photoDataUrl: z.string().max(MAX_PHOTO_CHARS).optional(),
       }),
@@ -57,18 +58,17 @@ router.post(
         typeof body.photoDataUrl === 'string' && body.photoDataUrl.startsWith('data:image/')
           ? body.photoDataUrl
           : null;
-      const created = await IncidentLogModel.create({
-        employerId: new Types.ObjectId(req.user!.id),
-        workerId: new Types.ObjectId(body.workerId),
-        applicationId: body.applicationId ? new Types.ObjectId(body.applicationId) : null,
-        note: body.note,
-        photoUrl: photo,
-      });
-      res.json({
-        ok: true,
-        data: { incident: toPublic(created.toObject() as IncidentLog & { _id: unknown }) },
-        requestId: req.id,
-      });
+      const [created] = await getDb()
+        .insert(incidentLogs)
+        .values({
+          employerId: req.user!.id,
+          workerId: body.workerId,
+          applicationId: body.applicationId ?? null,
+          note: body.note,
+          photoUrl: photo,
+        })
+        .returning();
+      res.json({ ok: true, data: { incident: toPublic(created!) }, requestId: req.id });
     } catch (err) {
       next(err);
     }
@@ -79,21 +79,21 @@ router.get(
   '/',
   requireAuth,
   requireRole('employer'),
-  validate(z.object({ query: z.object({ workerId: objectId }) })),
+  validate(z.object({ query: z.object({ workerId: uuidId }) })),
   async (req, res, next) => {
     try {
-      const rows = await IncidentLogModel.find({
-        employerId: new Types.ObjectId(req.user!.id),
-        workerId: new Types.ObjectId((req.query as { workerId: string }).workerId),
-      })
-        .sort({ createdAt: -1 })
-        .limit(50)
-        .lean();
-      res.json({
-        ok: true,
-        data: { incidents: rows.map((r) => toPublic(r as IncidentLog & { _id: unknown })) },
-        requestId: req.id,
-      });
+      const rows = await getDb()
+        .select()
+        .from(incidentLogs)
+        .where(
+          and(
+            eq(incidentLogs.employerId, req.user!.id),
+            eq(incidentLogs.workerId, (req.query as { workerId: string }).workerId),
+          ),
+        )
+        .orderBy(desc(incidentLogs.createdAt))
+        .limit(50);
+      res.json({ ok: true, data: { incidents: rows.map(toPublic) }, requestId: req.id });
     } catch (err) {
       next(err);
     }

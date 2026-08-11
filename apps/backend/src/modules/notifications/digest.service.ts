@@ -9,7 +9,7 @@
  *   one nudge that moves them forward.
  *
  * Build strategy:
- *   - Pull active seekers in batches (no global query — paginate by _id).
+ *   - Pull active seekers in batches (no global query — paginate by id).
  *   - For each seeker, lean on the existing `recommendFor` service so
  *     digest content matches the seeker's "Recommended for you" rail.
  *   - Pick a single nudge per seeker from a small ordered list
@@ -24,10 +24,11 @@
  *   double-push.
  */
 
-import { Types } from 'mongoose';
+import { and, asc, eq, gt } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 import { sendMorningDigestPush } from '@/lib/push';
-import { UserModel } from '@/modules/users/user.model';
+import { getDb } from '@/db/client';
+import { users } from '@/db/schema';
 
 const BATCH_SIZE = 200;
 
@@ -51,9 +52,19 @@ export async function assembleForUser(
   const { recommendFor } = await import('@/modules/jobs/recommendations.service');
   const ranked = await recommendFor(seekerId, { limit: 5 });
 
-  const user = await UserModel.findById(seekerId).select(
-    'name skills isVerified resumeUploadedAt workHistory availability lastDigestSentAt',
-  );
+  const [user] = await getDb()
+    .select({
+      name: users.name,
+      skills: users.skills,
+      isVerified: users.isVerified,
+      resumeUploadedAt: users.resumeUploadedAt,
+      workHistory: users.workHistory,
+      availability: users.availability,
+      lastDigestSentAt: users.lastDigestSentAt,
+    })
+    .from(users)
+    .where(eq(users.id, seekerId))
+    .limit(1);
   if (!user) return null;
 
   // Nudge picker — first one that applies wins. Designed so that
@@ -117,6 +128,7 @@ function pickNudge(user: {
  * has a corrupt document.
  */
 export async function runMorningDigest(): Promise<DigestSummary> {
+  const db = getDb();
   const summary: DigestSummary = {
     seekersConsidered: 0,
     seekersPushed: 0,
@@ -130,21 +142,24 @@ export async function runMorningDigest(): Promise<DigestSummary> {
   // env later if/when we go international.
   const todayMidnightUtc = todayMidnightIstAsUtc();
 
-  let lastId: Types.ObjectId | null = null;
-  // Paginate by _id to avoid loading the whole user table into memory.
+  let lastId: string | null = null;
+  // Paginate by id to avoid loading the whole user table into memory.
   while (true) {
-    const q: Record<string, unknown> = { role: 'seeker', isActive: true };
-    if (lastId) q._id = { $gt: lastId };
-
-    const batch = await UserModel.find(q)
-      .sort({ _id: 1 })
-      .limit(BATCH_SIZE)
-      .select('_id lastDigestSentAt notificationPrefs');
+    const batch = await db
+      .select({ id: users.id, lastDigestSentAt: users.lastDigestSentAt, notificationPrefs: users.notificationPrefs })
+      .from(users)
+      .where(
+        lastId
+          ? and(eq(users.role, 'seeker'), eq(users.isActive, true), gt(users.id, lastId))
+          : and(eq(users.role, 'seeker'), eq(users.isActive, true)),
+      )
+      .orderBy(asc(users.id))
+      .limit(BATCH_SIZE);
     if (batch.length === 0) break;
 
     for (const user of batch) {
       summary.seekersConsidered += 1;
-      const userId = (user._id as Types.ObjectId).toString();
+      const userId = user.id;
 
       // Honor per-user pref. The schema has `jobs?: boolean` which
       // defaults true; we treat false as "opted out".
@@ -172,11 +187,9 @@ export async function runMorningDigest(): Promise<DigestSummary> {
           topJobIds: payload.topJobIds,
         });
         // Mark sent — separate update to avoid blocking the push.
-        UserModel.updateOne(
-          { _id: user._id },
-          { $set: { lastDigestSentAt: new Date() } },
-        )
-          .exec()
+        db.update(users)
+          .set({ lastDigestSentAt: new Date() })
+          .where(eq(users.id, userId))
           .catch((err) =>
             logger.warn({ err, userId }, 'lastDigestSentAt update failed'),
           );
@@ -187,7 +200,7 @@ export async function runMorningDigest(): Promise<DigestSummary> {
       }
     }
 
-    lastId = batch[batch.length - 1]!._id as Types.ObjectId;
+    lastId = batch[batch.length - 1]!.id;
     if (batch.length < BATCH_SIZE) break;
   }
 

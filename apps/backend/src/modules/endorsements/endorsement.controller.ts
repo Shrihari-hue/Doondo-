@@ -3,7 +3,6 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { Types } from 'mongoose';
 import { errors, AppError } from '@/lib/errors';
 import * as service from './endorsement.service';
 
@@ -11,8 +10,10 @@ const ok = (req: Request, res: Response, status: number, data: unknown) => {
   res.status(status).json({ ok: true, data, requestId: req.id });
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function assertObjectId(id: string | undefined, label: string): string {
-  if (!id || !Types.ObjectId.isValid(id)) {
+  if (!id || !UUID_RE.test(id)) {
     throw new AppError({
       code: 'VALIDATION_FAILED',
       message: `Invalid ${label}`,

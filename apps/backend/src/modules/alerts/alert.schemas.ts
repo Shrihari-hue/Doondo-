@@ -27,13 +27,13 @@ export const createAlertSchema = z.object({
 
 export const updateAlertSchema = z.object({
   params: z.object({
-    id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid alert id'),
+    id: z.string().uuid('Invalid alert id'),
   }),
   body: upsertBody.partial(),
 });
 
 export const alertIdParamsSchema = z.object({
   params: z.object({
-    id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid alert id'),
+    id: z.string().uuid('Invalid alert id'),
   }),
 });

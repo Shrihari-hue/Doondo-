@@ -11,13 +11,13 @@
  */
 
 import { randomBytes } from 'node:crypto';
-import { Types } from 'mongoose';
+import { and, desc, eq } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
 import { buildQrMatrix, type QrMatrix } from '@/lib/qrMatrix';
 import { buildCollectionPayload, verifyBankAccount } from '@/lib/paymentAggregator';
-import { UserModel } from '@/modules/users/user.model';
+import { getDb } from '@/db/client';
+import { collectQrs, users, type CollectQrKind } from '@/db/schema';
 import { creditQrCollection } from '@/modules/wallet/wallet.service';
-import { CollectQrModel, type CollectQrKind } from './collect.model';
 
 // ─── Bank account ─────────────────────────────────────────────────────────
 
@@ -36,14 +36,12 @@ function maskAccount(accountNumber: string): string {
 }
 
 export async function getBankAccount(userId: string): Promise<PublicBankAccount | null> {
-  const user = await UserModel.findById(userId).select('payoutBank').lean();
-  const bank = (user as { payoutBank?: {
-    holderName: string;
-    accountNumber: string;
-    ifsc: string;
-    verified: boolean;
-    addedAt: Date;
-  } | null } | null)?.payoutBank;
+  const [row] = await getDb()
+    .select({ payoutBank: users.payoutBank })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  const bank = row?.payoutBank;
   if (!bank) return null;
   return {
     holderName: bank.holderName,
@@ -60,20 +58,18 @@ export async function setBankAccount(
 ): Promise<PublicBankAccount> {
   const verify = await verifyBankAccount(input);
   const addedAt = new Date();
-  await UserModel.updateOne(
-    { _id: new Types.ObjectId(userId) },
-    {
-      $set: {
-        payoutBank: {
-          holderName: input.holderName.trim(),
-          accountNumber: input.accountNumber.trim(),
-          ifsc: input.ifsc.trim().toUpperCase(),
-          verified: verify.verified,
-          addedAt,
-        },
+  await getDb()
+    .update(users)
+    .set({
+      payoutBank: {
+        holderName: input.holderName.trim(),
+        accountNumber: input.accountNumber.trim(),
+        ifsc: input.ifsc.trim().toUpperCase(),
+        verified: verify.verified,
+        addedAt: addedAt.toISOString(),
       },
-    },
-  );
+    })
+    .where(eq(users.id, userId));
   return {
     holderName: input.holderName.trim(),
     accountNumberMasked: maskAccount(input.accountNumber.trim()),
@@ -84,7 +80,7 @@ export async function setBankAccount(
 }
 
 export async function removeBankAccount(userId: string): Promise<void> {
-  await UserModel.updateOne({ _id: new Types.ObjectId(userId) }, { $set: { payoutBank: null } });
+  await getDb().update(users).set({ payoutBank: null }).where(eq(users.id, userId));
 }
 
 // ─── Collection QRs ─────────────────────────────────────────────────────────
@@ -112,38 +108,43 @@ export async function createQr(
   const ref = randomBytes(9).toString('base64url');
   const { payload } = buildCollectionPayload(ref, amountPaise);
 
-  const doc = await CollectQrModel.create({
-    ownerId: new Types.ObjectId(userId),
-    kind: input.kind,
-    amountPaise,
-    applicationId: input.applicationId ? new Types.ObjectId(input.applicationId) : null,
-    ref,
-    payload,
-  });
+  const [doc] = await getDb()
+    .insert(collectQrs)
+    .values({
+      ownerId: userId,
+      kind: input.kind,
+      amountPaise,
+      applicationId: input.applicationId ?? null,
+      ref,
+      payload,
+    })
+    .returning();
 
   return {
-    ref: doc.ref,
-    kind: doc.kind,
-    amountPaise: doc.amountPaise ?? null,
-    applicationId: doc.applicationId ? doc.applicationId.toString() : null,
-    payload: doc.payload,
-    qr: buildQrMatrix(doc.payload),
-    createdAt: doc.createdAt.toISOString(),
+    ref: doc!.ref,
+    kind: doc!.kind,
+    amountPaise: doc!.amountPaise ?? null,
+    applicationId: doc!.applicationId,
+    payload: doc!.payload,
+    qr: buildQrMatrix(doc!.payload),
+    createdAt: doc!.createdAt.toISOString(),
   };
 }
 
 export async function listQrs(userId: string): Promise<PublicCollectQr[]> {
-  const rows = await CollectQrModel.find({ ownerId: new Types.ObjectId(userId), active: true })
-    .sort({ createdAt: -1 })
-    .lean();
+  const rows = await getDb()
+    .select()
+    .from(collectQrs)
+    .where(and(eq(collectQrs.ownerId, userId), eq(collectQrs.active, true)))
+    .orderBy(desc(collectQrs.createdAt));
   return rows.map((r) => ({
     ref: r.ref,
     kind: r.kind,
     amountPaise: r.amountPaise ?? null,
-    applicationId: r.applicationId ? (r.applicationId as Types.ObjectId).toString() : null,
+    applicationId: r.applicationId,
     payload: r.payload,
     qr: buildQrMatrix(r.payload),
-    createdAt: new Date(r.createdAt).toISOString(),
+    createdAt: r.createdAt.toISOString(),
   }));
 }
 
@@ -159,16 +160,19 @@ export async function recordPayment(input: {
   amountPaise: number;
   payerName?: string;
 }): Promise<{ grossPaise: number; netPaise: number }> {
-  const qr = await CollectQrModel.findOne({ ref: input.ref, active: true }).lean();
+  const [qr] = await getDb()
+    .select()
+    .from(collectQrs)
+    .where(and(eq(collectQrs.ref, input.ref), eq(collectQrs.active, true)))
+    .limit(1);
   if (!qr) throw errors.notFound('QR not found.');
 
   const gross =
     qr.kind === 'fixed' && qr.amountPaise ? qr.amountPaise : Math.round(input.amountPaise);
   if (!gross || gross < 100) throw errors.validation(null, 'Invalid payment amount.');
 
-  const ownerId = (qr.ownerId as Types.ObjectId).toString();
   const label = input.payerName ? `Paid by ${input.payerName}` : 'QR payment received';
-  const txn = await creditQrCollection({ userId: ownerId, grossPaise: gross, description: label });
+  const txn = await creditQrCollection({ userId: qr.ownerId, grossPaise: gross, description: label });
 
   return { grossPaise: gross, netPaise: txn.amount };
 }

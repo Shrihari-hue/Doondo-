@@ -1,5 +1,5 @@
 /**
- * Seed script — wipes and inserts demo data for Phase 2 development.
+ * Seed script — wipes and inserts demo data for local development.
  *
  * Usage:
  *   pnpm --filter @doondo/backend seed
@@ -10,8 +10,8 @@
  *     Bengaluru / Indiranagar) within a ~3km radius — realistic for the
  *     "find work within walking distance" pitch.
  *
- * The seed only touches employer-tagged users and Job collection — it
- * never deletes seekers, so you can sign up an account and run the seed
+ * The seed only touches employer-tagged users and jobs — it never
+ * deletes seekers, so you can sign up an account and run the seed
  * repeatedly without losing your test seeker.
  *
  * Configurable via env (all optional):
@@ -21,16 +21,11 @@
  */
 
 import './env-loader';
-import mongoose from 'mongoose';
-import { connectDb, disconnectDb } from '@/config/db';
+import { eq, inArray } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { applications, jobs, users, type ApplicationStatus, type JobType, type PayPeriod } from '@/db/schema';
 import { logger } from '@/lib/logger';
 import { hashPassword } from '@/lib/password';
-import { UserModel } from '@/modules/users/user.model';
-import { JobModel, type JobType, type PayPeriod } from '@/modules/jobs/job.model';
-import {
-  ApplicationModel,
-  type ApplicationStatus,
-} from '@/modules/applications/application.model';
 
 const SEED_LAT = Number(process.env.SEED_LAT ?? 12.9716);
 const SEED_LNG = Number(process.env.SEED_LNG ?? 77.5946);
@@ -197,61 +192,54 @@ const SEEDS: JobSeed[] = [
 ];
 
 async function main() {
-  await connectDb();
+  const db = getDb();
   logger.info('seed: connected');
 
   // Upsert the demo employer.
   const email = 'employer@doondo.dev';
   const passwordHash = await hashPassword('Password123');
-  const employer = await UserModel.findOneAndUpdate(
-    { email },
-    {
-      $setOnInsert: {
-        email,
-        passwordHash,
-        name: 'Doondo Demo Employer',
-        role: 'employer',
-        isVerified: true,
-        companyName: 'Doondo Demo Co.',
-        businessType: 'agency',
-      },
-    },
-    { upsert: true, new: true },
-  );
-  logger.info({ employerId: employer.id }, 'seed: employer ready');
+  const [existingEmployer] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  const [employer] = existingEmployer
+    ? [existingEmployer]
+    : await db
+        .insert(users)
+        .values({
+          email,
+          passwordHash,
+          name: 'Doondo Demo Employer',
+          role: 'employer',
+          isVerified: true,
+          companyName: 'Doondo Demo Co.',
+          businessType: 'agency',
+        })
+        .returning();
+  logger.info({ employerId: employer!.id }, 'seed: employer ready');
 
   // Wipe existing demo jobs (only ones owned by the seed employer).
-  const wiped = await JobModel.deleteMany({ employerId: employer._id });
-  logger.info({ deleted: wiped.deletedCount }, 'seed: wiped previous jobs');
+  const wiped = await db.delete(jobs).where(eq(jobs.employerId, employer!.id)).returning({ id: jobs.id });
+  logger.info({ deleted: wiped.length }, 'seed: wiped previous jobs');
 
   // Insert the seeds.
-  const docs = SEEDS.map((s) => ({
-    employerId: employer._id,
+  const rows = SEEDS.map((s) => ({
+    employerId: employer!.id,
     title: s.title,
     description: s.description,
     type: s.type,
-    pay: {
-      amount: s.amount,
-      amountMax: s.amountMax ?? null,
-      period: s.period,
-      currency: 'INR',
-    },
-    location: {
-      address: `${s.area}, ${SEED_CITY}`,
-      city: SEED_CITY,
-      area: s.area,
-      pincode: null,
-      geo: {
-        type: 'Point' as const,
-        coordinates: [SEED_LNG + s.offset[0], SEED_LAT + s.offset[1]] as [number, number],
-      },
-    },
+    payAmount: s.amount,
+    payAmountMax: s.amountMax ?? null,
+    payPeriod: s.period,
+    payCurrency: 'INR',
+    address: `${s.area}, ${SEED_CITY}`,
+    city: SEED_CITY,
+    area: s.area,
+    pincode: null,
+    geo: { x: SEED_LNG + s.offset[0], y: SEED_LAT + s.offset[1] },
     skills: s.skills,
     schedule: s.hoursPerDay ? { hoursPerDay: s.hoursPerDay } : null,
     status: 'active' as const,
   }));
 
-  const inserted = await JobModel.insertMany(docs);
+  const inserted = await db.insert(jobs).values(rows).returning();
   logger.info({ count: inserted.length }, 'seed: jobs inserted');
 
   // ─── Demo seekers + applications ─────────────────────────────────────────
@@ -261,7 +249,6 @@ async function main() {
     email: string;
     name: string;
     skills: string[];
-    photoUrl?: string;
   }> = [
     { email: 'seeker.priya@doondo.dev', name: 'Priya Rao', skills: ['cleaning', 'cooking'] },
     {
@@ -283,37 +270,34 @@ async function main() {
 
   const seekerHash = await hashPassword('Password123');
   const seekerDocs = await Promise.all(
-    SEEKERS.map((s) =>
-      UserModel.findOneAndUpdate(
-        { email: s.email },
-        {
-          $setOnInsert: {
-            email: s.email,
-            passwordHash: seekerHash,
-            name: s.name,
-            role: 'seeker',
-            isVerified: false,
-            skills: s.skills,
-            location: {
-              city: SEED_CITY,
-              area: 'Indiranagar',
-              pincode: null,
-              geo: {
-                type: 'Point',
-                coordinates: [SEED_LNG + 0.001, SEED_LAT + 0.001],
-              },
-            },
+    SEEKERS.map(async (s) => {
+      const [existing] = await db.select().from(users).where(eq(users.email, s.email)).limit(1);
+      if (existing) return existing;
+      const [created] = await db
+        .insert(users)
+        .values({
+          email: s.email,
+          passwordHash: seekerHash,
+          name: s.name,
+          role: 'seeker',
+          isVerified: false,
+          skills: s.skills,
+          location: {
+            city: SEED_CITY,
+            area: 'Indiranagar',
+            pincode: null,
+            coordinates: [SEED_LNG + 0.001, SEED_LAT + 0.001],
           },
-        },
-        { upsert: true, new: true },
-      ),
-    ),
+        })
+        .returning();
+      return created!;
+    }),
   );
   logger.info({ count: seekerDocs.length }, 'seed: seekers ready');
 
   // Wipe prior demo applications so re-running the seed is idempotent.
-  const seekerIds = seekerDocs.map((s) => s._id);
-  await ApplicationModel.deleteMany({ seekerId: { $in: seekerIds } });
+  const seekerIds = seekerDocs.map((s) => s.id);
+  await db.delete(applications).where(inArray(applications.seekerId, seekerIds));
 
   // Spread applications across the first 6 jobs in mixed statuses so each
   // status pill is reachable in the employer applicant list view.
@@ -327,30 +311,17 @@ async function main() {
     'hired',
   ];
 
-  type AppDoc = {
-    seekerId: typeof seekerIds[number];
-    jobId: typeof targetJobs[number]['_id'];
-    employerId: typeof employer._id;
-    status: ApplicationStatus;
-    appliedAt: Date;
-    viewedAt: Date | null;
-    shortlistedAt: Date | null;
-    rejectedAt: Date | null;
-    hiredAt: Date | null;
-  };
-
-  const appDocs: AppDoc[] = [];
   const now = Date.now();
-  targetJobs.forEach((job, idx) => {
+  const appRows = targetJobs.map((job, idx) => {
     const seeker = seekerDocs[idx % seekerDocs.length]!;
     const status = STATUS_CYCLE[idx]!;
     const appliedAt = new Date(now - (idx + 1) * 1000 * 60 * 60 * 6);
     const transitionAt = new Date(now - idx * 1000 * 60 * 60 * 2);
 
-    appDocs.push({
-      seekerId: seeker._id,
-      jobId: job._id,
-      employerId: employer._id,
+    return {
+      seekerId: seeker.id,
+      jobId: job.id,
+      employerId: employer!.id,
       status,
       appliedAt,
       viewedAt: status !== 'pending' ? transitionAt : null,
@@ -358,27 +329,23 @@ async function main() {
         status === 'shortlisted' || status === 'hired' ? transitionAt : null,
       rejectedAt: status === 'rejected' ? transitionAt : null,
       hiredAt: status === 'hired' ? transitionAt : null,
-    });
+    };
   });
 
-  await ApplicationModel.insertMany(appDocs);
-  logger.info({ count: appDocs.length }, 'seed: applications inserted');
+  await db.insert(applications).values(appRows);
+  logger.info({ count: appRows.length }, 'seed: applications inserted');
 
   // Bump applicantsCount denorm on the affected jobs.
   await Promise.all(
-    targetJobs.map((j) =>
-      JobModel.updateOne(
-        { _id: j._id },
-        { $set: { applicantsCount: 1 } },
-      ),
-    ),
+    targetJobs.map((j) => db.update(jobs).set({ applicantsCount: 1 }).where(eq(jobs.id, j.id))),
   );
 
-  await disconnectDb();
   logger.info('seed: done');
 }
 
-main().catch((err) => {
-  logger.fatal({ err }, 'seed failed');
-  process.exit(1);
-});
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    logger.fatal({ err }, 'seed failed');
+    process.exit(1);
+  });

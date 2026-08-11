@@ -24,11 +24,11 @@
  * pre-seed a "trust me" base score — earning the first point matters.
  */
 
-import { Types } from 'mongoose';
+import { and, count, eq } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
-import { UserModel } from './user.model';
-import { ApplicationModel } from '@/modules/applications/application.model';
-import { EndorsementModel } from '@/modules/endorsements/endorsement.model';
+import { getDb } from '@/db/client';
+import { applications, endorsements, users } from '@/db/schema';
+import { computeProfileCompletion } from './user.serializers';
 import { summarizeForUser as summarizeRatingForUser } from '@/modules/ratings/rating.service';
 
 export interface DoondoScoreBreakdown {
@@ -58,23 +58,20 @@ const SCORE_VERSION = 1;
  * bug. The first few signals are the most rewarding to earn.
  */
 export async function computeForUser(userId: string): Promise<DoondoScore> {
-  const user = await UserModel.findById(userId);
+  const db = getDb();
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) throw errors.notFound('User not found.');
 
   // Run the independent aggregations in parallel.
-  const [ratingSummary, hireCount, endorsements] = await Promise.all([
+  const [ratingSummary, [hireCountRow], endorsementRows] = await Promise.all([
     summarizeRatingForUser(userId),
-    ApplicationModel.countDocuments({
-      seekerId: new Types.ObjectId(userId),
-      status: 'hired',
-    }),
-    EndorsementModel.find({ seekerId: new Types.ObjectId(userId) })
-      .select('trade')
-      .lean(),
+    db.select({ n: count() }).from(applications).where(and(eq(applications.seekerId, userId), eq(applications.status, 'hired'))),
+    db.select({ trade: endorsements.trade }).from(endorsements).where(eq(endorsements.seekerId, userId)),
   ]);
+  const hireCount = hireCountRow!.n;
 
   const uniqueTrades = new Set(
-    endorsements.map((e) => (e.trade ?? '').toLowerCase()).filter(Boolean),
+    endorsementRows.map((e) => (e.trade ?? '').toLowerCase()).filter(Boolean),
   ).size;
 
   // ─── Component scoring ─────────────────────────────────────────────────
@@ -93,9 +90,8 @@ export async function computeForUser(userId: string): Promise<DoondoScore> {
   const verificationPoints = user.isVerified ? 10 : 0;
 
   // Profile: 10 × completion% — reuse the same calculation the User
-  // serializer uses. We can't import the private helper, but
-  // toPublicJSON exposes it cleanly.
-  const completion = user.toPublicJSON().profileCompletion;
+  // serializer uses.
+  const completion = computeProfileCompletion(user);
   const profilePoints = Math.round(completion / 10);
 
   const total = Math.round(

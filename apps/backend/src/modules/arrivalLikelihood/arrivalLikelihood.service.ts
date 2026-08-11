@@ -18,11 +18,10 @@
  * All inputs are already in the DB; no new tracking is introduced.
  */
 
-import { Types } from 'mongoose';
+import { eq } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
-import { ApplicationModel } from '@/modules/applications/application.model';
-import { JobModel } from '@/modules/jobs/job.model';
-import { UserModel } from '@/modules/users/user.model';
+import { getDb } from '@/db/client';
+import { applications, jobs, users } from '@/db/schema';
 import { summarizeForUser } from '@/modules/ratings/rating.service';
 
 export type ArrivalBand = 'high' | 'medium' | 'low';
@@ -66,26 +65,25 @@ export async function computeArrivalLikelihood(
   applicationId: string,
   employerId: string,
 ): Promise<ArrivalLikelihood> {
-  const app = await ApplicationModel.findById(applicationId).lean();
+  const db = getDb();
+  const [app] = await db.select().from(applications).where(eq(applications.id, applicationId)).limit(1);
   if (!app) throw errors.applicationNotFound();
-  if ((app.employerId as unknown as Types.ObjectId).toString() !== employerId) {
+  if (app.employerId !== employerId) {
     throw errors.forbidden();
   }
 
-  const [job, seeker, rating] = await Promise.all([
-    JobModel.findById(app.jobId).select('location schedule').lean(),
-    UserModel.findById(app.seekerId).select('location').lean(),
-    summarizeForUser(app.seekerId.toString()),
+  const [[job], [seeker], rating] = await Promise.all([
+    db.select({ geo: jobs.geo, schedule: jobs.schedule }).from(jobs).where(eq(jobs.id, app.jobId)).limit(1),
+    db.select({ location: users.location }).from(users).where(eq(users.id, app.seekerId)).limit(1),
+    summarizeForUser(app.seekerId),
   ]);
 
   const factors: ArrivalFactor[] = [];
   let score = 70; // baseline
 
   // ─── Distance ──────────────────────────────────────────────────────────
-  const jobCoords = (job as { location?: { geo?: { coordinates?: [number, number] } } } | null)
-    ?.location?.geo?.coordinates;
-  const seekerCoords = (seeker as { location?: { geo?: { coordinates?: [number, number] } } } | null)
-    ?.location?.geo?.coordinates;
+  const jobCoords: [number, number] | null = job?.geo ? [job.geo.x, job.geo.y] : null;
+  const seekerCoords = seeker?.location?.coordinates ?? null;
   let distanceMeters: number | null = null;
   if (jobCoords && seekerCoords) {
     distanceMeters = haversineMeters(jobCoords, seekerCoords);
@@ -113,11 +111,9 @@ export async function computeArrivalLikelihood(
   // Read the shift hour in IST (UTC+5:30), not the server's local zone, so
   // "early/late" is judged against the worker's actual clock.
   const nextShiftHour = app.nextShiftAt
-    ? new Date(new Date(app.nextShiftAt).getTime() + (5 * 60 + 30) * 60_000).getUTCHours()
+    ? new Date(app.nextShiftAt.getTime() + (5 * 60 + 30) * 60_000).getUTCHours()
     : null;
-  const scheduleHour = hourFromHHMM(
-    (job as { schedule?: { startTime?: string | null } } | null)?.schedule?.startTime,
-  );
+  const scheduleHour = hourFromHHMM(job?.schedule?.startTime);
   const shiftHour = nextShiftHour ?? scheduleHour;
   if (shiftHour !== null) {
     if (shiftHour < 6 || shiftHour >= 22) {

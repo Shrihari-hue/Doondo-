@@ -7,24 +7,24 @@
  *   GET   /payments/mine               — both sides see their own history
  */
 import { Router } from 'express';
-import { Types } from 'mongoose';
+import { and, desc, eq, or } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { requireAuth, requireRole } from '@/middleware/auth';
-import {
-  PaymentIntentModel,
-  type PaymentIntent,
-} from './payment.model';
-import { UserModel } from '@/modules/users/user.model';
-import { WalletTransactionModel } from '@/modules/wallet/walletTransaction.model';
+import { getDb } from '@/db/client';
+import { paymentIntents, users, walletTransactions, type PaymentIntentStatus } from '@/db/schema';
 
 const router = Router();
 
-function toPublic(p: PaymentIntent & { _id: unknown }) {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type PaymentIntentRow = typeof paymentIntents.$inferSelect;
+
+function toPublic(p: PaymentIntentRow) {
   return {
-    id: (p._id as unknown as Types.ObjectId).toString(),
-    employerId: (p.employerId as unknown as Types.ObjectId).toString(),
-    seekerId: (p.seekerId as unknown as Types.ObjectId).toString(),
-    applicationId: p.applicationId ? p.applicationId.toString() : null,
+    id: p.id,
+    employerId: p.employerId,
+    seekerId: p.seekerId,
+    applicationId: p.applicationId,
     amountPaise: p.amountPaise,
     currency: p.currency,
     seekerVpa: p.seekerVpa,
@@ -32,8 +32,7 @@ function toPublic(p: PaymentIntent & { _id: unknown }) {
     ref: p.ref,
     status: p.status,
     paidAt: p.paidAt ? p.paidAt.toISOString() : null,
-    createdAt:
-      (p as { createdAt?: Date }).createdAt?.toISOString() ?? new Date().toISOString(),
+    createdAt: p.createdAt.toISOString(),
   };
 }
 
@@ -77,14 +76,16 @@ router.post('/intent', requireAuth, requireRole('employer'), async (req, res, ne
       res.status(400).json({ error: 'Amount out of range.' });
       return;
     }
-    const seeker = await UserModel.findById(body.seekerId)
-      .select('name upiVpa phone')
-      .lean();
+    const [seeker] = await getDb()
+      .select({ name: users.name, upiVpa: users.upiVpa })
+      .from(users)
+      .where(eq(users.id, body.seekerId))
+      .limit(1);
     if (!seeker) {
       res.status(404).json({ error: 'Worker not found' });
       return;
     }
-    const vpa = (seeker as { upiVpa?: string | null }).upiVpa;
+    const vpa = seeker.upiVpa;
     if (!vpa) {
       res.status(400).json({
         error: "Worker hasn't added a UPI ID yet. Ask them to add one in Profile → Edit profile.",
@@ -94,22 +95,25 @@ router.post('/intent', requireAuth, requireRole('employer'), async (req, res, ne
     const ref = `DDP${randomBytes(5).toString('hex').toUpperCase()}`;
     const upiUri = buildUpiUri({
       vpa,
-      name: ((seeker as { name?: string }).name as string | undefined) ?? 'Worker',
+      name: seeker.name ?? 'Worker',
       amountInr: amount / 100,
       ref,
       note: (body.note ?? 'Doondo wage').slice(0, 80),
     });
-    const created = await PaymentIntentModel.create({
-      employerId: new Types.ObjectId(req.user!.id),
-      seekerId: new Types.ObjectId(body.seekerId),
-      applicationId: body.applicationId ? new Types.ObjectId(body.applicationId) : null,
-      amountPaise: Math.round(amount),
-      seekerVpa: vpa.toLowerCase(),
-      upiUri,
-      ref,
-      status: 'pending',
-    });
-    res.json({ intent: toPublic(created.toObject() as PaymentIntent & { _id: unknown }) });
+    const [created] = await getDb()
+      .insert(paymentIntents)
+      .values({
+        employerId: req.user!.id,
+        seekerId: body.seekerId,
+        applicationId: body.applicationId ?? null,
+        amountPaise: Math.round(amount),
+        seekerVpa: vpa.toLowerCase(),
+        upiUri,
+        ref,
+        status: 'pending',
+      })
+      .returning();
+    res.json({ intent: toPublic(created!) });
   } catch (err) {
     next(err);
   }
@@ -121,10 +125,12 @@ router.post(
   requireRole('employer'),
   async (req, res, next) => {
     try {
-      const p = await PaymentIntentModel.findOne({
-        _id: req.params.id,
-        employerId: new Types.ObjectId(req.user!.id),
-      });
+      const db = getDb();
+      const [p] = await db
+        .select()
+        .from(paymentIntents)
+        .where(and(eq(paymentIntents.id, req.params.id!), eq(paymentIntents.employerId, req.user!.id)))
+        .limit(1);
       if (!p) {
         res.status(404).json({ error: 'Not found' });
         return;
@@ -133,28 +139,34 @@ router.post(
         res.status(400).json({ error: `Already ${p.status}.` });
         return;
       }
-      p.status = 'paid';
-      p.paidAt = new Date();
-      await p.save();
+      const paidAt = new Date();
+      const [updated] = await db
+        .update(paymentIntents)
+        .set({ status: 'paid', paidAt })
+        .where(eq(paymentIntents.id, p.id))
+        .returning();
       // Record a wallet credit on the worker's side so the payment shows
-      // up in their earnings ledger. Wrap in try/catch — the model has a
-      // partial unique index on (userId, applicationId, kind: hire_payment)
-      // so re-marking a paid intent twice would otherwise 500.
+      // up in their earnings ledger. onConflictDoNothing — wallet_transactions
+      // has a partial unique index on (userId, applicationId, kind:
+      // hire_payment) so re-marking a paid intent twice is a no-op, not a 500.
       try {
-        await WalletTransactionModel.create({
-          userId: p.seekerId,
-          amount: p.amountPaise,
-          currency: p.currency,
-          kind: 'hire_payment',
-          status: 'settled',
-          description: `UPI payment from employer · ref ${p.ref}`,
-          applicationId: p.applicationId,
-          settledAt: p.paidAt,
-        } as unknown as Parameters<typeof WalletTransactionModel.create>[0]);
+        await db
+          .insert(walletTransactions)
+          .values({
+            userId: p.seekerId,
+            amount: p.amountPaise,
+            currency: p.currency,
+            kind: 'hire_payment',
+            status: 'settled',
+            description: `UPI payment from employer · ref ${p.ref}`,
+            applicationId: p.applicationId,
+            settledAt: paidAt,
+          })
+          .onConflictDoNothing();
       } catch {
         // Duplicate or transient — payment intent itself is still marked paid.
       }
-      res.json({ intent: toPublic(p.toObject() as PaymentIntent & { _id: unknown }) });
+      res.json({ intent: toPublic(updated!) });
     } catch (err) {
       next(err);
     }
@@ -163,10 +175,12 @@ router.post(
 
 router.post('/:id/cancel', requireAuth, requireRole('employer'), async (req, res, next) => {
   try {
-    const p = await PaymentIntentModel.findOne({
-      _id: req.params.id,
-      employerId: new Types.ObjectId(req.user!.id),
-    });
+    const db = getDb();
+    const [p] = await db
+      .select()
+      .from(paymentIntents)
+      .where(and(eq(paymentIntents.id, req.params.id!), eq(paymentIntents.employerId, req.user!.id)))
+      .limit(1);
     if (!p) {
       res.status(404).json({ error: 'Not found' });
       return;
@@ -175,9 +189,12 @@ router.post('/:id/cancel', requireAuth, requireRole('employer'), async (req, res
       res.status(400).json({ error: 'Already paid.' });
       return;
     }
-    p.status = 'cancelled';
-    await p.save();
-    res.json({ intent: toPublic(p.toObject() as PaymentIntent & { _id: unknown }) });
+    const [updated] = await db
+      .update(paymentIntents)
+      .set({ status: 'cancelled' as PaymentIntentStatus })
+      .where(eq(paymentIntents.id, p.id))
+      .returning();
+    res.json({ intent: toPublic(updated!) });
   } catch (err) {
     next(err);
   }
@@ -185,16 +202,14 @@ router.post('/:id/cancel', requireAuth, requireRole('employer'), async (req, res
 
 router.get('/mine', requireAuth, async (req, res, next) => {
   try {
-    const uid = new Types.ObjectId(req.user!.id);
-    const rows = await PaymentIntentModel.find({
-      $or: [{ employerId: uid }, { seekerId: uid }],
-    })
-      .sort({ createdAt: -1 })
-      .limit(40)
-      .lean();
-    res.json({
-      intents: rows.map((r) => toPublic(r as PaymentIntent & { _id: unknown })),
-    });
+    const uid = req.user!.id;
+    const rows = await getDb()
+      .select()
+      .from(paymentIntents)
+      .where(or(eq(paymentIntents.employerId, uid), eq(paymentIntents.seekerId, uid)))
+      .orderBy(desc(paymentIntents.createdAt))
+      .limit(40);
+    res.json({ intents: rows.map(toPublic) });
   } catch (err) {
     next(err);
   }
@@ -217,15 +232,17 @@ router.get('/mine', requireAuth, async (req, res, next) => {
  */
 router.get('/:id/receipt', requireAuth, async (req, res, next) => {
   try {
-    if (!Types.ObjectId.isValid(req.params.id ?? '')) {
+    if (!req.params.id || !UUID_RE.test(req.params.id)) {
       res.status(400).json({ error: 'Invalid payment id' });
       return;
     }
-    const uid = new Types.ObjectId(req.user!.id);
-    const p = await PaymentIntentModel.findOne({
-      _id: req.params.id,
-      $or: [{ employerId: uid }, { seekerId: uid }],
-    }).lean();
+    const uid = req.user!.id;
+    const db = getDb();
+    const [p] = await db
+      .select()
+      .from(paymentIntents)
+      .where(and(eq(paymentIntents.id, req.params.id), or(eq(paymentIntents.employerId, uid), eq(paymentIntents.seekerId, uid))))
+      .limit(1);
     if (!p) {
       res.status(404).json({ error: 'Not found' });
       return;
@@ -235,30 +252,29 @@ router.get('/:id/receipt', requireAuth, async (req, res, next) => {
       return;
     }
 
-    const [employer, seeker] = await Promise.all([
-      UserModel.findById(p.employerId).select('name companyName gstin employerLocation').lean(),
-      UserModel.findById(p.seekerId).select('name').lean(),
+    const [[employer], [seeker]] = await Promise.all([
+      db
+        .select({ name: users.name, companyName: users.companyName, gstin: users.gstin, employerLocation: users.employerLocation })
+        .from(users)
+        .where(eq(users.id, p.employerId))
+        .limit(1),
+      db.select({ name: users.name }).from(users).where(eq(users.id, p.seekerId)).limit(1),
     ]);
 
-    const employerLoc = (employer as { employerLocation?: { city?: string; area?: string } | null } | null)
-      ?.employerLocation ?? null;
-    const cityLine = employerLoc
-      ? [employerLoc.area, employerLoc.city].filter(Boolean).join(', ')
+    const cityLine = employer?.employerLocation
+      ? [employer.employerLocation.area, employer.employerLocation.city].filter(Boolean).join(', ')
       : null;
 
     const receipt = {
       receiptNo: p.ref,
       issuedAt: p.paidAt.toISOString(),
       payer: {
-        name:
-          (employer as { companyName?: string | null; name?: string } | null)?.companyName ||
-          (employer as { name?: string } | null)?.name ||
-          'Employer',
-        gstin: (employer as { gstin?: string | null } | null)?.gstin ?? null,
-        location: cityLine,
+        name: employer?.companyName || employer?.name || 'Employer',
+        gstin: employer?.gstin ?? null,
+        location: cityLine || null,
       },
       payee: {
-        name: (seeker as { name?: string } | null)?.name ?? 'Worker',
+        name: seeker?.name ?? 'Worker',
         upiVpa: p.seekerVpa,
       },
       amountPaise: p.amountPaise,

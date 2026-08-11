@@ -5,12 +5,25 @@
  * Every read returns a fully-hydrated `PublicPost`: authors (for the
  * post, its comments, its replies and any reshared original) are joined
  * in one extra query so the mobile feed renders without N+1 lookups.
+ *
+ * Comments/replies are jsonb (mirrors the old Mongo embedded-subdocument
+ * shape — bounded, single round-trip reads) with app-generated UUIDs
+ * standing in for Mongo's auto _id. Likes are a plain uuid[] column.
  */
 
-import { Types } from 'mongoose';
+import { randomUUID } from 'node:crypto';
+import { desc, eq, inArray, sql } from 'drizzle-orm';
 import { AppError } from '@/lib/errors';
-import { UserModel } from '@/modules/users/user.model';
-import { PostModel, type PostType } from './post.model';
+import { getDb } from '@/db/client';
+import {
+  communityPosts,
+  users,
+  type PostCommentJson,
+  type PostReplyJson,
+  type ResharedSnapshotJson,
+} from '@/db/schema';
+
+export type PostType = (typeof communityPosts.$inferSelect)['type'];
 
 // ─── Public shapes (what the mobile client receives) ─────────────────────────
 
@@ -61,6 +74,8 @@ export interface PublicPost {
   reshared: PublicReshared | null;
 }
 
+type PostRow = typeof communityPosts.$inferSelect;
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 function notFound(): AppError {
@@ -71,107 +86,86 @@ function notFound(): AppError {
   });
 }
 
-function headlineFor(skills: unknown): string | null {
+function headlineFor(skills: string[] | null | undefined): string | null {
   if (!Array.isArray(skills) || skills.length === 0) return null;
   const first = String(skills[0] ?? '').trim();
   if (!first) return null;
   return first.charAt(0).toUpperCase() + first.slice(1);
 }
 
-function fallbackAuthor(id: unknown): PublicAuthor {
-  return { id: String(id), name: 'Doondo worker', photoUrl: null, headline: null };
-}
-
-function toStringArray(v: unknown): string[] {
-  return Array.isArray(v) ? v.map((x) => String(x)) : [];
+function fallbackAuthor(id: string): PublicAuthor {
+  return { id, name: 'Doondo worker', photoUrl: null, headline: null };
 }
 
 type AuthorMap = Map<string, PublicAuthor>;
 
-/** Join the User collection for every author referenced by these posts. */
-async function hydrateAuthors(posts: Array<Record<string, unknown>>): Promise<AuthorMap> {
+/** Join the users table for every author referenced by these posts. */
+async function hydrateAuthors(posts: PostRow[]): Promise<AuthorMap> {
   const ids = new Set<string>();
-  const add = (v: unknown) => {
-    if (v !== undefined && v !== null) ids.add(String(v));
-  };
   for (const p of posts) {
-    add(p.authorId);
-    const reshared = p.reshared as { authorId?: unknown } | null | undefined;
-    if (reshared) add(reshared.authorId);
-    const comments = (p.comments as Array<Record<string, unknown>>) ?? [];
-    for (const c of comments) {
-      add(c.authorId);
-      const replies = (c.replies as Array<Record<string, unknown>>) ?? [];
-      for (const r of replies) add(r.authorId);
+    ids.add(p.authorId);
+    if (p.reshared) ids.add(p.reshared.authorId);
+    for (const c of p.comments) {
+      ids.add(c.authorId);
+      for (const r of c.replies) ids.add(r.authorId);
     }
   }
 
   const map: AuthorMap = new Map();
   if (ids.size === 0) return map;
 
-  const users = await UserModel.find({ _id: { $in: [...ids] } })
-    .select('name photoUrl skills')
-    .lean();
-  for (const u of users) {
-    map.set(String(u._id), {
-      id: String(u._id),
-      name: (u.name as string) ?? 'Doondo worker',
-      photoUrl: (u.photoUrl as string | null) ?? null,
+  const rows = await getDb()
+    .select({ id: users.id, name: users.name, photoUrl: users.photoUrl, skills: users.skills })
+    .from(users)
+    .where(inArray(users.id, [...ids]));
+  for (const u of rows) {
+    map.set(u.id, {
+      id: u.id,
+      name: u.name ?? 'Doondo worker',
+      photoUrl: u.photoUrl ?? null,
       headline: headlineFor(u.skills),
     });
   }
   return map;
 }
 
-function authorOf(map: AuthorMap, id: unknown): PublicAuthor {
-  return map.get(String(id)) ?? fallbackAuthor(id);
+function authorOf(map: AuthorMap, id: string): PublicAuthor {
+  return map.get(id) ?? fallbackAuthor(id);
 }
 
-function toIso(d: unknown): string {
-  return d instanceof Date ? d.toISOString() : new Date(String(d)).toISOString();
-}
-
-/** Map a raw post document into the hydrated public shape. */
-function toPublic(
-  post: Record<string, unknown>,
-  authors: AuthorMap,
-  viewerId: string,
-): PublicPost {
-  const likes = (post.likes as unknown[]) ?? [];
-  const reshared = post.reshared as Record<string, unknown> | null | undefined;
-  const comments = (post.comments as Array<Record<string, unknown>>) ?? [];
-
+/** Map a raw post row into the hydrated public shape. */
+function toPublic(post: PostRow, authors: AuthorMap, viewerId: string): PublicPost {
   return {
-    id: String(post._id),
+    id: post.id,
     author: authorOf(authors, post.authorId),
-    type: post.type as PostType,
-    text: (post.text as string) ?? '',
-    mediaUrls: toStringArray(post.mediaUrls),
-    certificateTitle: (post.certificateTitle as string | null) ?? null,
-    createdAt: toIso(post.createdAt),
-    likeCount: likes.length,
-    likedByMe: likes.some((id) => String(id) === viewerId),
-    repostCount: (post.repostCount as number) ?? 0,
-    comments: comments.map((c) => ({
-      id: String(c._id),
+    type: post.type,
+    text: post.text,
+    mediaUrls: post.mediaUrls,
+    certificateTitle: post.certificateTitle ?? null,
+    createdAt: post.createdAt.toISOString(),
+    likeCount: post.likes.length,
+    likedByMe: post.likes.includes(viewerId),
+    repostCount: post.repostCount,
+    comments: post.comments.map((c) => ({
+      id: c.id,
       author: authorOf(authors, c.authorId),
-      text: (c.text as string) ?? '',
-      createdAt: toIso(c.createdAt),
-      replies: (((c.replies as Array<Record<string, unknown>>) ?? []).map((r) => ({
-        id: String(r._id),
+      text: c.text,
+      createdAt: c.createdAt,
+      replies: c.replies.map((r) => ({
+        id: r.id,
         author: authorOf(authors, r.authorId),
-        text: (r.text as string) ?? '',
-        createdAt: toIso(r.createdAt),
-      }))),
+        text: r.text,
+        createdAt: r.createdAt,
+      })),
     })),
-    reshared: reshared
+    reshared: post.reshared
       ? {
-          author: authorOf(authors, reshared.authorId),
-          type: reshared.type as PostType,
-          text: (reshared.text as string) ?? '',
-          mediaUrls: toStringArray(reshared.mediaUrls),
-          certificateTitle: (reshared.certificateTitle as string | null) ?? null,
-          createdAt: toIso(reshared.createdAt),
+          author: authorOf(authors, post.reshared.authorId),
+          type: post.reshared.type as PostType,
+          text: post.reshared.text,
+          mediaUrls: post.reshared.mediaUrls,
+          certificateTitle: post.reshared.certificateTitle,
+          createdAt: post.reshared.createdAt,
         }
       : null,
   };
@@ -181,25 +175,21 @@ function toPublic(
 
 /** The Community feed — newest posts first, fully hydrated. */
 export async function listFeed(viewerId: string, limit: number): Promise<PublicPost[]> {
-  const posts = await PostModel.find()
-    .sort({ createdAt: -1 })
-    .limit(Math.min(Math.max(limit, 1), 50))
-    .lean();
-  const authors = await hydrateAuthors(posts as Array<Record<string, unknown>>);
-  return (posts as Array<Record<string, unknown>>).map((p) =>
-    toPublic(p, authors, viewerId),
-  );
+  const posts = await getDb()
+    .select()
+    .from(communityPosts)
+    .orderBy(desc(communityPosts.createdAt))
+    .limit(Math.min(Math.max(limit, 1), 50));
+  const authors = await hydrateAuthors(posts);
+  return posts.map((p) => toPublic(p, authors, viewerId));
 }
 
 /** A single post, hydrated — used after every mutation. */
-export async function getPublicPost(
-  postId: string,
-  viewerId: string,
-): Promise<PublicPost> {
-  const post = await PostModel.findById(postId).lean();
+export async function getPublicPost(postId: string, viewerId: string): Promise<PublicPost> {
+  const [post] = await getDb().select().from(communityPosts).where(eq(communityPosts.id, postId)).limit(1);
   if (!post) throw notFound();
-  const authors = await hydrateAuthors([post as Record<string, unknown>]);
-  return toPublic(post as Record<string, unknown>, authors, viewerId);
+  const authors = await hydrateAuthors([post]);
+  return toPublic(post, authors, viewerId);
 }
 
 // ─── writes ──────────────────────────────────────────────────────────────────
@@ -211,32 +201,36 @@ export async function createPost(input: {
   mediaDataUrls: string[];
   certificateTitle: string | null;
 }): Promise<PublicPost> {
-  const doc = await PostModel.create({
-    authorId: new Types.ObjectId(input.authorId),
-    type: input.type,
-    text: input.text,
-    mediaUrls: input.mediaDataUrls,
-    certificateTitle:
-      input.type === 'certificate' ? input.certificateTitle : null,
-  });
-  return getPublicPost(String(doc._id), input.authorId);
+  const [doc] = await getDb()
+    .insert(communityPosts)
+    .values({
+      authorId: input.authorId,
+      type: input.type,
+      text: input.text,
+      mediaUrls: input.mediaDataUrls,
+      certificateTitle: input.type === 'certificate' ? input.certificateTitle : null,
+    })
+    .returning();
+  return getPublicPost(doc!.id, input.authorId);
 }
 
 /** Toggle the viewer's like on a post. */
-export async function toggleLike(
-  postId: string,
-  viewerId: string,
-): Promise<PublicPost> {
-  const post = await PostModel.findById(postId).select('likes').lean();
+export async function toggleLike(postId: string, viewerId: string): Promise<PublicPost> {
+  const [post] = await getDb()
+    .select({ likes: communityPosts.likes })
+    .from(communityPosts)
+    .where(eq(communityPosts.id, postId))
+    .limit(1);
   if (!post) throw notFound();
-  const likes = ((post as Record<string, unknown>).likes as unknown[]) ?? [];
-  const liked = likes.some((id) => String(id) === viewerId);
-  await PostModel.updateOne(
-    { _id: postId },
-    liked
-      ? { $pull: { likes: new Types.ObjectId(viewerId) } }
-      : { $addToSet: { likes: new Types.ObjectId(viewerId) } },
-  );
+  const liked = post.likes.includes(viewerId);
+  await getDb()
+    .update(communityPosts)
+    .set({
+      likes: liked
+        ? sql`array_remove(${communityPosts.likes}, ${viewerId})`
+        : sql`array_append(${communityPosts.likes}, ${viewerId}::uuid)`,
+    })
+    .where(eq(communityPosts.id, postId));
   return getPublicPost(postId, viewerId);
 }
 
@@ -245,20 +239,23 @@ export async function addComment(
   viewerId: string,
   text: string,
 ): Promise<PublicPost> {
-  const result = await PostModel.updateOne(
-    { _id: postId },
-    {
-      $push: {
-        comments: {
-          authorId: new Types.ObjectId(viewerId),
-          text,
-          createdAt: new Date(),
-          replies: [],
-        },
-      },
-    },
-  );
-  if (result.matchedCount === 0) throw notFound();
+  const [post] = await getDb()
+    .select({ comments: communityPosts.comments })
+    .from(communityPosts)
+    .where(eq(communityPosts.id, postId))
+    .limit(1);
+  if (!post) throw notFound();
+  const newComment: PostCommentJson = {
+    id: randomUUID(),
+    authorId: viewerId,
+    text,
+    replies: [],
+    createdAt: new Date().toISOString(),
+  };
+  await getDb()
+    .update(communityPosts)
+    .set({ comments: [...post.comments, newComment] })
+    .where(eq(communityPosts.id, postId));
   return getPublicPost(postId, viewerId);
 }
 
@@ -268,55 +265,48 @@ export async function addReply(
   viewerId: string,
   text: string,
 ): Promise<PublicPost> {
-  const result = await PostModel.updateOne(
-    { _id: postId },
-    {
-      $push: {
-        'comments.$[c].replies': {
-          authorId: new Types.ObjectId(viewerId),
-          text,
-          createdAt: new Date(),
-        },
-      },
-    },
-    { arrayFilters: [{ 'c._id': new Types.ObjectId(commentId) }] },
-  );
-  if (result.matchedCount === 0) throw notFound();
+  const [post] = await getDb()
+    .select({ comments: communityPosts.comments })
+    .from(communityPosts)
+    .where(eq(communityPosts.id, postId))
+    .limit(1);
+  if (!post) throw notFound();
+  const idx = post.comments.findIndex((c) => c.id === commentId);
+  if (idx === -1) throw notFound();
+  const newReply: PostReplyJson = {
+    id: randomUUID(),
+    authorId: viewerId,
+    text,
+    createdAt: new Date().toISOString(),
+  };
+  const comments = [...post.comments];
+  comments[idx] = { ...comments[idx]!, replies: [...comments[idx]!.replies, newReply] };
+  await getDb().update(communityPosts).set({ comments }).where(eq(communityPosts.id, postId));
   return getPublicPost(postId, viewerId);
 }
 
 /** Repost — create the viewer's own post wrapping a snapshot of the original. */
 export async function repost(postId: string, viewerId: string): Promise<PublicPost> {
-  const original = await PostModel.findById(postId).lean();
+  const [original] = await getDb().select().from(communityPosts).where(eq(communityPosts.id, postId)).limit(1);
   if (!original) throw notFound();
-  const o = original as Record<string, unknown>;
 
   // Reposting a repost reshares the underlying original — never nest.
-  const existing = o.reshared as Record<string, unknown> | null | undefined;
-  const snapshot = existing
-    ? {
-        authorId: new Types.ObjectId(String(existing.authorId)),
-        type: existing.type as PostType,
-        text: (existing.text as string) ?? '',
-        mediaUrls: toStringArray(existing.mediaUrls),
-        certificateTitle: (existing.certificateTitle as string | null) ?? null,
-        createdAt: existing.createdAt as Date,
-      }
-    : {
-        authorId: new Types.ObjectId(String(o.authorId)),
-        type: o.type as PostType,
-        text: (o.text as string) ?? '',
-        mediaUrls: toStringArray(o.mediaUrls),
-        certificateTitle: (o.certificateTitle as string | null) ?? null,
-        createdAt: o.createdAt as Date,
-      };
+  const snapshot: ResharedSnapshotJson = original.reshared ?? {
+    authorId: original.authorId,
+    type: original.type,
+    text: original.text,
+    mediaUrls: original.mediaUrls,
+    certificateTitle: original.certificateTitle,
+    createdAt: original.createdAt.toISOString(),
+  };
 
-  const doc = await PostModel.create({
-    authorId: new Types.ObjectId(viewerId),
-    type: 'text',
-    text: '',
-    reshared: snapshot,
-  });
-  await PostModel.updateOne({ _id: postId }, { $inc: { repostCount: 1 } });
-  return getPublicPost(String(doc._id), viewerId);
+  const [doc] = await getDb()
+    .insert(communityPosts)
+    .values({ authorId: viewerId, type: 'text', text: '', reshared: snapshot })
+    .returning();
+  await getDb()
+    .update(communityPosts)
+    .set({ repostCount: sql`${communityPosts.repostCount} + 1` })
+    .where(eq(communityPosts.id, postId));
+  return getPublicPost(doc!.id, viewerId);
 }

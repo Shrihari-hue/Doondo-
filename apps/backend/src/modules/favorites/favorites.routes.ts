@@ -11,23 +11,23 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { Types } from 'mongoose';
+import { and, eq, sql } from 'drizzle-orm';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
-import { FavoriteEmployerModel } from './favoriteEmployer.model';
+import { getDb } from '@/db/client';
+import { favoriteEmployers } from '@/db/schema';
 
 const router = Router();
 
-const objectId = z.string().refine((v) => Types.ObjectId.isValid(v), {
-  message: 'Invalid employer id',
-});
+const uuidId = z.string().uuid('Invalid employer id');
 
 router.get('/me/count', requireAuth, requireRole('employer'), async (req, res, next) => {
   try {
-    const count = await FavoriteEmployerModel.countDocuments({
-      employerId: new Types.ObjectId(req.user!.id),
-    });
-    res.json({ ok: true, data: { count }, requestId: req.id });
+    const [row] = await getDb()
+      .select({ count: sql<number>`count(*)::int` })
+      .from(favoriteEmployers)
+      .where(eq(favoriteEmployers.employerId, req.user!.id));
+    res.json({ ok: true, data: { count: row?.count ?? 0 }, requestId: req.id });
   } catch (err) {
     next(err);
   }
@@ -37,14 +37,20 @@ router.get(
   '/:employerId',
   requireAuth,
   requireRole('seeker'),
-  validate(z.object({ params: z.object({ employerId: objectId }) })),
+  validate(z.object({ params: z.object({ employerId: uuidId }) })),
   async (req, res, next) => {
     try {
-      const hit = await FavoriteEmployerModel.exists({
-        workerId: new Types.ObjectId(req.user!.id),
-        employerId: new Types.ObjectId(req.params.employerId!),
-      });
-      res.json({ ok: true, data: { favorited: !!hit }, requestId: req.id });
+      const [row] = await getDb()
+        .select({ id: favoriteEmployers.id })
+        .from(favoriteEmployers)
+        .where(
+          and(
+            eq(favoriteEmployers.workerId, req.user!.id),
+            eq(favoriteEmployers.employerId, req.params.employerId!),
+          ),
+        )
+        .limit(1);
+      res.json({ ok: true, data: { favorited: Boolean(row) }, requestId: req.id });
     } catch (err) {
       next(err);
     }
@@ -57,28 +63,26 @@ router.put(
   requireRole('seeker'),
   validate(
     z.object({
-      params: z.object({ employerId: objectId }),
+      params: z.object({ employerId: uuidId }),
       body: z.object({ on: z.boolean() }),
     }),
   ),
   async (req, res, next) => {
     try {
-      const workerId = new Types.ObjectId(req.user!.id);
-      const employerId = new Types.ObjectId(req.params.employerId!);
-      if ((req.body as { on: boolean }).on) {
-        await FavoriteEmployerModel.updateOne(
-          { workerId, employerId },
-          { $setOnInsert: { workerId, employerId } },
-          { upsert: true },
-        );
+      const workerId = req.user!.id;
+      const employerId = req.params.employerId!;
+      const on = (req.body as { on: boolean }).on;
+      if (on) {
+        await getDb()
+          .insert(favoriteEmployers)
+          .values({ workerId, employerId })
+          .onConflictDoNothing();
       } else {
-        await FavoriteEmployerModel.deleteOne({ workerId, employerId });
+        await getDb()
+          .delete(favoriteEmployers)
+          .where(and(eq(favoriteEmployers.workerId, workerId), eq(favoriteEmployers.employerId, employerId)));
       }
-      res.json({
-        ok: true,
-        data: { favorited: (req.body as { on: boolean }).on },
-        requestId: req.id,
-      });
+      res.json({ ok: true, data: { favorited: on }, requestId: req.id });
     } catch (err) {
       next(err);
     }

@@ -14,9 +14,9 @@
  * single interval is capped so a stale pair can't inflate the total.
  */
 
-import { Types } from 'mongoose';
-import { ShiftCheckInModel } from '@/modules/applications/shiftCheckIn.model';
-import { UserModel } from '@/modules/users/user.model';
+import { and, asc, eq, gte, inArray, lt } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { shiftCheckIns, users } from '@/db/schema';
 
 export interface TimesheetWorker {
   workerId: string;
@@ -56,26 +56,25 @@ export async function getTimesheet(
   employerId: string,
   month?: string,
 ): Promise<TimesheetResult> {
+  const db = getDb();
   const { start, end, label } = monthBounds(month);
 
-  const events = await ShiftCheckInModel.find({
-    employerId: new Types.ObjectId(employerId),
-    timestamp: { $gte: start, $lt: end },
-  })
-    .select('seekerId kind timestamp')
-    .sort({ seekerId: 1, timestamp: 1 })
-    .lean();
+  const events = await db
+    .select({ seekerId: shiftCheckIns.seekerId, kind: shiftCheckIns.kind, timestamp: shiftCheckIns.timestamp })
+    .from(shiftCheckIns)
+    .where(and(eq(shiftCheckIns.employerId, employerId), gte(shiftCheckIns.timestamp, start), lt(shiftCheckIns.timestamp, end)))
+    .orderBy(asc(shiftCheckIns.seekerId), asc(shiftCheckIns.timestamp));
   if (events.length === 0) return { month: label, workers: [] };
 
   // Walk per-seeker, pairing check_in → check_out.
   type Acc = { minutes: number; shifts: number; days: Set<string> };
   const byWorker = new Map<string, Acc>();
-  let openInByWorker = new Map<string, Date>();
+  const openInByWorker = new Map<string, Date>();
 
   for (const e of events) {
-    const wid = (e.seekerId as unknown as Types.ObjectId).toString();
+    const wid = e.seekerId;
     if (!byWorker.has(wid)) byWorker.set(wid, { minutes: 0, shifts: 0, days: new Set() });
-    const ts = new Date(e.timestamp as Date);
+    const ts = e.timestamp;
     if (e.kind === 'check_in') {
       openInByWorker.set(wid, ts);
     } else if (e.kind === 'check_out') {
@@ -92,10 +91,8 @@ export async function getTimesheet(
   }
 
   const workerIds = [...byWorker.keys()];
-  const users = await UserModel.find({ _id: { $in: workerIds } })
-    .select('name photoUrl')
-    .lean();
-  const userMap = new Map(users.map((u) => [(u._id as Types.ObjectId).toString(), u]));
+  const workerRows = await db.select({ id: users.id, name: users.name, photoUrl: users.photoUrl }).from(users).where(inArray(users.id, workerIds));
+  const userMap = new Map(workerRows.map((u) => [u.id, u]));
 
   const workers: TimesheetWorker[] = workerIds
     .map((wid) => {
@@ -103,8 +100,8 @@ export async function getTimesheet(
       const u = userMap.get(wid);
       return {
         workerId: wid,
-        name: (u as { name?: string } | undefined)?.name ?? 'Worker',
-        photoUrl: (u as { photoUrl?: string | null } | undefined)?.photoUrl ?? null,
+        name: u?.name ?? 'Worker',
+        photoUrl: u?.photoUrl ?? null,
         totalMinutes: Math.round(acc.minutes),
         shifts: acc.shifts,
         days: acc.days.size,

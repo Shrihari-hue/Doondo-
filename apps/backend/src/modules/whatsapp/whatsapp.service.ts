@@ -14,7 +14,7 @@
  *     reject — fall back to sendTemplate.
  *
  *   logInbound({...})  — called by the webhook controller to persist
- *     incoming messages. Returns the saved doc so the caller can fan
+ *     incoming messages. Returns the saved row so the caller can fan
  *     out (auto-ack, notify support, etc.).
  *
  *   isValidTwilioSignature({...})  — verifies X-Twilio-Signature so a
@@ -28,15 +28,15 @@
  */
 
 import crypto from 'crypto';
+import { eq } from 'drizzle-orm';
 import { env } from '@/config/env';
 import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import {
-  WhatsAppMessageModel,
-  type WhatsAppMessage,
-  type WhatsAppMessageDoc,
-  type WhatsAppStatus,
-} from './whatsappMessage.model';
+import { getDb } from '@/db/client';
+import { whatsappMessages, type WhatsAppStatus } from '@/db/schema';
+
+export type { WhatsAppStatus };
+export type PublicWhatsAppMessage = typeof whatsappMessages.$inferSelect;
 
 // ─── Phone number helpers ──────────────────────────────────────────────
 
@@ -121,7 +121,7 @@ export interface SendTemplateArgs {
 
 export async function sendTemplate(
   args: SendTemplateArgs,
-): Promise<WhatsAppMessageDoc> {
+): Promise<PublicWhatsAppMessage> {
   const { accountSid, user, pass, from } = assertConfigured();
   const to = toWhatsAppAddress(args.to);
 
@@ -183,7 +183,7 @@ export interface SendTextArgs {
   userId?: string;
 }
 
-export async function sendText(args: SendTextArgs): Promise<WhatsAppMessageDoc> {
+export async function sendText(args: SendTextArgs): Promise<PublicWhatsAppMessage> {
   const { accountSid, user, pass, from } = assertConfigured();
   const to = toWhatsAppAddress(args.to);
 
@@ -239,25 +239,25 @@ export interface LogInboundArgs {
   userId?: string | null;
 }
 
-export async function logInbound(args: LogInboundArgs): Promise<WhatsAppMessageDoc> {
+export async function logInbound(args: LogInboundArgs): Promise<PublicWhatsAppMessage> {
   // Upsert by SID so Twilio retries don't double-write.
-  const doc = await WhatsAppMessageModel.findOneAndUpdate(
-    { sid: args.sid },
-    {
-      $setOnInsert: {
-        sid: args.sid,
-        direction: 'inbound',
-        from: args.from,
-        to: args.to,
-        body: args.body,
-        mediaUrls: args.mediaUrls && args.mediaUrls.length > 0 ? args.mediaUrls : undefined,
-        status: 'received' as WhatsAppStatus,
-        userId: args.userId ?? null,
-      },
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  );
-  return doc;
+  const [row] = await getDb()
+    .insert(whatsappMessages)
+    .values({
+      sid: args.sid,
+      direction: 'inbound',
+      from: args.from,
+      to: args.to,
+      body: args.body,
+      mediaUrls: args.mediaUrls && args.mediaUrls.length > 0 ? args.mediaUrls : null,
+      status: 'received',
+      userId: args.userId ?? null,
+    })
+    .onConflictDoNothing({ target: whatsappMessages.sid })
+    .returning();
+  if (row) return row;
+  const [existing] = await getDb().select().from(whatsappMessages).where(eq(whatsappMessages.sid, args.sid)).limit(1);
+  return existing!;
 }
 
 // ─── Inbound: status callback (delivered/read/failed) ──────────────────
@@ -268,16 +268,14 @@ export async function updateOutboundStatus(args: {
   errorCode?: number;
   errorMessage?: string;
 }): Promise<void> {
-  await WhatsAppMessageModel.updateOne(
-    { sid: args.sid },
-    {
-      $set: {
-        status: normaliseStatus(args.status),
-        ...(args.errorCode !== undefined ? { errorCode: args.errorCode } : {}),
-        ...(args.errorMessage !== undefined ? { errorMessage: args.errorMessage } : {}),
-      },
-    },
-  );
+  await getDb()
+    .update(whatsappMessages)
+    .set({
+      status: normaliseStatus(args.status),
+      ...(args.errorCode !== undefined ? { errorCode: args.errorCode } : {}),
+      ...(args.errorMessage !== undefined ? { errorMessage: args.errorMessage } : {}),
+    })
+    .where(eq(whatsappMessages.sid, args.sid));
 }
 
 // ─── Webhook signature validation ──────────────────────────────────────
@@ -349,20 +347,23 @@ async function persistOutbound(args: {
   contentSid?: string | null;
   contentVariables?: Record<string, string> | null;
   userId?: string | null;
-}): Promise<WhatsAppMessageDoc> {
-  const doc = await WhatsAppMessageModel.create({
-    sid: args.sid,
-    direction: 'outbound',
-    from: args.from,
-    to: args.to,
-    body: args.body,
-    mediaUrls: args.mediaUrls,
-    status: args.status,
-    contentSid: args.contentSid ?? null,
-    contentVariables: args.contentVariables ?? null,
-    userId: (args.userId as unknown as WhatsAppMessage['userId']) ?? null,
-  });
-  return doc;
+}): Promise<PublicWhatsAppMessage> {
+  const [row] = await getDb()
+    .insert(whatsappMessages)
+    .values({
+      sid: args.sid,
+      direction: 'outbound',
+      from: args.from,
+      to: args.to,
+      body: args.body,
+      mediaUrls: args.mediaUrls ?? null,
+      status: args.status,
+      contentSid: args.contentSid ?? null,
+      contentVariables: args.contentVariables ?? null,
+      userId: args.userId ?? null,
+    })
+    .returning();
+  return row!;
 }
 
 /**

@@ -13,8 +13,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
-import { BUDGET_PERIODS } from './laborBudget.model';
-import { getLaborBudgetSummary, setLaborBudget } from './laborBudget.service';
+import { BUDGET_PERIODS, getLaborBudgetSummary, setLaborBudget } from './laborBudget.service';
 
 const router = Router();
 

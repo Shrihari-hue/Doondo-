@@ -8,9 +8,9 @@
  * Computed purely from the hires already in the DB; no new tracking.
  */
 
-import { Types } from 'mongoose';
-import { ApplicationModel } from '@/modules/applications/application.model';
-import { UserModel } from '@/modules/users/user.model';
+import { sql } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { applications, users } from '@/db/schema';
 
 export interface ChurnRisk {
   workerId: string;
@@ -29,44 +29,37 @@ const MIN_HIRES = 3;
 /** Days of silence before a regular is flagged as drifting. */
 const INACTIVE_DAYS = 21;
 
+interface ChurnRow extends Record<string, unknown> {
+  seeker_id: string;
+  name: string;
+  photo_url: string | null;
+  hire_count: number;
+  last_hired_at: Date;
+}
+
 export async function getChurnRisks(employerId: string): Promise<ChurnRisk[]> {
   const cutoff = new Date(Date.now() - INACTIVE_DAYS * 24 * 60 * 60 * 1000);
 
-  const agg = (await ApplicationModel.aggregate([
-    { $match: { employerId: new Types.ObjectId(employerId), status: 'hired' } },
-    {
-      $group: {
-        _id: '$seekerId',
-        hireCount: { $sum: 1 },
-        lastHiredAt: { $max: { $ifNull: ['$hiredAt', '$appliedAt'] } },
-      },
-    },
-    { $match: { hireCount: { $gte: MIN_HIRES }, lastHiredAt: { $lte: cutoff } } },
-    { $sort: { lastHiredAt: 1 } },
-    { $limit: 20 },
-  ])) as Array<{ _id: Types.ObjectId; hireCount: number; lastHiredAt: Date }>;
-
-  if (agg.length === 0) return [];
-
-  const users = await UserModel.find({ _id: { $in: agg.map((a) => a._id) } })
-    .select('name photoUrl')
-    .lean();
-  const userMap = new Map(users.map((u) => [(u._id as Types.ObjectId).toString(), u]));
+  const rows = await getDb().execute<ChurnRow>(sql`
+    SELECT a.seeker_id, u.name, u.photo_url,
+      count(*)::int AS hire_count,
+      max(coalesce(a.hired_at, a.applied_at)) AS last_hired_at
+    FROM ${applications} a
+    JOIN ${users} u ON u.id = a.seeker_id
+    WHERE a.employer_id = ${employerId} AND a.status = 'hired'
+    GROUP BY a.seeker_id, u.name, u.photo_url
+    HAVING count(*) >= ${MIN_HIRES} AND max(coalesce(a.hired_at, a.applied_at)) <= ${cutoff}
+    ORDER BY last_hired_at ASC
+    LIMIT 20
+  `);
 
   const now = Date.now();
-  return agg
-    .map((a) => {
-      const u = userMap.get(a._id.toString());
-      if (!u) return null;
-      const last = a.lastHiredAt ? new Date(a.lastHiredAt) : null;
-      return {
-        workerId: a._id.toString(),
-        name: (u as { name?: string }).name ?? 'Worker',
-        photoUrl: (u as { photoUrl?: string | null }).photoUrl ?? null,
-        hireCount: a.hireCount,
-        lastHiredAt: last ? last.toISOString() : null,
-        daysSince: last ? Math.floor((now - last.getTime()) / 86_400_000) : 0,
-      } as ChurnRisk;
-    })
-    .filter((x): x is ChurnRisk => x !== null);
+  return [...rows].map((r) => ({
+    workerId: r.seeker_id,
+    name: r.name ?? 'Worker',
+    photoUrl: r.photo_url ?? null,
+    hireCount: r.hire_count,
+    lastHiredAt: r.last_hired_at ? new Date(r.last_hired_at).toISOString() : null,
+    daysSince: r.last_hired_at ? Math.floor((now - new Date(r.last_hired_at).getTime()) / 86_400_000) : 0,
+  }));
 }

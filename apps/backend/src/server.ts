@@ -1,6 +1,6 @@
 /**
  * Build the Express + Socket.IO app. Pure factory — boot logic
- * (connectDb, listen, signal handlers) lives in src/index.ts.
+ * (connectPg, listen, signal handlers) lives in src/index.ts.
  */
 
 import express, { type Express, type Request, type Response } from 'express';

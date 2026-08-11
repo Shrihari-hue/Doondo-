@@ -4,15 +4,15 @@
  *
  * The catalogue itself is in code (courses.catalogue.ts) so we can ship
  * curated content quickly without admin tooling. Enrollment progress
- * lives in Mongo so it survives across devices and the worker's badges
- * follow them on their resume.
+ * lives in Postgres so it survives across devices and the worker's
+ * badges follow them on their resume.
  */
 
-import { Types } from 'mongoose';
+import { and, desc, eq, isNotNull } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
+import { getDb } from '@/db/client';
+import { enrollments } from '@/db/schema';
 import { COURSES, findCourse, findLesson, type Course } from './courses.catalogue';
-import { EnrollmentModel, type PublicEnrollment } from './enrollment.model';
-import { UserModel } from '@/modules/users/user.model';
 
 // ─── Public-facing course shapes ────────────────────────────────────────────
 
@@ -36,6 +36,31 @@ export interface PublicCourseDetail extends PublicCourseSummary {
     body: string;
     durationMinutes: number;
   }>;
+}
+
+export interface PublicEnrollment {
+  id: string;
+  courseId: string;
+  completedLessonIds: string[];
+  /** Computed convenience — number of lessons done. */
+  completedLessonsCount: number;
+  startedAt: string;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+type EnrollmentRow = typeof enrollments.$inferSelect;
+
+function toPublicEnrollment(row: EnrollmentRow): PublicEnrollment {
+  return {
+    id: row.id,
+    courseId: row.courseId,
+    completedLessonIds: row.completedLessonIds,
+    completedLessonsCount: row.completedLessonIds.length,
+    startedAt: row.startedAt.toISOString(),
+    completedAt: row.completedAt ? row.completedAt.toISOString() : null,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 function summarise(c: Course): PublicCourseSummary {
@@ -96,6 +121,15 @@ export function getCourseDetail(courseId: string): PublicCourseDetail {
 
 // ─── Enrollment ─────────────────────────────────────────────────────────────
 
+async function findEnrollment(seekerId: string, courseId: string): Promise<EnrollmentRow | undefined> {
+  const [row] = await getDb()
+    .select()
+    .from(enrollments)
+    .where(and(eq(enrollments.seekerId, seekerId), eq(enrollments.courseId, courseId)))
+    .limit(1);
+  return row;
+}
+
 export async function enrollSeeker(
   seekerId: string,
   courseId: string,
@@ -103,19 +137,19 @@ export async function enrollSeeker(
   const c = findCourse(courseId);
   if (!c) throw errors.notFound('Course not found');
 
-  const existing = await EnrollmentModel.findOne({
-    seekerId: new Types.ObjectId(seekerId),
-    courseId,
-  });
-  if (existing) return existing.toPublicJSON();
+  const existing = await findEnrollment(seekerId, courseId);
+  if (existing) return toPublicEnrollment(existing);
 
-  const created = await EnrollmentModel.create({
-    seekerId: new Types.ObjectId(seekerId),
-    courseId,
-    completedLessonIds: [],
-    startedAt: new Date(),
-  });
-  return created.toPublicJSON();
+  const [created] = await getDb()
+    .insert(enrollments)
+    .values({ seekerId, courseId, completedLessonIds: [], startedAt: new Date() })
+    .onConflictDoNothing()
+    .returning();
+  // Rare race: another request enrolled between the read above and this
+  // insert — the unique index rejected ours, so re-read the winner.
+  const row = created ?? (await findEnrollment(seekerId, courseId));
+  if (!row) throw errors.internal();
+  return toPublicEnrollment(row);
 }
 
 export async function completeLesson(
@@ -130,25 +164,22 @@ export async function completeLesson(
   // tap two buttons. Idempotent thanks to the unique index.
   await enrollSeeker(seekerId, courseId);
 
-  const enrolment = await EnrollmentModel.findOne({
-    seekerId: new Types.ObjectId(seekerId),
-    courseId,
-  });
+  const enrolment = await findEnrollment(seekerId, courseId);
   if (!enrolment) throw errors.notFound('Enrollment not found');
 
-  if (!enrolment.completedLessonIds.includes(lessonId)) {
-    enrolment.completedLessonIds.push(lessonId);
-  }
+  const completedLessonIds = enrolment.completedLessonIds.includes(lessonId)
+    ? enrolment.completedLessonIds
+    : [...enrolment.completedLessonIds, lessonId];
 
   // All lessons done? Mark the badge as earned.
-  const allDone = resolved.course.lessons.every((l) =>
-    enrolment.completedLessonIds.includes(l.id),
-  );
-  if (allDone && !enrolment.completedAt) {
-    enrolment.completedAt = new Date();
-  }
+  const allDone = resolved.course.lessons.every((l) => completedLessonIds.includes(l.id));
+  const completedAt = allDone && !enrolment.completedAt ? new Date() : enrolment.completedAt;
 
-  await enrolment.save();
+  const [updated] = await getDb()
+    .update(enrollments)
+    .set({ completedLessonIds, completedAt })
+    .where(eq(enrollments.id, enrolment.id))
+    .returning();
 
   // Bump the seeker's course-day streak. Same-day repeat completions
   // are no-ops in the streak service so a worker who finishes 3
@@ -162,16 +193,18 @@ export async function completeLesson(
     }
   })();
 
-  return enrolment.toPublicJSON();
+  return toPublicEnrollment(updated!);
 }
 
 export async function listMyEnrollments(
   seekerId: string,
 ): Promise<PublicEnrollment[]> {
-  const docs = await EnrollmentModel.find({
-    seekerId: new Types.ObjectId(seekerId),
-  }).sort({ updatedAt: -1 });
-  return docs.map((d) => d.toPublicJSON());
+  const rows = await getDb()
+    .select()
+    .from(enrollments)
+    .where(eq(enrollments.seekerId, seekerId))
+    .orderBy(desc(enrollments.updatedAt));
+  return rows.map(toPublicEnrollment);
 }
 
 /**
@@ -182,13 +215,11 @@ export async function listMyEnrollments(
 export async function listCompletedCourseIds(
   seekerId: string,
 ): Promise<string[]> {
-  const docs = await EnrollmentModel.find({
-    seekerId: new Types.ObjectId(seekerId),
-    completedAt: { $ne: null },
-  })
-    .select('courseId')
-    .lean();
-  return docs.map((d) => d.courseId);
+  const rows = await getDb()
+    .select({ courseId: enrollments.courseId })
+    .from(enrollments)
+    .where(and(eq(enrollments.seekerId, seekerId), isNotNull(enrollments.completedAt)));
+  return rows.map((r) => r.courseId);
 }
 
 /**
@@ -205,7 +236,3 @@ export async function listCompletedCourseSummaries(
     .filter((c): c is Course => c !== undefined)
     .map((c) => summarise(c));
 }
-
-// Suppress unused-warning for the userModel re-export — kept for future
-// "recommend courses based on bio + skills" expansion.
-void UserModel;

@@ -16,13 +16,16 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { Types } from 'mongoose';
+import { and, count, desc, eq, isNotNull } from 'drizzle-orm';
 
-import { UserModel } from '@/modules/users/user.model';
-import { JobModel, type PublicJob } from '@/modules/jobs/job.model';
-import { ApplicationModel } from '@/modules/applications/application.model';
+import { getDb } from '@/db/client';
+import { applications, jobs, users } from '@/db/schema';
+import { toPublicUser } from '@/modules/users/user.serializers';
+import { toPublicJob } from '@/modules/jobs/job.serializers';
 import { summarizeForUser } from '@/modules/ratings/rating.service';
 import { AppError } from '@/lib/errors';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * GET /api/v1/employers/:id
@@ -38,20 +41,20 @@ export async function getEmployerProfile(
 ): Promise<void> {
   try {
     const { id } = req.params;
-    if (!id || !Types.ObjectId.isValid(id)) {
+    if (!id || !UUID_RE.test(id)) {
       throw new AppError({
         code: 'VALIDATION_FAILED',
         message: 'Invalid employer id',
         status: 400,
       });
     }
-    const employerObjectId = new Types.ObjectId(id);
 
-    const employer = await UserModel.findOne({
-      _id: employerObjectId,
-      role: 'employer',
-      isActive: true,
-    });
+    const db = getDb();
+    const [employer] = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.id, id), eq(users.role, 'employer'), eq(users.isActive, true)))
+      .limit(1);
     if (!employer) {
       throw new AppError({
         code: 'NOT_FOUND',
@@ -66,42 +69,40 @@ export async function getEmployerProfile(
     // left unanswered past the SLA window. A high ratio is the public
     // "slow to respond" warning a seeker sees before applying.
     const [
-      jobsCount,
-      activeJobsCount,
-      hiresCount,
-      totalApplications,
-      ghostedCount,
+      [jobsCountRow],
+      [activeJobsCountRow],
+      [hiresCountRow],
+      [totalApplicationsRow],
+      [ghostedCountRow],
       ratingSummary,
       recentJobs,
     ] = await Promise.all([
-      JobModel.countDocuments({ employerId: employerObjectId }),
-      JobModel.countDocuments({ employerId: employerObjectId, status: 'active' }),
-      ApplicationModel.countDocuments({
-        employerId: employerObjectId,
-        status: 'hired',
-      }),
-      ApplicationModel.countDocuments({ employerId: employerObjectId }),
-      ApplicationModel.countDocuments({
-        employerId: employerObjectId,
-        flaggedAsGhostedAt: { $ne: null },
-      }),
-      summarizeForUser(employer._id.toString()),
-      JobModel.find({ employerId: employerObjectId, status: 'active' })
-        .sort({ createdAt: -1 })
-        .limit(5),
+      db.select({ n: count() }).from(jobs).where(eq(jobs.employerId, id)),
+      db.select({ n: count() }).from(jobs).where(and(eq(jobs.employerId, id), eq(jobs.status, 'active'))),
+      db.select({ n: count() }).from(applications).where(and(eq(applications.employerId, id), eq(applications.status, 'hired'))),
+      db.select({ n: count() }).from(applications).where(eq(applications.employerId, id)),
+      db.select({ n: count() }).from(applications).where(and(eq(applications.employerId, id), isNotNull(applications.flaggedAsGhostedAt))),
+      summarizeForUser(employer.id),
+      db.select().from(jobs).where(and(eq(jobs.employerId, id), eq(jobs.status, 'active'))).orderBy(desc(jobs.createdAt)).limit(5),
     ]);
+
+    const jobsCount = jobsCountRow!.n;
+    const activeJobsCount = activeJobsCountRow!.n;
+    const hiresCount = hiresCountRow!.n;
+    const totalApplications = totalApplicationsRow!.n;
+    const ghostedCount = ghostedCountRow!.n;
 
     const rating =
       ratingSummary.count > 0
         ? { avg: ratingSummary.avg, count: ratingSummary.count }
         : null;
 
-    const recentJobsPublic: PublicJob[] = recentJobs.map((j) => j.toPublicJSON());
+    const recentJobsPublic = recentJobs.map((j) => toPublicJob(j));
 
     res.status(200).json({
       ok: true,
       data: {
-        employer: employer.toPublicJSON({ rating }),
+        employer: toPublicUser(employer, { rating }),
         stats: {
           jobsCount,
           activeJobsCount,

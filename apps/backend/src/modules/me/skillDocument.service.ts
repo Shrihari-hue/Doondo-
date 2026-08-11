@@ -9,13 +9,13 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { eq } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import {
-  UserModel,
-  type PublicUser,
-  type SkillDocumentKind,
-} from '@/modules/users/user.model';
+import { getDb } from '@/db/client';
+import { users, workPhotos as workPhotosTable, type SkillDocumentJson } from '@/db/schema';
+import { toPublicUser } from '@/modules/users/user.serializers';
+import type { PublicUser } from '@/modules/users/user.model';
 import {
   storeFile,
   MAX_FILE_BASE64_BYTES,
@@ -26,6 +26,17 @@ import {
 const MAX_PER_SKILL = 5;
 const MAX_TOTAL = 40;
 
+/** A document is a 'photo' when it's an image, otherwise a 'document'. */
+function inferKind(mimeType: string): SkillDocumentJson['kind'] {
+  return /^image\//i.test(mimeType) ? 'photo' : 'document';
+}
+
+async function toPublic(user: typeof users.$inferSelect): Promise<PublicUser> {
+  const rows = await getDb().select().from(workPhotosTable).where(eq(workPhotosTable.userId, user.id));
+  const workPhotosList = rows.map((r) => ({ url: r.url, skill: r.skill, caption: r.caption ?? null, isCover: r.isCover }));
+  return toPublicUser(user, { workPhotos: workPhotosList });
+}
+
 export interface AddSkillDocumentInput {
   /** Skill slug the file is proof for. */
   skill: string;
@@ -34,11 +45,6 @@ export interface AddSkillDocumentInput {
   /** Original file name. */
   fileName: string;
   mimeType: string;
-}
-
-/** A document is a 'photo' when it's an image, otherwise a 'document'. */
-function inferKind(mimeType: string): SkillDocumentKind {
-  return /^image\//i.test(mimeType) ? 'photo' : 'document';
 }
 
 /**
@@ -51,7 +57,8 @@ export async function addSkillDocument(
   userId: string,
   input: AddSkillDocumentInput,
 ): Promise<PublicUser> {
-  const user = await UserModel.findById(userId);
+  const db = getDb();
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) throw errors.notFound('User not found.');
 
   if (!ALLOWED_FILE_MIME.test(input.mimeType)) {
@@ -106,7 +113,7 @@ export async function addSkillDocument(
     logger.warn({ err }, 'skill-document OCR failed');
   }
 
-  user.skillDocuments = [
+  const nextDocs: SkillDocumentJson[] = [
     ...docs,
     {
       id: randomUUID(),
@@ -116,12 +123,12 @@ export async function addSkillDocument(
       mimeType: input.mimeType,
       kind: inferKind(input.mimeType),
       sizeBytes: stored.sizeBytes,
-      uploadedAt: new Date(),
+      uploadedAt: new Date().toISOString(),
       extracted,
     },
   ];
-  await user.save();
-  return user.toPublicJSON();
+  const [updated] = await db.update(users).set({ skillDocuments: nextDocs }).where(eq(users.id, userId)).returning();
+  return toPublic(updated!);
 }
 
 /** Remove one skill document by id. Returns the updated public user. */
@@ -129,10 +136,11 @@ export async function removeSkillDocument(
   userId: string,
   docId: string,
 ): Promise<PublicUser> {
-  const user = await UserModel.findById(userId);
+  const db = getDb();
+  const [user] = await db.select({ skillDocuments: users.skillDocuments }).from(users).where(eq(users.id, userId)).limit(1);
   if (!user) throw errors.notFound('User not found.');
 
-  user.skillDocuments = (user.skillDocuments ?? []).filter((d) => d.id !== docId);
-  await user.save();
-  return user.toPublicJSON();
+  const nextDocs = (user.skillDocuments ?? []).filter((d) => d.id !== docId);
+  const [updated] = await db.update(users).set({ skillDocuments: nextDocs }).where(eq(users.id, userId)).returning();
+  return toPublic(updated!);
 }

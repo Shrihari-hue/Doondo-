@@ -1,5 +1,5 @@
 /** Applications service — Postgres/Drizzle implementation. */
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, type SQL } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import * as walletService from '@/modules/wallet/wallet.service';
@@ -642,7 +642,8 @@ export async function transitionByEmployer(
 ): Promise<PublicApplication> {
   const a = await getApp(applicationId);
   assertOwner(a, employerId);
-  if (!ALLOWED[a.status].includes(next)) throw errors.applicationInvalidTransition(a.status, next);
+  if (!(ALLOWED[a.status] ?? []).includes(next))
+    throw errors.applicationInvalidTransition(a.status, next);
   const now = new Date();
   const values: Partial<typeof applications.$inferInsert> = { status: next };
   if (next === 'viewed') values.viewedAt = now;
@@ -704,7 +705,7 @@ async function autoBackfill(declined: AppRow): Promise<void> {
   };
   const next = candidates
     .filter((a) => a.id !== declined.id && a.offerStatus !== 'pending')
-    .sort((a, b) => rank[a.status] - rank[b.status])[0];
+    .sort((a, b) => (rank[a.status] ?? 9) - (rank[b.status] ?? 9))[0];
   if (next) await makeOffer({ employerId: next.employerId, applicationId: next.id, ttlHours: 12 });
 }
 
@@ -760,7 +761,7 @@ function seekerView(s: typeof users.$inferSelect): NonNullable<ApplicantListEntr
   };
 }
 async function applicantRows(
-  where: ReturnType<typeof eq>,
+  where: SQL<unknown> | undefined,
   limit: number,
 ): Promise<ApplicantListEntry[]> {
   const rows = await getDb()

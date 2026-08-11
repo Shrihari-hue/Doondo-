@@ -27,6 +27,9 @@ export const shiftConfirmationStatusEnum = pgEnum('shift_confirmation_status', [
 export const paymentStatusEnum = pgEnum('payment_status', ['none', 'seeker_confirmed', 'employer_confirmed', 'confirmed', 'disputed']);
 export const shiftCheckinKindEnum = pgEnum('shift_checkin_kind', ['check_in', 'check_out']);
 
+export type ApplicationStatus = (typeof applicationStatusEnum.enumValues)[number];
+export type InterviewMode = (typeof interviewModeEnum.enumValues)[number];
+
 export interface TeamMemberJson { name: string; phone: string }
 export interface PaymentMetadataJson { seekerConfirmedAt?: string | null; employerConfirmedAt?: string | null; disputedAt?: string | null; disputeNote?: string | null }
 export interface InterviewDetailsJson { location?: string | null; meetingLink?: string | null; notes?: string | null; scheduledAt?: string | null; cancelledAt?: string | null; reminderSentAt?: string | null }

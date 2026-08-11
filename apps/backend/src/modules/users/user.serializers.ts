@@ -54,7 +54,7 @@ function serializeStreaks(s: StreaksJson): PublicUser['streaks'] {
  * model's computeProfileCompletion(). Different signals for seekers vs
  * employers, ~14% per field.
  */
-function computeProfileCompletion(u: UserRow): number {
+export function computeProfileCompletion(u: UserRow): number {
   const seekerChecks = [
     Boolean(u.name && u.name.trim()),
     Boolean(u.phone && u.phone.trim()),

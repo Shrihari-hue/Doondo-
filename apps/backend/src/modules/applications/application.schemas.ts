@@ -3,12 +3,9 @@
  */
 
 import { z } from 'zod';
-import { Types } from 'mongoose';
 import { APPLICATION_STATUSES, INTERVIEW_MODES } from './application.model';
 
-const objectIdSchema = z.string().refine((v) => Types.ObjectId.isValid(v), {
-  message: 'Invalid id',
-});
+const objectIdSchema = z.string().uuid({ message: 'Invalid id' });
 
 export const applyParamsSchema = z.object({
   params: z.object({ id: objectIdSchema }),

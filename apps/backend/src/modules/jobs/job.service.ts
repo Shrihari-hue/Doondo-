@@ -23,27 +23,21 @@
  * separate module, out of scope for this pass) — it now returns an
  * honest empty state instead of crashing on a Mongo ObjectId cast (a
  * Postgres job id is a UUID, never a valid Mongo ObjectId hex string).
- * `fanOutToCrew` is left calling Mongo's CrewMemberModel/UserModel exactly
- * as before (Crew module also out of scope) — its caller already wraps it
- * in a `.catch()`, so it degrades the same way it always has for any
- * lookup failure.
  */
 
-import { Types } from 'mongoose';
 import { and, eq, gte, inArray, ne, sql, type SQL } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { sendNewJobPush, sendCrewShiftPush } from '@/lib/push';
-import { CrewMemberModel } from '@/modules/crew/crew.model';
+import { crewMembers } from '@/db/schema/extras';
 import { emitToUser } from '@/sockets/bus';
 import { matchJobToAlerts } from '@/modules/alerts/alert.service';
-import { UserModel } from '@/modules/users/user.model';
 import { getDb } from '@/db/client';
 import { jobs } from '@/db/schema/jobs';
 import { users } from '@/db/schema/users';
 import { buildProject, type JobStatus, type PublicJob } from './job.model';
 import { toPublicJob, toPublicJobFromRaw, type RawGeoJobRow } from './job.serializers';
-import { computeWomenSafety, type WomenSafety } from './womenSafety';
+import { computeWomenSafety } from './womenSafety';
 import { findSkillTest } from '@/modules/skillTests/skillTests.catalogue';
 import type {
   CreateJobBody,
@@ -633,29 +627,22 @@ export async function repostJob(employerId: string, jobId: string): Promise<Publ
 
 /**
  * Push a crew-first job to every worker in the employer's saved crew.
- *
- * Left querying Mongo's CrewMemberModel/UserModel exactly as before — Crew
- * is a separate, unmigrated module (out of scope for this Jobs-only
- * pass). The caller already wraps this in a `.catch()`, so any lookup
- * failure (e.g. a Postgres UUID employerId no longer matching Mongo's
- * ObjectId-keyed crew records) degrades the same way any fan-out failure
- * always has: logged and swallowed, job creation still succeeds.
  */
 async function fanOutToCrew(employerId: string, job: PublicJob): Promise<void> {
-  const [members, employer] = await Promise.all([
-    CrewMemberModel.find({ employerId: new Types.ObjectId(employerId) })
-      .select('workerId')
-      .lean(),
-    UserModel.findById(employerId).select('companyName name').lean(),
+  const [members, employerRows] = await Promise.all([
+    getDb().select({ workerId: crewMembers.workerId }).from(crewMembers).where(eq(crewMembers.employerId, employerId)),
+    getDb()
+      .select({ companyName: users.companyName, name: users.name })
+      .from(users)
+      .where(eq(users.id, employerId))
+      .limit(1),
   ]);
   if (members.length === 0) return;
-  const employerName =
-    (employer as { companyName?: string | null; name?: string } | null)?.companyName ??
-    (employer as { name?: string } | null)?.name ??
-    undefined;
+  const employer = employerRows[0];
+  const employerName = employer?.companyName ?? employer?.name ?? undefined;
   for (const m of members) {
     void sendCrewShiftPush({
-      recipientId: (m.workerId as Types.ObjectId).toString(),
+      recipientId: m.workerId,
       jobId: job.id,
       jobTitle: job.title,
       employerName,
@@ -834,82 +821,4 @@ export async function listMine(
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/**
- * Formats a raw Mongo aggregate document into PublicJob. Kept verbatim
- * (Mongo-flavored, `_id` as Types.ObjectId) — `recommendations.service.ts`
- * still runs its own Mongo `$geoNear` pipeline against the (now legacy,
- * unmigrated) JobModel collection and calls this directly. That file is
- * out of scope for this Jobs-only migration pass; changing this
- * function's shape would break it.
- */
-export function formatRawJob(r: Record<string, unknown>): PublicJob {
-  const loc = r.location as {
-    address: string;
-    city: string;
-    area: string | null;
-    pincode: string | null;
-    geo: { coordinates: [number, number] };
-  };
-  const pay = r.pay as {
-    amount: number;
-    amountMax: number | null;
-    period: PublicJob['pay']['period'];
-    currency: string;
-  };
-  return {
-    id: (r._id as Types.ObjectId).toString(),
-    title: r.title as string,
-    description: r.description as string,
-    type: r.type as PublicJob['type'],
-    pay: {
-      amount: pay.amount,
-      amountMax: pay.amountMax ?? null,
-      period: pay.period,
-      currency: pay.currency,
-    },
-    location: {
-      address: loc.address,
-      city: loc.city,
-      area: loc.area ?? null,
-      pincode: loc.pincode ?? null,
-      coordinates: loc.geo.coordinates,
-    },
-    skills: (r.skills as string[]) ?? [],
-    requiredSkillTestId: (r.requiredSkillTestId as string | null | undefined) ?? null,
-    headcount: (r.headcount as number | undefined) ?? 1,
-    crewHeadStartUntil: (() => {
-      const v = r.crewHeadStartUntil as Date | string | null | undefined;
-      return v ? new Date(v).toISOString() : null;
-    })(),
-    recurring: Boolean(r.recurring),
-    prepChecklist: (r.prepChecklist as string[] | undefined) ?? [],
-    project: buildProject(
-      (r.projectStartDate as Date | string | null | undefined) ?? null,
-      (r.projectEndDate as Date | string | null | undefined) ?? null,
-    ),
-    escalationStage:
-      ((r.escalation as { stage?: number } | null | undefined)?.stage as number | undefined) ?? 0,
-    boostedUntil: (() => {
-      const v = (r.escalation as { boostedUntil?: Date | string | null } | null | undefined)?.boostedUntil;
-      return v && new Date(v).getTime() > Date.now() ? new Date(v).toISOString() : null;
-    })(),
-    workMode: (r.workMode as PublicJob['workMode']) ?? 'onsite',
-    schedule: (r.schedule as PublicJob['schedule']) ?? null,
-    status: r.status as PublicJob['status'],
-    urgent: Boolean(r.urgent),
-    safeForWomen: Boolean(r.safeForWomen),
-    applicantsCount: (r.applicantsCount as number) ?? 0,
-    audioDescriptionUrl: (r.audioDescriptionUrl as string | null | undefined) ?? null,
-    audioDescriptionDurationSeconds:
-      (r.audioDescriptionDurationSeconds as number | null | undefined) ?? null,
-    workplaceAnswers:
-      (r.workplaceAnswers as PublicJob['workplaceAnswers'] | undefined) ?? null,
-    womenSafety: (r.womenSafety as WomenSafety | null | undefined) ?? null,
-    womenSafetyTier: computeWomenSafety(
-      (r.womenSafety as WomenSafety | null | undefined) ?? null,
-    ).tier,
-    createdAt: (r.createdAt as Date).toISOString(),
-  };
 }

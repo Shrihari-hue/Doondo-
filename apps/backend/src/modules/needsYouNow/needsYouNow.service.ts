@@ -16,10 +16,9 @@
  * when the item points at exactly one thing, the `applicationId` to open.
  */
 
-import { Types } from 'mongoose';
-import { ApplicationModel } from '@/modules/applications/application.model';
-import { WorkProofModel } from '@/modules/workProof/workProof.model';
-import { CrewDocumentModel } from '@/modules/crewDocuments/crewDocument.model';
+import { and, asc, count, eq, gt, isNotNull, lte, or } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { applications, crewDocuments, users, workProofs } from '@/db/schema';
 
 /** Where a tapped item should take the employer. */
 export type NeedsYouNowRoute = 'applicant' | 'applicants' | 'workforce';
@@ -52,63 +51,78 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const ON_THE_WAY_WINDOW_MS = 12 * 60 * 60 * 1000; // ignore stale en-route flags
 const DOC_SOON_MS = 30 * DAY_MS;
 
-/** Shape we read off a lean, populated application. */
-interface LeanApp {
-  _id: Types.ObjectId;
+interface AppRow {
+  id: string;
   status: string;
   createdAt: Date;
-  offer?: { outcome?: string } | null;
-  onTheWay?: { startedAt?: Date } | null;
-  seekerId?: { name?: string } | Types.ObjectId | null;
+  offerStatus: string | null;
+  onTheWayStartedAt: Date | null;
+  seekerName: string | null;
 }
 
-function seekerName(a: LeanApp): string {
-  const s = a.seekerId;
-  if (s && typeof s === 'object' && 'name' in s && typeof s.name === 'string') {
-    return s.name;
-  }
-  return 'Worker';
+function seekerName(a: AppRow): string {
+  return a.seekerName ?? 'Worker';
 }
 
 export async function getNeedsYouNow(employerId: string): Promise<NeedsYouNowResult> {
+  const db = getDb();
   const now = Date.now();
   const dayAgo = new Date(now - DAY_MS);
   const onTheWaySince = new Date(now - ON_THE_WAY_WINDOW_MS);
-  const empId = new Types.ObjectId(employerId);
 
-  const [apps, proofCount, proofSample, docs] = await Promise.all([
-    ApplicationModel.find({
-      employerId: empId,
-      $or: [
-        { status: 'pending', createdAt: { $lte: dayAgo } },
-        { 'offer.outcome': 'countered' },
-        { onTheWay: { $ne: null } },
-      ],
-    })
-      .select('status createdAt offer onTheWay seekerId')
-      .populate('seekerId', 'name')
-      .lean<LeanApp[]>(),
-    WorkProofModel.countDocuments({ employerId: empId, status: 'submitted' }),
-    WorkProofModel.findOne({ employerId: empId, status: 'submitted' })
-      .sort({ submittedAt: 1 })
-      .select('applicationId')
-      .lean<{ applicationId: Types.ObjectId } | null>(),
-    CrewDocumentModel.find({ employerId: empId, expiresAt: { $lte: new Date(now + DOC_SOON_MS) } })
-      .select('label expiresAt workerId')
-      .populate('workerId', 'name')
-      .lean<{ label: string; expiresAt: Date; workerId?: { name?: string } | Types.ObjectId }[]>(),
+  const [apps, [proofCountRow], proofSampleRows, docs] = await Promise.all([
+    db
+      .select({
+        id: applications.id,
+        status: applications.status,
+        createdAt: applications.createdAt,
+        offerStatus: applications.offerStatus,
+        onTheWayStartedAt: applications.onTheWayStartedAt,
+        seekerName: users.name,
+      })
+      .from(applications)
+      .leftJoin(users, eq(users.id, applications.seekerId))
+      .where(
+        and(
+          eq(applications.employerId, employerId),
+          or(
+            and(eq(applications.status, 'pending'), lte(applications.createdAt, dayAgo)),
+            eq(applications.offerStatus, 'countered'),
+            isNotNull(applications.onTheWayStartedAt),
+          ),
+        ),
+      ),
+    db.select({ n: count() }).from(workProofs).where(and(eq(workProofs.employerId, employerId), eq(workProofs.status, 'submitted'))),
+    db
+      .select({ applicationId: workProofs.applicationId })
+      .from(workProofs)
+      .where(and(eq(workProofs.employerId, employerId), eq(workProofs.status, 'submitted')))
+      .orderBy(asc(workProofs.submittedAt))
+      .limit(1),
+    db
+      .select({
+        label: crewDocuments.label,
+        expiresAt: crewDocuments.expiresAt,
+        workerName: users.name,
+      })
+      .from(crewDocuments)
+      .leftJoin(users, eq(users.id, crewDocuments.workerId))
+      .where(and(eq(crewDocuments.employerId, employerId), lte(crewDocuments.expiresAt, new Date(now + DOC_SOON_MS)))),
   ]);
 
+  const proofCount = proofCountRow!.n;
+  const proofSample = proofSampleRows[0] ?? null;
+
   // Bucket the applications.
-  const onTheWay: LeanApp[] = [];
-  const countered: LeanApp[] = [];
-  const waiting: LeanApp[] = [];
+  const onTheWay: AppRow[] = [];
+  const countered: AppRow[] = [];
+  const waiting: AppRow[] = [];
   for (const a of apps) {
-    if (a.onTheWay?.startedAt && new Date(a.onTheWay.startedAt) >= onTheWaySince) {
+    if (a.onTheWayStartedAt && a.onTheWayStartedAt >= onTheWaySince) {
       onTheWay.push(a);
-    } else if (a.offer?.outcome === 'countered') {
+    } else if (a.offerStatus === 'countered') {
       countered.push(a);
-    } else if (a.status === 'pending' && new Date(a.createdAt) <= dayAgo) {
+    } else if (a.status === 'pending' && a.createdAt <= dayAgo) {
       waiting.push(a);
     }
   }
@@ -121,7 +135,7 @@ export async function getNeedsYouNow(employerId: string): Promise<NeedsYouNowRes
       kind: 'worker_on_the_way',
       count: onTheWay.length,
       sample: seekerName(first),
-      applicationId: onTheWay.length === 1 ? first._id.toString() : null,
+      applicationId: onTheWay.length === 1 ? first.id : null,
       route: 'applicant',
       priority: 100,
     });
@@ -133,7 +147,7 @@ export async function getNeedsYouNow(employerId: string): Promise<NeedsYouNowRes
       kind: 'counter_offer',
       count: countered.length,
       sample: seekerName(first),
-      applicationId: countered.length === 1 ? first._id.toString() : null,
+      applicationId: countered.length === 1 ? first.id : null,
       route: 'applicant',
       priority: 90,
     });
@@ -144,7 +158,7 @@ export async function getNeedsYouNow(employerId: string): Promise<NeedsYouNowRes
       kind: 'work_proof',
       count: proofCount,
       sample: '',
-      applicationId: proofCount === 1 && proofSample ? proofSample.applicationId.toString() : null,
+      applicationId: proofCount === 1 && proofSample ? proofSample.applicationId : null,
       route: 'applicant',
       priority: 80,
     });
@@ -156,18 +170,16 @@ export async function getNeedsYouNow(employerId: string): Promise<NeedsYouNowRes
       kind: 'applicant_waiting',
       count: waiting.length,
       sample: seekerName(first),
-      applicationId: waiting.length === 1 ? first._id.toString() : null,
+      applicationId: waiting.length === 1 ? first.id : null,
       route: waiting.length === 1 ? 'applicant' : 'applicants',
       priority: 70,
     });
   }
 
   if (docs.length > 0) {
-    const expired = docs.filter((d) => new Date(d.expiresAt).getTime() <= now);
+    const expired = docs.filter((d) => d.expiresAt.getTime() <= now);
     const head = docs[0]!;
-    const w = head.workerId;
-    const wname =
-      w && typeof w === 'object' && 'name' in w && typeof w.name === 'string' ? w.name : 'Worker';
+    const wname = head.workerName ?? 'Worker';
     items.push({
       kind: 'expiring_doc',
       count: docs.length,

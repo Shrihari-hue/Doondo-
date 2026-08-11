@@ -29,6 +29,55 @@
       "when": 1785824958859,
       "tag": "0003_slimy_kid_colt",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786348727526,
+      "tag": "0004_bouncy_sabra",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786355560616,
+      "tag": "0005_outstanding_marrow",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786376481439,
+      "tag": "0006_quick_sunspot",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786429081729,
+      "tag": "0007_right_rawhide_kid",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786429809573,
+      "tag": "0008_famous_vanisher",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786433187317,
+      "tag": "0009_military_trish_tilby",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786433925767,
+      "tag": "0010_glorious_bishop",
+      "breakpoints": true
     }
   ]
 }

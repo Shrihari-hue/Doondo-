@@ -9,14 +9,13 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { Types } from 'mongoose';
 import { requireAuth } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
 import { initiateCall, type PartyRole } from './maskedCall.service';
 
 const router = Router();
 
-const objectId = z.string().refine((v) => Types.ObjectId.isValid(v), { message: 'Invalid id' });
+const objectId = z.string().uuid('Invalid id');
 
 function partyRole(role: string | undefined): PartyRole {
   if (role === 'employer' || role === 'seeker') return role;

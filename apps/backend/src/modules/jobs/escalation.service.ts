@@ -20,12 +20,12 @@
  * never kills the batch.
  */
 
-import { Types } from 'mongoose';
+import { and, asc, count, eq, lte, notInArray } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 import { env } from '@/config/env';
-import { JobModel } from './job.model';
+import { getDb } from '@/db/client';
+import { applications, jobs, type JobEscalationJson } from '@/db/schema';
 import { getWageBenchmark } from './job.service';
-import { ApplicationModel } from '@/modules/applications/application.model';
 import * as notifications from '@/modules/notifications/notification.service';
 
 export interface EscalationSweepSummary {
@@ -38,18 +38,18 @@ const BATCH_LIMIT = 300;
 const BOOST_WINDOW_MS = 48 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 
-interface LeanJob {
-  _id: Types.ObjectId;
-  title?: string;
-  employerId: Types.ObjectId;
-  headcount?: number;
+interface EscalationJob {
+  id: string;
+  title: string;
+  employerId: string;
+  headcount: number;
   createdAt: Date;
-  escalation?: { stage?: number; lastEscalatedAt?: Date | null; boostedUntil?: Date | null } | null;
+  escalation: JobEscalationJson | null;
 }
 
 /** Decide the stage this job should be at, or null to leave it alone. */
-function targetStage(job: LeanJob, now: number): number | null {
-  const ageHours = (now - new Date(job.createdAt).getTime()) / HOUR_MS;
+function targetStage(job: EscalationJob, now: number): number | null {
+  const ageHours = (now - job.createdAt.getTime()) / HOUR_MS;
   const current = job.escalation?.stage ?? 0;
   if (current >= 3) return null;
 
@@ -65,29 +65,30 @@ function targetStage(job: LeanJob, now: number): number | null {
 }
 
 export async function runEscalationSweep(): Promise<EscalationSweepSummary> {
+  const db = getDb();
   const now = Date.now();
   const stallBefore = new Date(now - env.ESCALATION_STALL_HOURS * HOUR_MS);
 
-  const jobs = (await JobModel.find({
-    status: 'active',
-    createdAt: { $lte: stallBefore },
-  })
-    .select('title employerId headcount createdAt escalation')
-    .sort({ createdAt: 1 })
-    .limit(BATCH_LIMIT)
-    .lean()) as unknown as LeanJob[];
+  const jobRows = await db
+    .select({ id: jobs.id, title: jobs.title, employerId: jobs.employerId, headcount: jobs.headcount, createdAt: jobs.createdAt, escalation: jobs.escalation })
+    .from(jobs)
+    .where(and(eq(jobs.status, 'active'), lte(jobs.createdAt, stallBefore)))
+    .orderBy(asc(jobs.createdAt))
+    .limit(BATCH_LIMIT);
 
-  const summary: EscalationSweepSummary = { considered: jobs.length, escalated: 0, errors: 0 };
+  const summary: EscalationSweepSummary = { considered: jobRows.length, escalated: 0, errors: 0 };
 
-  for (const job of jobs) {
+  for (const job of jobRows) {
     try {
       const headcount = job.headcount ?? 1;
-      const jobId = job._id;
+      const jobId = job.id;
 
-      const [hired, applicants] = await Promise.all([
-        ApplicationModel.countDocuments({ jobId, status: 'hired' }),
-        ApplicationModel.countDocuments({ jobId, status: { $nin: ['rejected', 'withdrawn'] } }),
+      const [[hiredRow], [applicantsRow]] = await Promise.all([
+        db.select({ n: count() }).from(applications).where(and(eq(applications.jobId, jobId), eq(applications.status, 'hired'))),
+        db.select({ n: count() }).from(applications).where(and(eq(applications.jobId, jobId), notInArray(applications.status, ['rejected', 'withdrawn']))),
       ]);
+      const hired = hiredRow!.n;
+      const applicants = applicantsRow!.n;
 
       // Filled, or has enough live candidates to fill — not stalling.
       if (hired >= headcount || applicants >= headcount) continue;
@@ -96,19 +97,13 @@ export async function runEscalationSweep(): Promise<EscalationSweepSummary> {
       if (next === null) continue;
 
       const boostedUntil = new Date(now + BOOST_WINDOW_MS);
-      await JobModel.updateOne(
-        { _id: jobId },
-        {
-          $set: {
-            escalation: {
-              stage: next,
-              lastEscalatedAt: new Date(now),
-              // Stages 1 & 2 keep the boost live; stage 3 lets it lapse.
-              boostedUntil: next <= 2 ? boostedUntil : job.escalation?.boostedUntil ?? null,
-            },
-          },
-        },
-      );
+      const nextEscalation: JobEscalationJson = {
+        stage: next,
+        lastEscalatedAt: new Date(now).toISOString(),
+        // Stages 1 & 2 keep the boost live; stage 3 lets it lapse.
+        boostedUntil: next <= 2 ? boostedUntil.toISOString() : job.escalation?.boostedUntil ?? null,
+      };
+      await db.update(jobs).set({ escalation: nextEscalation }).where(eq(jobs.id, jobId));
 
       const title = job.title ?? 'your job';
       let body: string;
@@ -119,7 +114,7 @@ export async function runEscalationSweep(): Promise<EscalationSweepSummary> {
         let medianPaise: number | null = null;
         let yourPaise = 0;
         try {
-          const bench = await getWageBenchmark(job.employerId.toString(), jobId.toString());
+          const bench = await getWageBenchmark(job.employerId, jobId);
           belowMarket = bench.belowMarket;
           medianPaise = bench.medianPaise;
           yourPaise = bench.yourPaise;
@@ -139,17 +134,17 @@ export async function runEscalationSweep(): Promise<EscalationSweepSummary> {
       }
 
       void notifications.record({
-        recipientId: job.employerId.toString(),
+        recipientId: job.employerId,
         kind: 'job_escalated',
         title: next === 1 ? 'Your job got a boost' : 'Your job needs attention',
         body,
-        deeplink: { screen: 'JobApplicants', params: { jobId: jobId.toString(), jobTitle: title } },
+        deeplink: { screen: 'JobApplicants', params: { jobId, jobTitle: title } },
       });
 
       summary.escalated += 1;
     } catch (err) {
       summary.errors += 1;
-      logger.warn({ err, jobId: job._id.toString() }, 'escalation: job failed');
+      logger.warn({ err, jobId: job.id }, 'escalation: job failed');
     }
   }
 

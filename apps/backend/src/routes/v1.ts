@@ -34,7 +34,9 @@ import * as resumeRewriteService from '@/modules/resumeRewrite/resumeRewrite.ser
 import * as festivalService from '@/modules/festivals/festival.service';
 import * as skillDocumentService from '@/modules/me/skillDocument.service';
 import * as sosService from '@/modules/sos/sos.service';
-import { UserModel } from '@/modules/users/user.model';
+import { eq } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { users } from '@/db/schema';
 import mentorsRouter from '@/modules/mentors/mentor.routes';
 import paymentsRouter from '@/modules/payments/payment.routes';
 import voiceAgentRouter from '@/modules/voiceAgent/voiceAgent.routes';
@@ -181,13 +183,12 @@ v1.post(
       });
       if (isNew) {
         // Load the employer's display name for the notification body.
-        const viewer = await UserModel.findById(req.user!.id)
-          .select('companyName name')
-          .lean();
-        const viewerName =
-          (viewer as { companyName?: string; name?: string } | null)?.companyName ||
-          (viewer as { companyName?: string; name?: string } | null)?.name ||
-          'An employer';
+        const [viewer] = await getDb()
+          .select({ companyName: users.companyName, name: users.name })
+          .from(users)
+          .where(eq(users.id, req.user!.id))
+          .limit(1);
+        const viewerName = viewer?.companyName || viewer?.name || 'An employer';
         void sendProfileViewPush({
           seekerId: req.params.id!,
           viewerName,
@@ -334,7 +335,7 @@ v1.post(
   validate(
     z.object({
       params: z.object({
-        id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id'),
+        id: z.string().uuid('Invalid id'),
       }),
     }),
   ),
@@ -373,7 +374,7 @@ v1.get(
   validate(
     z.object({
       params: z.object({
-        id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id'),
+        id: z.string().uuid('Invalid id'),
       }),
     }),
   ),
@@ -423,8 +424,8 @@ v1.put(
   ),
   async (req, res, next) => {
     try {
-      const locale = req.body.locale as string;
-      await UserModel.updateOne({ _id: req.user!.id }, { $set: { locale } });
+      const locale = req.body.locale as 'en' | 'hi' | 'ta' | 'te' | 'kn';
+      await getDb().update(users).set({ locale }).where(eq(users.id, req.user!.id));
       res.json({ ok: true, data: { locale }, requestId: req.id });
     } catch (err) {
       next(err);
@@ -500,7 +501,7 @@ v1.post(
   validate(
     z.object({
       body: z.object({
-        jobId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid job id'),
+        jobId: z.string().uuid('Invalid job id'),
       }),
     }),
   ),
@@ -527,7 +528,7 @@ v1.get(
   validate(
     z.object({
       params: z.object({
-        jobId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid job id'),
+        jobId: z.string().uuid('Invalid job id'),
       }),
     }),
   ),
@@ -550,7 +551,7 @@ v1.put(
   validate(
     z.object({
       params: z.object({
-        jobId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid job id'),
+        jobId: z.string().uuid('Invalid job id'),
       }),
       body: z.object({
         summary: z.string().trim().min(1).max(2000),
@@ -592,7 +593,7 @@ v1.get(
   validate(
     z.object({
       params: z.object({
-        id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id'),
+        id: z.string().uuid('Invalid id'),
       }),
       query: z
         .object({
@@ -612,7 +613,7 @@ v1.get(
   validate(
     z.object({
       params: z.object({
-        id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id'),
+        id: z.string().uuid('Invalid id'),
       }),
       query: z
         .object({

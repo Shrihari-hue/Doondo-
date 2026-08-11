@@ -6,26 +6,29 @@
  *   PATCH  /me/advances/:id/cancel  — seeker cancels while pending
  *
  * Approval / payout transitions are ops-only and happen via direct
- * Mongo writes for now — no admin UI yet.
+ * DB writes for now — no admin UI yet.
  */
 import { Router } from 'express';
-import { Types } from 'mongoose';
+import { and, desc, eq } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { advanceRequests } from '@/db/schema';
 import { requireAuth, requireRole } from '@/middleware/auth';
-import { AdvanceRequestModel, type AdvanceRequest } from './advance.model';
 
 const router = Router();
 
-function toPublic(r: AdvanceRequest & { _id: unknown }) {
+type AdvanceRow = typeof advanceRequests.$inferSelect;
+
+function toPublic(r: AdvanceRow) {
   return {
-    id: (r._id as unknown as Types.ObjectId).toString(),
+    id: r.id,
     amountPaise: r.amountPaise,
     currency: r.currency,
     reason: r.reason,
     status: r.status,
-    applicationId: r.applicationId ? r.applicationId.toString() : null,
+    applicationId: r.applicationId,
     repayBy: r.repayBy ? r.repayBy.toISOString() : null,
     opsNote: r.opsNote ?? null,
-    createdAt: (r as { createdAt?: Date }).createdAt?.toISOString() ?? new Date().toISOString(),
+    createdAt: r.createdAt.toISOString(),
   };
 }
 
@@ -42,14 +45,17 @@ router.post('/advances', requireAuth, requireRole('seeker'), async (req, res, ne
       res.status(400).json({ error: 'Amount must be between ₹500 and ₹5,000.' });
       return;
     }
-    const created = await AdvanceRequestModel.create({
-      seekerId: new Types.ObjectId(req.user!.id),
-      amountPaise: Math.round(amount),
-      reason: (body.reason ?? '').slice(0, 400),
-      applicationId: body.applicationId ? new Types.ObjectId(body.applicationId) : null,
-      repayBy: body.repayBy ? new Date(body.repayBy) : null,
-    });
-    res.json({ advance: toPublic(created.toObject() as AdvanceRequest & { _id: unknown }) });
+    const [created] = await getDb()
+      .insert(advanceRequests)
+      .values({
+        seekerId: req.user!.id,
+        amountPaise: Math.round(amount),
+        reason: (body.reason ?? '').slice(0, 400),
+        applicationId: body.applicationId ?? null,
+        repayBy: body.repayBy ? new Date(body.repayBy) : null,
+      })
+      .returning();
+    res.json({ advance: toPublic(created!) });
   } catch (err) {
     next(err);
   }
@@ -57,15 +63,13 @@ router.post('/advances', requireAuth, requireRole('seeker'), async (req, res, ne
 
 router.get('/advances', requireAuth, requireRole('seeker'), async (req, res, next) => {
   try {
-    const rows = await AdvanceRequestModel.find({
-      seekerId: new Types.ObjectId(req.user!.id),
-    })
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .lean();
-    res.json({
-      advances: rows.map((r) => toPublic(r as AdvanceRequest & { _id: unknown })),
-    });
+    const rows = await getDb()
+      .select()
+      .from(advanceRequests)
+      .where(eq(advanceRequests.seekerId, req.user!.id))
+      .orderBy(desc(advanceRequests.createdAt))
+      .limit(20);
+    res.json({ advances: rows.map(toPublic) });
   } catch (err) {
     next(err);
   }
@@ -77,10 +81,13 @@ router.patch(
   requireRole('seeker'),
   async (req, res, next) => {
     try {
-      const row = await AdvanceRequestModel.findOne({
-        _id: req.params.id,
-        seekerId: new Types.ObjectId(req.user!.id),
-      });
+      const [row] = await getDb()
+        .select()
+        .from(advanceRequests)
+        .where(
+          and(eq(advanceRequests.id, req.params.id!), eq(advanceRequests.seekerId, req.user!.id)),
+        )
+        .limit(1);
       if (!row) {
         res.status(404).json({ error: 'Not found' });
         return;
@@ -89,11 +96,12 @@ router.patch(
         res.status(400).json({ error: `Cannot cancel — already ${row.status}.` });
         return;
       }
-      row.status = 'cancelled';
-      await row.save();
-      res.json({
-        advance: toPublic(row.toObject() as AdvanceRequest & { _id: unknown }),
-      });
+      const [updated] = await getDb()
+        .update(advanceRequests)
+        .set({ status: 'cancelled' })
+        .where(eq(advanceRequests.id, row.id))
+        .returning();
+      res.json({ advance: toPublic(updated!) });
     } catch (err) {
       next(err);
     }

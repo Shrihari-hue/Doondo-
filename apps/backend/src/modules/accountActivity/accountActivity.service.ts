@@ -18,12 +18,10 @@
  *                       reply · employer: new (unseen) applicants
  */
 
-import { Types } from 'mongoose';
+import { and, eq, gt, sql } from 'drizzle-orm';
 import { inspectRefreshToken } from '@/modules/auth/auth.service';
-import { UserModel } from '@/modules/users/user.model';
-import { ConversationModel } from '@/modules/chat/conversation.model';
-import { HiringRequestModel } from '@/modules/hiringRequests/hiringRequest.model';
-import { ApplicationModel } from '@/modules/applications/application.model';
+import { getDb } from '@/db/client';
+import { applications, conversations, hiringRequests, users } from '@/db/schema';
 
 export interface AccountActivitySummary {
   userId: string;
@@ -39,39 +37,39 @@ export interface AccountActivitySummary {
 }
 
 /** Sum the unread-message counter on the side this account sits on. */
-async function unreadMessagesFor(
-  userId: Types.ObjectId,
-  role: string,
-): Promise<number> {
+async function unreadMessagesFor(userId: string, role: string): Promise<number> {
   const isEmployer = role === 'employer';
-  const field = isEmployer ? 'unreadEmployer' : 'unreadSeeker';
-  const match = isEmployer ? { employerId: userId } : { seekerId: userId };
-  const rows = await ConversationModel.aggregate<{ total: number }>([
-    { $match: match },
-    { $group: { _id: null, total: { $sum: `$${field}` } } },
-  ]);
-  return rows[0]?.total ?? 0;
+  const column = isEmployer ? conversations.unreadEmployer : conversations.unreadSeeker;
+  const [row] = await getDb()
+    .select({ total: sql<number>`coalesce(sum(${column}), 0)::int` })
+    .from(conversations)
+    .where(eq(isEmployer ? conversations.employerId : conversations.seekerId, userId));
+  return row?.total ?? 0;
 }
 
 /** Count the role-specific "needs a response" items for this account. */
-async function pendingActionsFor(
-  userId: Types.ObjectId,
-  role: string,
-): Promise<number> {
+async function pendingActionsFor(userId: string, role: string): Promise<number> {
   if (role === 'employer') {
     // New applicants the employer hasn't opened yet.
-    return ApplicationModel.countDocuments({
-      employerId: userId,
-      status: 'pending',
-    });
+    const [row] = await getDb()
+      .select({ count: sql<number>`count(*)::int` })
+      .from(applications)
+      .where(and(eq(applications.employerId, userId), eq(applications.status, 'pending')));
+    return row?.count ?? 0;
   }
   if (role === 'seeker') {
     // Hiring requests still pending — and not lazily expired.
-    return HiringRequestModel.countDocuments({
-      seekerId: userId,
-      status: 'pending',
-      expiresAt: { $gt: new Date() },
-    });
+    const [row] = await getDb()
+      .select({ count: sql<number>`count(*)::int` })
+      .from(hiringRequests)
+      .where(
+        and(
+          eq(hiringRequests.seekerId, userId),
+          eq(hiringRequests.status, 'pending'),
+          gt(hiringRequests.expiresAt, new Date()),
+        ),
+      );
+    return row?.count ?? 0;
   }
   return 0;
 }
@@ -99,15 +97,16 @@ export async function getActivitySummaries(
     if (seenUsers.has(inspected.userId)) continue;
     seenUsers.add(inspected.userId);
 
-    const user = await UserModel.findById(inspected.userId)
-      .select('role isActive')
-      .lean();
+    const [user] = await getDb()
+      .select({ role: users.role, isActive: users.isActive })
+      .from(users)
+      .where(eq(users.id, inspected.userId))
+      .limit(1);
     if (!user || !user.isActive) continue;
 
-    const uid = new Types.ObjectId(inspected.userId);
     const [unreadMessages, pendingActions] = await Promise.all([
-      unreadMessagesFor(uid, user.role),
-      pendingActionsFor(uid, user.role),
+      unreadMessagesFor(inspected.userId, user.role),
+      pendingActionsFor(inspected.userId, user.role),
     ]);
 
     out.push({

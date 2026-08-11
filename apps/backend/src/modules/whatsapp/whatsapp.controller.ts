@@ -27,11 +27,13 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
+import { and, desc, eq } from 'drizzle-orm';
 import { env } from '@/config/env';
 import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import * as service from './whatsapp.service';
-import { WhatsAppMessageModel } from './whatsappMessage.model';
+import { getDb } from '@/db/client';
+import { whatsappMessages } from '@/db/schema';
 
 // ─── Send (admin) ──────────────────────────────────────────────────────
 
@@ -98,14 +100,16 @@ export async function listMessages(
     const limitRaw = req.query.limit as string | undefined;
     const limit = limitRaw ? Math.min(100, Math.max(1, Number(limitRaw))) : 50;
 
-    const filter: Record<string, unknown> = {};
-    if (direction) filter.direction = direction;
-    if (fromRaw) filter.from = service.toWhatsAppAddress(fromRaw);
+    const conditions = [];
+    if (direction) conditions.push(eq(whatsappMessages.direction, direction));
+    if (fromRaw) conditions.push(eq(whatsappMessages.from, service.toWhatsAppAddress(fromRaw)));
 
-    const rows = await WhatsAppMessageModel.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
+    const rows = await getDb()
+      .select()
+      .from(whatsappMessages)
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(desc(whatsappMessages.createdAt))
+      .limit(limit);
 
     res.json({
       ok: true,

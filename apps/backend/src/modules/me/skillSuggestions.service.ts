@@ -17,9 +17,9 @@
  * adding one skill will get them to "100% match"; that's overpromising.
  */
 
-import { Types } from 'mongoose';
-import { JobModel } from '@/modules/jobs/job.model';
-import { UserModel } from '@/modules/users/user.model';
+import { eq, sql } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { jobs, users } from '@/db/schema';
 
 export interface SkillSuggestion {
   /** Canonical skill key, e.g. "electrician". */
@@ -32,39 +32,35 @@ export interface SkillSuggestion {
 
 const SEARCH_RADIUS_METERS = 20_000;
 
-export async function suggestForSeeker(
-  seekerId: string | Types.ObjectId,
-): Promise<SkillSuggestion[]> {
-  const seeker = await UserModel.findById(seekerId).lean();
+interface NearbyJobRow extends Record<string, unknown> {
+  skills: string[];
+}
+
+export async function suggestForSeeker(seekerId: string): Promise<SkillSuggestion[]> {
+  const db = getDb();
+  const [seeker] = await db.select({ location: users.location, skills: users.skills }).from(users).where(eq(users.id, seekerId)).limit(1);
   if (!seeker) return [];
 
-  const coords = (seeker as { location?: { geo?: { coordinates?: [number, number] } } })
-    .location?.geo?.coordinates;
+  const coords = seeker.location?.coordinates;
   if (!coords) return [];
+  const [lng, lat] = coords;
 
-  const have = new Set(
-    (seeker as { skills?: string[] }).skills?.map((s) => s.toLowerCase()) ?? [],
-  );
+  const have = new Set((seeker.skills ?? []).map((s) => s.toLowerCase()));
 
-  const nearbyJobs = await JobModel.find({
-    status: 'active',
-    'location.geo': {
-      $near: {
-        $geometry: { type: 'Point', coordinates: coords },
-        $maxDistance: SEARCH_RADIUS_METERS,
-      },
-    },
-  })
-    .select('skills')
-    .limit(500)
-    .lean();
+  const nearbyJobs = await db.execute<NearbyJobRow>(sql`
+    SELECT j.skills
+    FROM ${jobs} j
+    WHERE j.status = 'active'
+      AND ST_DWithin(ST_SetSRID(j.geo, 4326)::geography, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${SEARCH_RADIUS_METERS})
+    LIMIT 500
+  `);
 
   const total = nearbyJobs.length;
   if (total === 0) return [];
 
   const counts = new Map<string, number>();
   for (const job of nearbyJobs) {
-    const skills = (job.skills as string[] | undefined) ?? [];
+    const skills = job.skills ?? [];
     const seen = new Set<string>();
     for (const s of skills) {
       const key = s.toLowerCase();
@@ -75,12 +71,12 @@ export async function suggestForSeeker(
   }
 
   const suggestions: SkillSuggestion[] = [];
-  for (const [skill, count] of counts) {
+  for (const [skill, jobCount] of counts) {
     if (have.has(skill)) continue;
     // Don't bother suggesting near-irrelevant skills.
-    if (count < Math.max(3, Math.floor(total * 0.05))) continue;
-    const uplift = Math.min(95, Math.round((count / total) * 100));
-    suggestions.push({ skill, upliftPercent: uplift, jobsNeedingIt: count });
+    if (jobCount < Math.max(3, Math.floor(total * 0.05))) continue;
+    const uplift = Math.min(95, Math.round((jobCount / total) * 100));
+    suggestions.push({ skill, upliftPercent: uplift, jobsNeedingIt: jobCount });
   }
 
   suggestions.sort((a, b) => b.upliftPercent - a.upliftPercent);

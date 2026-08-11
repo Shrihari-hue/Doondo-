@@ -14,7 +14,7 @@
  *
  * <email> is the worker's Doondo login email. The script adds the `baker`
  * and `mehndi_artist` skills (merged with whatever they already have) and
- * replaces workPhotos with 5 sample photos — 3 baker, 2 mehndi — so you
+ * replaces work photos with 5 sample photos — 3 baker, 2 mehndi — so you
  * see both a populated collection and the collection switcher. Safe to
  * re-run; it just re-applies the same data.
  *
@@ -22,9 +22,11 @@
  */
 
 import './env-loader';
-import { connectDb, disconnectDb } from '@/config/db';
+import { eq } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { users, workPhotos } from '@/db/schema';
 import { logger } from '@/lib/logger';
-import { UserModel, type CraftPhoto } from '@/modules/users/user.model';
+import type { CraftPhoto } from '@/modules/users/user.model';
 import SAMPLE_PHOTOS from './craft-showcase-samples.json';
 
 async function run(): Promise<void> {
@@ -34,13 +36,12 @@ async function run(): Promise<void> {
     process.exit(1);
   }
 
-  await connectDb();
-
-  const user = await UserModel.findOne({ email });
+  const db = getDb();
+  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
   if (!user) {
     logger.error({ email }, 'No user found with that email');
-    await disconnectDb();
     process.exit(1);
+    return;
   }
   if (user.role !== 'seeker') {
     logger.warn(
@@ -51,27 +52,30 @@ async function run(): Promise<void> {
   }
 
   // Merge in the two craft skills — dedupe, keep whatever they already have.
-  user.skills = [...new Set([...(user.skills ?? []), 'baker', 'mehndi_artist'])];
+  const skills = [...new Set([...(user.skills ?? []), 'baker', 'mehndi_artist'])];
+  await db.update(users).set({ skills }).where(eq(users.id, user.id));
 
-  // Replace workPhotos with the sample set (the model caps the array at 6).
-  user.workPhotos = (SAMPLE_PHOTOS as CraftPhoto[]).map((p) => ({
-    url: p.url,
-    skill: p.skill,
-    caption: p.caption ?? null,
-    isCover: Boolean(p.isCover),
-  }));
-
-  await user.save();
-
-  logger.info(
-    { email, skills: user.skills, photos: user.workPhotos.length },
-    'Craft Showcase sample data seeded — open the Profile tab on that account',
+  // Replace work photos with the sample set (capped at 6, same as before).
+  const photos = (SAMPLE_PHOTOS as CraftPhoto[]).slice(0, 6);
+  await db.delete(workPhotos).where(eq(workPhotos.userId, user.id));
+  await db.insert(workPhotos).values(
+    photos.map((p, i) => ({
+      userId: user.id,
+      url: p.url,
+      skill: p.skill,
+      caption: p.caption ?? null,
+      isCover: Boolean(p.isCover),
+      orderIndex: i,
+    })),
   );
 
-  await disconnectDb();
+  logger.info(
+    { email, skills, photos: photos.length },
+    'Craft Showcase sample data seeded — open the Profile tab on that account',
+  );
 }
 
-run().catch((err) => {
+run().then(() => process.exit(0)).catch((err) => {
   logger.error({ err }, 'seed-craft-showcase failed');
   process.exit(1);
 });

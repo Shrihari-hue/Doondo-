@@ -1,7 +1,14 @@
 /** UUID-native Postgres implementation of marketplace chat. */
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, ne, or } from 'drizzle-orm';
 import { getDb } from '@/db/client';
-import { applications, conversations, jobs, messages, users } from '@/db/schema';
+import {
+  applications,
+  conversations,
+  jobs,
+  messages,
+  users,
+  type ApplicationStatus,
+} from '@/db/schema';
 import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { emitToUser } from '@/sockets/bus';
@@ -219,7 +226,7 @@ export async function findById(
   const c = await assertParticipant(userId, conversationId);
   const employer = c.employerId === userId;
   const other = employer ? c.seekerId : c.employerId;
-  const [person, job] = await Promise.all([
+  const [personRows, jobRows] = await Promise.all([
     getDb()
       .select({
         id: users.id,
@@ -238,6 +245,8 @@ export async function findById(
       .where(eq(jobs.id, c.jobId))
       .limit(1),
   ]);
+  const person = personRows[0];
+  const job = jobRows[0];
   return {
     ...publicConversation(c, employer ? c.unreadEmployer : c.unreadSeeker),
     counterpart: person
@@ -640,7 +649,7 @@ export async function bulkMessageForJob(
     .limit(1);
   if (!job) throw errors.jobNotFound();
   if (job.employerId !== employerId) throw errors.forbidden();
-  const statuses =
+  const statuses: ApplicationStatus[] =
     stage === 'shortlisted' ? ['shortlisted'] : ['pending', 'viewed', 'shortlisted', 'hired'];
   const apps = await getDb()
     .select({ seekerId: applications.seekerId })

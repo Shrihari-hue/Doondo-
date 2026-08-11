@@ -2,7 +2,7 @@
  * Reel storage — where a worker's intro-reel video actually lives.
  *
  * Hire Reels lets a blue-collar worker record a short video pitch.
- * Video is far too large to keep inline in MongoDB the way the tiny
+ * Video is far too large to keep inline in the DB the way the tiny
  * base64 audio notes are, so it belongs on a media host / CDN.
  *
  * Provider pattern (same shape as transcription.service): a swappable

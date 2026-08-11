@@ -7,9 +7,12 @@
  */
 
 import { Router } from 'express';
+import { eq } from 'drizzle-orm';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
 import { sendOk, sendErr } from '@/lib/respond';
+import { getDb } from '@/db/client';
+import { users, DEFAULT_NOTIFICATION_PREFS } from '@/db/schema';
 import * as controller from './me.controller';
 import walletRouter from '@/modules/wallet/wallet.routes';
 import alertsRouter from '@/modules/alerts/alert.routes';
@@ -84,10 +87,8 @@ router.use('/', insuranceRouter);
 // Per-type push notification preferences.
 router.get('/notification-prefs', requireAuth, async (req, res, next) => {
   try {
-    const { UserModel } = await import('@/modules/users/user.model');
-    const u = await UserModel.findById(req.user!.id).select('notificationPrefs').lean();
-    const prefs =
-      (u as { notificationPrefs?: Record<string, boolean> } | null)?.notificationPrefs ?? {};
+    const [u] = await getDb().select({ notificationPrefs: users.notificationPrefs }).from(users).where(eq(users.id, req.user!.id)).limit(1);
+    const prefs = u?.notificationPrefs ?? DEFAULT_NOTIFICATION_PREFS;
     sendOk(res, {
       prefs: {
         jobs: prefs.jobs ?? true,
@@ -108,27 +109,19 @@ router.get('/notification-prefs', requireAuth, async (req, res, next) => {
 // mobile is the primary dispatcher, the server is the safety net).
 router.get('/trust-circle', requireAuth, async (req, res, next) => {
   try {
-    const { UserModel } = await import('@/modules/users/user.model');
-    const u = await UserModel.findById(req.user!.id)
-      .select('trustCircle isPeerResponder shareShiftsWithCircle')
-      .lean();
+    const [u] = await getDb()
+      .select({ trustCircle: users.trustCircle, isPeerResponder: users.isPeerResponder, shareShiftsWithCircle: users.shareShiftsWithCircle })
+      .from(users)
+      .where(eq(users.id, req.user!.id))
+      .limit(1);
     sendOk(res, {
-      trustCircle: ((u as { trustCircle?: unknown[] } | null)?.trustCircle ?? []).map(
-        (c) => {
-          const contact = c as { name: string; phone: string; relationship?: string | null };
-          return {
-            name: contact.name,
-            phone: contact.phone,
-            relationship: contact.relationship ?? null,
-          };
-        },
-      ),
-      isPeerResponder: Boolean(
-        (u as { isPeerResponder?: boolean } | null)?.isPeerResponder,
-      ),
-      shareShiftsWithCircle: Boolean(
-        (u as { shareShiftsWithCircle?: boolean } | null)?.shareShiftsWithCircle,
-      ),
+      trustCircle: (u?.trustCircle ?? []).map((c) => ({
+        name: c.name,
+        phone: c.phone,
+        relationship: c.relationship ?? null,
+      })),
+      isPeerResponder: Boolean(u?.isPeerResponder),
+      shareShiftsWithCircle: Boolean(u?.shareShiftsWithCircle),
     });
   } catch (err) {
     next(err);
@@ -154,19 +147,14 @@ router.put('/trust-circle', requireAuth, async (req, res, next) => {
             : null,
       });
     }
-    const { UserModel } = await import('@/modules/users/user.model');
-    const updated = await UserModel.findByIdAndUpdate(
-      req.user!.id,
-      { $set: { trustCircle: cleaned } },
-      { new: true },
-    )
-      .select('trustCircle isPeerResponder')
-      .lean();
+    const [updated] = await getDb()
+      .update(users)
+      .set({ trustCircle: cleaned })
+      .where(eq(users.id, req.user!.id))
+      .returning({ isPeerResponder: users.isPeerResponder });
     sendOk(res, {
       trustCircle: cleaned,
-      isPeerResponder: Boolean(
-        (updated as { isPeerResponder?: boolean } | null)?.isPeerResponder,
-      ),
+      isPeerResponder: Boolean(updated?.isPeerResponder),
     });
   } catch (err) {
     next(err);
@@ -180,11 +168,7 @@ router.post('/peer-responder', requireAuth, async (req, res, next) => {
       sendErr(res, 400, 'VALIDATION_FAILED', '`enabled` must be a boolean.');
       return;
     }
-    const { UserModel } = await import('@/modules/users/user.model');
-    await UserModel.updateOne(
-      { _id: req.user!.id },
-      { $set: { isPeerResponder: body.enabled } },
-    );
+    await getDb().update(users).set({ isPeerResponder: body.enabled }).where(eq(users.id, req.user!.id));
     sendOk(res, { isPeerResponder: body.enabled });
   } catch (err) {
     next(err);
@@ -199,11 +183,7 @@ router.post('/share-shifts', requireAuth, async (req, res, next) => {
       sendErr(res, 400, 'VALIDATION_FAILED', '`enabled` must be a boolean.');
       return;
     }
-    const { UserModel } = await import('@/modules/users/user.model');
-    await UserModel.updateOne(
-      { _id: req.user!.id },
-      { $set: { shareShiftsWithCircle: body.enabled } },
-    );
+    await getDb().update(users).set({ shareShiftsWithCircle: body.enabled }).where(eq(users.id, req.user!.id));
     sendOk(res, { shareShiftsWithCircle: body.enabled });
   } catch (err) {
     next(err);
@@ -240,10 +220,8 @@ function cleanConstitution(raw: unknown): {
 
 router.get('/constitution', requireAuth, async (req, res, next) => {
   try {
-    const { UserModel } = await import('@/modules/users/user.model');
-    const u = await UserModel.findById(req.user!.id).select('constitution').lean();
-    const c = (u as { constitution?: unknown } | null)?.constitution ?? {};
-    sendOk(res, { constitution: cleanConstitution(c) });
+    const [u] = await getDb().select({ constitution: users.constitution }).from(users).where(eq(users.id, req.user!.id)).limit(1);
+    sendOk(res, { constitution: cleanConstitution(u?.constitution ?? {}) });
   } catch (err) {
     next(err);
   }
@@ -252,11 +230,7 @@ router.get('/constitution', requireAuth, async (req, res, next) => {
 router.put('/constitution', requireAuth, async (req, res, next) => {
   try {
     const constitution = cleanConstitution(req.body);
-    const { UserModel } = await import('@/modules/users/user.model');
-    await UserModel.updateOne(
-      { _id: req.user!.id },
-      { $set: { constitution } },
-    );
+    await getDb().update(users).set({ constitution }).where(eq(users.id, req.user!.id));
     sendOk(res, { constitution });
   } catch (err) {
     next(err);
@@ -266,17 +240,18 @@ router.put('/constitution', requireAuth, async (req, res, next) => {
 router.post('/notification-prefs', requireAuth, async (req, res, next) => {
   try {
     const body = (req.body ?? {}) as Record<string, unknown>;
-    const allowed = ['jobs', 'applications', 'messages', 'ratings', 'referrals'];
-    const update: Record<string, boolean> = {};
+    const allowed = ['jobs', 'applications', 'messages', 'ratings', 'referrals'] as const;
+    const update: Partial<Record<(typeof allowed)[number], boolean>> = {};
     for (const k of allowed) {
-      if (typeof body[k] === 'boolean') update[`notificationPrefs.${k}`] = body[k] as boolean;
+      if (typeof body[k] === 'boolean') update[k] = body[k] as boolean;
     }
     if (Object.keys(update).length === 0) {
       sendErr(res, 400, 'VALIDATION_FAILED', 'No valid prefs supplied.');
       return;
     }
-    const { UserModel } = await import('@/modules/users/user.model');
-    await UserModel.updateOne({ _id: req.user!.id }, { $set: update });
+    const [u] = await getDb().select({ notificationPrefs: users.notificationPrefs }).from(users).where(eq(users.id, req.user!.id)).limit(1);
+    const merged = { ...(u?.notificationPrefs ?? DEFAULT_NOTIFICATION_PREFS), ...update };
+    await getDb().update(users).set({ notificationPrefs: merged }).where(eq(users.id, req.user!.id));
     sendOk(res, { ok: true });
   } catch (err) {
     next(err);

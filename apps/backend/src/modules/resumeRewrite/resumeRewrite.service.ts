@@ -24,12 +24,10 @@
 
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
-import { tailoredResumes } from '@/db/schema';
+import { tailoredResumes, users, jobs } from '@/db/schema';
 import { env } from '@/config/env';
 import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import { UserModel } from '@/modules/users/user.model';
-import { JobModel } from '@/modules/jobs/job.model';
 
 // ─── Wire shapes ────────────────────────────────────────────────────────────
 
@@ -491,9 +489,10 @@ export async function tailorResumeForJob(
   userId: string,
   jobId: string,
 ): Promise<TailorResumeResult> {
-  const [user, job] = await Promise.all([
-    UserModel.findById(userId),
-    JobModel.findById(jobId),
+  const db = getDb();
+  const [[user], [job]] = await Promise.all([
+    db.select().from(users).where(eq(users.id, userId)).limit(1),
+    db.select().from(jobs).where(eq(jobs.id, jobId)).limit(1),
   ]);
   if (!user) throw errors.notFound('User not found.');
   if (!job) throw errors.notFound('Job not found.');

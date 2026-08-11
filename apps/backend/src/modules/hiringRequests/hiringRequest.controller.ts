@@ -5,7 +5,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { errors } from '@/lib/errors';
 import * as service from './hiringRequest.service';
-import type { HiringRequestStatus } from './hiringRequest.model';
+import type { HiringRequestStatus } from '@/db/schema';
 
 const ok = (req: Request, res: Response, status: number, data: unknown) => {
   res.status(status).json({ ok: true, data, requestId: req.id });

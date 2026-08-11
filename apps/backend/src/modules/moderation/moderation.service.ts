@@ -1,9 +1,7 @@
-/** UUID-native moderation block-list access. User reports remain legacy. */
+/** UUID-native moderation block-list + user-report access. */
 import { and, desc, eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
-import { blockedWorkers } from '@/db/schema';
-import { UserReportModel, type ReportReason } from './userReport.model';
-import { Types } from 'mongoose';
+import { blockedWorkers, userReports, type UserReportReason } from '@/db/schema';
 
 export interface BlockedWorkerView { workerId: string; createdAt: string; }
 
@@ -25,7 +23,11 @@ export async function isBlocked(employerId: string, workerId: string): Promise<b
   return Boolean(row);
 }
 
-/** Legacy user-report persistence is intentionally outside the atomic boundary. */
-export async function reportUser(input: { reporterId: string; reportedUserId: string; reason: ReportReason; note?: string }): Promise<void> {
-  await UserReportModel.create({ reporterId: new Types.ObjectId(input.reporterId), reportedUserId: new Types.ObjectId(input.reportedUserId), reason: input.reason, note: (input.note ?? '').slice(0, 1000) });
+export async function reportUser(input: { reporterId: string; reportedUserId: string; reason: UserReportReason; note?: string }): Promise<void> {
+  await getDb().insert(userReports).values({
+    reporterId: input.reporterId,
+    reportedUserId: input.reportedUserId,
+    reason: input.reason,
+    note: (input.note ?? '').slice(0, 1000),
+  });
 }

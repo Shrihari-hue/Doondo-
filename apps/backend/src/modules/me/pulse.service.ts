@@ -20,10 +20,10 @@
  * dashboard; employers have their own.
  */
 
-import { Types } from 'mongoose';
+import { and, count, eq, inArray } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
-import { UserModel } from '@/modules/users/user.model';
-import { ApplicationModel } from '@/modules/applications/application.model';
+import { getDb } from '@/db/client';
+import { applications, users, type ApplicationStatus } from '@/db/schema';
 import { computeForUser } from '@/modules/users/doondoScore.service';
 
 /** The mobile maps each action to a screen — the Pulse card's CTA. */
@@ -60,7 +60,7 @@ export interface PulseSnapshot {
  * waiting on a decision. Rejected / hired / withdrawn are settled and
  * excluded.
  */
-const ACTIVE_STATUSES = ['pending', 'viewed', 'shortlisted'];
+const ACTIVE_STATUSES: ApplicationStatus[] = ['pending', 'viewed', 'shortlisted'];
 
 interface NudgeInput {
   isVerified: boolean;
@@ -105,15 +105,26 @@ export function pickPulseNudge(input: NudgeInput): PulseNudge {
  * and the active-application count.
  */
 export async function getPulseForSeeker(userId: string): Promise<PulseSnapshot> {
-  const [score, user, activeApplications] = await Promise.all([
+  const db = getDb();
+  const [score, [user], [activeApplicationsRow]] = await Promise.all([
     computeForUser(userId),
-    UserModel.findById(userId).select(
-      'streaks isVerified resumeUrl resumeUploadedAt workHistory availability skills',
-    ),
-    ApplicationModel.countDocuments({
-      seekerId: new Types.ObjectId(userId),
-      status: { $in: ACTIVE_STATUSES },
-    }),
+    db
+      .select({
+        streaks: users.streaks,
+        isVerified: users.isVerified,
+        resumeUrl: users.resumeUrl,
+        resumeUploadedAt: users.resumeUploadedAt,
+        workHistory: users.workHistory,
+        availability: users.availability,
+        skills: users.skills,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1),
+    db
+      .select({ n: count() })
+      .from(applications)
+      .where(and(eq(applications.seekerId, userId), inArray(applications.status, ACTIVE_STATUSES))),
   ]);
 
   if (!user) throw errors.notFound('User not found.');
@@ -130,7 +141,7 @@ export async function getPulseForSeeker(userId: string): Promise<PulseSnapshot> 
     score: score.score,
     profileCompletion: score.breakdown.profile.completion,
     applyStreak: user.streaks?.apply?.current ?? 0,
-    activeApplications,
+    activeApplications: activeApplicationsRow!.n,
     nudge,
   };
 }

@@ -17,11 +17,16 @@ import { z } from 'zod';
 import { requireAuth } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
 import * as postService from './post.service';
-import { MAX_MEDIA_CHARS, MAX_MEDIA_ITEMS, type PostType } from './post.model';
+import type { PostType } from './post.service';
+
+/** Hard cap on a single base64 media data URL (~520 KB encoded). */
+const MAX_MEDIA_CHARS = 700_000;
+/** Most media items a single post may carry. */
+const MAX_MEDIA_ITEMS = 6;
 
 const router = Router();
 
-const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id');
+const objectId = z.string().uuid('Invalid id');
 
 // ─── read the feed ───────────────────────────────────────────────────────────
 

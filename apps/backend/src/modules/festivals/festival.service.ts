@@ -13,7 +13,9 @@
  * the server may run in UTC.
  */
 
-import { UserModel } from '@/modules/users/user.model';
+import { eq } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { users } from '@/db/schema';
 import { FESTIVALS, type FestivalConfig } from './festival.config';
 
 /** The festival shape sent to the mobile client. */
@@ -76,9 +78,8 @@ function isRelevant(city: string | null, festival: FestivalConfig): boolean {
 export async function getFestivalStateForUser(
   userId: string,
 ): Promise<FestivalState> {
-  const user = await UserModel.findById(userId).select('location').lean();
-  const city =
-    (user?.location && (user.location as { city?: string | null }).city) || null;
+  const [user] = await getDb().select({ location: users.location }).from(users).where(eq(users.id, userId)).limit(1);
+  const city = user?.location?.city ?? null;
 
   const today = todayInIST();
   let active: PublicFestival | null = null;

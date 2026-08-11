@@ -3,10 +3,13 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { Types } from 'mongoose';
+import { eq } from 'drizzle-orm';
 import { errors, AppError } from '@/lib/errors';
-import { UserModel } from '@/modules/users/user.model';
+import { getDb } from '@/db/client';
+import { users } from '@/db/schema';
 import * as service from './courses.service';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const ok = (req: Request, res: Response, status: number, data: unknown) => {
   res.status(status).json({ ok: true, data, requestId: req.id });
@@ -23,9 +26,7 @@ export async function list(
     // alphabetical order.
     let relevantTo: string[] | undefined;
     if (req.user?.id) {
-      const user = await UserModel.findById(req.user.id)
-        .select('skills role')
-        .lean();
+      const [user] = await getDb().select({ skills: users.skills, role: users.role }).from(users).where(eq(users.id, req.user.id)).limit(1);
       if (user && user.role === 'seeker') {
         relevantTo = user.skills ?? [];
       }
@@ -109,7 +110,7 @@ export async function listSeekerBadges(
   try {
     if (!req.user) throw errors.unauthorized();
     const id = req.params.id;
-    if (!id || !Types.ObjectId.isValid(id)) {
+    if (!id || !UUID_RE.test(id)) {
       throw new AppError({
         code: 'VALIDATION_FAILED',
         message: 'Invalid id',

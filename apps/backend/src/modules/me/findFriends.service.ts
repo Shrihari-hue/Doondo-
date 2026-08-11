@@ -6,7 +6,7 @@
  *   - The client sends SHA-256 hashes of normalised phone numbers
  *     (E.164 with the country code), never raw numbers.
  *   - The server keeps a precomputed phone-hash index on the user
- *     collection so this lookup is O(1) per submitted hash.
+ *     table so this lookup is O(1) per submitted hash.
  *   - We return only the matched users' public profile fields — name,
  *     id, role, photoUrl. The unmatched hashes are dropped silently so
  *     the server can't infer what's in your phone book beyond the hits.
@@ -16,9 +16,9 @@
  * log in.
  */
 
-import { Types } from 'mongoose';
-
-import { UserModel } from '@/modules/users/user.model';
+import { and, inArray, ne } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { users } from '@/db/schema';
 
 export interface FoundFriend {
   id: string;
@@ -44,29 +44,26 @@ export interface FoundFriend {
  * results that point back at themselves.
  */
 export async function findByHashes(
-  viewerId: string | Types.ObjectId,
+  viewerId: string,
   phoneHashes: string[],
 ): Promise<FoundFriend[]> {
   if (phoneHashes.length === 0) return [];
   // De-dupe + cap so a malicious client can't ship 100k hashes.
   const unique = Array.from(new Set(phoneHashes)).slice(0, 2000);
-  const vid = new Types.ObjectId(viewerId);
 
-  const users = await UserModel.find({
-    phoneHash: { $in: unique },
-    _id: { $ne: vid },
-  })
-    .select('name role photoUrl phoneHash')
-    .limit(500)
-    .lean();
+  const rows = await getDb()
+    .select({ id: users.id, name: users.name, role: users.role, photoUrl: users.photoUrl, phoneHash: users.phoneHash })
+    .from(users)
+    .where(and(inArray(users.phoneHash, unique), ne(users.id, viewerId)))
+    .limit(500);
 
-  return users.map((u) => ({
-    id: (u._id as unknown as Types.ObjectId).toString(),
-    name: (u.name as string) ?? '',
+  return rows.map((u) => ({
+    id: u.id,
+    name: u.name ?? '',
     role: u.role as 'seeker' | 'employer',
-    photoUrl: (u.photoUrl as string | null | undefined) ?? null,
+    photoUrl: u.photoUrl ?? null,
     onDoondo: true as const,
-    matchedHash: (u.phoneHash as string | null | undefined) ?? null,
+    matchedHash: u.phoneHash ?? null,
   }));
 }
 
