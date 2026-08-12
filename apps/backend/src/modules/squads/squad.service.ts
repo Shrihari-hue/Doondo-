@@ -9,12 +9,11 @@
  * batch, so a partial deploy still lands the members it can.
  */
 
-import { Types } from 'mongoose';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
-import { UserModel } from '@/modules/users/user.model';
-import { JobModel } from '@/modules/jobs/job.model';
+import { getDb } from '@/db/client';
+import { jobs, squads, users } from '@/db/schema';
 import { rehireCrewMember } from '@/modules/crew/crew.service';
-import { SquadModel } from './squad.model';
 
 const MAX_MEMBERS = 20;
 
@@ -31,34 +30,23 @@ export interface PublicSquad {
   createdAt: string;
 }
 
-async function hydrateMembers(workerIds: Types.ObjectId[]): Promise<SquadMember[]> {
+async function hydrateMembers(workerIds: string[]): Promise<SquadMember[]> {
   if (workerIds.length === 0) return [];
-  const users = await UserModel.find({ _id: { $in: workerIds } })
-    .select('name photoUrl')
-    .lean();
-  const map = new Map(users.map((u) => [(u._id as Types.ObjectId).toString(), u]));
+  const rows = await getDb().select({ id: users.id, name: users.name, photoUrl: users.photoUrl }).from(users).where(inArray(users.id, workerIds));
+  const map = new Map(rows.map((u) => [u.id, u]));
   // Preserve the stored order; drop deleted users.
   return workerIds
-    .map((id) => map.get(id.toString()))
+    .map((id) => map.get(id))
     .filter((u): u is NonNullable<typeof u> => !!u)
-    .map((u) => ({
-      id: (u._id as Types.ObjectId).toString(),
-      name: (u as { name?: string }).name ?? 'Worker',
-      photoUrl: (u as { photoUrl?: string | null }).photoUrl ?? null,
-    }));
+    .map((u) => ({ id: u.id, name: u.name ?? 'Worker', photoUrl: u.photoUrl ?? null }));
 }
 
-async function toPublic(s: {
-  _id: unknown;
-  name: string;
-  workerIds: Types.ObjectId[];
-  createdAt: Date;
-}): Promise<PublicSquad> {
+async function toPublic(s: { id: string; name: string; workerIds: string[]; createdAt: Date }): Promise<PublicSquad> {
   return {
-    id: (s._id as Types.ObjectId).toString(),
+    id: s.id,
     name: s.name,
     members: await hydrateMembers(s.workerIds ?? []),
-    createdAt: new Date(s.createdAt).toISOString(),
+    createdAt: s.createdAt.toISOString(),
   };
 }
 
@@ -69,28 +57,21 @@ export async function createSquad(
 ): Promise<PublicSquad> {
   const unique = [...new Set(workerIds)].slice(0, MAX_MEMBERS);
   if (unique.length === 0) throw errors.validation(null, 'A squad needs at least one worker.');
-  const ids = unique.map((w) => new Types.ObjectId(w));
 
-  const created = await SquadModel.create({
-    employerId: new Types.ObjectId(employerId),
-    name: name.trim(),
-    workerIds: ids,
-  });
-  return toPublic(created.toObject() as Parameters<typeof toPublic>[0]);
+  const [created] = await getDb()
+    .insert(squads)
+    .values({ employerId, name: name.trim(), workerIds: unique })
+    .returning();
+  return toPublic(created!);
 }
 
 export async function listSquads(employerId: string): Promise<PublicSquad[]> {
-  const rows = await SquadModel.find({ employerId: new Types.ObjectId(employerId) })
-    .sort({ createdAt: -1 })
-    .lean();
-  return Promise.all(rows.map((r) => toPublic(r as Parameters<typeof toPublic>[0])));
+  const rows = await getDb().select().from(squads).where(eq(squads.employerId, employerId)).orderBy(desc(squads.createdAt));
+  return Promise.all(rows.map((r) => toPublic(r)));
 }
 
 export async function deleteSquad(employerId: string, squadId: string): Promise<void> {
-  await SquadModel.deleteOne({
-    _id: new Types.ObjectId(squadId),
-    employerId: new Types.ObjectId(employerId),
-  });
+  await getDb().delete(squads).where(and(eq(squads.id, squadId), eq(squads.employerId, employerId)));
 }
 
 export interface DeployResult {
@@ -105,31 +86,28 @@ export async function deploySquad(
   jobId: string,
   ttlHours = 24,
 ): Promise<DeployResult> {
-  const squad = await SquadModel.findOne({
-    _id: new Types.ObjectId(squadId),
-    employerId: new Types.ObjectId(employerId),
-  }).lean();
+  const db = getDb();
+  const [squad] = await db.select().from(squads).where(and(eq(squads.id, squadId), eq(squads.employerId, employerId))).limit(1);
   if (!squad) throw errors.notFound('Squad not found.');
 
   // Validate the job once up front (rehireCrewMember re-checks per call,
   // but this gives a clean error before fanning out).
-  const job = await JobModel.findById(jobId).select('employerId status').lean();
+  const [job] = await db.select({ employerId: jobs.employerId, status: jobs.status }).from(jobs).where(eq(jobs.id, jobId)).limit(1);
   if (!job) throw errors.jobNotFound();
-  if ((job.employerId as unknown as Types.ObjectId).toString() !== employerId) {
+  if (job.employerId !== employerId) {
     throw errors.forbidden();
   }
-  if ((job as { status?: string }).status !== 'active') {
+  if (job.status !== 'active') {
     throw errors.conflict('That job is not active.');
   }
 
-  const workerIds = (squad.workerIds as Types.ObjectId[]) ?? [];
+  const workerIds = squad.workerIds ?? [];
   const memberMap = new Map((await hydrateMembers(workerIds)).map((m) => [m.id, m]));
 
   const deployed: SquadMember[] = [];
   const failed: { workerId: string; reason: string }[] = [];
 
-  for (const wid of workerIds) {
-    const idStr = wid.toString();
+  for (const idStr of workerIds) {
     try {
       await rehireCrewMember(employerId, idStr, jobId, ttlHours);
       const m = memberMap.get(idStr);

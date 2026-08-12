@@ -5,8 +5,11 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
+import { eq } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
-import { UserModel } from '@/modules/users/user.model';
+import { getDb } from '@/db/client';
+import { users } from '@/db/schema/users';
+import { toPublicUser } from '@/modules/users/user.serializers';
 import * as service from './verification.service';
 
 const ok = (req: Request, res: Response, status: number, data: unknown) => {
@@ -20,11 +23,12 @@ export async function getStatus(
 ): Promise<void> {
   try {
     if (!req.user) throw errors.unauthorized();
-    const user = await UserModel.findById(req.user.id);
+    const db = getDb();
+    const user = await db.query.users.findFirst({ where: eq(users.id, req.user.id) });
     if (!user) throw errors.notFound('User not found');
     // Reuse PublicUser since it already exposes status, phoneVerified,
     // verifiedAt, and isVerified — clients can branch off any of them.
-    ok(req, res, 200, { user: user.toPublicJSON() });
+    ok(req, res, 200, { user: toPublicUser(user) });
   } catch (err) {
     next(err);
   }

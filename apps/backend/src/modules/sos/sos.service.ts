@@ -28,13 +28,13 @@
  *     extra paid SMS infra needed).
  */
 
-import { Types } from 'mongoose';
+import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 import { errors } from '@/lib/errors';
 import { sendSosAlertPush } from '@/lib/push';
-import { UserModel } from '@/modules/users/user.model';
-import { hashPhone } from '@/modules/me/findFriends.service';
-import { SosAlertModel, type PublicSosAlert } from './sosAlert.model';
+import { hashPhone } from '@/lib/phoneHash';
+import { getDb } from '@/db/client';
+import { sosAlerts, users } from '@/db/schema';
 
 interface TriggerInput {
   /** User firing SOS. */
@@ -44,6 +44,20 @@ interface TriggerInput {
   lng?: number;
   /** Short optional context from the seeker ("I'm at the gate, no one answers"). */
   note?: string;
+}
+
+export interface PublicSosAlert {
+  id: string;
+  triggeredBy: string;
+  location: { lat: number; lng: number } | null;
+  note: string | null;
+  fanout: {
+    trustContactsPushed: number;
+    trustContactsUnmatched: number;
+    peersPushed: number;
+  };
+  resolvedAt: string | null;
+  createdAt: string;
 }
 
 export interface SosTriggerResult {
@@ -62,55 +76,62 @@ export interface SosTriggerResult {
   unmatchedContacts: Array<{ name: string; phone: string; relationship: string | null }>;
 }
 
+type SosAlertRow = typeof sosAlerts.$inferSelect;
+
+function toPublicJSON(row: SosAlertRow): PublicSosAlert {
+  return {
+    id: row.id,
+    triggeredBy: row.triggeredBy,
+    location: row.geo ? { lat: row.geo.y, lng: row.geo.x } : null,
+    note: row.note ?? null,
+    fanout: {
+      trustContactsPushed: row.trustContactsPushed.length,
+      trustContactsUnmatched: row.trustContactsUnmatched.length,
+      peersPushed: row.peersPushed.length,
+    },
+    resolvedAt: row.resolvedAt ? row.resolvedAt.toISOString() : null,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
 /** Peer fan-out radius. Tight enough that responders can actually reach the site. */
 const PEER_RADIUS_METERS = 5_000;
 const PEER_LIMIT = 2;
 
 export async function triggerSos(input: TriggerInput): Promise<SosTriggerResult> {
-  const sender = await UserModel.findById(input.userId);
+  const db = getDb();
+  const [sender] = await db.select().from(users).where(eq(users.id, input.userId)).limit(1);
   if (!sender) throw errors.notFound('User not found.');
 
   // Resolve the location: device coords > the user's saved location.
   let lat = input.lat;
   let lng = input.lng;
   if (typeof lat !== 'number' || typeof lng !== 'number') {
-    const saved = sender.location?.geo?.coordinates;
+    const saved = sender.location?.coordinates;
     if (Array.isArray(saved) && saved.length === 2) {
       lng = saved[0];
       lat = saved[1];
     }
   }
   const haveCoords = typeof lat === 'number' && typeof lng === 'number';
-  const locationLink = haveCoords
-    ? `https://maps.google.com/?q=${lat},${lng}`
-    : null;
+  const locationLink = haveCoords ? `https://maps.google.com/?q=${lat},${lng}` : null;
 
   // 1. Trust Circle resolution. Phone-hash every contact and look them
   //    up in one query so we know who's on Doondo (push-reachable) vs
   //    who isn't (mobile sends SMS).
   const trust = Array.isArray(sender.trustCircle) ? sender.trustCircle : [];
   const hashes = trust.map((c) => hashPhone(c.phone));
-  const matched =
-    hashes.length > 0
-      ? await UserModel.find({ phoneHash: { $in: hashes }, isActive: true })
-          .select('_id phoneHash name')
-          .lean()
-      : [];
-  const matchedByHash = new Map(
-    matched.map((u) => [
-      (u as { phoneHash?: string }).phoneHash as string,
-      u._id as Types.ObjectId,
-    ]),
-  );
-  // For each Trust Circle contact, either record a "push this user"
-  // pairing (so we keep the contact's relationship label alongside)
-  // or remember the hash so the device can SMS-fallback.
+  const matched = hashes.length
+    ? await db.select({ id: users.id, phoneHash: users.phoneHash }).from(users).where(and(inArray(users.phoneHash, hashes), eq(users.isActive, true)))
+    : [];
+  const matchedByHash = new Map(matched.map((u) => [u.phoneHash as string, u.id]));
+
   interface TrustPushTarget {
-    userId: Types.ObjectId;
+    userId: string;
     relationship: string;
   }
   const trustPushTargets: TrustPushTarget[] = [];
-  const trustContactsPushed: Types.ObjectId[] = [];
+  const trustContactsPushed: string[] = [];
   const trustContactsUnmatched: string[] = [];
   const unmatchedContacts: Array<{ name: string; phone: string; relationship: string | null }> = [];
 
@@ -120,64 +141,56 @@ export async function triggerSos(input: TriggerInput): Promise<SosTriggerResult>
     const userIdMatch = matchedByHash.get(hash);
     if (userIdMatch) {
       trustContactsPushed.push(userIdMatch);
-      trustPushTargets.push({
-        userId: userIdMatch,
-        relationship: contact.relationship ?? 'family',
-      });
+      trustPushTargets.push({ userId: userIdMatch, relationship: contact.relationship ?? 'family' });
     } else {
       trustContactsUnmatched.push(hash);
-      unmatchedContacts.push({
-        name: contact.name,
-        phone: contact.phone,
-        relationship: contact.relationship ?? null,
-      });
+      unmatchedContacts.push({ name: contact.name, phone: contact.phone, relationship: contact.relationship ?? null });
     }
   }
 
   // 2. Peer responder lookup — nearest verified opted-in users.
   //    Always exclude the sender. Limit hardcoded; relax only when we
   //    have enough density to support a wider net.
-  const peersPushed: Types.ObjectId[] = [];
+  //    `users.location` is plain jsonb (no PostGIS index — see
+  //    src/db/schema/users.ts), so this is a sequential-scan distance
+  //    computation, same tradeoff already accepted for that column.
+  const peersPushed: string[] = [];
   if (haveCoords) {
-    const peerCandidates = await UserModel.find({
-      _id: { $ne: new Types.ObjectId(input.userId) },
-      isPeerResponder: true,
-      isVerified: true,
-      isActive: true,
-      'location.geo': {
-        $near: {
-          $geometry: { type: 'Point', coordinates: [lng!, lat!] },
-          $maxDistance: PEER_RADIUS_METERS,
-        },
-      },
-    })
-      .select('_id name')
-      .limit(PEER_LIMIT)
-      .lean();
-    for (const p of peerCandidates) {
-      peersPushed.push(p._id as Types.ObjectId);
-    }
+    const peerRows = await db.execute<{ id: string }>(sql`
+      SELECT id FROM users
+      WHERE id != ${input.userId}
+        AND is_peer_responder = true
+        AND is_verified = true
+        AND is_active = true
+        AND location IS NOT NULL
+        AND ST_DWithin(
+          ST_SetSRID(ST_MakePoint((location->'coordinates'->>0)::float, (location->'coordinates'->>1)::float), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
+          ${PEER_RADIUS_METERS}
+        )
+      LIMIT ${PEER_LIMIT}
+    `);
+    for (const p of peerRows) peersPushed.push(p.id);
   }
 
   // 3. Persist the alert FIRST so we have a receipt even if the push
   //    pipeline fails. The alert id is needed by every push.
-  const alert = await SosAlertModel.create({
-    triggeredBy: sender._id,
-    location: haveCoords
-      ? { type: 'Point', coordinates: [lng!, lat!] }
-      : null,
-    note: input.note?.trim() || null,
-    fanout: {
+  const [alert] = await db
+    .insert(sosAlerts)
+    .values({
+      triggeredBy: sender.id,
+      geo: haveCoords ? { x: lng!, y: lat! } : null,
+      note: input.note?.trim() || null,
       trustContactsPushed,
       trustContactsUnmatched,
       peersPushed,
-    },
-  });
+    })
+    .returning();
 
   logger.warn(
     {
-      alertId: alert.id,
-      sender: sender._id.toString(),
+      alertId: alert!.id,
+      sender: sender.id,
       trustPushed: trustContactsPushed.length,
       trustUnmatched: trustContactsUnmatched.length,
       peersPushed: peersPushed.length,
@@ -191,25 +204,25 @@ export async function triggerSos(input: TriggerInput): Promise<SosTriggerResult>
   const senderName = sender.name ?? 'A Doondo worker';
   for (const target of trustPushTargets) {
     void sendSosAlertPush({
-      recipientId: target.userId.toString(),
+      recipientId: target.userId,
       fromName: senderName,
       relationship: target.relationship,
-      alertId: alert.id,
+      alertId: alert!.id,
       locationLink,
     });
   }
   for (const peerId of peersPushed) {
     void sendSosAlertPush({
-      recipientId: peerId.toString(),
+      recipientId: peerId,
       fromName: senderName,
       relationship: 'peer',
-      alertId: alert.id,
+      alertId: alert!.id,
       locationLink,
     });
   }
 
   return {
-    alert: alert.toPublicJSON(),
+    alert: toPublicJSON(alert!),
     reach: {
       trustContactsPushed: trustContactsPushed.length,
       trustContactsUnmatched: trustContactsUnmatched.length,
@@ -224,10 +237,13 @@ export async function triggerSos(input: TriggerInput): Promise<SosTriggerResult>
  * Safety screen to show "Last alert: 14 days ago".
  */
 export async function listMyAlerts(userId: string, limit = 20): Promise<PublicSosAlert[]> {
-  const rows = await SosAlertModel.find({ triggeredBy: new Types.ObjectId(userId) })
-    .sort({ createdAt: -1 })
+  const rows = await getDb()
+    .select()
+    .from(sosAlerts)
+    .where(eq(sosAlerts.triggeredBy, userId))
+    .orderBy(desc(sosAlerts.createdAt))
     .limit(limit);
-  return rows.map((r) => r.toPublicJSON());
+  return rows.map(toPublicJSON);
 }
 
 /**
@@ -238,27 +254,23 @@ export async function resolveAlert(input: {
   alertId: string;
   callerId: string;
 }): Promise<PublicSosAlert> {
-  const alert = await SosAlertModel.findById(input.alertId);
+  const db = getDb();
+  const [alert] = await db.select().from(sosAlerts).where(eq(sosAlerts.id, input.alertId)).limit(1);
   if (!alert) throw errors.notFound('SOS alert not found.');
-  if (alert.resolvedAt) return alert.toPublicJSON();
+  if (alert.resolvedAt) return toPublicJSON(alert);
 
-  const callerObjectId = new Types.ObjectId(input.callerId);
-  const isSender = (alert.triggeredBy as unknown as Types.ObjectId).equals(callerObjectId);
-  const isContactedPeer =
-    alert.fanout?.peersPushed?.some((id) =>
-      (id as unknown as Types.ObjectId).equals(callerObjectId),
-    ) ?? false;
-  const isContactedTrust =
-    alert.fanout?.trustContactsPushed?.some((id) =>
-      (id as unknown as Types.ObjectId).equals(callerObjectId),
-    ) ?? false;
+  const isSender = alert.triggeredBy === input.callerId;
+  const isContactedPeer = alert.peersPushed.includes(input.callerId);
+  const isContactedTrust = alert.trustContactsPushed.includes(input.callerId);
 
   if (!isSender && !isContactedPeer && !isContactedTrust) {
     throw errors.forbidden();
   }
 
-  alert.resolvedAt = new Date();
-  alert.resolvedBy = callerObjectId as unknown as typeof alert.resolvedBy;
-  await alert.save();
-  return alert.toPublicJSON();
+  const [updated] = await db
+    .update(sosAlerts)
+    .set({ resolvedAt: new Date(), resolvedBy: input.callerId })
+    .where(eq(sosAlerts.id, alert.id))
+    .returning();
+  return toPublicJSON(updated!);
 }

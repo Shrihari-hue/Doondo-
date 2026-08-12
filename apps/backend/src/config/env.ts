@@ -15,8 +15,17 @@ const schema = z.object({
   PORT: z.coerce.number().int().positive().default(4000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
-  MONGODB_URI: z.string().url().or(z.string().startsWith('mongodb')),
-  MONGODB_DB_NAME: z.string().default('doondo'),
+  // ─── Postgres (Supabase) ────────────────────────────────────────────────
+  // Direct connection string from Supabase → Settings → Database →
+  // "Connection string" (Transaction/Session pooler URI). This is NOT the
+  // sb_publishable_/sb_secret_ API keys — those are for the PostgREST/Auth/
+  // Storage REST API, not a raw Postgres connection.
+  DATABASE_URL: z.string().startsWith('postgres'),
+  // Supabase project API — unused by app code today (kept for future
+  // Storage/PostgREST use), so all optional.
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
+  SUPABASE_SECRET_KEY: z.string().optional(),
 
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 chars'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 chars'),
@@ -115,6 +124,15 @@ const schema = z.object({
   SCHEDULER_ENABLED: z
     .union([z.literal('true'), z.literal('false')])
     .default('true')
+    .transform((v) => v === 'true'),
+  /**
+   * Enables the application-data schedulers (Ghost Sweep, Interview
+   * Reminders, Offer Expiry, Shift Confirmation). Digest, Escalation, and
+   * Reengagement register unconditionally and aren't gated by this flag.
+   */
+  PG_APPLICATION_SCHEDULERS_ENABLED: z
+    .union([z.literal('true'), z.literal('false')])
+    .default('false')
     .transform((v) => v === 'true'),
   /**
    * Cron expression for the morning digest. Default 01:30 UTC = 07:00 IST,

@@ -20,10 +20,9 @@
  * run without new infrastructure.
  */
 
-import { Types } from 'mongoose';
-import { UserModel } from '@/modules/users/user.model';
-import { RatingModel } from '@/modules/ratings/rating.model';
-import { ApplicationModel } from '@/modules/applications/application.model';
+import { and, desc, eq, gte, inArray, ne, or, sql } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { applications, ratings, users } from '@/db/schema';
 
 export interface TrustedWorker {
   seeker: {
@@ -45,68 +44,79 @@ export async function findWorkersRatedByLocalEmployers(
   employerId: string,
   limit: number,
 ): Promise<TrustedWorker[]> {
-  const meId = new Types.ObjectId(employerId);
-  const me = await UserModel.findById(meId).select('employerLocation location').lean();
-  const city =
-    (me as { employerLocation?: { city?: string } | null } | null)?.employerLocation?.city ||
-    (me as { location?: { city?: string } | null } | null)?.location?.city ||
-    null;
+  const db = getDb();
+  const [me] = await db
+    .select({ employerLocation: users.employerLocation, location: users.location })
+    .from(users)
+    .where(eq(users.id, employerId))
+    .limit(1);
+  const city = me?.employerLocation?.city || me?.location?.city || null;
 
   // Trusted employers = other employers in the same city. With no city on
   // file we can't scope locally, so we return nothing rather than leaking
   // a global list that wouldn't be "near you".
   if (!city) return [];
 
-  const employers = await UserModel.find({
-    role: 'employer',
-    _id: { $ne: meId },
-    $or: [{ 'employerLocation.city': city }, { 'location.city': city }],
-  })
-    .select('_id')
-    .limit(MAX_EMPLOYERS)
-    .lean();
+  const employers = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(
+      and(
+        eq(users.role, 'employer'),
+        ne(users.id, employerId),
+        or(sql`${users.employerLocation}->>'city' = ${city}`, sql`${users.location}->>'city' = ${city}`),
+      ),
+    )
+    .limit(MAX_EMPLOYERS);
   if (employers.length === 0) return [];
-  const employerIds = employers.map((e) => e._id as Types.ObjectId);
+  const employerIds = employers.map((e) => e.id);
 
   // Workers already in the caller's pipeline — exclude from recommendations.
-  const knownSeekerIds = (await ApplicationModel.distinct('seekerId', {
-    employerId: meId,
-  })) as unknown as Types.ObjectId[];
-  const knownSet = new Set(knownSeekerIds.map((id) => id.toString()));
+  const knownRows = await db
+    .selectDistinct({ seekerId: applications.seekerId })
+    .from(applications)
+    .where(eq(applications.employerId, employerId));
+  const knownSet = new Set(knownRows.map((r) => r.seekerId));
 
-  const agg = (await RatingModel.aggregate([
-    { $match: { role: 'seeker', score: { $gte: 4 }, reviewerId: { $in: employerIds } } },
-    {
-      $group: {
-        _id: '$revieweeId',
-        avg: { $avg: '$score' },
-        employers: { $addToSet: '$reviewerId' },
-      },
-    },
-    { $project: { avg: 1, employerCount: { $size: '$employers' } } },
-    { $sort: { employerCount: -1, avg: -1 } },
-    { $limit: Math.min(50, limit * 3) },
-  ])) as Array<{ _id: Types.ObjectId; avg: number; employerCount: number }>;
+  // Local employers' 4★+ ratings of seekers, grouped by who they rated.
+  const agg = await db
+    .select({
+      revieweeId: ratings.revieweeId,
+      avg: sql<number>`avg(${ratings.score})`,
+      employerCount: sql<number>`count(distinct ${ratings.reviewerId})::int`,
+    })
+    .from(ratings)
+    .where(
+      and(
+        eq(ratings.role, 'seeker'),
+        gte(ratings.score, 4),
+        inArray(ratings.reviewerId, employerIds),
+      ),
+    )
+    .groupBy(ratings.revieweeId)
+    .orderBy(desc(sql`count(distinct ${ratings.reviewerId})`), desc(sql`avg(${ratings.score})`))
+    .limit(Math.min(50, limit * 3));
 
-  const ranked = agg.filter((r) => !knownSet.has(r._id.toString())).slice(0, limit);
+  const ranked = agg.filter((r) => !knownSet.has(r.revieweeId)).slice(0, limit);
   if (ranked.length === 0) return [];
 
-  const workers = await UserModel.find({ _id: { $in: ranked.map((r) => r._id) } })
-    .select('name photoUrl skills isVerified')
-    .lean();
-  const workerMap = new Map(workers.map((w) => [(w._id as Types.ObjectId).toString(), w]));
+  const workers = await db
+    .select({ id: users.id, name: users.name, photoUrl: users.photoUrl, skills: users.skills, isVerified: users.isVerified })
+    .from(users)
+    .where(inArray(users.id, ranked.map((r) => r.revieweeId)));
+  const workerMap = new Map(workers.map((w) => [w.id, w]));
 
   return ranked
     .map((r) => {
-      const w = workerMap.get(r._id.toString());
+      const w = workerMap.get(r.revieweeId);
       if (!w) return null;
       return {
         seeker: {
-          id: r._id.toString(),
-          name: (w as { name?: string }).name ?? 'Worker',
-          photoUrl: (w as { photoUrl?: string | null }).photoUrl ?? null,
-          skills: (w as { skills?: string[] }).skills ?? [],
-          isVerified: Boolean((w as { isVerified?: boolean }).isVerified),
+          id: r.revieweeId,
+          name: w.name ?? 'Worker',
+          photoUrl: w.photoUrl ?? null,
+          skills: w.skills ?? [],
+          isVerified: Boolean(w.isVerified),
         },
         avgScore: Math.round(r.avg * 10) / 10,
         employerCount: r.employerCount,

@@ -10,7 +10,7 @@
  *      course ranking, profile extraction via the mock provider).
  *
  * What it does NOT do:
- *   - Connect to MongoDB or listen on a port — it's a "would this
+ *   - Connect to Postgres or listen on a port — it's a "would this
  *     boot?" check, runnable with just Node, no DB, no network.
  *   - Import the auth path (`buildApp` / `routes/v1`). That graph
  *     pulls `bcrypt`, a NATIVE module whose binary is platform-
@@ -109,25 +109,12 @@ async function main(): Promise<void> {
   });
   await check('all new models register', async () => {
     await Promise.all([
-      import('@/modules/sos/sosAlert.model'),
       import('@/modules/applications/shiftCheckIn.model'),
       import('@/modules/users/user.model'),
       import('@/modules/applications/application.model'),
       import('@/modules/notifications/notification.model'),
       import('@/modules/chat/message.model'),
       import('@/modules/jobs/job.model'),
-      import('@/modules/reels/reel.model'),
-      // Employer features build (1 Jun 2026)
-      import('@/modules/workerNotes/workerNote.model'),
-      import('@/modules/laborBudget/laborBudget.model'),
-      import('@/modules/employerResponse/employerResponse.model'),
-      import('@/modules/workProof/workProof.model'),
-      import('@/modules/crew/crew.model'),
-      import('@/modules/disputes/dispute.model'),
-      import('@/modules/squads/squad.model'),
-      import('@/modules/homeSafe/homeSafe.model'),
-      import('@/modules/maskedCall/maskedCall.model'),
-      import('@/modules/collect/collect.model'),
     ]);
   });
 

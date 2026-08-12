@@ -17,13 +17,13 @@
  */
 
 import { createHmac, randomBytes } from 'node:crypto';
-import { Types } from 'mongoose';
+import { eq } from 'drizzle-orm';
 import { env } from '@/config/env';
 import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import { UserModel } from './user.model';
+import { getDb } from '@/db/client';
+import { scoreCredentials, users } from '@/db/schema';
 import { computeForUser } from './doondoScore.service';
-import { ScoreCredentialModel } from './scoreCredential.model';
 
 // qrcode-terminal bundles the battle-tested Kazuhiko Arase QR encoder.
 // We use that encoder directly rather than re-implementing QR generation.
@@ -130,7 +130,7 @@ function randomCode(length: number): string {
 async function generateUniqueCode(): Promise<string> {
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = randomCode(CODE_LENGTH);
-    const clash = await ScoreCredentialModel.exists({ code });
+    const [clash] = await getDb().select({ id: scoreCredentials.id }).from(scoreCredentials).where(eq(scoreCredentials.code, code)).limit(1);
     if (!clash) return code;
   }
   // Astronomically unlikely — widen the code rather than fail.
@@ -144,14 +144,13 @@ async function generateUniqueCode(): Promise<string> {
  * Throws `notFound` when the user doesn't exist.
  */
 export async function issueCredential(userId: string): Promise<IssuedCredential> {
-  const user = await UserModel.findById(userId);
+  const db = getDb();
+  const [user] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId)).limit(1);
   if (!user) throw errors.notFound('User not found.');
 
   const score = await computeForUser(userId);
 
-  const existing = await ScoreCredentialModel.findOne({
-    userId: new Types.ObjectId(userId),
-  });
+  const [existing] = await db.select({ code: scoreCredentials.code }).from(scoreCredentials).where(eq(scoreCredentials.userId, userId)).limit(1);
   const code = existing?.code ?? (await generateUniqueCode());
 
   const issuedAt = new Date();
@@ -166,10 +165,21 @@ export async function issueCredential(userId: string): Promise<IssuedCredential>
     expiresAt,
   });
 
-  await ScoreCredentialModel.findOneAndUpdate(
-    { userId: new Types.ObjectId(userId) },
-    {
-      $set: {
+  await db
+    .insert(scoreCredentials)
+    .values({
+      userId,
+      code,
+      name: user.name,
+      score: score.score,
+      scoreVersion: score.version,
+      signature,
+      issuedAt,
+      expiresAt,
+    })
+    .onConflictDoUpdate({
+      target: scoreCredentials.userId,
+      set: {
         code,
         name: user.name,
         score: score.score,
@@ -177,10 +187,9 @@ export async function issueCredential(userId: string): Promise<IssuedCredential>
         signature,
         issuedAt,
         expiresAt,
+        updatedAt: new Date(),
       },
-    },
-    { upsert: true, new: true },
-  );
+    });
 
   const verifyUrl = `${env.PUBLIC_BASE_URL}/api/v1/score/verify/${code}`;
   logger.info({ userId, code, score: score.score }, 'doondo score credential issued');
@@ -201,7 +210,7 @@ export async function issueCredential(userId: string): Promise<IssuedCredential>
  * or tampered credential returns `{ valid: false }`.
  */
 export async function verifyCredential(code: string): Promise<VerifiedCredential> {
-  const record = await ScoreCredentialModel.findOne({ code: code.trim() });
+  const [record] = await getDb().select().from(scoreCredentials).where(eq(scoreCredentials.code, code.trim())).limit(1);
   if (!record) return { valid: false };
 
   // Expired.
@@ -210,7 +219,7 @@ export async function verifyCredential(code: string): Promise<VerifiedCredential
   // Tamper check — recompute the signature over the stored fields.
   const expected = sign({
     code: record.code,
-    userId: record.userId.toString(),
+    userId: record.userId,
     score: record.score,
     scoreVersion: record.scoreVersion,
     expiresAt: record.expiresAt,
@@ -219,7 +228,7 @@ export async function verifyCredential(code: string): Promise<VerifiedCredential
 
   return {
     valid: true,
-    userId: record.userId.toString(),
+    userId: record.userId,
     name: record.name,
     score: record.score,
     scoreVersion: record.scoreVersion,

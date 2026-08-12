@@ -3,21 +3,41 @@
  * the seeker's passed-test list (which drives the "Tested" pill).
  */
 
-import { Types } from 'mongoose';
+import { and, desc, eq } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
+import { getDb } from '@/db/client';
+import { skillTestAttempts } from '@/db/schema';
 import {
   SKILL_TESTS,
   findSkillTest,
   toPublic,
   type PublicSkillTest,
 } from './skillTests.catalogue';
-import {
-  SkillTestAttemptModel,
-  type PublicSkillTestAttempt,
-} from './skillTestAttempt.model';
 
 /** 24h cooldown between failed attempts on the same test. */
 export const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+export interface PublicSkillTestAttempt {
+  id: string;
+  testId: string;
+  score: number;
+  passingScore: number;
+  passed: boolean;
+  createdAt: string;
+}
+
+type AttemptRow = typeof skillTestAttempts.$inferSelect;
+
+function toPublicAttempt(row: AttemptRow): PublicSkillTestAttempt {
+  return {
+    id: row.id,
+    testId: row.testId,
+    score: row.score,
+    passingScore: row.passingScore,
+    passed: row.passed,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
 
 export function listTests(): PublicSkillTest[] {
   return SKILL_TESTS.map(toPublic);
@@ -52,24 +72,28 @@ export async function submitAttempt(
     );
   }
 
+  const db = getDb();
+
   // Has the seeker already passed this test? Once passed, the badge is
   // permanent; we don't let them retake (no incentive, no security
   // benefit, and it removes the possibility of accidentally "downgrading"
   // a verified worker).
-  const existingPass = await SkillTestAttemptModel.findOne({
-    seekerId: new Types.ObjectId(input.seekerId),
-    testId: input.testId,
-    passed: true,
-  });
+  const [existingPass] = await db
+    .select({ id: skillTestAttempts.id })
+    .from(skillTestAttempts)
+    .where(and(eq(skillTestAttempts.seekerId, input.seekerId), eq(skillTestAttempts.testId, input.testId), eq(skillTestAttempts.passed, true)))
+    .limit(1);
   if (existingPass) {
     throw errors.conflict('You\'ve already passed this test.');
   }
 
   // Cooldown — if there's a recent failed attempt, block.
-  const lastAttempt = await SkillTestAttemptModel.findOne({
-    seekerId: new Types.ObjectId(input.seekerId),
-    testId: input.testId,
-  }).sort({ createdAt: -1 });
+  const [lastAttempt] = await db
+    .select()
+    .from(skillTestAttempts)
+    .where(and(eq(skillTestAttempts.seekerId, input.seekerId), eq(skillTestAttempts.testId, input.testId)))
+    .orderBy(desc(skillTestAttempts.createdAt))
+    .limit(1);
   if (lastAttempt && !lastAttempt.passed) {
     const elapsed = Date.now() - lastAttempt.createdAt.getTime();
     if (elapsed < COOLDOWN_MS) {
@@ -87,33 +111,34 @@ export async function submitAttempt(
   }
   const passed = score >= test.passingScore;
 
-  const doc = await SkillTestAttemptModel.create({
-    seekerId: new Types.ObjectId(input.seekerId),
-    testId: input.testId,
-    score,
-    passingScore: test.passingScore,
-    passed,
-    answers: input.answers,
-  });
+  const [doc] = await db
+    .insert(skillTestAttempts)
+    .values({
+      seekerId: input.seekerId,
+      testId: input.testId,
+      score,
+      passingScore: test.passingScore,
+      passed,
+      answers: input.answers,
+    })
+    .returning();
 
   const cooldownUntil = !passed
-    ? new Date(doc.createdAt.getTime() + COOLDOWN_MS).toISOString()
+    ? new Date(doc!.createdAt.getTime() + COOLDOWN_MS).toISOString()
     : null;
 
   return {
-    ...doc.toPublicJSON(),
+    ...toPublicAttempt(doc!),
     cooldownUntil,
   };
 }
 
 /** Tests the seeker has passed — drives the "✓ Tested" pills on resume. */
 export async function listPassedTests(seekerId: string): Promise<string[]> {
-  const rows = await SkillTestAttemptModel.find({
-    seekerId: new Types.ObjectId(seekerId),
-    passed: true,
-  })
-    .select('testId')
-    .lean();
+  const rows = await getDb()
+    .select({ testId: skillTestAttempts.testId })
+    .from(skillTestAttempts)
+    .where(and(eq(skillTestAttempts.seekerId, seekerId), eq(skillTestAttempts.passed, true)));
   return [...new Set(rows.map((r) => r.testId))];
 }
 
@@ -121,11 +146,11 @@ export async function listPassedTests(seekerId: string): Promise<string[]> {
 export async function listMyAttempts(
   seekerId: string,
 ): Promise<PublicSkillTestAttempt[]> {
-  const rows = await SkillTestAttemptModel.find({
-    seekerId: new Types.ObjectId(seekerId),
-  })
-    .sort({ createdAt: -1 })
-    .lean();
+  const rows = await getDb()
+    .select()
+    .from(skillTestAttempts)
+    .where(eq(skillTestAttempts.seekerId, seekerId))
+    .orderBy(desc(skillTestAttempts.createdAt));
   // Keep only the newest per testId.
   const seen = new Set<string>();
   const latest = rows.filter((r) => {
@@ -133,12 +158,5 @@ export async function listMyAttempts(
     seen.add(r.testId);
     return true;
   });
-  return latest.map((r) => ({
-    id: (r._id as unknown as { toString(): string }).toString(),
-    testId: r.testId,
-    score: r.score,
-    passingScore: r.passingScore,
-    passed: Boolean(r.passed),
-    createdAt: (r.createdAt as Date).toISOString(),
-  }));
+  return latest.map(toPublicAttempt);
 }

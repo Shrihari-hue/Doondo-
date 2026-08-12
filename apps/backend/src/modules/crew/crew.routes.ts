@@ -10,7 +10,6 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { Types } from 'mongoose';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
 import { listCrew, importContacts, removeFromCrew, rehireCrewMember } from './crew.service';
@@ -33,9 +32,7 @@ const importSchema = z.object({
 
 const workerIdParams = z.object({
   params: z.object({
-    workerId: z.string().refine((v) => Types.ObjectId.isValid(v), {
-      message: 'Invalid worker id',
-    }),
+    workerId: z.string().uuid('Invalid worker id'),
   }),
 });
 
@@ -66,14 +63,10 @@ router.post(
 
 const rehireSchema = z.object({
   params: z.object({
-    workerId: z.string().refine((v) => Types.ObjectId.isValid(v), {
-      message: 'Invalid worker id',
-    }),
+    workerId: z.string().uuid('Invalid worker id'),
   }),
   body: z.object({
-    jobId: z.string().refine((v) => Types.ObjectId.isValid(v), {
-      message: 'Invalid job id',
-    }),
+    jobId: z.string().uuid('Invalid job id'),
     ttlHours: z.number().int().min(1).max(168).optional(),
   }),
 });

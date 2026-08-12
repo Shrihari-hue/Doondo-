@@ -10,13 +10,12 @@
  * recorded as a MaskedCallSession for audit and future provider wiring.
  */
 
-import { Types } from 'mongoose';
+import { eq } from 'drizzle-orm';
 import { env } from '@/config/env';
 import { errors } from '@/lib/errors';
 import { createProxySession } from '@/lib/maskedCall';
-import { UserModel } from '@/modules/users/user.model';
-import { ApplicationModel } from '@/modules/applications/application.model';
-import { MaskedCallSessionModel } from './maskedCall.model';
+import { getDb } from '@/db/client';
+import { applications, maskedCallSessions, users } from '@/db/schema';
 
 export type PartyRole = 'employer' | 'seeker';
 
@@ -36,32 +35,30 @@ export async function initiateCall(input: {
   role: PartyRole;
   applicationId: string;
 }): Promise<CallResult> {
-  const app = await ApplicationModel.findById(input.applicationId)
-    .select('employerId seekerId')
-    .lean();
+  const db = getDb();
+  const [app] = await db
+    .select({ employerId: applications.employerId, seekerId: applications.seekerId })
+    .from(applications)
+    .where(eq(applications.id, input.applicationId))
+    .limit(1);
   if (!app) throw errors.notFound('Application not found.');
 
-  const employerId = (app.employerId as unknown as Types.ObjectId).toString();
-  const seekerId = (app.seekerId as unknown as Types.ObjectId).toString();
   const callerIsParty =
-    (input.role === 'employer' && employerId === input.userId) ||
-    (input.role === 'seeker' && seekerId === input.userId);
+    (input.role === 'employer' && app.employerId === input.userId) ||
+    (input.role === 'seeker' && app.seekerId === input.userId);
   if (!callerIsParty) throw errors.forbidden();
 
-  const calleeId = input.role === 'employer' ? seekerId : employerId;
+  const calleeId = input.role === 'employer' ? app.seekerId : app.employerId;
 
-  const [caller, callee] = await Promise.all([
-    UserModel.findById(input.userId).select('phone').lean(),
-    UserModel.findById(calleeId).select('name companyName phone').lean(),
+  const [[caller], [callee]] = await Promise.all([
+    db.select({ phone: users.phone }).from(users).where(eq(users.id, input.userId)).limit(1),
+    db.select({ name: users.name, companyName: users.companyName, phone: users.phone }).from(users).where(eq(users.id, calleeId)).limit(1),
   ]);
   if (!callee) throw errors.notFound('The other party was not found.');
 
-  const callerPhone = (caller as { phone?: string } | null)?.phone ?? '';
-  const calleePhone = (callee as { phone?: string } | null)?.phone ?? '';
-  const calleeName =
-    (callee as { companyName?: string | null }).companyName ??
-    (callee as { name?: string } | null)?.name ??
-    'Contact';
+  const callerPhone = caller?.phone ?? '';
+  const calleePhone = callee.phone ?? '';
+  const calleeName = callee.companyName ?? callee.name ?? 'Contact';
 
   const proxy = await createProxySession({
     fromPhone: callerPhone,
@@ -72,10 +69,10 @@ export async function initiateCall(input: {
   const mode: 'proxy' | 'reveal' = proxy ? 'proxy' : 'reveal';
   const dialNumber = proxy ? proxy.proxyNumber : calleePhone || null;
 
-  await MaskedCallSessionModel.create({
-    applicationId: new Types.ObjectId(input.applicationId),
-    callerId: new Types.ObjectId(input.userId),
-    calleeId: new Types.ObjectId(calleeId),
+  await db.insert(maskedCallSessions).values({
+    applicationId: input.applicationId,
+    callerId: input.userId,
+    calleeId,
     callerRole: input.role,
     mode,
     provider: env.MASKED_CALL_PROVIDER,

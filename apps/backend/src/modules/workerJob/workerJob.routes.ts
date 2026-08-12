@@ -11,14 +11,13 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { Types } from 'mongoose';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
 import { getWorkerAttendance, getWorkerPayslip } from './workerJob.service';
 
 const router = Router();
 
-const objectId = z.string().refine((v) => Types.ObjectId.isValid(v), { message: 'Invalid id' });
+const objectId = z.string().uuid('Invalid id');
 const monthStr = z
   .string()
   .regex(/^\d{4}-\d{2}$/, 'month must be YYYY-MM')

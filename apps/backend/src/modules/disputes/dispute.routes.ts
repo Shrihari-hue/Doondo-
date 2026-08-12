@@ -14,21 +14,24 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { Types } from 'mongoose';
 import { requireAuth } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
-import { DISPUTE_CATEGORIES, DISPUTE_STATUSES, type PartyRole } from './dispute.model';
+import { disputeCategoryEnum, disputeStatusEnum } from '@/db/schema';
 import {
   raiseDispute,
   listDisputes,
   getDispute,
   respondToDispute,
   resolveDispute,
+  type PartyRole,
 } from './dispute.service';
+
+const DISPUTE_CATEGORIES = disputeCategoryEnum.enumValues;
+const DISPUTE_STATUSES = disputeStatusEnum.enumValues;
 
 const router = Router();
 
-const objectId = z.string().refine((v) => Types.ObjectId.isValid(v), { message: 'Invalid id' });
+const objectId = z.string().uuid('Invalid id');
 const MAX_PHOTO_CHARS = 600_000;
 
 /** Disputes only make sense for the two hiring roles. */

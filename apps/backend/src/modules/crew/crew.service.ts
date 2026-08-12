@@ -8,13 +8,11 @@
  * generate the common stored variants and query users in one shot.
  */
 
-import { Types } from 'mongoose';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
-import { UserModel } from '@/modules/users/user.model';
-import { JobModel } from '@/modules/jobs/job.model';
-import { ApplicationModel } from '@/modules/applications/application.model';
+import { getDb } from '@/db/client';
+import { applications, crewMembers, jobs, users } from '@/db/schema';
 import { makeOffer } from '@/modules/applications/application.service';
-import { CrewMemberModel } from './crew.model';
 
 export interface CrewWorker {
   id: string;
@@ -48,14 +46,14 @@ function variants(ten: string): string[] {
 }
 
 function toCrewWorker(u: {
-  _id: Types.ObjectId;
-  name?: string;
-  photoUrl?: string | null;
-  skills?: string[];
-  isVerified?: boolean;
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  skills: string[];
+  isVerified: boolean;
 }): CrewWorker {
   return {
-    id: u._id.toString(),
+    id: u.id,
     name: u.name ?? 'Worker',
     photoUrl: u.photoUrl ?? null,
     skills: u.skills ?? [],
@@ -64,29 +62,33 @@ function toCrewWorker(u: {
 }
 
 export async function listCrew(employerId: string): Promise<CrewWorker[]> {
-  const rows = await CrewMemberModel.find({ employerId: new Types.ObjectId(employerId) })
-    .sort({ createdAt: -1 })
-    .lean();
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(crewMembers)
+    .where(eq(crewMembers.employerId, employerId))
+    .orderBy(desc(crewMembers.createdAt));
   if (rows.length === 0) return [];
-  const workerIds = rows.map((r) => r.workerId as Types.ObjectId);
-  const users = await UserModel.find({ _id: { $in: workerIds } })
-    .select('name photoUrl skills isVerified')
-    .lean();
-  const map = new Map(
-    users.map((u) => [(u._id as Types.ObjectId).toString(), u]),
-  );
+
+  const workerIds = rows.map((r) => r.workerId);
+  const workers = await db
+    .select({ id: users.id, name: users.name, photoUrl: users.photoUrl, skills: users.skills, isVerified: users.isVerified })
+    .from(users)
+    .where(inArray(users.id, workerIds));
+  const map = new Map(workers.map((u) => [u.id, u]));
+
   // Preserve crew order (newest first), drop any deleted users.
   return rows
-    .map((r) => map.get((r.workerId as Types.ObjectId).toString()))
+    .map((r) => map.get(r.workerId))
     .filter((u): u is NonNullable<typeof u> => !!u)
-    .map((u) => toCrewWorker(u as Parameters<typeof toCrewWorker>[0]));
+    .map(toCrewWorker);
 }
 
 export async function importContacts(
   employerId: string,
   contacts: ContactInput[],
 ): Promise<ImportResult> {
-  const meId = new Types.ObjectId(employerId);
+  const db = getDb();
 
   // Normalise + de-dupe contacts by last-10.
   const byTen = new Map<string, ContactInput>();
@@ -98,17 +100,15 @@ export async function importContacts(
 
   // Look up all matching seekers in one query across phone variants.
   const allVariants = [...byTen.keys()].flatMap(variants);
-  const users = await UserModel.find({
-    role: 'seeker',
-    phone: { $in: allVariants },
-  })
-    .select('name photoUrl skills isVerified phone')
-    .lean();
+  const foundUsers = await db
+    .select({ id: users.id, name: users.name, photoUrl: users.photoUrl, skills: users.skills, isVerified: users.isVerified, phone: users.phone })
+    .from(users)
+    .where(and(eq(users.role, 'seeker'), inArray(users.phone, allVariants)));
 
   // Index found users by the last-10 of their stored phone.
-  const foundByTen = new Map<string, (typeof users)[number]>();
-  for (const u of users) {
-    const ten = last10((u as { phone?: string }).phone ?? '');
+  const foundByTen = new Map<string, (typeof foundUsers)[number]>();
+  for (const u of foundUsers) {
+    const ten = last10(u.phone ?? '');
     if (ten) foundByTen.set(ten, u);
   }
 
@@ -117,12 +117,11 @@ export async function importContacts(
   for (const [ten, contact] of byTen) {
     const u = foundByTen.get(ten);
     if (u) {
-      await CrewMemberModel.updateOne(
-        { employerId: meId, workerId: u._id as Types.ObjectId },
-        { $setOnInsert: { source: 'import' } },
-        { upsert: true },
-      );
-      added.push(toCrewWorker(u as Parameters<typeof toCrewWorker>[0]));
+      await db
+        .insert(crewMembers)
+        .values({ employerId, workerId: u.id, source: 'import' })
+        .onConflictDoNothing();
+      added.push(toCrewWorker(u));
     } else {
       notOnDoondo.push(contact);
     }
@@ -144,35 +143,39 @@ export async function rehireCrewMember(
   jobId: string,
   ttlHours = 24,
 ) {
-  const job = await JobModel.findById(jobId).select('employerId status').lean();
+  const db = getDb();
+  const [job] = await db.select({ employerId: jobs.employerId, status: jobs.status }).from(jobs).where(eq(jobs.id, jobId)).limit(1);
   if (!job) throw errors.jobNotFound();
-  if ((job.employerId as unknown as Types.ObjectId).toString() !== employerId) {
+  if (job.employerId !== employerId) {
     throw errors.forbidden();
   }
-  if ((job as { status?: string }).status !== 'active') {
+  if (job.status !== 'active') {
     throw errors.conflict('That job is not active.');
   }
 
   // Find or create the (worker, job) application. The compound unique index
   // on (seekerId, jobId) makes this safe; a fresh row starts shortlisted so
   // the offer can attach immediately.
-  const app = await ApplicationModel.findOneAndUpdate(
-    { seekerId: new Types.ObjectId(workerId), jobId: new Types.ObjectId(jobId) },
-    {
-      $setOnInsert: {
-        employerId: new Types.ObjectId(employerId),
-        status: 'shortlisted',
-        expressedAsInterest: false,
-        appliedAt: new Date(),
-        shortlistedAt: new Date(),
-      },
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  );
+  const [app] = await db
+    .insert(applications)
+    .values({
+      seekerId: workerId,
+      jobId,
+      employerId,
+      status: 'shortlisted',
+      expressedAsInterest: false,
+      appliedAt: new Date(),
+      shortlistedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [applications.seekerId, applications.jobId],
+      set: { seekerId: workerId },
+    })
+    .returning();
 
   return makeOffer({
     employerId,
-    applicationId: (app._id as Types.ObjectId).toString(),
+    applicationId: app!.id,
     ttlHours,
   });
 }
@@ -181,8 +184,5 @@ export async function removeFromCrew(
   employerId: string,
   workerId: string,
 ): Promise<void> {
-  await CrewMemberModel.deleteOne({
-    employerId: new Types.ObjectId(employerId),
-    workerId: new Types.ObjectId(workerId),
-  });
+  await getDb().delete(crewMembers).where(and(eq(crewMembers.employerId, employerId), eq(crewMembers.workerId, workerId)));
 }

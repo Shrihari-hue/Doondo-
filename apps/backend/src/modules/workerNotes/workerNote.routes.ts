@@ -16,17 +16,16 @@
  */
 
 import { Router } from 'express';
-import { Types } from 'mongoose';
 import { z } from 'zod';
+import { and, eq } from 'drizzle-orm';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
-import { WorkerNoteModel } from './workerNote.model';
+import { getDb } from '@/db/client';
+import { workerNotes } from '@/db/schema';
 
 const router = Router();
 
-const objectId = z.string().refine((v) => Types.ObjectId.isValid(v), {
-  message: 'Invalid worker id',
-});
+const objectId = z.string().uuid('Invalid worker id');
 
 const workerIdParams = z.object({ params: z.object({ workerId: objectId }) });
 
@@ -53,17 +52,14 @@ router.get(
   async (req, res, next) => {
     try {
       const workerId = req.params.workerId!;
-      const row = await WorkerNoteModel.findOne({
-        employerId: new Types.ObjectId(req.user!.id),
-        workerId: new Types.ObjectId(workerId),
-      }).lean();
+      const [row] = await getDb()
+        .select({ note: workerNotes.note, updatedAt: workerNotes.updatedAt })
+        .from(workerNotes)
+        .where(and(eq(workerNotes.employerId, req.user!.id), eq(workerNotes.workerId, workerId)))
+        .limit(1);
       res.json({
         ok: true,
-        data: toPublic(
-          workerId,
-          row?.note ?? '',
-          (row as { updatedAt?: Date } | null)?.updatedAt ?? null,
-        ),
+        data: toPublic(workerId, row?.note ?? '', row?.updatedAt ?? null),
         requestId: req.id,
       });
     } catch (err) {
@@ -82,21 +78,17 @@ router.put(
     try {
       const workerId = req.params.workerId!;
       const note = ((req.body as { note: string }).note ?? '').trim();
-      const row = await WorkerNoteModel.findOneAndUpdate(
-        {
-          employerId: new Types.ObjectId(req.user!.id),
-          workerId: new Types.ObjectId(workerId),
-        },
-        { $set: { note } },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
-      ).lean();
+      const [row] = await getDb()
+        .insert(workerNotes)
+        .values({ employerId: req.user!.id, workerId, note })
+        .onConflictDoUpdate({
+          target: [workerNotes.employerId, workerNotes.workerId],
+          set: { note, updatedAt: new Date() },
+        })
+        .returning();
       res.json({
         ok: true,
-        data: toPublic(
-          workerId,
-          row?.note ?? note,
-          (row as { updatedAt?: Date } | null)?.updatedAt ?? new Date(),
-        ),
+        data: toPublic(workerId, row?.note ?? note, row?.updatedAt ?? new Date()),
         requestId: req.id,
       });
     } catch (err) {
@@ -114,10 +106,9 @@ router.delete(
   async (req, res, next) => {
     try {
       const workerId = req.params.workerId!;
-      await WorkerNoteModel.deleteOne({
-        employerId: new Types.ObjectId(req.user!.id),
-        workerId: new Types.ObjectId(workerId),
-      });
+      await getDb()
+        .delete(workerNotes)
+        .where(and(eq(workerNotes.employerId, req.user!.id), eq(workerNotes.workerId, workerId)));
       res.json({
         ok: true,
         data: toPublic(workerId, '', null),

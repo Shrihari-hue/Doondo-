@@ -7,14 +7,15 @@
  *   getSeekerReel    anyone reads a given worker's reel (for their profile)
  *   listReelFeed     an employer browses the discovery feed of worker reels
  *
- * The video bytes never live in Mongo: `upsertReel` hands the clip to
+ * The video bytes never live in the DB: `upsertReel` hands the clip to
  * the swappable storage provider and stores only the URL it returns.
  */
 
-import { Types, type PipelineStage } from 'mongoose';
+import { and, desc, eq } from 'drizzle-orm';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import { ReelModel, type PublicReel } from './reel.model';
+import { getDb } from '@/db/client';
+import { reels, users } from '@/db/schema';
 import {
   removeReelVideo,
   storeReelVideo,
@@ -35,6 +36,36 @@ function reelRejection(reason: ReelRejectReason): AppError {
             : 'That video could not be read. Please try again.',
     status: 400,
   });
+}
+
+/** Shape sent to the mobile client. */
+export interface PublicReel {
+  id: string;
+  seekerId: string;
+  videoUrl: string;
+  thumbnailUrl: string | null;
+  durationSeconds: number;
+  caption: string | null;
+  createdAt: string;
+  /** Hydrated worker summary — set by the feed route that joins users. */
+  seeker?: {
+    id: string;
+    name: string;
+    photoUrl: string | null;
+    skills: string[];
+  };
+}
+
+function toPublicReel(r: typeof reels.$inferSelect): PublicReel {
+  return {
+    id: r.id,
+    seekerId: r.seekerId,
+    videoUrl: r.videoUrl,
+    thumbnailUrl: r.thumbnailUrl ?? null,
+    durationSeconds: r.durationSeconds,
+    caption: r.caption ?? null,
+    createdAt: r.createdAt.toISOString(),
+  };
 }
 
 export interface UpsertReelInput {
@@ -65,36 +96,45 @@ export async function upsertReel(input: UpsertReelInput): Promise<PublicReel> {
     mimeType: input.mimeType,
   });
 
-  const reel = await ReelModel.findOneAndUpdate(
-    { seekerId: new Types.ObjectId(input.seekerId) },
-    {
-      $set: {
+  const [reel] = await getDb()
+    .insert(reels)
+    .values({
+      seekerId: input.seekerId,
+      videoUrl: stored.videoUrl,
+      thumbnailUrl: stored.thumbnailUrl,
+      durationSeconds: Math.round(input.durationSeconds),
+      caption: input.caption?.trim() || null,
+      status: 'active',
+    })
+    .onConflictDoUpdate({
+      target: reels.seekerId,
+      set: {
         videoUrl: stored.videoUrl,
         thumbnailUrl: stored.thumbnailUrl,
         durationSeconds: Math.round(input.durationSeconds),
         caption: input.caption?.trim() || null,
         status: 'active',
+        updatedAt: new Date(),
       },
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  );
+    })
+    .returning();
 
   logger.info(
     { seekerId: input.seekerId, provider: stored.provider },
     'reel stored',
   );
-  return reel.toPublicJSON();
+  return toPublicReel(reel!);
 }
 
 /** The worker's own reel, or null when they haven't recorded one. */
 export async function getMyReel(seekerId: string): Promise<PublicReel | null> {
-  const reel = await ReelModel.findOne({ seekerId: new Types.ObjectId(seekerId) });
-  return reel ? reel.toPublicJSON() : null;
+  const [reel] = await getDb().select().from(reels).where(eq(reels.seekerId, seekerId)).limit(1);
+  return reel ? toPublicReel(reel) : null;
 }
 
 /** Remove the worker's reel. A no-op when there is nothing to remove. */
 export async function deleteReel(seekerId: string): Promise<void> {
-  await ReelModel.deleteOne({ seekerId: new Types.ObjectId(seekerId) });
+  await getDb().delete(reels).where(eq(reels.seekerId, seekerId));
   // Best-effort — the disk-backed mock provider reaps the file. External
   // CDN providers no-op and own retention themselves.
   await removeReelVideo(seekerId);
@@ -102,12 +142,12 @@ export async function deleteReel(seekerId: string): Promise<void> {
 
 /** A given worker's active reel — for their public profile. */
 export async function getSeekerReel(seekerId: string): Promise<PublicReel | null> {
-  if (!Types.ObjectId.isValid(seekerId)) return null;
-  const reel = await ReelModel.findOne({
-    seekerId: new Types.ObjectId(seekerId),
-    status: 'active',
-  });
-  return reel ? reel.toPublicJSON() : null;
+  const [reel] = await getDb()
+    .select()
+    .from(reels)
+    .where(and(eq(reels.seekerId, seekerId), eq(reels.status, 'active')))
+    .limit(1);
+  return reel ? toPublicReel(reel) : null;
 }
 
 /**
@@ -118,46 +158,23 @@ export async function getSeekerReel(seekerId: string): Promise<PublicReel | null
 export async function listReelFeed(query: {
   limit: number;
 }): Promise<PublicReel[]> {
-  const pipeline: PipelineStage[] = [
-    { $match: { status: 'active' } },
-    { $sort: { createdAt: -1 } },
-    { $limit: query.limit },
-    {
-      $lookup: {
-        from: 'users',
-        localField: 'seekerId',
-        foreignField: '_id',
-        as: 'seeker',
-        pipeline: [{ $project: { name: 1, photoUrl: 1, skills: 1, role: 1 } }],
-      },
-    },
-    { $unwind: { path: '$seeker', preserveNullAndEmptyArrays: true } },
-  ];
+  const rows = await getDb()
+    .select({ reel: reels, seeker: users })
+    .from(reels)
+    .leftJoin(users, eq(users.id, reels.seekerId))
+    .where(eq(reels.status, 'active'))
+    .orderBy(desc(reels.createdAt))
+    .limit(query.limit);
 
-  const rows = await ReelModel.aggregate(pipeline);
-  return rows.map((r) => formatRawReel(r));
-}
-
-/** Format a raw aggregate row (no Mongoose hydration) into a PublicReel. */
-function formatRawReel(r: Record<string, unknown>): PublicReel {
-  const seeker = r.seeker as
-    | { _id: Types.ObjectId; name?: string; photoUrl?: string | null; skills?: string[] }
-    | undefined;
-  return {
-    id: (r._id as Types.ObjectId).toString(),
-    seekerId: (r.seekerId as Types.ObjectId).toString(),
-    videoUrl: r.videoUrl as string,
-    thumbnailUrl: (r.thumbnailUrl as string | null | undefined) ?? null,
-    durationSeconds: (r.durationSeconds as number) ?? 0,
-    caption: (r.caption as string | null | undefined) ?? null,
-    createdAt: (r.createdAt as Date).toISOString(),
+  return rows.map(({ reel, seeker }) => ({
+    ...toPublicReel(reel),
     seeker: seeker
       ? {
-          id: seeker._id.toString(),
+          id: seeker.id,
           name: seeker.name ?? '',
           photoUrl: seeker.photoUrl ?? null,
           skills: Array.isArray(seeker.skills) ? seeker.skills : [],
         }
       : undefined,
-  };
+  }));
 }

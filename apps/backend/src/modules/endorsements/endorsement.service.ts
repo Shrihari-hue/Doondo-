@@ -11,17 +11,39 @@
  * gaming the system.
  */
 
-import { Types } from 'mongoose';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
-import { EndorsementModel, type PublicEndorsement } from './endorsement.model';
-import {
-  PhotoVerificationModel,
-  type PublicPhotoVerification,
-} from './photoVerification.model';
-import { UserModel } from '@/modules/users/user.model';
-import { ApplicationModel } from '@/modules/applications/application.model';
+import { getDb } from '@/db/client';
+import { applications, endorsements, photoVerifications, users } from '@/db/schema';
 
 const VERIFIED_THRESHOLD = 3;
+
+export interface PublicEndorsement {
+  id: string;
+  endorserId: string;
+  endorserName: string;
+  endorserCompanyName: string | null;
+  seekerId: string;
+  trade: string;
+  applicationId: string | null;
+  createdAt: string;
+}
+
+export interface PublicPhotoVerification {
+  id: string;
+  employerId: string;
+  employerName: string;
+  employerCompanyName: string | null;
+  seekerId: string;
+  photoIndex: number;
+  createdAt: string;
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === 'object' && err !== null && 'code' in err && (err as { code?: string }).code === '23505'
+  );
+}
 
 interface CreateInput {
   endorserId: string;
@@ -36,15 +58,19 @@ export async function endorse(input: CreateInput): Promise<PublicEndorsement> {
   }
 
   // Gate: the endorser must have actually hired this seeker.
-  const hiredExists = await ApplicationModel.exists({
-    employerId: new Types.ObjectId(input.endorserId),
-    seekerId: new Types.ObjectId(input.seekerId),
-    status: 'hired',
-  });
-  if (!hiredExists) {
-    throw errors.forbidden(
-      'Only employers who have hired this worker can endorse them.',
-    );
+  const [hired] = await getDb()
+    .select({ id: applications.id })
+    .from(applications)
+    .where(
+      and(
+        eq(applications.employerId, input.endorserId),
+        eq(applications.seekerId, input.seekerId),
+        eq(applications.status, 'hired'),
+      ),
+    )
+    .limit(1);
+  if (!hired) {
+    throw errors.forbidden('Only employers who have hired this worker can endorse them.');
   }
 
   const trade = input.trade.trim().toLowerCase();
@@ -53,30 +79,34 @@ export async function endorse(input: CreateInput): Promise<PublicEndorsement> {
   }
 
   try {
-    const doc = await EndorsementModel.create({
-      endorserId: new Types.ObjectId(input.endorserId),
-      seekerId: new Types.ObjectId(input.seekerId),
-      trade,
-      applicationId: input.applicationId
-        ? new Types.ObjectId(input.applicationId)
-        : null,
-    });
+    const [doc] = await getDb()
+      .insert(endorsements)
+      .values({
+        endorserId: input.endorserId,
+        seekerId: input.seekerId,
+        trade,
+        applicationId: input.applicationId ?? null,
+      })
+      .returning();
 
-    const endorser = await UserModel.findById(input.endorserId)
-      .select('name companyName')
-      .lean();
+    const [endorser] = await getDb()
+      .select({ name: users.name, companyName: users.companyName })
+      .from(users)
+      .where(eq(users.id, input.endorserId))
+      .limit(1);
 
-    return doc.toPublicJSON({
+    return {
+      id: doc!.id,
+      endorserId: doc!.endorserId,
       endorserName: endorser?.name ?? 'Doondo employer',
       endorserCompanyName: endorser?.companyName ?? null,
-    });
+      seekerId: doc!.seekerId,
+      trade: doc!.trade,
+      applicationId: doc!.applicationId,
+      createdAt: doc!.createdAt.toISOString(),
+    };
   } catch (err: unknown) {
-    if (
-      err &&
-      typeof err === 'object' &&
-      'code' in err &&
-      (err as { code: number }).code === 11000
-    ) {
+    if (isUniqueViolation(err)) {
       throw errors.conflict("You've already endorsed this worker for this trade.");
     }
     throw err;
@@ -97,17 +127,15 @@ export interface TradeEndorsementSummary {
 export async function summarizeForSeeker(
   seekerId: string,
 ): Promise<TradeEndorsementSummary[]> {
-  const rows = await EndorsementModel.aggregate<{
-    _id: string;
-    count: number;
-  }>([
-    { $match: { seekerId: new Types.ObjectId(seekerId) } },
-    { $group: { _id: '$trade', count: { $sum: 1 } } },
-    { $sort: { count: -1, _id: 1 } },
-  ]);
+  const rows = await getDb()
+    .select({ trade: endorsements.trade, count: sql<number>`count(*)::int` })
+    .from(endorsements)
+    .where(eq(endorsements.seekerId, seekerId))
+    .groupBy(endorsements.trade)
+    .orderBy(desc(sql`count(*)`), asc(endorsements.trade));
 
   return rows.map((r) => ({
-    trade: r._id,
+    trade: r.trade,
     count: r.count,
     verified: r.count >= VERIFIED_THRESHOLD,
   }));
@@ -123,12 +151,18 @@ export async function hasEndorsed(
   seekerId: string,
   trade: string,
 ): Promise<boolean> {
-  const exists = await EndorsementModel.exists({
-    endorserId: new Types.ObjectId(employerId),
-    seekerId: new Types.ObjectId(seekerId),
-    trade: trade.trim().toLowerCase(),
-  });
-  return !!exists;
+  const [row] = await getDb()
+    .select({ id: endorsements.id })
+    .from(endorsements)
+    .where(
+      and(
+        eq(endorsements.endorserId, employerId),
+        eq(endorsements.seekerId, seekerId),
+        eq(endorsements.trade, trade.trim().toLowerCase()),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
 }
 
 // ─── Photo verification ─────────────────────────────────────────────────────
@@ -146,39 +180,46 @@ export async function verifyPhoto(
   if (input.employerId === input.seekerId) {
     throw errors.forbidden("You can't verify your own photos.");
   }
-  const hiredExists = await ApplicationModel.exists({
-    employerId: new Types.ObjectId(input.employerId),
-    seekerId: new Types.ObjectId(input.seekerId),
-    status: 'hired',
-  });
-  if (!hiredExists) {
-    throw errors.forbidden(
-      'Only employers who have hired this worker can verify their photos.',
-    );
+  const [hired] = await getDb()
+    .select({ id: applications.id })
+    .from(applications)
+    .where(
+      and(
+        eq(applications.employerId, input.employerId),
+        eq(applications.seekerId, input.seekerId),
+        eq(applications.status, 'hired'),
+      ),
+    )
+    .limit(1);
+  if (!hired) {
+    throw errors.forbidden('Only employers who have hired this worker can verify their photos.');
   }
   try {
-    const doc = await PhotoVerificationModel.create({
-      employerId: new Types.ObjectId(input.employerId),
-      seekerId: new Types.ObjectId(input.seekerId),
-      photoIndex: input.photoIndex,
-      applicationId: input.applicationId
-        ? new Types.ObjectId(input.applicationId)
-        : null,
-    });
-    const employer = await UserModel.findById(input.employerId)
-      .select('name companyName')
-      .lean();
-    return doc.toPublicJSON({
+    const [doc] = await getDb()
+      .insert(photoVerifications)
+      .values({
+        employerId: input.employerId,
+        seekerId: input.seekerId,
+        photoIndex: input.photoIndex,
+        applicationId: input.applicationId ?? null,
+      })
+      .returning();
+    const [employer] = await getDb()
+      .select({ name: users.name, companyName: users.companyName })
+      .from(users)
+      .where(eq(users.id, input.employerId))
+      .limit(1);
+    return {
+      id: doc!.id,
+      employerId: doc!.employerId,
       employerName: employer?.name ?? 'Doondo employer',
       employerCompanyName: employer?.companyName ?? null,
-    });
+      seekerId: doc!.seekerId,
+      photoIndex: doc!.photoIndex,
+      createdAt: doc!.createdAt.toISOString(),
+    };
   } catch (err: unknown) {
-    if (
-      err &&
-      typeof err === 'object' &&
-      'code' in err &&
-      (err as { code: number }).code === 11000
-    ) {
+    if (isUniqueViolation(err)) {
       throw errors.conflict("You've already verified this photo.");
     }
     throw err;
@@ -193,13 +234,11 @@ export interface PhotoVerificationSummary {
 export async function summarizePhotoVerifications(
   seekerId: string,
 ): Promise<PhotoVerificationSummary[]> {
-  const rows = await PhotoVerificationModel.aggregate<{
-    _id: number;
-    count: number;
-  }>([
-    { $match: { seekerId: new Types.ObjectId(seekerId) } },
-    { $group: { _id: '$photoIndex', count: { $sum: 1 } } },
-    { $sort: { _id: 1 } },
-  ]);
-  return rows.map((r) => ({ photoIndex: r._id, count: r.count }));
+  const rows = await getDb()
+    .select({ photoIndex: photoVerifications.photoIndex, count: sql<number>`count(*)::int` })
+    .from(photoVerifications)
+    .where(eq(photoVerifications.seekerId, seekerId))
+    .groupBy(photoVerifications.photoIndex)
+    .orderBy(asc(photoVerifications.photoIndex));
+  return rows.map((r) => ({ photoIndex: r.photoIndex, count: r.count }));
 }

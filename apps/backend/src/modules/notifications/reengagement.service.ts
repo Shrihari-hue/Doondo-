@@ -34,16 +34,16 @@
  *   The body is concrete, not generic. Seekers hear how many jobs were
  *   posted near them in the last week; employers hear how many workers
  *   joined near them. The count is looked up cheaply (one indexed
- *   countDocuments per distinct seeker city, cached for the run; one
- *   global count for employers).
+ *   count per distinct seeker city, cached for the run; one global count
+ *   for employers).
  */
 
-import { Types } from 'mongoose';
+import { and, asc, count, eq, gt, gte, inArray, lt, lte, or, sql } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 import { env } from '@/config/env';
 import { sendReengagementPush } from '@/lib/push';
-import { UserModel } from '@/modules/users/user.model';
-import { JobModel } from '@/modules/jobs/job.model';
+import { getDb } from '@/db/client';
+import { jobs, users } from '@/db/schema';
 
 const BATCH_SIZE = 200;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -109,11 +109,12 @@ export function buildReengagementBody(
 /**
  * Run one re-engagement pass. Safe to call from cron or by hand.
  *
- * Paginates the user table by `_id` so memory stays flat regardless of
+ * Paginates the user table by `id` so memory stays flat regardless of
  * table size. Per-user failures are logged and skipped — one corrupt
- * document never aborts the run.
+ * row never aborts the run.
  */
 export async function runReengagementSweep(): Promise<ReengagementSummary> {
+  const db = getDb();
   const summary: ReengagementSummary = {
     considered: 0,
     pushed: 0,
@@ -131,11 +132,11 @@ export async function runReengagementSweep(): Promise<ReengagementSummary> {
   // Employers all get the same global count; compute it once.
   let newWorkerCount = 0;
   try {
-    newWorkerCount = await UserModel.countDocuments({
-      role: 'seeker',
-      isActive: true,
-      createdAt: { $gte: recentCutoff },
-    });
+    const [row] = await db
+      .select({ n: count() })
+      .from(users)
+      .where(and(eq(users.role, 'seeker'), eq(users.isActive, true), gte(users.createdAt, recentCutoff)));
+    newWorkerCount = row?.n ?? 0;
   } catch (err) {
     logger.warn({ err }, 'reengagement: new-worker count failed; using 0');
   }
@@ -147,14 +148,17 @@ export async function runReengagementSweep(): Promise<ReengagementSummary> {
     const key = city && city.trim() ? city.trim() : '__any__';
     const cached = cityJobCounts.get(key);
     if (cached !== undefined) return cached;
-    const q: Record<string, unknown> = {
-      status: 'active',
-      createdAt: { $gte: recentCutoff },
-    };
-    if (key !== '__any__') q['location.city'] = key;
     let n = 0;
     try {
-      n = await JobModel.countDocuments(q);
+      const [row] = await db
+        .select({ n: count() })
+        .from(jobs)
+        .where(
+          key !== '__any__'
+            ? and(eq(jobs.status, 'active'), gte(jobs.createdAt, recentCutoff), eq(jobs.city, key))
+            : and(eq(jobs.status, 'active'), gte(jobs.createdAt, recentCutoff)),
+        );
+      n = row?.n ?? 0;
     } catch (err) {
       logger.warn({ err, city: key }, 'reengagement: job count failed; using 0');
     }
@@ -163,47 +167,42 @@ export async function runReengagementSweep(): Promise<ReengagementSummary> {
   }
 
   // ── The sweep ────────────────────────────────────────────────────────
-  let lastId: Types.ObjectId | null = null;
+  let lastId: string | null = null;
   while (true) {
-    const q: Record<string, unknown> = {
-      isActive: true,
-      role: { $in: ['seeker', 'employer'] },
-      reengagementAttempts: { $lt: maxAttempts },
-      $and: [
-        // Dormant: a real last-login older than the cutoff, OR never
-        // logged in and the account itself is older than the cutoff.
-        // `$ne: null` on the first branch matters — in BSON sort order
-        // null sorts below any Date, so a bare `$lte` would wrongly
-        // match null-lastLoginAt users regardless of createdAt.
-        {
-          $or: [
-            { lastLoginAt: { $ne: null, $lte: dormantCutoff } },
-            { lastLoginAt: null, createdAt: { $lte: dormantCutoff } },
-          ],
-        },
-        // Cooldown: never nudged, or last nudge older than the cooldown.
-        {
-          $or: [
-            { lastReengagedAt: null },
-            { lastReengagedAt: { $lte: cooldownCutoff } },
-          ],
-        },
-      ],
-    };
-    if (lastId) q._id = { $gt: lastId };
+    // Dormant: a real last-login older than the cutoff, OR never logged
+    // in and the account itself is older than the cutoff.
+    const dormantCond = or(
+      and(sql`${users.lastLoginAt} IS NOT NULL`, lte(users.lastLoginAt, dormantCutoff)),
+      and(sql`${users.lastLoginAt} IS NULL`, lte(users.createdAt, dormantCutoff)),
+    );
+    // Cooldown: never nudged, or last nudge older than the cooldown.
+    const cooldownCond = or(
+      sql`${users.lastReengagedAt} IS NULL`,
+      lte(users.lastReengagedAt, cooldownCutoff),
+    );
 
-    const batch = await UserModel.find(q)
-      .sort({ _id: 1 })
-      .limit(BATCH_SIZE)
-      .select('_id role location notificationPrefs')
-      .lean();
+    const batch = await db
+      .select({ id: users.id, role: users.role, location: users.location, notificationPrefs: users.notificationPrefs })
+      .from(users)
+      .where(
+        and(
+          eq(users.isActive, true),
+          inArray(users.role, ['seeker', 'employer']),
+          lt(users.reengagementAttempts, maxAttempts),
+          dormantCond,
+          cooldownCond,
+          lastId ? gt(users.id, lastId) : undefined,
+        ),
+      )
+      .orderBy(asc(users.id))
+      .limit(BATCH_SIZE);
     if (batch.length === 0) break;
 
-    const pushedIds: Types.ObjectId[] = [];
+    const pushedIds: string[] = [];
 
     for (const user of batch) {
       summary.considered += 1;
-      const userId = (user._id as Types.ObjectId).toString();
+      const userId = user.id;
       const role: 'seeker' | 'employer' =
         user.role === 'employer' ? 'employer' : 'seeker';
 
@@ -219,13 +218,13 @@ export async function runReengagementSweep(): Promise<ReengagementSummary> {
       }
 
       try {
-        const count =
+        const cnt =
           role === 'employer'
             ? newWorkerCount
             : await jobsNear(user.location?.city ?? null);
-        const { title, body } = buildReengagementBody(role, count);
+        const { title, body } = buildReengagementBody(role, cnt);
         await sendReengagementPush({ recipientId: userId, role, title, body });
-        pushedIds.push(user._id as Types.ObjectId);
+        pushedIds.push(userId);
         summary.pushed += 1;
       } catch (err) {
         summary.errors += 1;
@@ -237,13 +236,10 @@ export async function runReengagementSweep(): Promise<ReengagementSummary> {
     // doubles as the cooldown guard and the same-day double-fire guard.
     if (pushedIds.length > 0) {
       try {
-        await UserModel.updateMany(
-          { _id: { $in: pushedIds } },
-          {
-            $set: { lastReengagedAt: new Date() },
-            $inc: { reengagementAttempts: 1 },
-          },
-        );
+        await db
+          .update(users)
+          .set({ lastReengagedAt: new Date(), reengagementAttempts: sql`${users.reengagementAttempts} + 1` })
+          .where(inArray(users.id, pushedIds));
       } catch (err) {
         // If the stamp fails the next run may re-push these users. That's
         // a tolerable failure mode (one extra nudge), so log and move on.
@@ -254,7 +250,7 @@ export async function runReengagementSweep(): Promise<ReengagementSummary> {
       }
     }
 
-    lastId = batch[batch.length - 1]!._id as Types.ObjectId;
+    lastId = batch[batch.length - 1]!.id;
     if (batch.length < BATCH_SIZE) break;
   }
 

@@ -12,10 +12,9 @@
  * check-in/out) and paid PaymentIntents (already settled by the employer).
  */
 
-import { Types } from 'mongoose';
-import { ShiftCheckInModel } from '@/modules/applications/shiftCheckIn.model';
-import { PaymentIntentModel } from '@/modules/payments/payment.model';
-import { UserModel } from '@/modules/users/user.model';
+import { and, asc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { paymentIntents, shiftCheckIns, users } from '@/db/schema';
 
 const MAX_SHIFT_HOURS = 16;
 
@@ -63,15 +62,14 @@ export async function getWorkerAttendance(
   seekerId: string,
   month?: string,
 ): Promise<WorkerAttendance> {
+  const db = getDb();
   const { start, end, label } = monthBounds(month);
 
-  const events = await ShiftCheckInModel.find({
-    seekerId: new Types.ObjectId(seekerId),
-    timestamp: { $gte: start, $lt: end },
-  })
-    .select('employerId kind timestamp')
-    .sort({ employerId: 1, timestamp: 1 })
-    .lean();
+  const events = await db
+    .select({ employerId: shiftCheckIns.employerId, kind: shiftCheckIns.kind, timestamp: shiftCheckIns.timestamp })
+    .from(shiftCheckIns)
+    .where(and(eq(shiftCheckIns.seekerId, seekerId), gte(shiftCheckIns.timestamp, start), lt(shiftCheckIns.timestamp, end)))
+    .orderBy(asc(shiftCheckIns.employerId), asc(shiftCheckIns.timestamp));
 
   // Pair per employer; an open check-in with no check-out is ignored.
   const byEmp = new Map<string, Tally>();
@@ -81,8 +79,8 @@ export async function getWorkerAttendance(
   let totalShifts = 0;
 
   for (const e of events) {
-    const emp = (e.employerId as unknown as Types.ObjectId).toString();
-    const ts = new Date(e.timestamp as Date);
+    const emp = e.employerId;
+    const ts = e.timestamp;
     if (e.kind === 'check_in') {
       openByEmp.set(emp, ts);
     } else if (e.kind === 'check_out') {
@@ -104,17 +102,10 @@ export async function getWorkerAttendance(
   }
 
   const empIds = [...byEmp.keys()];
-  const employers = await UserModel.find({ _id: { $in: empIds } })
-    .select('name companyName')
-    .lean();
-  const nameMap = new Map(
-    employers.map((u) => [
-      (u._id as Types.ObjectId).toString(),
-      (u as { companyName?: string | null; name?: string }).companyName ??
-        (u as { name?: string }).name ??
-        'Employer',
-    ]),
-  );
+  const employers = empIds.length
+    ? await db.select({ id: users.id, name: users.name, companyName: users.companyName }).from(users).where(inArray(users.id, empIds))
+    : [];
+  const nameMap = new Map(employers.map((u) => [u.id, u.companyName ?? u.name ?? 'Employer']));
 
   const byEmployer: AttendanceEmployer[] = empIds
     .map((id) => {
@@ -153,23 +144,26 @@ export async function getWorkerPayslip(
   employerId: string,
   month?: string,
 ): Promise<WorkerPayslip> {
+  const db = getDb();
   const { start, end, label } = monthBounds(month);
-  const seekerObj = new Types.ObjectId(seekerId);
-  const employerObj = new Types.ObjectId(employerId);
 
-  const events = await ShiftCheckInModel.find({
-    seekerId: seekerObj,
-    employerId: employerObj,
-    timestamp: { $gte: start, $lt: end },
-  })
-    .select('kind timestamp')
-    .sort({ timestamp: 1 })
-    .lean();
+  const events = await db
+    .select({ kind: shiftCheckIns.kind, timestamp: shiftCheckIns.timestamp })
+    .from(shiftCheckIns)
+    .where(
+      and(
+        eq(shiftCheckIns.seekerId, seekerId),
+        eq(shiftCheckIns.employerId, employerId),
+        gte(shiftCheckIns.timestamp, start),
+        lt(shiftCheckIns.timestamp, end),
+      ),
+    )
+    .orderBy(asc(shiftCheckIns.timestamp));
 
   const tally = emptyTally();
   let openAt: Date | null = null;
   for (const e of events) {
-    const ts = new Date(e.timestamp as Date);
+    const ts = e.timestamp;
     if (e.kind === 'check_in') openAt = ts;
     else if (e.kind === 'check_out' && openAt) {
       const mins = Math.min(MAX_SHIFT_HOURS * 60, Math.max(0, (ts.getTime() - openAt.getTime()) / 60_000));
@@ -180,33 +174,30 @@ export async function getWorkerPayslip(
     }
   }
 
-  const payAgg = await PaymentIntentModel.aggregate<{ _id: null; paidPaise: number }>([
-    {
-      $match: {
-        seekerId: seekerObj,
-        employerId: employerObj,
-        status: 'paid',
-        paidAt: { $gte: start, $lt: end },
-      },
-    },
-    { $group: { _id: null, paidPaise: { $sum: '$amountPaise' } } },
-  ]);
-
-  const [worker, employer] = await Promise.all([
-    UserModel.findById(seekerObj).select('name').lean(),
-    UserModel.findById(employerObj).select('name companyName').lean(),
+  const [[payRow], [worker], [employer]] = await Promise.all([
+    db
+      .select({ paidPaise: sql<number>`coalesce(sum(${paymentIntents.amountPaise}), 0)::int` })
+      .from(paymentIntents)
+      .where(
+        and(
+          eq(paymentIntents.seekerId, seekerId),
+          eq(paymentIntents.employerId, employerId),
+          eq(paymentIntents.status, 'paid'),
+          gte(paymentIntents.paidAt, start),
+          lt(paymentIntents.paidAt, end),
+        ),
+      ),
+    db.select({ name: users.name }).from(users).where(eq(users.id, seekerId)).limit(1),
+    db.select({ name: users.name, companyName: users.companyName }).from(users).where(eq(users.id, employerId)).limit(1),
   ]);
 
   return {
     month: label,
-    workerName: (worker as { name?: string } | null)?.name ?? 'Worker',
-    employerName:
-      (employer as { companyName?: string | null } | null)?.companyName ??
-      (employer as { name?: string } | null)?.name ??
-      'Employer',
+    workerName: worker?.name ?? 'Worker',
+    employerName: employer?.companyName ?? employer?.name ?? 'Employer',
     shifts: tally.shifts,
     minutes: Math.round(tally.minutes),
     days: tally.days.size,
-    paidPaise: payAgg[0]?.paidPaise ?? 0,
+    paidPaise: payRow?.paidPaise ?? 0,
   };
 }

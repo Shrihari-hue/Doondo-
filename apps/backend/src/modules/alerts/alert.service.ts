@@ -7,17 +7,53 @@
  *      notification to seekers whose alerts match.
  *
  * The matcher runs in-process — no queue, no cron. For Doondo's v1 scale
- * (thousands of alerts, hundreds of new jobs/day) a simple Mongo query
- * scoped by `enabled + city` keeps the work bounded; we add a proper
- * background worker only when the query starts costing >50ms.
+ * (thousands of alerts, hundreds of new jobs/day) a simple query scoped
+ * by `enabled + city` keeps the work bounded; we add a proper background
+ * worker only when the query starts costing >50ms.
  */
 
-import { Types } from 'mongoose';
+import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
-import { logger } from '@/lib/logger';
-import { JobAlertModel, type PublicJobAlert } from './alert.model';
+import { getDb } from '@/db/client';
+import { jobAlerts, type JobType } from '@/db/schema';
 import { sendJobAlertMatchPush } from '@/lib/push';
 import type { PublicJob } from '@/modules/jobs/job.model';
+
+type JobAlertRow = typeof jobAlerts.$inferSelect;
+
+export interface PublicJobAlert {
+  id: string;
+  name: string;
+  query: string | null;
+  city: string | null;
+  jobTypes: JobType[];
+  urgentOnly: boolean;
+  radiusKm: number | null;
+  coordinates: [number, number] | null;
+  enabled: boolean;
+  lastMatchedJobId: string | null;
+  lastMatchedAt: string | null;
+  matchCount: number;
+  createdAt: string;
+}
+
+function toPublicJSON(row: JobAlertRow): PublicJobAlert {
+  return {
+    id: row.id,
+    name: row.name,
+    query: row.query ?? null,
+    city: row.city ?? null,
+    jobTypes: row.jobTypes,
+    urgentOnly: row.urgentOnly,
+    radiusKm: row.radiusKm ?? null,
+    coordinates: row.coordinates ?? null,
+    enabled: row.enabled,
+    lastMatchedJobId: row.lastMatchedJobId ?? null,
+    lastMatchedAt: row.lastMatchedAt ? row.lastMatchedAt.toISOString() : null,
+    matchCount: row.matchCount,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
 
 // ─── CRUD ───────────────────────────────────────────────────────────────────
 
@@ -34,28 +70,33 @@ export interface UpsertInput {
 
 /** Alerts the user owns, newest first. */
 export async function listForUser(seekerId: string): Promise<PublicJobAlert[]> {
-  const alerts = await JobAlertModel.find({
-    seekerId: new Types.ObjectId(seekerId),
-  }).sort({ updatedAt: -1 });
-  return alerts.map((a) => a.toPublicJSON());
+  const rows = await getDb()
+    .select()
+    .from(jobAlerts)
+    .where(eq(jobAlerts.seekerId, seekerId))
+    .orderBy(desc(jobAlerts.updatedAt));
+  return rows.map(toPublicJSON);
 }
 
 export async function createForUser(
   seekerId: string,
   input: UpsertInput,
 ): Promise<PublicJobAlert> {
-  const created = await JobAlertModel.create({
-    seekerId: new Types.ObjectId(seekerId),
-    name: input.name.trim(),
-    query: input.query?.trim() || null,
-    city: input.city?.trim() || null,
-    jobTypes: input.jobTypes ?? [],
-    urgentOnly: Boolean(input.urgentOnly),
-    radiusKm: input.radiusKm ?? null,
-    coordinates: input.coordinates ?? undefined,
-    enabled: input.enabled ?? true,
-  });
-  return created.toPublicJSON();
+  const [created] = await getDb()
+    .insert(jobAlerts)
+    .values({
+      seekerId,
+      name: input.name.trim(),
+      query: input.query?.trim() || null,
+      city: input.city?.trim() || null,
+      jobTypes: input.jobTypes ?? [],
+      urgentOnly: Boolean(input.urgentOnly),
+      radiusKm: input.radiusKm ?? null,
+      coordinates: input.coordinates ?? null,
+      enabled: input.enabled ?? true,
+    })
+    .returning();
+  return toPublicJSON(created!);
 }
 
 export async function updateForUser(
@@ -63,39 +104,29 @@ export async function updateForUser(
   alertId: string,
   patch: Partial<UpsertInput>,
 ): Promise<PublicJobAlert> {
-  if (!Types.ObjectId.isValid(alertId)) {
-    throw errors.notFound('Alert not found');
-  }
-  const alert = await JobAlertModel.findOne({
-    _id: new Types.ObjectId(alertId),
-    seekerId: new Types.ObjectId(seekerId),
-  });
-  if (!alert) throw errors.notFound('Alert not found');
+  const values: Partial<typeof jobAlerts.$inferInsert> = {};
+  if (patch.name !== undefined) values.name = patch.name.trim();
+  if (patch.query !== undefined) values.query = patch.query?.trim() || null;
+  if (patch.city !== undefined) values.city = patch.city?.trim() || null;
+  if (patch.jobTypes !== undefined) values.jobTypes = patch.jobTypes;
+  if (patch.urgentOnly !== undefined) values.urgentOnly = patch.urgentOnly;
+  if (patch.radiusKm !== undefined) values.radiusKm = patch.radiusKm;
+  if (patch.coordinates !== undefined) values.coordinates = patch.coordinates ?? null;
+  if (patch.enabled !== undefined) values.enabled = patch.enabled;
 
-  if (patch.name !== undefined) alert.name = patch.name.trim();
-  if (patch.query !== undefined) alert.query = patch.query?.trim() || null;
-  if (patch.city !== undefined) alert.city = patch.city?.trim() || null;
-  if (patch.jobTypes !== undefined) alert.jobTypes = patch.jobTypes;
-  if (patch.urgentOnly !== undefined) alert.urgentOnly = patch.urgentOnly;
-  if (patch.radiusKm !== undefined) alert.radiusKm = patch.radiusKm;
-  if (patch.coordinates !== undefined) {
-    alert.coordinates = patch.coordinates ?? undefined;
-  }
-  if (patch.enabled !== undefined) alert.enabled = patch.enabled;
-
-  await alert.save();
-  return alert.toPublicJSON();
+  const [updated] = await getDb()
+    .update(jobAlerts)
+    .set(values)
+    .where(and(eq(jobAlerts.id, alertId), eq(jobAlerts.seekerId, seekerId)))
+    .returning();
+  if (!updated) throw errors.notFound('Alert not found');
+  return toPublicJSON(updated);
 }
 
-export async function deleteForUser(
-  seekerId: string,
-  alertId: string,
-): Promise<void> {
-  if (!Types.ObjectId.isValid(alertId)) return;
-  await JobAlertModel.deleteOne({
-    _id: new Types.ObjectId(alertId),
-    seekerId: new Types.ObjectId(seekerId),
-  });
+export async function deleteForUser(seekerId: string, alertId: string): Promise<void> {
+  await getDb()
+    .delete(jobAlerts)
+    .where(and(eq(jobAlerts.id, alertId), eq(jobAlerts.seekerId, seekerId)));
 }
 
 // ─── Matching ───────────────────────────────────────────────────────────────
@@ -110,50 +141,47 @@ export async function matchJobToAlerts(job: PublicJob): Promise<void> {
 
   // Pre-filter at the DB level: only enabled alerts, optionally scoped to
   // the job's city. We accept alerts with no city (national) too.
-  const candidates = await JobAlertModel.find({
-    enabled: true,
-    $or: [{ city: null }, { city: new RegExp(`^${escapeRegex(job.location.city)}$`, 'i') }],
-  })
-    .select('seekerId name query city jobTypes urgentOnly lastMatchedJobId')
-    .lean();
+  const candidates = await getDb()
+    .select({
+      id: jobAlerts.id,
+      seekerId: jobAlerts.seekerId,
+      name: jobAlerts.name,
+      query: jobAlerts.query,
+      city: jobAlerts.city,
+      jobTypes: jobAlerts.jobTypes,
+      urgentOnly: jobAlerts.urgentOnly,
+    })
+    .from(jobAlerts)
+    .where(
+      and(
+        eq(jobAlerts.enabled, true),
+        or(isNull(jobAlerts.city), sql`lower(${jobAlerts.city}) = lower(${job.location.city})`),
+      ),
+    );
 
   if (candidates.length === 0) return;
 
   const matched: Array<{ id: string; seekerId: string; name: string }> = [];
   for (const a of candidates) {
     if (jobMatchesAlert(job, a)) {
-      matched.push({
-        id: (a._id as unknown as Types.ObjectId).toString(),
-        seekerId: (a.seekerId as unknown as Types.ObjectId).toString(),
-        name: a.name,
-      });
+      matched.push({ id: a.id, seekerId: a.seekerId, name: a.name });
     }
   }
   if (matched.length === 0) return;
 
-  // Bump counters + lastMatched. One bulk write keeps it cheap.
-  // The bulkWrite payload is cast through `unknown` because mongoose's
-  // generated AnyBulkWriteOperation type strictly types ObjectId fields
-  // against Schema.Types.ObjectId (the constructor) while we pass live
-  // Types.ObjectId instances — the values are equivalent at runtime.
-  try {
-    await JobAlertModel.bulkWrite(
-      matched.map((m) => ({
-        updateOne: {
-          filter: { _id: new Types.ObjectId(m.id) },
-          update: {
-            $set: {
-              lastMatchedJobId: new Types.ObjectId(job.id),
-              lastMatchedAt: new Date(),
-            },
-            $inc: { matchCount: 1 },
-          },
-        },
-      })) as unknown as Parameters<typeof JobAlertModel.bulkWrite>[0],
-    );
-  } catch (err) {
-    logger.warn({ err, jobId: job.id }, 'alert bulkWrite failed');
-  }
+  // Bump counters + lastMatched for every matched alert.
+  await Promise.all(
+    matched.map((m) =>
+      getDb()
+        .update(jobAlerts)
+        .set({
+          lastMatchedJobId: job.id,
+          lastMatchedAt: new Date(),
+          matchCount: sql`${jobAlerts.matchCount} + 1`,
+        })
+        .where(eq(jobAlerts.id, m.id)),
+    ),
+  );
 
   // Fan out a push + in-app row per matched seeker. Each seeker may have
   // multiple alerts matching the same job; we collapse to one notification
@@ -212,8 +240,4 @@ function jobMatchesAlert(job: PublicJob, alert: AlertSnapshot): boolean {
   }
 
   return true;
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

@@ -13,26 +13,92 @@
  *   - summarizeForUser(userId) — returns {avg, count}. Cheap aggregation.
  *   - listMyUnrated(reviewerId) — applications the user could rate but
  *     hasn't yet; surfaced as a prompt on the Applications detail screen.
+ *
+ * Fully Postgres/Drizzle — the `ratings` table (src/db/schema/marketplace.ts)
+ * and every entity it references (Application, User, Job) all live in
+ * Postgres. There is no MongoDB dependency left anywhere in this module.
  */
 
-import { Types } from 'mongoose';
-import { ApplicationModel } from '@/modules/applications/application.model';
-import { JobModel } from '@/modules/jobs/job.model';
-import { UserModel } from '@/modules/users/user.model';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { applications, jobs, ratings, users, type RatingRole } from '@/db/schema';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { sendRatingReceivedPush } from '@/lib/push';
-import {
-  RatingModel,
-  type PublicRating,
-  type RatingRole,
-  type RatingSummary,
-} from './rating.model';
 import {
   allowedTagsFor,
   validateTagsForRole,
   type TagDescriptor,
 } from './tagCatalog';
+
+type RatingRow = typeof ratings.$inferSelect;
+
+export interface PublicRating {
+  id: string;
+  /** Null when the review was posted anonymously. The DB row still has the id. */
+  reviewerId: string | null;
+  /** "Anonymous worker" / "Anonymous employer" when the review is anonymous. */
+  reviewerName: string;
+  /** Null when anonymous. */
+  reviewerPhotoUrl: string | null;
+  revieweeId: string;
+  applicationId: string;
+  jobId: string;
+  jobTitle: string;
+  role: RatingRole;
+  score: number;
+  comment: string | null;
+  tags: string[];
+  /** Whether this review was posted anonymously. UI uses it to show a small chip. */
+  anonymous: boolean;
+  createdAt: string;
+}
+
+export interface RatingSummary {
+  avg: number;
+  count: number;
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code?: string }).code === '23505'
+  );
+}
+
+/**
+ * Plain-function replacement for the Mongoose `Rating.toPublicJSON()`
+ * instance method. Anonymous reviews never leak the reviewer's id, name,
+ * or photo; the "anonymous" label depends on the rating direction so the
+ * UI can still differentiate "Anonymous worker" from "Anonymous employer".
+ */
+function toPublicRating(
+  row: RatingRow,
+  populated: { reviewerName: string; reviewerPhotoUrl: string | null; jobTitle: string },
+): PublicRating {
+  const isAnon = row.anonymous;
+  // role === 'employer' means a SEEKER wrote this review (about an employer).
+  const anonLabel = row.role === 'employer' ? 'Anonymous worker' : 'Anonymous employer';
+
+  return {
+    id: row.id,
+    reviewerId: isAnon ? null : row.reviewerId,
+    reviewerName: isAnon ? anonLabel : populated.reviewerName,
+    reviewerPhotoUrl: isAnon ? null : populated.reviewerPhotoUrl,
+    revieweeId: row.revieweeId,
+    applicationId: row.applicationId,
+    jobId: row.jobId,
+    jobTitle: populated.jobTitle,
+    role: row.role,
+    score: row.score,
+    comment: row.comment ?? null,
+    tags: row.tags,
+    anonymous: isAnon,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
 
 interface CreateInput {
   reviewerId: string;
@@ -51,11 +117,20 @@ interface CreateInput {
  * employer, they're rating the seeker; vice versa.
  */
 export async function createRating(input: CreateInput): Promise<PublicRating> {
-  const reviewerObjectId = new Types.ObjectId(input.reviewerId);
-  const applicationObjectId = new Types.ObjectId(input.applicationId);
+  const reviewerId = input.reviewerId;
+  const applicationId = input.applicationId;
 
   // 1. Load the application + verify status + figure out direction.
-  const app = await ApplicationModel.findById(applicationObjectId);
+  const [app] = await getDb()
+    .select({
+      status: applications.status,
+      seekerId: applications.seekerId,
+      employerId: applications.employerId,
+      jobId: applications.jobId,
+    })
+    .from(applications)
+    .where(eq(applications.id, applicationId))
+    .limit(1);
   if (!app) {
     throw new AppError({
       code: 'NOT_FOUND',
@@ -71,8 +146,8 @@ export async function createRating(input: CreateInput): Promise<PublicRating> {
     });
   }
 
-  const seekerId = app.seekerId.toString();
-  const employerId = app.employerId.toString();
+  const seekerId = app.seekerId;
+  const employerId = app.employerId;
   const reviewerIdStr = input.reviewerId;
 
   let revieweeIdStr: string;
@@ -121,23 +196,33 @@ export async function createRating(input: CreateInput): Promise<PublicRating> {
   // 2. Create. Unique index on (reviewerId, applicationId) means we either
   //    succeed or hit a duplicate-key — surface that cleanly.
   try {
-    const created = await RatingModel.create({
-      reviewerId: reviewerObjectId,
-      revieweeId: new Types.ObjectId(revieweeIdStr),
-      applicationId: applicationObjectId,
-      jobId: app.jobId,
-      role,
-      score: input.score,
-      comment: input.comment?.trim() || null,
-      tags: requestedTags,
-      anonymous: Boolean(input.anonymous),
-    });
+    const [created] = await getDb()
+      .insert(ratings)
+      .values({
+        reviewerId,
+        revieweeId: revieweeIdStr,
+        applicationId,
+        jobId: app.jobId,
+        role,
+        score: input.score,
+        comment: input.comment?.trim() || null,
+        tags: requestedTags,
+        anonymous: Boolean(input.anonymous),
+      })
+      .returning();
+    const rating = created!;
 
     // 3. Hydrate the public view.
-    const [reviewer, job] = await Promise.all([
-      UserModel.findById(reviewerObjectId).select('name photoUrl'),
-      JobModel.findById(app.jobId).select('title'),
+    const [reviewerRows, jobRows] = await Promise.all([
+      getDb()
+        .select({ name: users.name, photoUrl: users.photoUrl })
+        .from(users)
+        .where(eq(users.id, reviewerId))
+        .limit(1),
+      getDb().select({ title: jobs.title }).from(jobs).where(eq(jobs.id, app.jobId)).limit(1),
     ]);
+    const reviewer = reviewerRows[0];
+    const job = jobRows[0];
 
     // Notify the person being rated. Best-effort, won't block the response.
     void sendRatingReceivedPush({
@@ -147,18 +232,13 @@ export async function createRating(input: CreateInput): Promise<PublicRating> {
       jobTitle: job?.title,
     });
 
-    return created.toPublicJSON({
+    return toPublicRating(rating, {
       reviewerName: reviewer?.name ?? 'Doondo user',
       reviewerPhotoUrl: reviewer?.photoUrl ?? null,
       jobTitle: job?.title ?? 'this job',
     });
   } catch (err: unknown) {
-    if (
-      err &&
-      typeof err === 'object' &&
-      'code' in err &&
-      (err as { code: number }).code === 11000
-    ) {
+    if (isUniqueViolation(err)) {
       throw new AppError({
         code: 'CONFLICT',
         message: "You've already rated this job",
@@ -175,27 +255,19 @@ export async function createRating(input: CreateInput): Promise<PublicRating> {
  * should render "No ratings yet" rather than "0.0 ⭐".
  */
 export async function summarizeForUser(userId: string): Promise<RatingSummary> {
-  const result = await RatingModel.aggregate<{
-    _id: null;
-    avg: number;
-    count: number;
-  }>([
-    { $match: { revieweeId: new Types.ObjectId(userId) } },
-    {
-      $group: {
-        _id: null,
-        avg: { $avg: '$score' },
-        count: { $sum: 1 },
-      },
-    },
-  ]);
+  const [row] = await getDb()
+    .select({
+      avg: sql<number | null>`avg(${ratings.score})`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(ratings)
+    .where(eq(ratings.revieweeId, userId));
 
-  if (result.length === 0) return { avg: 0, count: 0 };
-  const r = result[0]!;
+  if (!row || row.avg === null || row.count === 0) return { avg: 0, count: 0 };
   return {
     // round to one decimal so "4.555…" becomes 4.6 for display.
-    avg: Math.round(r.avg * 10) / 10,
-    count: r.count,
+    avg: Math.round(row.avg * 10) / 10,
+    count: row.count,
   };
 }
 
@@ -234,35 +306,21 @@ export async function summarizeTagsForUser(
   userId: string,
   role: RatingRole,
 ): Promise<TagSummary> {
-  // $facet always returns ONE document — an object whose keys are the
-  // facet names and whose values are arrays of the per-facet rows. The
-  // generic mirrors that shape so the field reads below are checked.
-  interface FacetResult {
-    total: Array<{ count: number }>;
-    perTag: Array<{ _id: string; count: number }>;
-  }
-  const result = await RatingModel.aggregate<FacetResult>([
-    { $match: { revieweeId: new Types.ObjectId(userId), role } },
-    {
-      $facet: {
-        total: [{ $count: 'count' }],
-        perTag: [
-          { $unwind: '$tags' },
-          {
-            $group: {
-              _id: '$tags',
-              count: { $sum: 1 },
-            },
-          },
-        ],
-      },
-    },
+  const [totalRow, perTagRows] = await Promise.all([
+    getDb()
+      .select({ count: sql<number>`count(*)::int` })
+      .from(ratings)
+      .where(and(eq(ratings.revieweeId, userId), eq(ratings.role, role))),
+    getDb().execute<{ tag: string; count: number }>(sql`
+      SELECT tag, count(*)::int AS count
+      FROM ${ratings}, unnest(${ratings.tags}) AS tag
+      WHERE ${ratings.revieweeId} = ${userId} AND ${ratings.role} = ${role}
+      GROUP BY tag
+    `),
   ]);
 
-  const facet = result[0];
-  const total = facet?.total?.[0]?.count ?? 0;
-  const perTag = facet?.perTag ?? [];
-  const countBySlug = new Map(perTag.map((r) => [r._id, r.count]));
+  const total = totalRow[0]?.count ?? 0;
+  const countBySlug = new Map(perTagRows.map((r) => [r.tag, r.count]));
 
   const catalog = allowedTagsFor(role);
   const tags: TagSummaryEntry[] = catalog.map((t) => {
@@ -284,23 +342,19 @@ export async function summarizeForUsers(
   userIds: string[],
 ): Promise<Map<string, RatingSummary>> {
   if (userIds.length === 0) return new Map();
-  const result = await RatingModel.aggregate<{
-    _id: Types.ObjectId;
-    avg: number;
-    count: number;
-  }>([
-    { $match: { revieweeId: { $in: userIds.map((id) => new Types.ObjectId(id)) } } },
-    {
-      $group: {
-        _id: '$revieweeId',
-        avg: { $avg: '$score' },
-        count: { $sum: 1 },
-      },
-    },
-  ]);
+  const rows = await getDb()
+    .select({
+      revieweeId: ratings.revieweeId,
+      avg: sql<number>`avg(${ratings.score})`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(ratings)
+    .where(inArray(ratings.revieweeId, userIds))
+    .groupBy(ratings.revieweeId);
+
   const map = new Map<string, RatingSummary>();
-  for (const r of result) {
-    map.set(r._id.toString(), {
+  for (const r of rows) {
+    map.set(r.revieweeId, {
       avg: Math.round(r.avg * 10) / 10,
       count: r.count,
     });
@@ -316,32 +370,38 @@ interface ListForUserInput {
 /** List ratings RECEIVED by a user, newest first. */
 export async function listForUser(input: ListForUserInput): Promise<PublicRating[]> {
   const limit = input.limit ?? 20;
-  const ratings = await RatingModel.find({ revieweeId: new Types.ObjectId(input.revieweeId) })
-    .sort({ createdAt: -1 })
+  const ratingRows = await getDb()
+    .select()
+    .from(ratings)
+    .where(eq(ratings.revieweeId, input.revieweeId))
+    .orderBy(desc(ratings.createdAt))
     .limit(limit);
 
-  if (ratings.length === 0) return [];
+  if (ratingRows.length === 0) return [];
 
   // Bulk-load reviewer + job names.
-  const reviewerIds = [...new Set(ratings.map((r) => r.reviewerId.toString()))];
-  const jobIds = [...new Set(ratings.map((r) => r.jobId.toString()))];
+  const reviewerIds = [...new Set(ratingRows.map((r) => r.reviewerId))];
+  const jobIds = [...new Set(ratingRows.map((r) => r.jobId))];
 
-  const [reviewers, jobs] = await Promise.all([
-    UserModel.find({ _id: { $in: reviewerIds } }).select('name photoUrl'),
-    JobModel.find({ _id: { $in: jobIds } }).select('title'),
+  const [reviewers, jobRows] = await Promise.all([
+    getDb()
+      .select({ id: users.id, name: users.name, photoUrl: users.photoUrl })
+      .from(users)
+      .where(inArray(users.id, reviewerIds)),
+    getDb().select({ id: jobs.id, title: jobs.title }).from(jobs).where(inArray(jobs.id, jobIds)),
   ]);
 
   const reviewerMap = new Map(
-    reviewers.map((u) => [u._id.toString(), { name: u.name, photoUrl: u.photoUrl ?? null }]),
+    reviewers.map((u) => [u.id, { name: u.name, photoUrl: u.photoUrl ?? null }]),
   );
-  const jobMap = new Map(jobs.map((j) => [j._id.toString(), j.title]));
+  const jobMap = new Map(jobRows.map((j) => [j.id, j.title]));
 
-  return ratings.map((r) => {
-    const reviewerInfo = reviewerMap.get(r.reviewerId.toString());
-    return r.toPublicJSON({
+  return ratingRows.map((r) => {
+    const reviewerInfo = reviewerMap.get(r.reviewerId);
+    return toPublicRating(r, {
       reviewerName: reviewerInfo?.name ?? 'Doondo user',
       reviewerPhotoUrl: reviewerInfo?.photoUrl ?? null,
-      jobTitle: jobMap.get(r.jobId.toString()) ?? 'a job',
+      jobTitle: jobMap.get(r.jobId) ?? 'a job',
     });
   });
 }
@@ -361,56 +421,64 @@ interface UnratedApp {
  * employer / worker".
  */
 export async function listMyUnrated(reviewerId: string, limit = 10): Promise<UnratedApp[]> {
-  const reviewerObjectId = new Types.ObjectId(reviewerId);
-
   // 1. All hired applications where this user is either the seeker or employer.
-  const applications = await ApplicationModel.find({
-    status: 'hired',
-    $or: [{ seekerId: reviewerObjectId }, { employerId: reviewerObjectId }],
-  })
-    .sort({ hiredAt: -1, updatedAt: -1 })
+  const hiredApps = await getDb()
+    .select({
+      id: applications.id,
+      seekerId: applications.seekerId,
+      employerId: applications.employerId,
+      jobId: applications.jobId,
+      hiredAt: applications.hiredAt,
+      updatedAt: applications.updatedAt,
+    })
+    .from(applications)
+    .where(
+      and(
+        eq(applications.status, 'hired'),
+        or(eq(applications.seekerId, reviewerId), eq(applications.employerId, reviewerId)),
+      ),
+    )
+    .orderBy(desc(applications.hiredAt), desc(applications.updatedAt))
     .limit(50); // load a bit more than `limit` to allow filtering below
 
-  if (applications.length === 0) return [];
+  if (hiredApps.length === 0) return [];
 
   // 2. Which ones have we already rated?
-  const applicationIds = applications.map((a) => a._id);
-  const myRatings = await RatingModel.find({
-    reviewerId: reviewerObjectId,
-    applicationId: { $in: applicationIds },
-  }).select('applicationId');
-  const ratedSet = new Set(myRatings.map((r) => r.applicationId.toString()));
+  const applicationIds = hiredApps.map((a) => a.id);
+  const myRatings = await getDb()
+    .select({ applicationId: ratings.applicationId })
+    .from(ratings)
+    .where(and(eq(ratings.reviewerId, reviewerId), inArray(ratings.applicationId, applicationIds)));
+  const ratedSet = new Set(myRatings.map((r) => r.applicationId));
 
-  const unrated = applications
-    .filter((a) => !ratedSet.has(a._id.toString()))
-    .slice(0, limit);
+  const unrated = hiredApps.filter((a) => !ratedSet.has(a.id)).slice(0, limit);
 
   if (unrated.length === 0) return [];
 
   // 3. Hydrate the "other party" and job title.
-  const otherIds = unrated.map((a) =>
-    reviewerId === a.seekerId.toString() ? a.employerId : a.seekerId,
-  );
+  const otherIds = unrated.map((a) => (reviewerId === a.seekerId ? a.employerId : a.seekerId));
   const jobIds = unrated.map((a) => a.jobId);
 
-  const [otherUsers, jobs] = await Promise.all([
-    UserModel.find({ _id: { $in: otherIds } }).select('name photoUrl'),
-    JobModel.find({ _id: { $in: jobIds } }).select('title'),
+  const [otherUsers, jobRows] = await Promise.all([
+    getDb()
+      .select({ id: users.id, name: users.name, photoUrl: users.photoUrl })
+      .from(users)
+      .where(inArray(users.id, otherIds)),
+    getDb().select({ id: jobs.id, title: jobs.title }).from(jobs).where(inArray(jobs.id, jobIds)),
   ]);
 
   const otherMap = new Map(
-    otherUsers.map((u) => [u._id.toString(), { name: u.name, photoUrl: u.photoUrl ?? null }]),
+    otherUsers.map((u) => [u.id, { name: u.name, photoUrl: u.photoUrl ?? null }]),
   );
-  const jobMap = new Map(jobs.map((j) => [j._id.toString(), j.title]));
+  const jobMap = new Map(jobRows.map((j) => [j.id, j.title]));
 
   return unrated.map((a) => {
-    const otherId =
-      reviewerId === a.seekerId.toString() ? a.employerId.toString() : a.seekerId.toString();
+    const otherId = reviewerId === a.seekerId ? a.employerId : a.seekerId;
     const other = otherMap.get(otherId);
     return {
-      applicationId: a._id.toString(),
-      jobId: a.jobId.toString(),
-      jobTitle: jobMap.get(a.jobId.toString()) ?? 'this job',
+      applicationId: a.id,
+      jobId: a.jobId,
+      jobTitle: jobMap.get(a.jobId) ?? 'this job',
       otherPartyName: other?.name ?? 'Doondo user',
       otherPartyPhotoUrl: other?.photoUrl ?? null,
       hiredAt: (a.hiredAt ?? a.updatedAt).toISOString(),

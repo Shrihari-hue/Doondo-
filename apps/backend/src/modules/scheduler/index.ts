@@ -10,11 +10,18 @@
  *   3. Tasks log a summary at info level so we can grep run history.
  *   4. The whole module no-ops in test/CI when `SCHEDULER_ENABLED=false`.
  *
- * Tasks today:
+ * Tasks today (all Postgres-native):
  *   - Morning digest (DIGEST_CRON, default 01:30 UTC = 07:00 IST)
  *   - Ghost sweep (GHOST_SWEEP_CRON, default top of hour, every hour)
  *   - Interview reminders (INTERVIEW_REMINDER_CRON, default every 15 min)
+ *   - Shift confirmation (SHIFT_CONFIRM_CRON)
+ *   - Offer expiry (OFFER_EXPIRY_CRON)
+ *   - Job auto-escalation (ESCALATION_CRON)
  *   - Re-engagement sweep (REENGAGEMENT_CRON, default 03:00 UTC = 08:30 IST)
+ *
+ * The application-data tasks (ghost sweep, interview reminders, shift
+ * confirmation, offer expiry) stay behind `PG_APPLICATION_SCHEDULERS_ENABLED`
+ * (default false) — see src/config/env.ts.
  *
  * Future tasks slot in here:
  *   - Job expiry / auto-close
@@ -39,8 +46,12 @@ let registered: ScheduledTask[] = [];
  * the previous schedules first (defensive: a hot-reload accidentally
  * double-importing this file wouldn't double-schedule).
  *
- * Call once from src/index.ts AFTER `connectDb()` returns. Don't call
- * it before — tasks query the DB and would fail loudly on first run.
+ * Call once from src/index.ts AFTER `connectPg()` returns. Don't call it
+ * before — tasks query the DB and would fail loudly on first run.
+ *
+ * Ghost Sweep, Interview Reminders, Offer Expiry, and Shift Confirmation
+ * are gated behind `PG_APPLICATION_SCHEDULERS_ENABLED`; the rest register
+ * unconditionally whenever their cron expression validates.
  */
 export function bootScheduler(): void {
   if (!env.SCHEDULER_ENABLED) {
@@ -105,7 +116,7 @@ export function bootScheduler(): void {
     );
   }
 
-  // ─── Morning digest ────────────────────────────────────────────────────
+  // ─── Morning digest ─────────────────────────────────────────────────────
   if (digestValid) {
     const digestTask = cron.schedule(
       env.DIGEST_CRON,
@@ -122,8 +133,8 @@ export function bootScheduler(): void {
     logger.info({ cron: env.DIGEST_CRON }, 'scheduler: morning digest registered');
   }
 
-  // ─── Ghost sweep ───────────────────────────────────────────────────────
-  if (ghostValid) {
+  // ─── Ghost sweep (Postgres-native) ─────────────────────────────────────
+  if (env.PG_APPLICATION_SCHEDULERS_ENABLED && ghostValid) {
     const ghostTask = cron.schedule(
       env.GHOST_SWEEP_CRON,
       () => {
@@ -140,10 +151,12 @@ export function bootScheduler(): void {
       { cron: env.GHOST_SWEEP_CRON, slaHours: env.GHOST_SLA_HOURS },
       'scheduler: ghost sweep registered',
     );
+  } else if (!env.PG_APPLICATION_SCHEDULERS_ENABLED) {
+    logger.info('scheduler: ghost sweep skipped (PG_APPLICATION_SCHEDULERS_ENABLED=false)');
   }
 
-  // ─── Interview reminder sweep ──────────────────────────────────────────
-  if (reminderValid) {
+  // ─── Interview reminder sweep (Postgres-native) ────────────────────────
+  if (env.PG_APPLICATION_SCHEDULERS_ENABLED && reminderValid) {
     const reminderTask = cron.schedule(
       env.INTERVIEW_REMINDER_CRON,
       () => {
@@ -163,10 +176,14 @@ export function bootScheduler(): void {
       },
       'scheduler: interview reminder sweep registered',
     );
+  } else if (!env.PG_APPLICATION_SCHEDULERS_ENABLED) {
+    logger.info(
+      'scheduler: interview reminder sweep skipped (PG_APPLICATION_SCHEDULERS_ENABLED=false)',
+    );
   }
 
-  // ─── Night-before shift confirmation sweep ─────────────────────────────
-  if (shiftConfirmValid) {
+  // ─── Night-before shift confirmation sweep (Postgres-native) ───────────
+  if (env.PG_APPLICATION_SCHEDULERS_ENABLED && shiftConfirmValid) {
     const shiftConfirmTask = cron.schedule(
       env.SHIFT_CONFIRM_CRON,
       () => {
@@ -186,10 +203,14 @@ export function bootScheduler(): void {
       },
       'scheduler: shift confirmation sweep registered',
     );
+  } else if (!env.PG_APPLICATION_SCHEDULERS_ENABLED) {
+    logger.info(
+      'scheduler: shift confirmation sweep skipped (PG_APPLICATION_SCHEDULERS_ENABLED=false)',
+    );
   }
 
-  // ─── Offer expiry sweep ────────────────────────────────────────────────
-  if (offerExpiryValid) {
+  // ─── Offer expiry sweep (Postgres-native) ──────────────────────────────
+  if (env.PG_APPLICATION_SCHEDULERS_ENABLED && offerExpiryValid) {
     const offerExpiryTask = cron.schedule(
       env.OFFER_EXPIRY_CRON,
       () => {
@@ -203,6 +224,8 @@ export function bootScheduler(): void {
     );
     registered.push(offerExpiryTask);
     logger.info({ cron: env.OFFER_EXPIRY_CRON }, 'scheduler: offer expiry sweep registered');
+  } else if (!env.PG_APPLICATION_SCHEDULERS_ENABLED) {
+    logger.info('scheduler: offer expiry sweep skipped (PG_APPLICATION_SCHEDULERS_ENABLED=false)');
   }
 
   // ─── Stalling-job auto-escalation sweep ────────────────────────────────

@@ -3,7 +3,7 @@
  *
  * Order matters:
  *   1. Load + validate env (the import itself will exit on failure).
- *   2. Connect to MongoDB.
+ *   2. Connect to Postgres.
  *   3. Build the Express + Socket.IO app.
  *   4. Listen.
  *   5. Wire SIGTERM/SIGINT for graceful shutdown.
@@ -12,22 +12,19 @@
 import './config/env';
 import { env } from '@/config/env';
 import { logger } from '@/lib/logger';
-import { connectDb, disconnectDb } from '@/config/db';
+import { connectPg, disconnectPg } from '@/db/client';
 import { buildApp } from '@/server';
 import { setIO } from '@/sockets/bus';
 import { bootScheduler, stopScheduler } from '@/modules/scheduler';
 
 async function main() {
-  await connectDb();
+  connectPg();
 
   const { httpServer, io } = buildApp();
 
   // Make the IO instance available to services for emitting user events.
   setIO(io);
 
-  // Boot scheduled jobs (morning digest, anti-ghost sweep). Must come
-  // AFTER connectDb so per-tick queries can talk to Mongo. No-ops when
-  // SCHEDULER_ENABLED=false (set in test / CI).
   bootScheduler();
 
   httpServer.listen(env.PORT, () => {
@@ -42,7 +39,7 @@ async function main() {
     stopScheduler();
     httpServer.close(() => logger.info('http server closed'));
     io.close(() => logger.info('socket.io closed'));
-    await disconnectDb();
+    await disconnectPg();
     setTimeout(() => process.exit(0), 200).unref();
   };
 

@@ -19,7 +19,7 @@ const router = Router();
 
 const bulkMessageSchema = z.object({
   body: z.object({
-    jobId: z.string().min(1),
+    jobId: z.string().uuid({ message: 'Invalid id' }),
     stage: z.enum(['shortlisted', 'active']).optional(),
     message: z.string().trim().min(1).max(2000),
   }),
@@ -39,30 +39,10 @@ router.post(
   validate(ensureConversationFromAppSchema),
   controller.ensureFromApplication,
 );
-router.get(
-  '/:id',
-  requireAuth,
-  validate(conversationIdParamsSchema),
-  controller.detail,
-);
-router.get(
-  '/:id/messages',
-  requireAuth,
-  validate(listMessagesSchema),
-  controller.listMessages,
-);
-router.post(
-  '/:id/messages',
-  requireAuth,
-  validate(sendMessageSchema),
-  controller.sendMessage,
-);
-router.post(
-  '/:id/read',
-  requireAuth,
-  validate(conversationIdParamsSchema),
-  controller.markRead,
-);
+router.get('/:id', requireAuth, validate(conversationIdParamsSchema), controller.detail);
+router.get('/:id/messages', requireAuth, validate(listMessagesSchema), controller.listMessages);
+router.post('/:id/messages', requireAuth, validate(sendMessageSchema), controller.sendMessage);
+router.post('/:id/read', requireAuth, validate(conversationIdParamsSchema), controller.markRead);
 router.post(
   '/:id/messages/:messageId/retranslate',
   requireAuth,
@@ -78,7 +58,7 @@ router.put(
   requireAuth,
   validate(
     z.object({
-      params: z.object({ id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id') }),
+      params: z.object({ id: z.string().uuid({ message: 'Invalid id' }) }),
       body: z.object({ lang: z.enum(['en', 'hi', 'ta', 'te', 'kn']).nullable() }),
     }),
   ),

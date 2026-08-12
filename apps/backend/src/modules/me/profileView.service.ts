@@ -1,11 +1,12 @@
 /**
  * profileView.service — write + read helpers for the seeker "12 employers
- * viewed your profile this week" counter. See profileView.model.ts for
- * the storage model.
+ * viewed your profile this week" counter. See `profileViews` in
+ * src/db/schema/extras.ts for the storage model.
  */
 
-import { Types } from 'mongoose';
-import { ProfileViewModel } from './profileView.model';
+import { and, eq, gte, sql } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { profileViews } from '@/db/schema';
 
 /** Format a Date as a UTC-day bucket like "2026-05-17". */
 function dayKey(d: Date = new Date()): string {
@@ -23,24 +24,16 @@ function dayKey(d: Date = new Date()): string {
  * employer per day.
  */
 export async function recordView(input: {
-  seekerId: string | Types.ObjectId;
-  viewerId: string | Types.ObjectId;
+  seekerId: string;
+  viewerId: string;
 }): Promise<{ isNew: boolean }> {
-  const sid = new Types.ObjectId(input.seekerId);
-  const vid = new Types.ObjectId(input.viewerId);
-  if (sid.equals(vid)) return { isNew: false };
-  try {
-    const result = await ProfileViewModel.updateOne(
-      { seekerId: sid, viewerId: vid, day: dayKey() },
-      { $setOnInsert: { seekerId: sid, viewerId: vid, day: dayKey() } },
-      { upsert: true },
-    );
-    return { isNew: result.upsertedCount === 1 };
-  } catch {
-    // Best-effort — duplicate-key races collapse to a no-op, which is
-    // the intent (one view per day per pair).
-    return { isNew: false };
-  }
+  if (input.seekerId === input.viewerId) return { isNew: false };
+  const [row] = await getDb()
+    .insert(profileViews)
+    .values({ seekerId: input.seekerId, viewerId: input.viewerId, day: dayKey() })
+    .onConflictDoNothing()
+    .returning({ id: profileViews.id });
+  return { isNew: Boolean(row) };
 }
 
 export interface ProfileViewSummary {
@@ -56,34 +49,30 @@ export interface ProfileViewSummary {
  * Summarise views for the seeker's own dashboard card. Always operates
  * on the seeker's own id — endpoint is /me/profile-views.
  */
-export async function summarize(
-  seekerId: string | Types.ObjectId,
-): Promise<ProfileViewSummary> {
-  const sid = new Types.ObjectId(seekerId);
+export async function summarize(seekerId: string): Promise<ProfileViewSummary> {
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  const [v7Agg, v30Agg, imp7] = await Promise.all([
-    ProfileViewModel.aggregate([
-      { $match: { seekerId: sid, createdAt: { $gte: sevenDaysAgo } } },
-      { $group: { _id: '$viewerId' } },
-      { $count: 'n' },
-    ]),
-    ProfileViewModel.aggregate([
-      { $match: { seekerId: sid, createdAt: { $gte: thirtyDaysAgo } } },
-      { $group: { _id: '$viewerId' } },
-      { $count: 'n' },
-    ]),
-    ProfileViewModel.countDocuments({
-      seekerId: sid,
-      createdAt: { $gte: sevenDaysAgo },
-    }),
+  const db = getDb();
+  const [v7Row, v30Row, imp7Row] = await Promise.all([
+    db
+      .select({ n: sql<number>`count(distinct ${profileViews.viewerId})::int` })
+      .from(profileViews)
+      .where(and(eq(profileViews.seekerId, seekerId), gte(profileViews.createdAt, sevenDaysAgo))),
+    db
+      .select({ n: sql<number>`count(distinct ${profileViews.viewerId})::int` })
+      .from(profileViews)
+      .where(and(eq(profileViews.seekerId, seekerId), gte(profileViews.createdAt, thirtyDaysAgo))),
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(profileViews)
+      .where(and(eq(profileViews.seekerId, seekerId), gte(profileViews.createdAt, sevenDaysAgo))),
   ]);
 
   return {
-    viewersLast7Days: (v7Agg[0]?.n as number | undefined) ?? 0,
-    viewersLast30Days: (v30Agg[0]?.n as number | undefined) ?? 0,
-    impressionsLast7Days: imp7,
+    viewersLast7Days: v7Row[0]?.n ?? 0,
+    viewersLast30Days: v30Row[0]?.n ?? 0,
+    impressionsLast7Days: imp7Row[0]?.n ?? 0,
   };
 }

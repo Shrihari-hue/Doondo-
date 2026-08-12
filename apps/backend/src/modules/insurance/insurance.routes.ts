@@ -6,37 +6,38 @@
  *   DELETE /me/insurance       — cancel
  */
 import { Router } from 'express';
-import { Types } from 'mongoose';
+import { eq } from 'drizzle-orm';
 import { requireAuth, requireRole } from '@/middleware/auth';
-import {
-  InsuranceSubscriptionModel,
-  type InsuranceSubscription,
-} from './insurance.model';
+import { getDb } from '@/db/client';
+import { insuranceSubscriptions } from '@/db/schema';
 
 const STANDARD_PREMIUM_PAISE = 4_900; // ₹49 / month
 
 const router = Router();
 
-function toPublic(s: InsuranceSubscription & { _id: unknown }) {
+type InsuranceRow = typeof insuranceSubscriptions.$inferSelect;
+
+function toPublic(s: InsuranceRow) {
   return {
-    id: (s._id as unknown as Types.ObjectId).toString(),
+    id: s.id,
     tier: s.tier,
     monthlyPremiumPaise: s.monthlyPremiumPaise,
     status: s.status,
     startedAt: s.startedAt ? s.startedAt.toISOString() : null,
     lastPaidAt: s.lastPaidAt ? s.lastPaidAt.toISOString() : null,
-    createdAt:
-      (s as { createdAt?: Date }).createdAt?.toISOString() ?? new Date().toISOString(),
+    createdAt: s.createdAt.toISOString(),
   };
 }
 
 router.get('/insurance', requireAuth, requireRole('seeker'), async (req, res, next) => {
   try {
-    const s = await InsuranceSubscriptionModel.findOne({
-      seekerId: new Types.ObjectId(req.user!.id),
-    }).lean();
+    const [s] = await getDb()
+      .select()
+      .from(insuranceSubscriptions)
+      .where(eq(insuranceSubscriptions.seekerId, req.user!.id))
+      .limit(1);
     res.json({
-      subscription: s ? toPublic(s as InsuranceSubscription & { _id: unknown }) : null,
+      subscription: s ? toPublic(s) : null,
       tier: {
         name: 'standard',
         monthlyPremiumPaise: STANDARD_PREMIUM_PAISE,
@@ -52,23 +53,38 @@ router.get('/insurance', requireAuth, requireRole('seeker'), async (req, res, ne
 
 router.post('/insurance', requireAuth, requireRole('seeker'), async (req, res, next) => {
   try {
-    const seekerId = new Types.ObjectId(req.user!.id);
-    let s = await InsuranceSubscriptionModel.findOne({ seekerId });
-    if (s) {
+    const seekerId = req.user!.id;
+    const [existing] = await getDb()
+      .select()
+      .from(insuranceSubscriptions)
+      .where(eq(insuranceSubscriptions.seekerId, seekerId))
+      .limit(1);
+    let s: InsuranceRow;
+    if (existing) {
       // Re-opt-in for a cancelled subscription resurrects it.
-      if (s.status === 'cancelled') s.status = 'pending';
-      await s.save();
+      if (existing.status === 'cancelled') {
+        const [updated] = await getDb()
+          .update(insuranceSubscriptions)
+          .set({ status: 'pending' })
+          .where(eq(insuranceSubscriptions.id, existing.id))
+          .returning();
+        s = updated!;
+      } else {
+        s = existing;
+      }
     } else {
-      s = await InsuranceSubscriptionModel.create({
-        seekerId,
-        tier: 'standard',
-        monthlyPremiumPaise: STANDARD_PREMIUM_PAISE,
-        status: 'pending',
-      });
+      const [created] = await getDb()
+        .insert(insuranceSubscriptions)
+        .values({
+          seekerId,
+          tier: 'standard',
+          monthlyPremiumPaise: STANDARD_PREMIUM_PAISE,
+          status: 'pending',
+        })
+        .returning();
+      s = created!;
     }
-    res.json({
-      subscription: toPublic(s.toObject() as InsuranceSubscription & { _id: unknown }),
-    });
+    res.json({ subscription: toPublic(s) });
   } catch (err) {
     next(err);
   }
@@ -76,13 +92,10 @@ router.post('/insurance', requireAuth, requireRole('seeker'), async (req, res, n
 
 router.delete('/insurance', requireAuth, requireRole('seeker'), async (req, res, next) => {
   try {
-    const s = await InsuranceSubscriptionModel.findOne({
-      seekerId: new Types.ObjectId(req.user!.id),
-    });
-    if (s) {
-      s.status = 'cancelled';
-      await s.save();
-    }
+    await getDb()
+      .update(insuranceSubscriptions)
+      .set({ status: 'cancelled' })
+      .where(eq(insuranceSubscriptions.seekerId, req.user!.id));
     res.json({ ok: true });
   } catch (err) {
     next(err);

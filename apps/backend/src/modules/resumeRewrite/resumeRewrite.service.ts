@@ -22,16 +22,12 @@
  * worker reviews and approves, never a silent background mutation.
  */
 
-import { Types } from 'mongoose';
+import { and, eq } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { tailoredResumes, users, jobs } from '@/db/schema';
 import { env } from '@/config/env';
 import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import { UserModel } from '@/modules/users/user.model';
-import { JobModel } from '@/modules/jobs/job.model';
-import {
-  TailoredResumeModel,
-  type TailoredResumeDocument,
-} from './tailoredResume.model';
 
 // ─── Wire shapes ────────────────────────────────────────────────────────────
 
@@ -493,9 +489,10 @@ export async function tailorResumeForJob(
   userId: string,
   jobId: string,
 ): Promise<TailorResumeResult> {
-  const [user, job] = await Promise.all([
-    UserModel.findById(userId),
-    JobModel.findById(jobId),
+  const db = getDb();
+  const [[user], [job]] = await Promise.all([
+    db.select().from(users).where(eq(users.id, userId)).limit(1),
+    db.select().from(jobs).where(eq(jobs.id, jobId)).limit(1),
   ]);
   if (!user) throw errors.notFound('User not found.');
   if (!job) throw errors.notFound('Job not found.');
@@ -580,9 +577,9 @@ export interface SaveTailoredResumeInput {
   provider?: string;
 }
 
-function toSaved(doc: TailoredResumeDocument): SavedTailoredResume {
+function toSaved(doc: typeof tailoredResumes.$inferSelect): SavedTailoredResume {
   return {
-    jobId: doc.jobId.toString(),
+    jobId: doc.jobId,
     summary: doc.summary,
     pitch: doc.pitch,
     highlightedSkills: doc.highlightedSkills,
@@ -602,10 +599,7 @@ export async function getSavedTailoredResume(
   seekerId: string,
   jobId: string,
 ): Promise<SavedTailoredResume | null> {
-  const doc = await TailoredResumeModel.findOne({
-    seekerId: new Types.ObjectId(seekerId),
-    jobId: new Types.ObjectId(jobId),
-  });
+  const [doc] = await getDb().select().from(tailoredResumes).where(and(eq(tailoredResumes.seekerId, seekerId), eq(tailoredResumes.jobId, jobId))).limit(1);
   return doc ? toSaved(doc) : null;
 }
 
@@ -615,24 +609,8 @@ export async function saveTailoredResume(
   jobId: string,
   input: SaveTailoredResumeInput,
 ): Promise<SavedTailoredResume> {
-  const doc = await TailoredResumeModel.findOneAndUpdate(
-    {
-      seekerId: new Types.ObjectId(seekerId),
-      jobId: new Types.ObjectId(jobId),
-    },
-    {
-      $set: {
-        summary: input.summary,
-        pitch: input.pitch,
-        highlightedSkills: input.highlightedSkills,
-        matchedSkills: input.matchedSkills,
-        workBlurbs: input.workBlurbs,
-        provider: input.provider ?? 'mock',
-      },
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  );
-  return toSaved(doc as TailoredResumeDocument);
+  const [doc] = await getDb().insert(tailoredResumes).values({ seekerId, jobId, summary: input.summary, pitch: input.pitch, highlightedSkills: input.highlightedSkills, matchedSkills: input.matchedSkills, workBlurbs: input.workBlurbs, provider: input.provider ?? 'mock' }).onConflictDoUpdate({ target: [tailoredResumes.seekerId, tailoredResumes.jobId], set: { summary: input.summary, pitch: input.pitch, highlightedSkills: input.highlightedSkills, matchedSkills: input.matchedSkills, workBlurbs: input.workBlurbs, provider: input.provider ?? 'mock', updatedAt: new Date() } }).returning();
+  return toSaved(doc!);
 }
 
 /** Test helper — swap in a fake provider. */

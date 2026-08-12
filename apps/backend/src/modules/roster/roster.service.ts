@@ -9,10 +9,9 @@
  * applications data already in place — no new tracking.
  */
 
-import { Types } from 'mongoose';
-import { JobModel } from '@/modules/jobs/job.model';
-import { ApplicationModel } from '@/modules/applications/application.model';
-import { UserModel } from '@/modules/users/user.model';
+import { and, eq, inArray } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { applications, jobs, users } from '@/db/schema';
 
 export interface RosterWorker {
   id: string;
@@ -31,61 +30,45 @@ export interface RosterEntry {
 }
 
 export async function getWeeklyRoster(employerId: string): Promise<RosterEntry[]> {
-  const jobs = await JobModel.find({
-    employerId: new Types.ObjectId(employerId),
-    status: 'active',
-    recurring: true,
-  })
-    .select('title schedule')
-    .lean();
-  if (jobs.length === 0) return [];
+  const db = getDb();
+  const recurringJobs = await db
+    .select({ id: jobs.id, title: jobs.title, schedule: jobs.schedule })
+    .from(jobs)
+    .where(and(eq(jobs.employerId, employerId), eq(jobs.status, 'active'), eq(jobs.recurring, true)));
+  if (recurringJobs.length === 0) return [];
 
-  const jobIds = jobs.map((j) => j._id as Types.ObjectId);
+  const jobIds = recurringJobs.map((j) => j.id);
 
   // Hired applications across all these jobs, in one query.
-  const hired = await ApplicationModel.find({
-    jobId: { $in: jobIds },
-    status: 'hired',
-  })
-    .select('jobId seekerId')
-    .lean();
+  const hired = await db
+    .select({ jobId: applications.jobId, seekerId: applications.seekerId })
+    .from(applications)
+    .where(and(inArray(applications.jobId, jobIds), eq(applications.status, 'hired')));
 
   // Hydrate the worker summaries once.
-  const seekerIds = [...new Set(hired.map((h) => (h.seekerId as unknown as Types.ObjectId).toString()))];
-  const users = await UserModel.find({ _id: { $in: seekerIds } })
-    .select('name photoUrl')
-    .lean();
+  const seekerIds = [...new Set(hired.map((h) => h.seekerId))];
+  const seekers = seekerIds.length
+    ? await db.select({ id: users.id, name: users.name, photoUrl: users.photoUrl }).from(users).where(inArray(users.id, seekerIds))
+    : [];
   const userMap = new Map(
-    users.map((u) => [
-      (u._id as Types.ObjectId).toString(),
-      {
-        id: (u._id as Types.ObjectId).toString(),
-        name: (u as { name?: string }).name ?? 'Worker',
-        photoUrl: (u as { photoUrl?: string | null }).photoUrl ?? null,
-      },
-    ]),
+    seekers.map((u) => [u.id, { id: u.id, name: u.name ?? 'Worker', photoUrl: u.photoUrl ?? null }]),
   );
 
   // Group hired workers by job.
   const workersByJob = new Map<string, RosterWorker[]>();
   for (const h of hired) {
-    const jid = (h.jobId as unknown as Types.ObjectId).toString();
-    const w = userMap.get((h.seekerId as unknown as Types.ObjectId).toString());
+    const w = userMap.get(h.seekerId);
     if (!w) continue;
-    const list = workersByJob.get(jid) ?? [];
+    const list = workersByJob.get(h.jobId) ?? [];
     list.push(w);
-    workersByJob.set(jid, list);
+    workersByJob.set(h.jobId, list);
   }
 
-  return jobs.map((j) => {
-    const schedule = (j as { schedule?: { days?: number[]; startTime?: string | null } | null })
-      .schedule;
-    return {
-      jobId: (j._id as Types.ObjectId).toString(),
-      title: (j as { title?: string }).title ?? 'Shift',
-      days: schedule?.days ?? [],
-      startTime: schedule?.startTime ?? null,
-      workers: workersByJob.get((j._id as Types.ObjectId).toString()) ?? [],
-    };
-  });
+  return recurringJobs.map((j) => ({
+    jobId: j.id,
+    title: j.title ?? 'Shift',
+    days: j.schedule?.days ?? [],
+    startTime: j.schedule?.startTime ?? null,
+    workers: workersByJob.get(j.id) ?? [],
+  }));
 }

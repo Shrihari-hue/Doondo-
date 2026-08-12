@@ -20,7 +20,10 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { JobModel, JOB_TYPES, PAY_PERIODS, type JobType, type PayPeriod } from './job.model';
+import { and, eq, gte, sql } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { jobs } from '@/db/schema/jobs';
+import { JOB_TYPES, PAY_PERIODS, type JobType, type PayPeriod } from './job.model';
 import { AppError } from '@/lib/errors';
 
 const MIN_SAMPLE_SIZE = 5;
@@ -77,17 +80,18 @@ export async function getPayStats(
 
     const since = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
-    const docs = await JobModel.find({
-      status: 'active',
-      type: type as JobType,
-      'pay.period': period as PayPeriod,
-      // Case-insensitive city match — employers may post with slight
-      // capitalisation differences ("Bengaluru" vs "bengaluru").
-      'location.city': new RegExp(`^${escapeRegex(city)}$`, 'i'),
-      createdAt: { $gte: since },
-    })
-      .select('pay.amount pay.currency')
-      .lean();
+    const docs = await getDb().query.jobs.findMany({
+      where: and(
+        eq(jobs.status, 'active'),
+        eq(jobs.type, type as JobType),
+        eq(jobs.payPeriod, period as PayPeriod),
+        // Case-insensitive city match — employers may post with slight
+        // capitalisation differences ("Bengaluru" vs "bengaluru").
+        sql`lower(${jobs.city}) = lower(${city})`,
+        gte(jobs.createdAt, since),
+      ),
+      columns: { payAmount: true, payCurrency: true },
+    });
 
     const sampleSize = docs.length;
 
@@ -100,14 +104,14 @@ export async function getPayStats(
         period: period as PayPeriod,
         type: type as JobType,
         city,
-        currency: docs[0]?.pay.currency ?? 'INR',
+        currency: docs[0]?.payCurrency ?? 'INR',
       };
       res.status(200).json({ ok: true, data: result });
       return;
     }
 
     const amounts = docs
-      .map((d) => d.pay.amount)
+      .map((d) => d.payAmount)
       .filter((v): v is number => typeof v === 'number')
       .sort((a, b) => a - b);
 
@@ -119,7 +123,7 @@ export async function getPayStats(
       period: period as PayPeriod,
       type: type as JobType,
       city,
-      currency: docs[0]?.pay.currency ?? 'INR',
+      currency: docs[0]?.payCurrency ?? 'INR',
     };
 
     res.status(200).json({ ok: true, data: result });
@@ -140,8 +144,4 @@ function percentile(sorted: number[], p: number): number {
     Math.max(0, Math.ceil((p / 100) * sorted.length) - 1),
   );
   return sorted[idx]!;
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

@@ -9,10 +9,9 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { Types } from 'mongoose';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
-import { REPORT_REASONS } from './userReport.model';
+import { userReportReasonEnum } from '@/db/schema';
 import {
   blockWorker,
   unblockWorker,
@@ -20,9 +19,9 @@ import {
   reportUser,
 } from './moderation.service';
 
-const objectId = z.string().refine((v) => Types.ObjectId.isValid(v), {
-  message: 'Invalid id',
-});
+const REPORT_REASONS = userReportReasonEnum.enumValues;
+
+const objectId = z.string().uuid('Invalid id');
 
 export const blocksRouter = Router();
 

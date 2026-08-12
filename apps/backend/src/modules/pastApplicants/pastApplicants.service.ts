@@ -8,13 +8,13 @@
  * supply — usually higher-converting than a cold search.
  *
  * The query is an intersection of two things the platform already
- * tracks: the employer's prior applicant pool (the `applications`
- * collection, which denormalises `employerId`) and the live availability
- * beacons near the employer (`availabilities`, reusing the same
- * `$geoNear` the Find-workers list runs). We deliberately do the
- * intersection by handing the prior-applicant seeker ids to the beacon
- * query as an allow-list, so the geo index does the heavy lifting and we
- * only hydrate the handful that are both past applicants AND live nearby.
+ * tracks: the employer's prior applicant pool (the `applications` table,
+ * which denormalises `employerId`) and the live availability beacons near
+ * the employer (`availabilities`, reusing the same nearby query the
+ * Find-workers list runs). We deliberately do the intersection by handing
+ * the prior-applicant seeker ids to the beacon query as an allow-list, so
+ * the geo index does the heavy lifting and we only hydrate the handful
+ * that are both past applicants AND live nearby.
  *
  * Who's excluded:
  *   - anyone ever hired by this employer (they belong in My Crew, not a
@@ -23,9 +23,9 @@
  *     sitting in the current pipeline — re-tapping would be noise).
  */
 
-import { Types } from 'mongoose';
-import { ApplicationModel } from '@/modules/applications/application.model';
-import { JobModel } from '@/modules/jobs/job.model';
+import { inArray, sql } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { applications, jobs } from '@/db/schema';
 import * as availabilityService from '@/modules/availabilities/availability.service';
 import type { NearbyAvailability } from '@/modules/availabilities/availability.service';
 
@@ -50,12 +50,12 @@ interface FindInput {
   limit: number;
 }
 
-/** One aggregated row: a seeker's most-recent application to this employer. */
-interface SeekerLatest {
-  _id: Types.ObjectId;
+/** One row: a seeker's most-recent application to this employer, plus every status they've ever had. */
+interface SeekerLatestRow extends Record<string, unknown> {
+  seeker_id: string;
   status: string;
-  appliedAt: Date;
-  jobId: Types.ObjectId | null;
+  applied_at: Date;
+  job_id: string | null;
   statuses: string[];
 }
 
@@ -65,27 +65,22 @@ export async function findAvailablePastApplicants(
   // 1. Collapse every application this employer has received down to one
   //    row per seeker: their latest status + when + which job, plus the
   //    set of every status they've ever had (to exclude prior hires).
-  const agg = (await ApplicationModel.aggregate([
-    { $match: { employerId: new Types.ObjectId(input.employerId) } },
-    { $sort: { appliedAt: -1 } },
-    {
-      $group: {
-        _id: '$seekerId',
-        status: { $first: '$status' },
-        appliedAt: { $first: '$appliedAt' },
-        jobId: { $first: '$jobId' },
-        statuses: { $addToSet: '$status' },
-      },
-    },
-  ])) as SeekerLatest[];
+  const rows = await getDb().execute<SeekerLatestRow>(sql`
+    SELECT DISTINCT ON (a.seeker_id)
+      a.seeker_id, a.status, a.applied_at, a.job_id,
+      (SELECT array_agg(DISTINCT a2.status) FROM ${applications} a2 WHERE a2.seeker_id = a.seeker_id AND a2.employer_id = a.employer_id) AS statuses
+    FROM ${applications} a
+    WHERE a.employer_id = ${input.employerId}
+    ORDER BY a.seeker_id, a.applied_at DESC
+  `);
 
   // Exclude anyone ever hired, and anyone still pending in the live pipeline.
-  const candidates = agg.filter(
+  const candidates = [...rows].filter(
     (r) => !r.statuses.includes('hired') && r.status !== 'pending',
   );
   if (candidates.length === 0) return [];
 
-  const bySeeker = new Map(candidates.map((r) => [r._id.toString(), r]));
+  const bySeeker = new Map(candidates.map((r) => [r.seeker_id, r]));
 
   // 2. Of those, who has a live beacon near the employer right now?
   const nearby = await availabilityService.findNearby({
@@ -99,14 +94,12 @@ export async function findAvailablePastApplicants(
 
   // 3. Resolve the job titles for the relevant last-applications only.
   const jobIds = nearby
-    .map((n) => bySeeker.get(n.seekerId)?.jobId)
-    .filter((j): j is Types.ObjectId => !!j);
-  const jobs = jobIds.length
-    ? await JobModel.find({ _id: { $in: jobIds } }).select('title').lean()
+    .map((n) => bySeeker.get(n.seekerId)?.job_id)
+    .filter((j): j is string => !!j);
+  const jobRows = jobIds.length
+    ? await getDb().select({ id: jobs.id, title: jobs.title }).from(jobs).where(inArray(jobs.id, jobIds))
     : [];
-  const titleMap = new Map(
-    jobs.map((j) => [(j._id as Types.ObjectId).toString(), (j as { title?: string }).title ?? null]),
-  );
+  const titleMap = new Map(jobRows.map((j) => [j.id, j.title]));
 
   // 4. Merge the live beacon with the application context.
   return nearby.map((n) => {
@@ -117,8 +110,8 @@ export async function findAvailablePastApplicants(
       availableUntil: n.until,
       lastApplied: {
         status: c?.status ?? 'viewed',
-        appliedAt: c?.appliedAt ? new Date(c.appliedAt).toISOString() : null,
-        jobTitle: c?.jobId ? titleMap.get(c.jobId.toString()) ?? null : null,
+        appliedAt: c?.applied_at ? new Date(c.applied_at).toISOString() : null,
+        jobTitle: c?.job_id ? titleMap.get(c.job_id) ?? null : null,
       },
     };
   });

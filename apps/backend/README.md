@@ -1,12 +1,12 @@
 # @doondo/backend
 
-Express + MongoDB + Socket.IO API for Doondo. Versioned at `/api/v1`.
+Express + PostgreSQL + Socket.IO API for Doondo. Versioned at `/api/v1`.
 
 ## Stack
 
 - **Runtime**: Node 20+, TypeScript, tsx for dev, tsc for build
 - **HTTP**: Express 4 with helmet, cors, compression, rate-limiter
-- **DB**: MongoDB via Mongoose 8
+- **DB**: PostgreSQL (Supabase) via Drizzle ORM
 - **Real-time**: Socket.IO 4
 - **Auth**: JWT (access + refresh) with rotation and reuse detection
 - **Validation**: Zod (request body, query, params)
@@ -38,9 +38,10 @@ pnpm install
 # in apps/backend
 cp .env.example .env
 # fill in JWT_ACCESS_SECRET and JWT_REFRESH_SECRET (use `openssl rand -base64 64`)
+# fill in DATABASE_URL with a Supabase/PostgreSQL connection string
 
-# start MongoDB locally (or point MONGODB_URI at Atlas)
-# brew install mongodb-community && brew services start mongodb-community
+# apply pending Drizzle migrations
+pnpm --filter @doondo/backend db:migrate
 
 # run the dev server
 pnpm dev:backend

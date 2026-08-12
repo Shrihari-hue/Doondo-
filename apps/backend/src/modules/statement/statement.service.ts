@@ -16,9 +16,9 @@
  * name.
  */
 
-import { Types } from 'mongoose';
-import { PaymentIntentModel } from '@/modules/payments/payment.model';
-import { UserModel } from '@/modules/users/user.model';
+import { eq, sql } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { paymentIntents, users } from '@/db/schema';
 import { getTimesheet } from '@/modules/timesheet/timesheet.service';
 
 export interface StatementRow {
@@ -60,29 +60,28 @@ function monthBounds(month?: string): { start: Date; end: Date; label: string } 
   return { start, end, label };
 }
 
+interface PayAggRow extends Record<string, unknown> {
+  seeker_id: string;
+  paid_paise: number;
+}
+
 export async function getMonthlyStatement(
   employerId: string,
   month?: string,
 ): Promise<StatementResult> {
+  const db = getDb();
   const { start, end, label } = monthBounds(month);
 
   // Worked-hours side — reuse the timesheet roll-up verbatim.
   const timesheet = await getTimesheet(employerId, label);
 
   // Paid side — settled UPI intents grouped by worker for the window.
-  const payAgg = await PaymentIntentModel.aggregate<{
-    _id: Types.ObjectId;
-    paidPaise: number;
-  }>([
-    {
-      $match: {
-        employerId: new Types.ObjectId(employerId),
-        status: 'paid',
-        paidAt: { $gte: start, $lt: end },
-      },
-    },
-    { $group: { _id: '$seekerId', paidPaise: { $sum: '$amountPaise' } } },
-  ]);
+  const payAgg = await db.execute<PayAggRow>(sql`
+    SELECT seeker_id, sum(amount_paise)::int as paid_paise
+    FROM ${paymentIntents}
+    WHERE employer_id = ${employerId} AND status = 'paid' AND paid_at >= ${start} AND paid_at < ${end}
+    GROUP BY seeker_id
+  `);
 
   // Merge into rows keyed by worker.
   const rows = new Map<string, StatementRow>();
@@ -97,10 +96,10 @@ export async function getMonthlyStatement(
     });
   }
   for (const p of payAgg) {
-    const wid = p._id.toString();
+    const wid = p.seeker_id;
     const existing = rows.get(wid);
     if (existing) {
-      existing.paidPaise += p.paidPaise;
+      existing.paidPaise += p.paid_paise;
     } else {
       rows.set(wid, {
         workerId: wid,
@@ -108,7 +107,7 @@ export async function getMonthlyStatement(
         shifts: 0,
         minutes: 0,
         days: 0,
-        paidPaise: p.paidPaise,
+        paidPaise: p.paid_paise,
       });
     }
   }
@@ -116,20 +115,19 @@ export async function getMonthlyStatement(
   // Hydrate names for payment-only workers the timesheet didn't name.
   const unnamed = [...rows.values()].filter((r) => r.name === 'Worker' && r.shifts === 0);
   if (unnamed.length > 0) {
-    const users = await UserModel.find({ _id: { $in: unnamed.map((r) => r.workerId) } })
-      .select('name')
-      .lean();
-    const nameMap = new Map(
-      users.map((u) => [(u._id as Types.ObjectId).toString(), (u as { name?: string }).name]),
-    );
+    const workerRows = await db
+      .select({ id: users.id, name: users.name })
+      .from(users)
+      .where(sql`${users.id} = ANY(${unnamed.map((r) => r.workerId)})`);
+    const nameMap = new Map(workerRows.map((u) => [u.id, u.name]));
     for (const r of unnamed) {
       const n = nameMap.get(r.workerId);
       if (n) r.name = n;
     }
   }
 
-  const employer = await UserModel.findById(employerId).select('name').lean();
-  const employerName = (employer as { name?: string } | null)?.name ?? 'Employer';
+  const [employer] = await db.select({ name: users.name }).from(users).where(eq(users.id, employerId)).limit(1);
+  const employerName = employer?.name ?? 'Employer';
 
   const sorted = [...rows.values()].sort((a, b) => b.paidPaise - a.paidPaise || b.minutes - a.minutes);
 

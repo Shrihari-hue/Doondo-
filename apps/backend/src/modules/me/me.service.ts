@@ -6,14 +6,15 @@
  * flows that have their own verification + audit story.
  */
 
+import { asc, eq } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
-import {
-  UserModel,
-  type CraftPhoto,
-  type Education,
-  type ExpectedSalary,
-  type PublicUser,
-  type WorkExperience,
+import { getDb } from '@/db/client';
+import { users, workPhotos as workPhotosTable, type EducationJson, type WorkExperienceJson } from '@/db/schema';
+import { toPublicUser } from '@/modules/users/user.serializers';
+import type {
+  CraftPhoto,
+  ExpectedSalary,
+  PublicUser,
 } from '@/modules/users/user.model';
 import { isGallerySkill } from '@/modules/skills/skill.catalogue';
 
@@ -55,36 +56,71 @@ interface UpdateProfileInput {
   gstin?: string | null;
 }
 
+/** Current work-photo rows for a user, in display order. */
+async function getWorkPhotos(userId: string): Promise<CraftPhoto[]> {
+  const rows = await getDb()
+    .select()
+    .from(workPhotosTable)
+    .where(eq(workPhotosTable.userId, userId))
+    .orderBy(asc(workPhotosTable.orderIndex));
+  return rows.map((r) => ({ url: r.url, skill: r.skill, caption: r.caption ?? null, isCover: r.isCover }));
+}
+
+/** Replace all of a user's work photos with the supplied ordered list. */
+async function replaceWorkPhotos(userId: string, photos: CraftPhoto[]): Promise<void> {
+  const db = getDb();
+  await db.delete(workPhotosTable).where(eq(workPhotosTable.userId, userId));
+  if (photos.length === 0) return;
+  await db.insert(workPhotosTable).values(
+    photos.map((p, i) => ({
+      userId,
+      url: p.url,
+      skill: p.skill,
+      caption: p.caption ?? null,
+      isCover: Boolean(p.isCover),
+      orderIndex: i,
+    })),
+  );
+}
+
 export async function updateProfile(
   userId: string,
   input: UpdateProfileInput,
 ): Promise<PublicUser> {
-  const user = await UserModel.findById(userId);
+  const db = getDb();
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) throw errors.notFound('User not found');
 
-  if (input.name !== undefined) user.name = input.name;
-  if (input.phone !== undefined) user.phone = input.phone;
-  if (input.bio !== undefined) user.bio = input.bio;
-  if (input.experienceYears !== undefined) user.experienceYears = input.experienceYears;
-  if (input.availability !== undefined) user.availability = input.availability;
-  if (input.preferredJobTypes !== undefined) user.preferredJobTypes = input.preferredJobTypes;
+  const patch: Partial<typeof users.$inferInsert> = {};
+
+  if (input.name !== undefined) patch.name = input.name;
+  if (input.phone !== undefined) patch.phone = input.phone;
+  if (input.bio !== undefined) patch.bio = input.bio;
+  if (input.experienceYears !== undefined) patch.experienceYears = input.experienceYears;
+  if (input.availability !== undefined) patch.availability = input.availability;
+  if (input.preferredJobTypes !== undefined) patch.preferredJobTypes = input.preferredJobTypes;
+
+  let nextSkills = user.skills;
   if (input.skills !== undefined) {
     // Dedupe + lowercase normalise — keeps "Driving" and "driving" from
     // splitting the same skill into two on the user.
-    user.skills = [
+    nextSkills = [
       ...new Set(input.skills.map((s) => s.trim().toLowerCase()).filter(Boolean)),
     ];
+    patch.skills = nextSkills;
   }
-  if (input.photoUrl !== undefined) user.photoUrl = input.photoUrl;
+  if (input.photoUrl !== undefined) patch.photoUrl = input.photoUrl;
+
+  let nextWorkPhotos: CraftPhoto[] | undefined;
   if (input.workPhotos !== undefined) {
     // PUT semantics — the array on the wire replaces what's stored (the
     // 6-photo cap is mirrored in the zod schema). Every photo must be
     // tagged to one of the worker's own *gallery*-type craft skills: a
     // photo tagged to a non-craft skill — or to a craft the worker
     // doesn't claim — would never render in a collection, so reject it
-    // loudly rather than store an orphan. `user.skills` is already the
+    // loudly rather than store an orphan. `nextSkills` is already the
     // updated list here (the skills block above runs first).
-    const gallerySkills = new Set(user.skills.filter(isGallerySkill));
+    const gallerySkills = new Set(nextSkills.filter(isGallerySkill));
     for (const photo of input.workPhotos) {
       if (!gallerySkills.has(photo.skill)) {
         throw errors.validation(
@@ -93,15 +129,16 @@ export async function updateProfile(
         );
       }
     }
-    user.workPhotos = input.workPhotos.map((p) => ({
+    nextWorkPhotos = input.workPhotos.map((p) => ({
       url: p.url,
       skill: p.skill,
       caption: p.caption ?? null,
       isCover: Boolean(p.isCover),
     }));
   }
+
   if (input.education !== undefined) {
-    const cleaned: Education[] = input.education.map((e) => ({
+    const cleaned: EducationJson[] = input.education.map((e) => ({
       degree: e.degree.trim(),
       institution: e.institution.trim(),
       fieldOfStudy: e.fieldOfStudy?.trim() || null,
@@ -109,18 +146,18 @@ export async function updateProfile(
       endYear: e.current ? null : e.endYear ?? null,
       current: Boolean(e.current),
     }));
-    user.education = cleaned;
+    patch.education = cleaned;
   }
   if (input.workType !== undefined) {
-    user.workType = input.workType;
+    patch.workType = input.workType;
     // If switching back to solo, clear teamSize so the docs stay tidy.
     if (input.workType !== 'team' && input.teamSize === undefined) {
-      user.teamSize = null;
+      patch.teamSize = null;
     }
   }
-  if (input.teamSize !== undefined) user.teamSize = input.teamSize;
+  if (input.teamSize !== undefined) patch.teamSize = input.teamSize;
   if (input.expectedSalary !== undefined) {
-    user.expectedSalary = input.expectedSalary
+    patch.expectedSalary = input.expectedSalary
       ? {
           amount: input.expectedSalary.amount,
           amountMax:
@@ -132,47 +169,62 @@ export async function updateProfile(
         }
       : null;
   }
-  if (input.companyName !== undefined) user.companyName = input.companyName;
-  if (input.businessType !== undefined) user.businessType = input.businessType;
-  if (input.gstin !== undefined) user.gstin = input.gstin;
+  if (input.companyName !== undefined) patch.companyName = input.companyName;
+  if (input.businessType !== undefined) patch.businessType = input.businessType;
+  if (input.gstin !== undefined) patch.gstin = input.gstin;
 
-  await user.save();
-  return user.toPublicJSON();
+  const [updated] = Object.keys(patch).length > 0
+    ? await db.update(users).set(patch).where(eq(users.id, userId)).returning()
+    : [user];
+
+  if (nextWorkPhotos !== undefined) {
+    await replaceWorkPhotos(userId, nextWorkPhotos);
+  } else {
+    nextWorkPhotos = await getWorkPhotos(userId);
+  }
+
+  return toPublicUser(updated!, { workPhotos: nextWorkPhotos });
 }
 
 export async function registerPushToken(
   userId: string,
   token: string,
 ): Promise<void> {
-  // Idempotent — addToSet de-dupes per (user, token).
-  await UserModel.updateOne(
-    { _id: userId },
-    { $addToSet: { expoPushTokens: token } },
-  );
+  // Idempotent — array_append with a prior dedupe read avoids double-adding.
+  const db = getDb();
+  const [user] = await db.select({ expoPushTokens: users.expoPushTokens }).from(users).where(eq(users.id, userId)).limit(1);
+  if (!user || user.expoPushTokens.includes(token)) return;
+  await db.update(users).set({ expoPushTokens: [...user.expoPushTokens, token] }).where(eq(users.id, userId));
 }
 
 export async function clearPushToken(userId: string, token: string): Promise<void> {
-  await UserModel.updateOne(
-    { _id: userId },
-    { $pull: { expoPushTokens: token } },
-  );
+  const db = getDb();
+  const [user] = await db.select({ expoPushTokens: users.expoPushTokens }).from(users).where(eq(users.id, userId)).limit(1);
+  if (!user) return;
+  await db.update(users).set({ expoPushTokens: user.expoPushTokens.filter((t) => t !== token) }).where(eq(users.id, userId));
 }
 
 export async function updateEmployerLocation(
   userId: string,
   input: { city: string; area?: string | null; pincode?: string | null; lat: number; lng: number },
 ): Promise<PublicUser> {
-  const user = await UserModel.findById(userId);
-  if (!user) throw errors.notFound('User not found');
+  const db = getDb();
+  const [updated] = await db
+    .update(users)
+    .set({
+      employerLocation: {
+        city: input.city,
+        area: input.area ?? null,
+        pincode: input.pincode ?? null,
+        coordinates: [input.lng, input.lat],
+      },
+    })
+    .where(eq(users.id, userId))
+    .returning();
+  if (!updated) throw errors.notFound('User not found');
 
-  user.employerLocation = {
-    city: input.city,
-    area: input.area ?? null,
-    pincode: input.pincode ?? null,
-    geo: { type: 'Point', coordinates: [input.lng, input.lat] },
-  };
-  await user.save();
-  return user.toPublicJSON();
+  const workPhotosList = await getWorkPhotos(userId);
+  return toPublicUser(updated, { workPhotos: workPhotosList });
 }
 
 interface UpdateLocationInput {
@@ -187,20 +239,23 @@ export async function updateLocation(
   userId: string,
   input: UpdateLocationInput,
 ): Promise<PublicUser> {
-  const user = await UserModel.findById(userId);
-  if (!user) throw errors.notFound('User not found');
+  const db = getDb();
+  const [updated] = await db
+    .update(users)
+    .set({
+      location: {
+        city: input.city,
+        area: input.area ?? null,
+        pincode: input.pincode ?? null,
+        coordinates: [input.lng, input.lat],
+      },
+    })
+    .where(eq(users.id, userId))
+    .returning();
+  if (!updated) throw errors.notFound('User not found');
 
-  user.location = {
-    city: input.city,
-    area: input.area ?? null,
-    pincode: input.pincode ?? null,
-    geo: {
-      type: 'Point',
-      coordinates: [input.lng, input.lat],
-    },
-  };
-  await user.save();
-  return user.toPublicJSON();
+  const workPhotosList = await getWorkPhotos(userId);
+  return toPublicUser(updated, { workPhotos: workPhotosList });
 }
 
 // ─── Resume ─────────────────────────────────────────────────────────────────
@@ -221,16 +276,22 @@ export async function uploadResume(
   userId: string,
   input: UploadResumeInput,
 ): Promise<PublicUser> {
-  const user = await UserModel.findById(userId).select('+resumeUrl');
-  if (!user) throw errors.notFound('User not found');
+  const db = getDb();
+  const [updated] = await db
+    .update(users)
+    .set({
+      resumeUrl: input.dataUrl,
+      resumeFilename: input.filename,
+      resumeMimeType: input.mimeType,
+      resumeSizeBytes: input.sizeBytes,
+      resumeUploadedAt: new Date(),
+    })
+    .where(eq(users.id, userId))
+    .returning();
+  if (!updated) throw errors.notFound('User not found');
 
-  user.resumeUrl = input.dataUrl;
-  user.resumeFilename = input.filename;
-  user.resumeMimeType = input.mimeType;
-  user.resumeSizeBytes = input.sizeBytes;
-  user.resumeUploadedAt = new Date();
-  await user.save();
-  return user.toPublicJSON();
+  const workPhotosList = await getWorkPhotos(userId);
+  return toPublicUser(updated, { workPhotos: workPhotosList });
 }
 
 // ─── Resume Builder ────────────────────────────────────────────────────────
@@ -258,10 +319,7 @@ export async function updateWorkHistory(
   userId: string,
   input: UpdateWorkHistoryInput,
 ): Promise<PublicUser> {
-  const user = await UserModel.findById(userId);
-  if (!user) throw errors.notFound('User not found');
-
-  const cleaned: WorkExperience[] = input.entries.map((e) => ({
+  const cleaned: WorkExperienceJson[] = input.entries.map((e) => ({
     company: e.company.trim(),
     role: e.role.trim(),
     startDate: e.startDate,
@@ -270,9 +328,12 @@ export async function updateWorkHistory(
     description: e.description?.trim() || null,
   }));
 
-  user.workHistory = cleaned;
-  await user.save();
-  return user.toPublicJSON();
+  const db = getDb();
+  const [updated] = await db.update(users).set({ workHistory: cleaned }).where(eq(users.id, userId)).returning();
+  if (!updated) throw errors.notFound('User not found');
+
+  const workPhotosList = await getWorkPhotos(userId);
+  return toPublicUser(updated, { workPhotos: workPhotosList });
 }
 
 /**
@@ -280,14 +341,20 @@ export async function updateWorkHistory(
  * "has resume" badge / profileCompletion drops back accordingly.
  */
 export async function removeResume(userId: string): Promise<PublicUser> {
-  const user = await UserModel.findById(userId).select('+resumeUrl');
-  if (!user) throw errors.notFound('User not found');
+  const db = getDb();
+  const [updated] = await db
+    .update(users)
+    .set({
+      resumeUrl: null,
+      resumeFilename: null,
+      resumeMimeType: null,
+      resumeSizeBytes: null,
+      resumeUploadedAt: null,
+    })
+    .where(eq(users.id, userId))
+    .returning();
+  if (!updated) throw errors.notFound('User not found');
 
-  user.resumeUrl = null;
-  user.resumeFilename = null;
-  user.resumeMimeType = null;
-  user.resumeSizeBytes = null;
-  user.resumeUploadedAt = null;
-  await user.save();
-  return user.toPublicJSON();
+  const workPhotosList = await getWorkPhotos(userId);
+  return toPublicUser(updated, { workPhotos: workPhotosList });
 }

@@ -3,9 +3,11 @@
  */
 
 import { z } from 'zod';
-import { EMPLOYER_INTEREST_STATUSES } from './employerInterest.model';
+import { employerInterestStatusEnum } from '@/db/schema';
 
-const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id');
+const EMPLOYER_INTEREST_STATUSES = employerInterestStatusEnum.enumValues;
+
+const objectId = z.string().uuid('Invalid id');
 
 /** POST /employers/:id/interest — worker expresses interest. */
 export const expressInterestSchema = z.object({

@@ -9,7 +9,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { errors } from '@/lib/errors';
 import * as service from './employerInterest.service';
-import type { EmployerInterestStatus } from './employerInterest.model';
+import type { EmployerInterestStatus } from '@/db/schema';
 
 const ok = (req: Request, res: Response, status: number, data: unknown) => {
   res.status(status).json({ ok: true, data, requestId: req.id });

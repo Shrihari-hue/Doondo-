@@ -10,12 +10,12 @@
  * always current without a running ledger to maintain.
  */
 
-import { Types } from 'mongoose';
-import { PaymentIntentModel } from '@/modules/payments/payment.model';
-import {
-  EmployerBudgetModel,
-  type BudgetPeriod,
-} from './laborBudget.model';
+import { and, eq, gte, lte, sum } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { employerBudgets, paymentIntents, budgetPeriodEnum, type BudgetPeriod } from '@/db/schema';
+
+export const BUDGET_PERIODS = budgetPeriodEnum.enumValues;
+export type { BudgetPeriod };
 
 export interface LaborBudgetSummary {
   /** The set budget, or null if the employer hasn't set one. */
@@ -49,33 +49,37 @@ function windowStart(period: BudgetPeriod, now: Date): Date {
 export async function getLaborBudgetSummary(
   employerId: string,
 ): Promise<LaborBudgetSummary> {
+  const db = getDb();
   const now = new Date();
-  const budgetDoc = await EmployerBudgetModel.findOne({
-    employerId: new Types.ObjectId(employerId),
-  }).lean();
+  const [budgetRow] = await db
+    .select()
+    .from(employerBudgets)
+    .where(eq(employerBudgets.employerId, employerId))
+    .limit(1);
 
   // Spend window follows the budget's period; default to month when no
   // budget is set so the employer still sees a meaningful spend figure.
-  const period: BudgetPeriod = budgetDoc?.period ?? 'month';
+  const period: BudgetPeriod = budgetRow?.period ?? 'month';
   const start = windowStart(period, now);
 
-  const agg = await PaymentIntentModel.aggregate([
-    {
-      $match: {
-        employerId: new Types.ObjectId(employerId),
-        status: 'paid',
-        paidAt: { $gte: start, $lte: now },
-      },
-    },
-    { $group: { _id: null, total: { $sum: '$amountPaise' } } },
-  ]);
-  const spentPaise = (agg[0]?.total as number | undefined) ?? 0;
+  const [spentRow] = await db
+    .select({ total: sum(paymentIntents.amountPaise) })
+    .from(paymentIntents)
+    .where(
+      and(
+        eq(paymentIntents.employerId, employerId),
+        eq(paymentIntents.status, 'paid'),
+        gte(paymentIntents.paidAt, start),
+        lte(paymentIntents.paidAt, now),
+      ),
+    );
+  const spentPaise = Number(spentRow?.total ?? 0);
 
-  const budget = budgetDoc
+  const budget = budgetRow
     ? {
-        period: budgetDoc.period,
-        amountPaise: budgetDoc.amountPaise,
-        currency: budgetDoc.currency ?? 'INR',
+        period: budgetRow.period,
+        amountPaise: budgetRow.amountPaise,
+        currency: budgetRow.currency,
       }
     : null;
 
@@ -97,10 +101,12 @@ export async function setLaborBudget(
   period: BudgetPeriod,
   amountPaise: number,
 ): Promise<LaborBudgetSummary> {
-  await EmployerBudgetModel.findOneAndUpdate(
-    { employerId: new Types.ObjectId(employerId) },
-    { $set: { period, amountPaise } },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  );
+  await getDb()
+    .insert(employerBudgets)
+    .values({ employerId, period, amountPaise })
+    .onConflictDoUpdate({
+      target: employerBudgets.employerId,
+      set: { period, amountPaise, updatedAt: new Date() },
+    });
   return getLaborBudgetSummary(employerId);
 }

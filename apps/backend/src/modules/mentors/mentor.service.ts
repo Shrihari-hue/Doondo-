@@ -10,14 +10,9 @@
  *   listMyRequests(userId)        — both sides of the mentorship list
  */
 
-import { Types } from 'mongoose';
-import {
-  MentorModel,
-  MentorshipRequestModel,
-  type Mentor,
-  type MentorshipRequest,
-} from './mentor.model';
-import { UserModel } from '@/modules/users/user.model';
+import { and, desc, eq, inArray, lt, sql } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { mentors, mentorshipRequests, users, type MentorshipStatus } from '@/db/schema';
 
 const MAX_PENDING_PER_MENTEE = 5;
 
@@ -34,15 +29,16 @@ export interface PublicMentor {
   monthlyCap: number;
 }
 
-async function hydrate(m: Mentor & { _id: unknown }): Promise<PublicMentor> {
-  const u = await UserModel.findById(m.userId).select('name photoUrl').lean();
+type MentorRow = typeof mentors.$inferSelect;
+type RequestRow = typeof mentorshipRequests.$inferSelect;
+
+async function hydrate(m: MentorRow): Promise<PublicMentor> {
+  const [u] = await getDb().select({ name: users.name, photoUrl: users.photoUrl }).from(users).where(eq(users.id, m.userId)).limit(1);
   return {
-    id: (m._id as unknown as Types.ObjectId).toString(),
-    userId: (m.userId as unknown as Types.ObjectId).toString(),
-    name: ((u as { name?: string } | null)?.name as string | undefined) ?? '',
-    photoUrl:
-      ((u as { photoUrl?: string | null } | null)?.photoUrl as string | null | undefined) ??
-      null,
+    id: m.id,
+    userId: m.userId,
+    name: u?.name ?? '',
+    photoUrl: u?.photoUrl ?? null,
     trade: m.trade,
     city: m.city,
     bio: m.bio,
@@ -56,49 +52,49 @@ export async function listForTrade(
   trade: string,
   city: string,
 ): Promise<PublicMentor[]> {
-  const mentors = await MentorModel.find({
-    trade: trade.toLowerCase(),
-    city,
-    open: true,
-  })
-    .limit(40)
-    .lean();
-  // Filter mentors at cap and hydrate names in parallel.
-  const eligible = mentors.filter((m) => m.activeMentees < m.monthlyCap);
-  return Promise.all(eligible.map((m) => hydrate(m as Mentor & { _id: unknown })));
+  const rows = await getDb()
+    .select()
+    .from(mentors)
+    .where(and(eq(mentors.trade, trade.toLowerCase()), eq(mentors.city, city), eq(mentors.open, true), lt(mentors.activeMentees, mentors.monthlyCap)))
+    .limit(40);
+  return Promise.all(rows.map((m) => hydrate(m)));
 }
 
 export async function becomeMentor(input: {
-  userId: string | Types.ObjectId;
+  userId: string;
   trade: string;
   city: string;
   bio?: string;
 }): Promise<PublicMentor> {
-  const uid = new Types.ObjectId(input.userId);
-  const existing = await MentorModel.findOne({ userId: uid });
+  const [existing] = await getDb().select().from(mentors).where(eq(mentors.userId, input.userId)).limit(1);
   if (existing) {
-    existing.trade = input.trade.toLowerCase();
-    existing.city = input.city;
-    if (typeof input.bio === 'string') existing.bio = input.bio;
-    existing.open = true;
-    await existing.save();
-    return hydrate(existing.toObject() as Mentor & { _id: unknown });
+    const [updated] = await getDb()
+      .update(mentors)
+      .set({
+        trade: input.trade.toLowerCase(),
+        city: input.city,
+        bio: typeof input.bio === 'string' ? input.bio : existing.bio,
+        open: true,
+      })
+      .where(eq(mentors.id, existing.id))
+      .returning();
+    return hydrate(updated!);
   }
-  const created = await MentorModel.create({
-    userId: uid,
-    trade: input.trade.toLowerCase(),
-    city: input.city,
-    bio: input.bio ?? '',
-    open: true,
-  });
-  return hydrate(created.toObject() as Mentor & { _id: unknown });
+  const [created] = await getDb()
+    .insert(mentors)
+    .values({
+      userId: input.userId,
+      trade: input.trade.toLowerCase(),
+      city: input.city,
+      bio: input.bio ?? '',
+      open: true,
+    })
+    .returning();
+  return hydrate(created!);
 }
 
-export async function stopBeingMentor(userId: string | Types.ObjectId): Promise<void> {
-  await MentorModel.updateOne(
-    { userId: new Types.ObjectId(userId) },
-    { $set: { open: false } },
-  );
+export async function stopBeingMentor(userId: string): Promise<void> {
+  await getDb().update(mentors).set({ open: false }).where(eq(mentors.userId, userId));
 }
 
 export interface PublicRequest {
@@ -108,100 +104,104 @@ export interface PublicRequest {
   trade: string;
   city: string;
   message: string;
-  status: MentorshipRequest['status'];
+  status: MentorshipStatus;
   createdAt: string;
 }
 
-function toPublic(r: MentorshipRequest & { _id: unknown }): PublicRequest {
+function toPublic(r: RequestRow): PublicRequest {
   return {
-    id: (r._id as unknown as Types.ObjectId).toString(),
-    menteeId: (r.menteeId as unknown as Types.ObjectId).toString(),
-    mentorId: (r.mentorId as unknown as Types.ObjectId).toString(),
+    id: r.id,
+    menteeId: r.menteeId,
+    mentorId: r.mentorId,
     trade: r.trade,
     city: r.city,
     message: r.message,
     status: r.status,
-    createdAt: (r as { createdAt?: Date }).createdAt?.toISOString() ?? new Date().toISOString(),
+    createdAt: r.createdAt.toISOString(),
   };
 }
 
 export async function requestMentorship(input: {
-  menteeId: string | Types.ObjectId;
-  mentorUserId: string | Types.ObjectId;
+  menteeId: string;
+  mentorUserId: string;
   message: string;
 }): Promise<PublicRequest> {
-  const menteeId = new Types.ObjectId(input.menteeId);
-  const mentor = await MentorModel.findOne({
-    userId: new Types.ObjectId(input.mentorUserId),
-  });
+  const db = getDb();
+  const [mentor] = await db.select().from(mentors).where(eq(mentors.userId, input.mentorUserId)).limit(1);
   if (!mentor) throw new Error('Mentor not found');
   if (!mentor.open) throw new Error('Mentor not accepting requests');
   // Don't allow flood requests from a single mentee.
-  const pendingCount = await MentorshipRequestModel.countDocuments({
-    menteeId,
-    status: 'pending',
-  });
-  if (pendingCount >= MAX_PENDING_PER_MENTEE) {
+  const [pendingCountRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(mentorshipRequests)
+    .where(and(eq(mentorshipRequests.menteeId, input.menteeId), eq(mentorshipRequests.status, 'pending')));
+  if ((pendingCountRow?.count ?? 0) >= MAX_PENDING_PER_MENTEE) {
     throw new Error('Too many pending mentorship requests. Cancel one first.');
   }
   // Block re-requests to the same mentor while one is in flight.
-  const existing = await MentorshipRequestModel.findOne({
-    menteeId,
-    mentorId: mentor.userId,
-    status: { $in: ['pending', 'accepted'] },
-  });
-  if (existing) return toPublic(existing.toObject() as MentorshipRequest & { _id: unknown });
+  const [existing] = await db
+    .select()
+    .from(mentorshipRequests)
+    .where(
+      and(
+        eq(mentorshipRequests.menteeId, input.menteeId),
+        eq(mentorshipRequests.mentorId, mentor.userId),
+        inArray(mentorshipRequests.status, ['pending', 'accepted']),
+      ),
+    )
+    .limit(1);
+  if (existing) return toPublic(existing);
 
-  const created = await MentorshipRequestModel.create({
-    menteeId,
-    mentorId: mentor.userId,
-    trade: mentor.trade,
-    city: mentor.city,
-    message: input.message.slice(0, 400),
-    status: 'pending',
-  });
-  return toPublic(created.toObject() as MentorshipRequest & { _id: unknown });
+  const [created] = await db
+    .insert(mentorshipRequests)
+    .values({
+      menteeId: input.menteeId,
+      mentorId: mentor.userId,
+      trade: mentor.trade,
+      city: mentor.city,
+      message: input.message.slice(0, 400),
+      status: 'pending',
+    })
+    .returning();
+  return toPublic(created!);
 }
 
 export async function respondToRequest(input: {
-  requestId: string | Types.ObjectId;
-  responderId: string | Types.ObjectId;
+  requestId: string;
+  responderId: string;
   decision: 'accepted' | 'declined' | 'ended';
 }): Promise<PublicRequest> {
-  const req = await MentorshipRequestModel.findById(input.requestId);
+  const db = getDb();
+  const [req] = await db.select().from(mentorshipRequests).where(eq(mentorshipRequests.id, input.requestId)).limit(1);
   if (!req) throw new Error('Request not found');
-  const responder = new Types.ObjectId(input.responderId);
-  if (!(req.mentorId as unknown as Types.ObjectId).equals(responder)) {
+  if (req.mentorId !== input.responderId) {
     throw new Error('Only the mentor can respond to this request.');
   }
   const prevStatus = req.status;
-  req.status = input.decision;
-  await req.save();
+  const [updated] = await db
+    .update(mentorshipRequests)
+    .set({ status: input.decision })
+    .where(eq(mentorshipRequests.id, req.id))
+    .returning();
   // Maintain activeMentees counter.
   if (input.decision === 'accepted' && prevStatus !== 'accepted') {
-    await MentorModel.updateOne(
-      { userId: req.mentorId },
-      { $inc: { activeMentees: 1 } },
-    );
+    await db.update(mentors).set({ activeMentees: sql`${mentors.activeMentees} + 1` }).where(eq(mentors.userId, req.mentorId));
   } else if (input.decision === 'ended' && prevStatus === 'accepted') {
-    await MentorModel.updateOne(
-      { userId: req.mentorId },
-      { $inc: { activeMentees: -1 } },
-    );
+    await db.update(mentors).set({ activeMentees: sql`greatest(${mentors.activeMentees} - 1, 0)` }).where(eq(mentors.userId, req.mentorId));
   }
-  return toPublic(req.toObject() as MentorshipRequest & { _id: unknown });
+  return toPublic(updated!);
 }
 
 export async function listMyRequests(
-  userId: string | Types.ObjectId,
+  userId: string,
 ): Promise<{ asMentee: PublicRequest[]; asMentor: PublicRequest[] }> {
-  const uid = new Types.ObjectId(userId);
+  const db = getDb();
   const [asMentee, asMentor] = await Promise.all([
-    MentorshipRequestModel.find({ menteeId: uid }).sort({ createdAt: -1 }).limit(40).lean(),
-    MentorshipRequestModel.find({ mentorId: uid }).sort({ createdAt: -1 }).limit(40).lean(),
+    db.select().from(mentorshipRequests).where(eq(mentorshipRequests.menteeId, userId)).orderBy(desc(mentorshipRequests.createdAt)).limit(40),
+    db.select().from(mentorshipRequests).where(eq(mentorshipRequests.mentorId, userId)).orderBy(desc(mentorshipRequests.createdAt)).limit(40),
   ]);
   return {
-    asMentee: asMentee.map((r) => toPublic(r as MentorshipRequest & { _id: unknown })),
-    asMentor: asMentor.map((r) => toPublic(r as MentorshipRequest & { _id: unknown })),
+    asMentee: asMentee.map(toPublic),
+    asMentor: asMentor.map(toPublic),
   };
 }

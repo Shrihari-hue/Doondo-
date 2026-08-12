@@ -13,7 +13,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '@/middleware/auth';
 import { validate } from '@/middleware/validate';
-import { COLLECT_QR_KINDS } from './collect.model';
+import { COLLECT_QR_KINDS } from '@/db/schema';
 import {
   getBankAccount,
   setBankAccount,
@@ -92,11 +92,7 @@ router.post(
       body: z.object({
         kind: z.enum(COLLECT_QR_KINDS),
         amountPaise: z.number().int().min(100).max(10_000_000).nullable().optional(),
-        applicationId: z
-          .string()
-          .regex(/^[0-9a-fA-F]{24}$/)
-          .nullable()
-          .optional(),
+        applicationId: z.string().uuid().nullable().optional(),
       }),
     }),
   ),
