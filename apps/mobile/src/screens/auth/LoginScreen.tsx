@@ -1,9 +1,19 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, Button, TextField, FormError } from '@/components';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
+import { spacing, radii, blue } from '@doondo/tokens';
+import { Screen, Text, Button, TextField, FormError, DoondoMark } from '@/components';
 import { authApi, isLoginRoleChoice } from '@/api/auth.api';
 import { ApiError } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,24 +38,28 @@ export function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   /**
    * Which side the user is signing in to — explicitly chosen via the
-   * segmented control at the top of the form. Default 'seeker' because
-   * job-seekers are the dominant audience by a wide margin; the toggle
-   * is a single tap away for employers.
+   * segmented control at the top of the form. Starts as `null` (neither
+   * pill highlighted) every time this screen mounts — the user must tap
+   * one before it latches into a selected state, and submitting is
+   * blocked until they do. Nothing carries over from wherever the user
+   * navigated from, so backing out to the welcome page and returning
+   * here always starts fresh with nothing pre-selected.
    *
-   * This is the SAME `role` the server's loginSchema accepts. Passing it
-   * up front means the "ambiguous email → pick a role" branch of the
-   * server response almost never fires for the typical user (they've
-   * already told us which side they meant), and incorrect-role attempts
-   * fail closed as plain 'invalid credentials' rather than leaking that
-   * a different role for that email exists.
+   * This is the SAME `role` the server's loginSchema accepts. Requiring
+   * an explicit choice up front means the "ambiguous email → pick a
+   * role" branch of the server response almost never fires for the
+   * typical user, and incorrect-role attempts fail closed as plain
+   * 'invalid credentials' rather than leaking that a different role for
+   * that email exists.
    */
-  const [selectedRole, setSelectedRole] = useState<UserRole>('seeker');
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
 
   /**
    * Fallback safety net: if the user signed in WITHOUT a role somehow
@@ -56,17 +70,13 @@ export function LoginScreen() {
    */
   const [roleChoices, setRoleChoices] = useState<UserRole[] | null>(null);
 
-  async function performLogin(role?: UserRole) {
+  async function performLogin(role: UserRole) {
     setSubmitting(true);
     try {
-      // `role` is set when the inline picker (server-driven disambiguation)
-      // chose for us; otherwise we fall back to the explicit toggle at the
-      // top of the form. Either way the server gets a definite role.
-      const effectiveRole = role ?? selectedRole;
       const result = await authApi.login({
         email: email.trim(),
         password,
-        role: effectiveRole,
+        role,
       });
       if (isLoginRoleChoice(result)) {
         // Server says this email has multiple accounts — show the picker
@@ -76,7 +86,7 @@ export function LoginScreen() {
         setRoleChoices(result.availableRoles);
         return;
       }
-      await setSession(result);
+      await setSession(result, rememberMe);
       haptic('success');
       // RootNavigator will swap to AppNavigator automatically — no manual navigate.
     } catch (err) {
@@ -104,6 +114,11 @@ export function LoginScreen() {
     setFormError(null);
     setFieldErrors({});
 
+    if (!selectedRole) {
+      setFormError(t('auth.login.err_role_required'));
+      return;
+    }
+
     if (!email.trim() || !password) {
       setFieldErrors({
         email: !email.trim() ? t('auth.login.err_email_required') : undefined,
@@ -112,7 +127,7 @@ export function LoginScreen() {
       return;
     }
 
-    await performLogin();
+    await performLogin(selectedRole);
   }
 
   async function onPickRole(role: UserRole) {
@@ -136,27 +151,67 @@ export function LoginScreen() {
           }}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={{ gap: spacing.xs }}>
-            <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              {roleChoices
-                ? t('auth.login.role_picker_eyebrow')
-                : selectedRole === 'employer'
-                  ? t('auth.login.eyebrow_employer')
-                  : t('auth.login.eyebrow_seeker')}
-            </Text>
-            <Text variant="titleLarge" weight="medium">
-              {roleChoices
-                ? t('auth.login.role_picker_title')
-                : selectedRole === 'employer'
-                  ? t('auth.login.title_employer')
-                  : t('auth.login.title_seeker')}
-            </Text>
-            {roleChoices && (
-              <Text variant="footnote" tone="secondary" style={{ marginTop: spacing.xs }}>
-                {t('auth.login.role_picker_subtitle')}
+          <LinearGradient
+            colors={['#060B16', '#0D1B33', blue[900]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.md,
+              borderRadius: radii.xl,
+              padding: spacing.lg,
+              borderWidth: 1,
+              borderColor: 'rgba(96,165,250,0.25)',
+            }}
+          >
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: radii.lg,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(59,130,246,0.16)',
+                borderWidth: 1,
+                borderColor: 'rgba(96,165,250,0.5)',
+              }}
+            >
+              <DoondoMark size={30} color={blue[300]} />
+            </View>
+
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+                {roleChoices
+                  ? t('auth.login.role_picker_title')
+                  : selectedRole === 'employer'
+                    ? t('auth.login.title_employer')
+                    : selectedRole === 'seeker'
+                      ? t('auth.login.title_seeker')
+                      : t('auth.login.title')}
               </Text>
-            )}
-          </View>
+              <Text
+                variant="caption"
+                style={{ letterSpacing: 1.2, color: blue[300] }}
+              >
+                {roleChoices
+                  ? t('auth.login.role_picker_eyebrow')
+                  : selectedRole === 'employer'
+                    ? t('auth.login.eyebrow_employer')
+                    : selectedRole === 'seeker'
+                      ? t('auth.login.eyebrow_seeker')
+                      : t('auth.login.eyebrow')}
+              </Text>
+              {roleChoices && (
+                <Text
+                  variant="footnote"
+                  style={{ marginTop: spacing.xs, color: 'rgba(255,255,255,0.85)' }}
+                >
+                  {t('auth.login.role_picker_subtitle')}
+                </Text>
+              )}
+            </View>
+          </LinearGradient>
 
           {/* Role toggle — explicit upfront choice of which side the user
               is signing in to. Hidden during the inline role-picker
@@ -270,24 +325,104 @@ export function LoginScreen() {
                 />
               </View>
 
-              <View style={{ gap: spacing.md }}>
-                <Button
-                  label={
-                    submitting
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <Pressable
+                  onPress={() => setRememberMe((v) => !v)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: rememberMe }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
+                  hitSlop={8}
+                >
+                  <View
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 5,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 1.5,
+                      borderColor: rememberMe ? theme.brand.hero : theme.border.default,
+                      backgroundColor: rememberMe ? theme.brand.hero : 'transparent',
+                    }}
+                  >
+                    {rememberMe && <Feather name="check" size={14} color="#FFFFFF" />}
+                  </View>
+                  <Text variant="footnote" tone="secondary">
+                    {t('auth.login.remember_me')}
+                  </Text>
+                </Pressable>
+                <Text
+                  variant="footnote"
+                  weight="medium"
+                  tone="hero"
+                  onPress={() => navigation.navigate('ForgotPassword')}
+                >
+                  {t('auth.login.cta_forgot')}
+                </Text>
+              </View>
+
+              <Pressable onPress={onSubmit} disabled={submitting} style={{ opacity: submitting ? 0.7 : 1 }}>
+                <LinearGradient
+                  colors={[blue[500], blue[400]]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: spacing.sm,
+                    borderRadius: radii.pill,
+                    paddingVertical: spacing.lg,
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+                    {submitting
                       ? t('auth.login.cta_signing_in')
                       : selectedRole === 'employer'
                         ? t('auth.login.cta_signin_employer')
-                        : t('auth.login.cta_signin_seeker')
-                  }
-                  onPress={onSubmit}
-                  disabled={submitting}
-                />
-                <Button
-                  label={t('auth.login.cta_forgot')}
-                  variant="ghost"
-                  onPress={() => navigation.navigate('ForgotPassword')}
-                />
+                        : selectedRole === 'seeker'
+                          ? t('auth.login.cta_signin_seeker')
+                          : t('auth.login.cta_signin')}
+                  </Text>
+                  {!submitting && <Feather name="arrow-right" size={18} color="#FFFFFF" />}
+                </LinearGradient>
+              </Pressable>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                <View style={{ flex: 1, height: 1, backgroundColor: theme.border.subtle }} />
+                <Text variant="caption" tone="tertiary">
+                  {t('auth.login.or_divider')}
+                </Text>
+                <View style={{ flex: 1, height: 1, backgroundColor: theme.border.subtle }} />
               </View>
+
+              {/* Visual only for now — no Google OAuth wired up in the app yet. */}
+              <Pressable
+                disabled
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: spacing.sm,
+                  paddingVertical: spacing.lg,
+                  borderRadius: radii.pill,
+                  backgroundColor: theme.bg.muted,
+                  borderWidth: 1,
+                  borderColor: theme.border.subtle,
+                  opacity: 0.6,
+                }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#4285F4' }}>G</Text>
+                <Text style={{ color: theme.text.primary, fontWeight: '600' }}>
+                  {t('auth.login.continue_with_google')}
+                </Text>
+              </Pressable>
 
               <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.xs }}>
                 <Text variant="footnote" tone="secondary">
@@ -306,6 +441,35 @@ export function LoginScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={submitting} transparent animationType="fade" statusBarTranslucent>
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0,0,0,0.55)',
+          }}
+        >
+          <View
+            style={{
+              alignItems: 'center',
+              gap: spacing.md,
+              paddingVertical: spacing.xl,
+              paddingHorizontal: spacing['2xl'],
+              borderRadius: radii.xl,
+              backgroundColor: '#0D1B33',
+              borderWidth: 1,
+              borderColor: 'rgba(96,165,250,0.3)',
+            }}
+          >
+            <ActivityIndicator size="large" color={blue[400]} />
+            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
+              {t('auth.login.cta_signing_in')}
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -323,45 +487,34 @@ function mapValidation(
 
 // ─── RoleToggle ─────────────────────────────────────────────────────────────
 //
-// Segmented control that asks the user which side of Doondo they're
-// signing in to. Two pills, side by side, with a sliding selected state.
-// Kept file-local because the styling is tightly tuned to the dark
-// login screen — if a second screen ever needs the same control we can
-// promote it to /components.
+// Two independent pill buttons side by side — seeker on the left,
+// employer on the right. The unselected pill sits flat and muted; the
+// selected one fills with a bright blue gradient and a soft glow so
+// it's obvious at a glance which one is active. Kept file-local because
+// the styling is tightly tuned to the login screen — if a second screen
+// ever needs the same control we can promote it to /components.
 //
 // A11y: each pill is its own button with role+selected state so VoiceOver
 // reads "Job seeker, selected, button" or "Employer, not selected, button".
 
 interface RoleToggleProps {
-  value: UserRole;
+  value: UserRole | null;
   onChange: (next: UserRole) => void;
 }
 
 function RoleToggle({ value, onChange }: RoleToggleProps) {
-  const { theme } = useTheme();
   const t = useTranslate();
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        padding: 4,
-        borderRadius: radii.pill,
-        backgroundColor: theme.bg.muted,
-        borderWidth: 0.5,
-        borderColor: theme.border.subtle,
-        gap: 4,
-      }}
-      accessibilityRole="tablist"
-    >
-      <RoleSegment
+    <View style={{ flexDirection: 'row', gap: spacing.md }} accessibilityRole="tablist">
+      <RolePill
         label={t('auth.login.role_toggle_seeker')}
-        icon="👷"
+        icon="user"
         active={value === 'seeker'}
         onPress={() => onChange('seeker')}
       />
-      <RoleSegment
+      <RolePill
         label={t('auth.login.role_toggle_employer')}
-        icon="🏢"
+        icon="briefcase"
         active={value === 'employer'}
         onPress={() => onChange('employer')}
       />
@@ -369,48 +522,74 @@ function RoleToggle({ value, onChange }: RoleToggleProps) {
   );
 }
 
-interface RoleSegmentProps {
+interface RolePillProps {
   label: string;
-  icon: string;
+  icon: React.ComponentProps<typeof Feather>['name'];
   active: boolean;
   onPress: () => void;
 }
 
-function RoleSegment({ label, icon, active, onPress }: RoleSegmentProps) {
+function RolePill({ label, icon, active, onPress }: RolePillProps) {
   const { theme } = useTheme();
+
+  const content = (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+      <Feather name={icon} size={18} color={active ? '#FFFFFF' : theme.text.secondary} />
+      <Text
+        style={{
+          fontSize: 15,
+          fontWeight: '700',
+          color: active ? '#FFFFFF' : theme.text.secondary,
+        }}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
       accessibilityLabel={label}
-      style={({ pressed }) => ({
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        borderRadius: radii.pill,
-        backgroundColor: active ? theme.brand.hero : 'transparent',
-        opacity: pressed ? 0.85 : 1,
-      })}
+      style={{ flex: 1 }}
     >
-      <Text style={{ fontSize: 14 }} allowFontScaling={false}>
-        {icon}
-      </Text>
-      <Text
-        style={{
-          fontSize: 13,
-          fontWeight: '600',
-          color: active ? '#FFFFFF' : theme.text.secondary,
-          letterSpacing: -0.1,
-        }}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
+      {active ? (
+        <LinearGradient
+          colors={[blue[500], blue[400]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            borderRadius: radii.pill,
+            paddingVertical: spacing.lg,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: blue[400],
+            shadowOpacity: 0.5,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 6,
+          }}
+        >
+          {content}
+        </LinearGradient>
+      ) : (
+        <View
+          style={{
+            borderRadius: radii.pill,
+            paddingVertical: spacing.lg,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: theme.bg.muted,
+            borderWidth: 1,
+            borderColor: theme.border.subtle,
+          }}
+        >
+          {content}
+        </View>
+      )}
     </Pressable>
   );
 }

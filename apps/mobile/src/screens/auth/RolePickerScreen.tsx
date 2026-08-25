@@ -2,18 +2,21 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
-  Image,
+  LayoutAnimation,
+  Platform,
   Pressable,
   ScrollView,
+  UIManager,
   View,
   useWindowDimensions,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { radii, spacing } from '@doondo/tokens';
+import { radii, spacing, blue } from '@doondo/tokens';
 import { Screen, Text, DoondoMark } from '@/components';
 import { haptic } from '@/lib/haptics';
 import {
@@ -30,11 +33,13 @@ import { SUPPORTED_LOCALES, type SupportedLocale } from '@/i18n';
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'RolePicker'>;
 type Choice = Exclude<UserRole, 'admin'>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
+type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const FIND_WORK_IMAGE = require('../../../assets/images/find-work-card.jpeg');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const HIRE_WORKERS_IMAGE = require('../../../assets/images/workers-hero.png');
+// Old Android bridge needs this flag before LayoutAnimation will animate
+// anything; harmless no-op on iOS and on the new architecture.
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 // Language toggle on the role picker now cycles through all 5 supported
 // locales, persisting via the LanguageProvider so the rest of the app
@@ -295,21 +300,24 @@ export function RolePickerScreen() {
               }}
             >
               <JourneyCard
-                accent={isLight ? '#2F774B' : '#7C5CFF'}
-                image={FIND_WORK_IMAGE}
-                badge={t('role_picker.seeker_badge')}
-                body={t('role_picker.seeker_body')}
+                accent={isLight ? '#2F774B' : '#22C55E'}
+                badgeIcon="briefcase"
+                icon="map-pin"
+                headline={t('role_picker.seeker_headline')}
                 cta={t('role_picker.seeker_cta')}
-                fullBleed
+                subtext={t('role_picker.seeker_subtext')}
+                subtextIcon="map-pin"
                 onPress={() => go('seeker')}
               />
 
               <JourneyCard
-                accent={isLight ? '#D29A17' : '#E3AE31'}
-                image={HIRE_WORKERS_IMAGE}
-                badge={t('role_picker.employer_badge')}
-                body={t('role_picker.employer_body')}
+                accent={isLight ? '#6D28D9' : '#8B5CF6'}
+                badgeIcon="user"
+                icon="search"
+                headline={t('role_picker.employer_headline')}
                 cta={t('role_picker.employer_cta')}
+                subtext={t('role_picker.employer_subtext')}
+                subtextIcon="search"
                 onPress={() => go('employer')}
               />
             </View>
@@ -385,30 +393,61 @@ function SeekerWorkTypeSheet({ onCancel, onPick, t }: SeekerWorkTypeSheetProps &
           }}
         />
 
-        <View style={{ gap: spacing.xs }}>
-          <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-            {t('role_picker.sheet_eyebrow')}
-          </Text>
-          <Text variant="display" weight="medium" display>
+        <LinearGradient
+          colors={['#060B16', '#0D1B33', blue[900]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            borderRadius: radii.xl,
+            padding: spacing.lg,
+            borderWidth: 1,
+            borderColor: 'rgba(96,165,250,0.25)',
+            alignItems: 'center',
+            gap: 4,
+          }}
+        >
+          <Text
+            variant="display"
+            weight="medium"
+            display
+            style={{ color: '#FFFFFF', textAlign: 'center' }}
+          >
             {t('role_picker.sheet_title')}
           </Text>
-          <Text variant="footnote" tone="secondary">
+          <Text
+            variant="caption"
+            style={{ letterSpacing: 1.2, color: blue[300], textAlign: 'center' }}
+          >
+            {t('role_picker.sheet_eyebrow')}
+          </Text>
+          <Text
+            variant="footnote"
+            style={{ color: 'rgba(255,255,255,0.78)', textAlign: 'center', marginTop: 4 }}
+          >
             {t('role_picker.sheet_subtitle')}
           </Text>
-        </View>
+        </LinearGradient>
 
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           <ChoiceCard
             title={t('role_picker.sheet_solo')}
             sub={t('role_picker.sheet_solo_sub')}
+            icon="user"
             active={mode === 'solo'}
-            onPress={() => setMode('solo')}
+            onPress={() => {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              setMode('solo');
+            }}
           />
           <ChoiceCard
             title={t('role_picker.sheet_team')}
             sub={t('role_picker.sheet_team_sub')}
+            icon="users"
             active={mode === 'team'}
-            onPress={() => setMode('team')}
+            onPress={() => {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              setMode('team');
+            }}
           />
         </View>
 
@@ -429,14 +468,14 @@ function SeekerWorkTypeSheet({ onCancel, onPick, t }: SeekerWorkTypeSheetProps &
                       paddingVertical: spacing.xs,
                       borderRadius: radii.pill,
                       borderWidth: 0.5,
-                      borderColor: active ? theme.brand.hero : theme.border.default,
-                      backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                      borderColor: active ? blue[400] : theme.border.default,
+                      backgroundColor: active ? 'rgba(59,130,246,0.16)' : 'transparent',
                     }}
                   >
                     <Text
                       variant="footnote"
                       weight={active ? 'medium' : 'regular'}
-                      style={{ color: active ? theme.brand.hero : theme.text.secondary }}
+                      style={{ color: active ? blue[300] : theme.text.secondary }}
                     >
                       {n}
                     </Text>
@@ -470,17 +509,22 @@ function SeekerWorkTypeSheet({ onCancel, onPick, t }: SeekerWorkTypeSheetProps &
             onPress={() =>
               onPick(mode, mode === 'team' ? teamSize : undefined)
             }
-            style={{
-              flex: 2,
-              paddingVertical: spacing.md,
-              borderRadius: radii.lg,
-              backgroundColor: theme.brand.hero,
-              alignItems: 'center',
-            }}
+            style={{ flex: 2 }}
           >
-            <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFDF7' }}>
-              {t('role_picker.sheet_continue')}
-            </Text>
+            <LinearGradient
+              colors={[blue[500], blue[400]]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{
+                paddingVertical: spacing.md,
+                borderRadius: radii.lg,
+                alignItems: 'center',
+              }}
+            >
+              <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+                {t('role_picker.sheet_continue')}
+              </Text>
+            </LinearGradient>
           </Pressable>
         </View>
       </Pressable>
@@ -491,40 +535,92 @@ function SeekerWorkTypeSheet({ onCancel, onPick, t }: SeekerWorkTypeSheetProps &
 function ChoiceCard({
   title,
   sub,
+  icon,
   active,
   onPress,
 }: {
   title: string;
   sub: string;
+  icon: FeatherIconName;
   active: boolean;
   onPress: () => void;
 }) {
   const { theme } = useTheme();
+  // Crossfades the gradient in/out on top of the muted base instead of
+  // snapping instantly — makes tapping between Solo/Team feel smooth
+  // rather than a hard color swap.
+  const progress = useRef(new Animated.Value(active ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: active ? 1 : 0,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  }, [active, progress]);
+
+  const cardBoxStyle = {
+    borderRadius: radii.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center' as const,
+  };
+
   return (
     <Pressable
       onPress={onPress}
-      style={{
-        flex: 1,
-        paddingVertical: spacing.lg,
-        paddingHorizontal: spacing.md,
-        borderRadius: radii.lg,
-        borderWidth: active ? 1.2 : 0.5,
-        borderColor: active ? theme.brand.hero : theme.border.default,
-        backgroundColor: active ? theme.brand.heroSubtle : theme.bg.muted,
-        gap: 4,
-        alignItems: 'flex-start',
-      }}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      style={{ flex: 1 }}
     >
-      <Text
-        variant="bodyLarge"
-        weight="medium"
-        style={{ color: active ? theme.brand.hero : theme.text.primary }}
+      <View
+        style={{
+          ...cardBoxStyle,
+          backgroundColor: theme.bg.muted,
+          borderWidth: 1,
+          borderColor: theme.border.subtle,
+        }}
       >
-        {title}
-      </Text>
-      <Text variant="footnote" tone="secondary">
-        {sub}
-      </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
+          <Feather name={icon} size={18} color={theme.text.secondary} />
+          <Text variant="bodyLarge" weight="medium" style={{ color: theme.text.primary }}>
+            {title}
+          </Text>
+        </View>
+        <Text variant="footnote" style={{ color: theme.text.tertiary, marginTop: 4, textAlign: 'center' }}>
+          {sub}
+        </Text>
+      </View>
+
+      <Animated.View
+        pointerEvents={active ? 'auto' : 'none'}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: progress }}
+      >
+        <LinearGradient
+          colors={[blue[500], blue[400]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            flex: 1,
+            ...cardBoxStyle,
+            shadowColor: blue[400],
+            shadowOpacity: 0.5,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 6,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
+            <Feather name={icon} size={18} color="#FFFFFF" />
+            <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+              {title}
+            </Text>
+          </View>
+          <Text variant="footnote" style={{ color: 'rgba(255,255,255,0.85)', marginTop: 4, textAlign: 'center' }}>
+            {sub}
+          </Text>
+        </LinearGradient>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -689,21 +785,21 @@ function UtilityButton({
 
 function JourneyCard({
   accent,
-  image,
-  badge,
-  body,
+  badgeIcon,
+  icon,
+  headline,
   cta,
-  fullBleed = false,
+  subtext,
+  subtextIcon,
   onPress,
 }: {
-  accent?: string;
-  image: number;
-  badge?: string;
-  body?: string;
-  items?: ReadonlyArray<readonly [string, string]>;
-  cta?: string;
-  /** When true, the image fills the entire card (seeker card — full card design baked into JPEG). */
-  fullBleed?: boolean;
+  accent: string;
+  badgeIcon: FeatherIconName;
+  icon: FeatherIconName;
+  headline: string;
+  cta: string;
+  subtext: string;
+  subtextIcon: FeatherIconName;
   onPress: () => void;
 }) {
   const { theme, scheme } = useTheme();
@@ -711,135 +807,122 @@ function JourneyCard({
   const compact = width < 820;
   const isLight = scheme === 'light';
 
-  const imageAspect = 2 / 3;
-  const cardRadius = compact ? 24 : 36;
-  const cardAccent = accent ?? (isLight ? '#D29A17' : '#E3AE31');
+  const cardRadius = compact ? 24 : 32;
 
-  const cardStyle = {
-    flex: 1,
-    alignSelf: 'flex-start' as const,
-    aspectRatio: imageAspect,
-    borderRadius: cardRadius,
-    overflow: 'hidden' as const,
-    backgroundColor: theme.bg.surface,
-    borderWidth: 0.5,
-    borderColor: isLight ? theme.border.default : theme.premium.hairline,
-    shadowColor: isLight ? '#B99968' : '#000000',
-    shadowOpacity: isLight ? 0.12 : 0.24,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 16 },
-    elevation: 6,
-  };
-
-  if (fullBleed) {
-    return (
-      <Pressable onPress={onPress} style={cardStyle}>
-        <Image
-          source={image}
-          resizeMode="cover"
-          style={{ width: '100%', height: '100%', backgroundColor: theme.bg.surface }}
-        />
-      </Pressable>
-    );
-  }
-
-  // Composed layout — illustration on top, text content below.
-  // Used for the employer card where the asset is an illustration (not a
-  // full-card-design JPEG).
   return (
-    <Pressable onPress={onPress} style={cardStyle}>
-      {/* Illustration hero — takes ~55% of the card height */}
-      <View
-        style={{
-          flex: 55,
-          backgroundColor: isLight ? '#EEF2FF' : '#1A1535',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: compact ? spacing.md : spacing.lg,
-        }}
-      >
-        <Image
-          source={image}
-          resizeMode="contain"
-          style={{ width: '85%', height: '85%' }}
-        />
+    <Pressable
+      onPress={onPress}
+      style={{
+        flex: 1,
+        borderRadius: cardRadius,
+        backgroundColor: theme.bg.surface,
+        borderWidth: 0.5,
+        borderColor: isLight ? theme.border.default : theme.premium.hairline,
+        padding: compact ? spacing.md : spacing.lg,
+        gap: compact ? spacing.sm : spacing.md,
+        shadowColor: isLight ? '#B99968' : '#000000',
+        shadowOpacity: isLight ? 0.12 : 0.24,
+        shadowRadius: 28,
+        shadowOffset: { width: 0, height: 16 },
+        elevation: 6,
+      }}
+    >
+      {/* Small square badge + headline, top of the card. */}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
+        <View
+          style={{
+            width: compact ? 26 : 30,
+            height: compact ? 26 : 30,
+            borderRadius: 8,
+            backgroundColor: accent,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Feather name={badgeIcon} size={compact ? 13 : 15} color="#FFFFFF" />
+        </View>
+        <Text
+          variant={compact ? 'footnote' : 'bodyLarge'}
+          weight="medium"
+          numberOfLines={2}
+          style={{ color: theme.text.primary, flex: 1 }}
+        >
+          {headline}
+        </Text>
       </View>
 
-      {/* Content area — badge, headline, body, CTA */}
+      {/* Icon badge — dotted ring around a solid accent circle, echoing
+          the "target"/"match" motif from the reference design. */}
       <View
         style={{
-          flex: 45,
-          backgroundColor: theme.bg.surface,
-          paddingHorizontal: compact ? spacing.md : spacing.lg,
-          paddingTop: compact ? spacing.sm : spacing.md,
-          paddingBottom: compact ? spacing.sm : spacing.md,
-          gap: compact ? 4 : spacing.xs,
-          justifyContent: 'space-between',
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: compact ? spacing.sm : spacing.md,
         }}
       >
-        <View style={{ gap: compact ? 4 : spacing.xs }}>
-          {badge ? (
-            <View
-              style={{
-                alignSelf: 'flex-start',
-                borderRadius: radii.pill,
-                paddingHorizontal: compact ? spacing.sm : spacing.md,
-                paddingVertical: 3,
-                backgroundColor: isLight ? 'rgba(211,165,86,0.14)' : 'rgba(141,109,255,0.16)',
-                borderWidth: 0.5,
-                borderColor: isLight ? 'rgba(211,165,86,0.4)' : 'rgba(141,109,255,0.4)',
-              }}
-            >
-              <Text
-                variant="caption"
-                weight="medium"
-                style={{
-                  letterSpacing: 0.8,
-                  fontSize: compact ? 9 : 11,
-                  color: cardAccent,
-                }}
-              >
-                {badge}
-              </Text>
-            </View>
-          ) : null}
-
-          {body ? (
-            <Text
-              variant={compact ? 'caption' : 'footnote'}
-              weight="medium"
-              style={{ color: theme.text.primary, lineHeight: compact ? 14 : 18 }}
-              numberOfLines={3}
-            >
-              {body}
-            </Text>
-          ) : null}
-        </View>
-
-        {cta ? (
+        <View
+          style={{
+            width: compact ? 68 : 84,
+            height: compact ? 68 : 84,
+            borderRadius: 999,
+            borderWidth: 1.5,
+            borderStyle: 'dotted',
+            borderColor: `${accent}70`,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <View
             style={{
-              borderRadius: radii.md,
-              paddingVertical: compact ? 6 : spacing.sm,
-              paddingHorizontal: compact ? spacing.sm : spacing.md,
-              backgroundColor: cardAccent,
+              width: compact ? 42 : 52,
+              height: compact ? 42 : 52,
+              borderRadius: 999,
+              backgroundColor: accent,
               alignItems: 'center',
-              flexDirection: 'row',
               justifyContent: 'center',
-              gap: spacing.xs,
             }}
           >
-            <Text
-              variant={compact ? 'caption' : 'footnote'}
-              weight="medium"
-              style={{ color: '#FFFDF7', fontSize: compact ? 10 : 12 }}
-              numberOfLines={1}
-            >
-              {cta}
-            </Text>
-            <Feather name="arrow-right" size={compact ? 10 : 12} color="#FFFDF7" />
+            <Feather name={icon} size={compact ? 18 : 22} color="#FFFFFF" />
           </View>
-        ) : null}
+        </View>
+      </View>
+
+      <View
+        style={{
+          borderRadius: radii.pill,
+          paddingVertical: compact ? spacing.sm : spacing.md,
+          backgroundColor: accent,
+          alignItems: 'center',
+        }}
+      >
+        <Text
+          variant={compact ? 'caption' : 'footnote'}
+          weight="medium"
+          style={{ color: '#FFFFFF', fontSize: compact ? 11 : 13 }}
+          numberOfLines={1}
+        >
+          {cta}
+        </Text>
+      </View>
+
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 4,
+        }}
+      >
+        <Feather name={subtextIcon} size={compact ? 10 : 11} color={theme.text.tertiary} />
+        <Text
+          variant="caption"
+          tone="tertiary"
+          numberOfLines={1}
+          style={{ fontSize: compact ? 9 : 11 }}
+        >
+          {subtext}
+        </Text>
       </View>
     </Pressable>
   );
@@ -850,10 +933,10 @@ function JourneyCard({
 function HowItWorks({ compact, t }: { compact: boolean; t: TFn }) {
   const { theme, scheme } = useTheme();
   const isLight = scheme === 'light';
-  const steps: ReadonlyArray<readonly [string, string]> = [
-    [t('role_picker.how_step1_title'), t('role_picker.how_step1_body')],
-    [t('role_picker.how_step2_title'), t('role_picker.how_step2_body')],
-    [t('role_picker.how_step3_title'), t('role_picker.how_step3_body')],
+  const steps: ReadonlyArray<readonly [string, string, FeatherIconName]> = [
+    [t('role_picker.how_step1_title'), t('role_picker.how_step1_body'), 'user'],
+    [t('role_picker.how_step2_title'), t('role_picker.how_step2_body'), 'map-pin'],
+    [t('role_picker.how_step3_title'), t('role_picker.how_step3_body'), 'clock'],
   ];
 
   return (
@@ -882,7 +965,7 @@ function HowItWorks({ compact, t }: { compact: boolean; t: TFn }) {
           gap: compact ? spacing.xs : spacing.md,
         }}
       >
-        {steps.map(([title, sub]) => (
+        {steps.map(([title, sub, icon]) => (
           <View
             key={title}
             style={{
@@ -893,19 +976,20 @@ function HowItWorks({ compact, t }: { compact: boolean; t: TFn }) {
               backgroundColor: theme.bg.surface,
               padding: compact ? spacing.sm : spacing.lg,
               gap: compact ? spacing.xs : spacing.sm,
-              alignItems: 'flex-start',
+              alignItems: 'center',
             }}
           >
+            <Feather name={icon} size={compact ? 15 : 18} color={theme.text.secondary} />
             <Text
               variant={compact ? 'footnote' : 'bodyLarge'}
               weight="medium"
               numberOfLines={2}
-              style={{ color: theme.text.primary }}
+              style={{ color: theme.text.primary, textAlign: 'center' }}
             >
               {title}
             </Text>
             {!compact && (
-              <Text variant="footnote" tone="secondary" numberOfLines={2}>
+              <Text variant="footnote" tone="secondary" numberOfLines={2} style={{ textAlign: 'center' }}>
                 {sub}
               </Text>
             )}
@@ -1126,20 +1210,32 @@ function BrandFooter({ compact, t }: { compact: boolean; t: TFn }) {
         </Text>
       </View>
 
-      {/* Tagline — quiet, italic-ish via letterspacing.
-          Note: this string is also used as a brand line and shows up on
-          screenshots / app-store copy. Emoji renders the same on iOS +
-          Android. */}
-      <Text
-        variant="footnote"
-        tone="secondary"
+      {/* Tagline — quiet, italic-ish via letterspacing. The playful sign-off
+          used to end in two emoji; swapped for Feather icons so it renders
+          identically (and on-brand) across devices instead of relying on
+          the platform's emoji font. */}
+      <View
         style={{
-          letterSpacing: 0.6,
-          textAlign: 'center',
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexWrap: 'wrap',
+          gap: 6,
         }}
       >
-        {t('role_picker.footer_tagline')}
-      </Text>
+        <Text
+          variant="footnote"
+          tone="secondary"
+          style={{
+            letterSpacing: 0.6,
+            textAlign: 'center',
+          }}
+        >
+          {t('role_picker.footer_tagline')}
+        </Text>
+        <Feather name="smile" size={13} color={theme.text.secondary} />
+        <Feather name="tool" size={13} color={theme.text.secondary} />
+      </View>
 
       {/* Meta line — place + flag, year, version */}
       <Text

@@ -41,9 +41,22 @@ type Nav = NativeStackNavigationProp<AppStackParamList>;
 const BLUE = '#2563EB';
 const BLUE_DARK = '#1D4ED8';
 const BLUE_LIGHT = '#EFF6FF';
-const GREEN = '#22C55E';
 const GREEN_DARK = '#16A34A';
 const AMBER = '#F59E0B';
+const ORANGE = '#F97316';
+
+const WHY_EMPLOYERS_FEATURES: ReadonlyArray<{
+  icon: React.ComponentProps<typeof Feather>['name'];
+  title: string;
+  desc: string;
+}> = [
+  { icon: 'mic', title: 'Audio Search', desc: 'Find workers by speaking' },
+  { icon: 'map-pin', title: 'Map Based Search', desc: 'Find nearby workers instantly' },
+  { icon: 'shield', title: 'Verified Workers', desc: 'Background verified & trusted' },
+  { icon: 'message-circle', title: 'Easy Communication', desc: 'Chat or call in app' },
+  { icon: 'lock', title: 'Secure Payments', desc: 'Pay via Doondo Wallet' },
+  { icon: 'headphones', title: '24/7 Support', desc: 'We are here to help' },
+];
 
 export function EmployerHomeScreen() {
   const { scheme } = useTheme();
@@ -218,6 +231,14 @@ export function EmployerHomeScreen() {
   const textPrimary = isLight ? '#1F2937' : '#F9FAFB';
   const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
 
+  // "Why Employers ❤️ Doondo" section — follows the system/app theme like
+  // the rest of the screen, just with a slightly distinct card surface.
+  const whySectionBg = isLight ? '#F9FAFB' : '#111111';
+  const whyCardBg = isLight ? '#FFFFFF' : '#18181D';
+  const whyCardBorder = isLight ? '#E5E7EB' : 'rgba(255,255,255,0.08)';
+  const whyTitleColor = isLight ? '#111827' : '#F9FAFB';
+  const whyDescColor = textSecondary;
+
   return (
     <Screen edges={[]}>
       <View style={{ flex: 1, backgroundColor: bg }}>
@@ -247,10 +268,10 @@ export function EmployerHomeScreen() {
           <View style={{ alignItems: 'center' }}>
             <Text style={{ fontSize: 22, fontWeight: '800', letterSpacing: -0.5, lineHeight: 26 }}>
               <Text style={{ color: BLUE }}>D</Text>
-              <Text style={{ color: GREEN }}>oo</Text>
+              <Text style={{ color: ORANGE }}>oo</Text>
               <Text style={{ color: BLUE }}>ndo</Text>
             </Text>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: GREEN, letterSpacing: 0.5, marginTop: -2 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: ORANGE, letterSpacing: 0.5, marginTop: -2 }}>
               Employer
             </Text>
           </View>
@@ -293,23 +314,28 @@ export function EmployerHomeScreen() {
               justifyContent: 'space-between',
               paddingHorizontal: spacing.xl,
               paddingVertical: spacing.sm,
+              gap: spacing.md,
             }}
           >
-            <Text style={{ fontSize: 17, fontWeight: '700', color: textPrimary }}>
+            <Text
+              style={{ flexShrink: 1, fontSize: 17, fontWeight: '700', color: textPrimary }}
+              numberOfLines={1}
+            >
               {timeGreeting()}, {(user?.name ?? 'there').split(' ')[0]} 👋
             </Text>
             <Pressable
               onPress={() => haptic('selection')}
               style={{
+                flexShrink: 1,
                 backgroundColor: cardBg,
                 borderWidth: 1,
                 borderColor: cardBorder,
                 borderRadius: 20,
                 paddingHorizontal: spacing.md,
-                paddingVertical: 5,
+                paddingVertical: 6,
               }}
             >
-              <Text style={{ fontSize: 11, fontWeight: '600', color: BLUE }}>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: BLUE }} numberOfLines={1}>
                 Switch to Household
               </Text>
             </Pressable>
@@ -323,23 +349,30 @@ export function EmployerHomeScreen() {
                 marginHorizontal: spacing.xl, marginBottom: spacing.md,
                 backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
                 borderRadius: 14, borderWidth: 1, borderColor: BLUE + '40',
-                padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                padding: spacing.md,
                 opacity: pressed ? 0.85 : 1,
               })}
             >
-              {/* Segmented dot-arc progress ring */}
-              <ProfileRing pct={profilePct} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: isLight ? '#1E40AF' : '#93C5FD' }}>
-                  Complete your profile
-                </Text>
-                <Text style={{ fontSize: 12, color: isLight ? '#3B82F6' : '#60A5FA' }}>
-                  {filledCount}/{profileFields.length} fields done · Get 2× more applicants
-                </Text>
-              </View>
-              <Pressable onPress={(e) => { e.stopPropagation?.(); haptic('selection'); setNudgeDismissed(true); }} hitSlop={8}>
+              <Pressable
+                onPress={(e) => { e.stopPropagation?.(); haptic('selection'); setNudgeDismissed(true); }}
+                hitSlop={8}
+                style={{ position: 'absolute', top: spacing.sm, right: spacing.sm, zIndex: 1 }}
+              >
                 <Feather name="x" size={16} color={isLight ? '#3B82F6' : '#60A5FA'} />
               </Pressable>
+
+              <View style={{ alignItems: 'center', gap: spacing.sm }}>
+                {/* Segmented dot-arc progress ring */}
+                <ProfileRing pct={profilePct} />
+                <View style={{ alignItems: 'center', gap: 2 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: isLight ? '#1E40AF' : '#93C5FD', textAlign: 'center' }}>
+                    Complete your profile
+                  </Text>
+                  <Text style={{ fontSize: 12, color: isLight ? '#3B82F6' : '#60A5FA', textAlign: 'center' }}>
+                    {filledCount}/{profileFields.length} fields done · Get 2× more applicants
+                  </Text>
+                </View>
+              </View>
             </Pressable>
           )}
 
@@ -358,11 +391,11 @@ export function EmployerHomeScreen() {
           >
             {/* Top row: heading + greeting */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
-              <View>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.75)' }}>
+              <View style={{ gap: 2 }}>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.75)', letterSpacing: 0.2 }}>
                   Dashboard Overview
                 </Text>
-                <Text style={{ fontSize: 18, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: '#FFFFFF' }}>
                   {appsQuery.isLoading ? 'Loading...' : `${counts.openRoles} active role${counts.openRoles !== 1 ? 's' : ''}`}
                 </Text>
               </View>
@@ -378,8 +411,8 @@ export function EmployerHomeScreen() {
             {/* Divider */}
             <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginBottom: spacing.md }} />
 
-            {/* Stats row */}
-            <View style={{ flexDirection: 'row' }}>
+            {/* Stats row — 3 equal-width columns, never touching/overlapping */}
+            <View style={{ flexDirection: 'row', width: '100%' }}>
               {[
                 { value: counts.pending, label: 'New Apps', icon: 'users' as const, onPress: () => navigation.navigate('EmployerJobs' as never) },
                 { value: counts.shortlisted, label: 'Shortlisted', icon: 'bookmark' as const, onPress: () => navigation.navigate('EmployerJobs' as never) },
@@ -394,15 +427,19 @@ export function EmployerHomeScreen() {
                     borderLeftWidth: i > 0 ? 1 : 0,
                     borderLeftColor: 'rgba(255,255,255,0.2)',
                     opacity: pressed ? 0.75 : 1,
-                    paddingVertical: 2,
+                    paddingVertical: spacing.xs,
+                    paddingHorizontal: spacing.xs,
                   })}
                 >
-                  <Text style={{ fontSize: 26, fontWeight: '900', color: '#FFFFFF', lineHeight: 32 }}>
+                  <Text style={{ fontSize: 26, fontWeight: '900', color: '#FFFFFF', lineHeight: 32, textAlign: 'center' }}>
                     {appsQuery.isLoading ? '—' : String(stat.value)}
                   </Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                    <Feather name={stat.icon} size={11} color="rgba(255,255,255,0.7)" />
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.7)' }}>
+                  <View style={{ alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs }}>
+                    <Feather name={stat.icon} size={12} color="rgba(255,255,255,0.7)" />
+                    <Text
+                      style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.1, textAlign: 'center' }}
+                      numberOfLines={1}
+                    >
                       {stat.label}
                     </Text>
                   </View>
@@ -448,7 +485,8 @@ export function EmployerHomeScreen() {
             style={{
               marginHorizontal: spacing.xl, marginBottom: spacing.md,
               backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
-              borderRadius: 14, borderWidth: 1, borderColor: '#BFDBFE',
+              borderRadius: 14, borderWidth: 1,
+              borderColor: isLight ? 'rgba(37,99,235,0.14)' : 'rgba(96,165,250,0.18)',
               padding: spacing.md,
               flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
             }}
@@ -456,7 +494,7 @@ export function EmployerHomeScreen() {
             <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: BLUE + '22', alignItems: 'center', justifyContent: 'center' }}>
               <Feather name="calendar" size={18} color={BLUE} />
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, gap: 2 }}>
               <Text style={{ fontSize: 14, fontWeight: '700', color: isLight ? '#1E40AF' : '#93C5FD' }}>Time-Off Requests</Text>
               <Text style={{ fontSize: 12, color: isLight ? '#3B82F6' : '#60A5FA' }}>Review leave requests from your crew</Text>
             </View>
@@ -466,7 +504,7 @@ export function EmployerHomeScreen() {
           {/* ── Hire More Workers ── */}
           <AnimatedPressable onPress={() => { haptic('selection'); navigation.navigate('AvailableWorkers' as never); }}
             style={{
-              marginHorizontal: spacing.xl, marginBottom: spacing.lg,
+              marginHorizontal: spacing.xl, marginBottom: spacing.md,
               backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 13,
               flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
             }}>
@@ -475,7 +513,8 @@ export function EmployerHomeScreen() {
           </AnimatedPressable>
 
           {/* ── Business Card ── */}
-          <View
+          <AnimatedPressable
+            onPress={() => { haptic('selection'); navigation.navigate('EmployerProfile' as never); }}
             style={{
               marginHorizontal: spacing.xl,
               marginBottom: spacing.md,
@@ -506,14 +545,14 @@ export function EmployerHomeScreen() {
             >
               <Feather name="briefcase" size={24} color={BLUE} />
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, gap: 3, justifyContent: 'center' }}>
               <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>
                 {(user as any)?.businessName ?? user?.name ?? 'My Business'}
               </Text>
-              <Text style={{ fontSize: 12, color: textSecondary, marginTop: 1 }}>
+              <Text style={{ fontSize: 12, color: textSecondary }}>
                 Business Account
               </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <Text style={{ color: AMBER, fontSize: 13 }}>★</Text>
                 <Text style={{ fontSize: 12, color: textSecondary }}>
                   {(user as any)?.rating
@@ -522,77 +561,86 @@ export function EmployerHomeScreen() {
                 </Text>
               </View>
             </View>
-          </View>
+            <Feather name="chevron-right" size={18} color={textSecondary} />
+          </AnimatedPressable>
 
           {/* ── Wallet Card ── */}
-          <LinearGradient
-            colors={[BLUE_DARK, BLUE, '#3B82F6']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              marginHorizontal: spacing.xl,
-              marginBottom: spacing.lg,
-              borderRadius: radii.lg,
-              padding: spacing.lg,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
+          <AnimatedPressable
+            onPress={() => { haptic('selection'); navigation.navigate('WalletTopUp'); }}
+            style={{ marginHorizontal: spacing.xl, marginBottom: spacing.lg }}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-              <View
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 8,
-                  backgroundColor: 'rgba(255,255,255,0.2)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Feather name="credit-card" size={18} color="#FFFFFF" />
-              </View>
-              <View>
-                <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', fontWeight: '500' }}>
-                  Wallet Balance
-                </Text>
-                <Text style={{ fontSize: 26, fontWeight: '800', color: '#FFFFFF', marginTop: 1 }}>
-                  ₹1,250
-                </Text>
-              </View>
-            </View>
-            <Pressable
+            <LinearGradient
+              colors={[BLUE_DARK, BLUE, '#3B82F6']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 8,
-                paddingHorizontal: spacing.md,
-                paddingVertical: spacing.sm,
-              }}
-              onPress={() => {
-                haptic('selection');
-                navigation.navigate('WalletTopUp');
+                borderRadius: radii.lg,
+                padding: spacing.lg,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
               }}
             >
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>
-                Add Money
-              </Text>
-            </Pressable>
-          </LinearGradient>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1 }}>
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Feather name="credit-card" size={18} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>
+                    Wallet Balance
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 1 }}
+                  >
+                    Manage your wallet and transactions
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 8,
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.sm,
+                }}
+                onPress={() => {
+                  haptic('selection');
+                  navigation.navigate('WalletTopUp');
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>
+                  Add Money
+                </Text>
+              </Pressable>
+            </LinearGradient>
+          </AnimatedPressable>
 
           {/* ── Quick Actions ── */}
           <View
             style={{
               flexDirection: 'row',
+              width: '100%',
               paddingHorizontal: spacing.xl,
               marginBottom: spacing.lg,
-              gap: 4,
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
             }}
           >
             {([
-              { icon: 'calendar', label: 'Attendance', bg: BLUE_LIGHT, onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
-              { icon: 'dollar-sign', label: 'Salary', bg: '#F0FDF4', onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
-              { icon: 'clipboard', label: 'Assign Task', bg: '#EDE9FE', onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
-              { icon: 'bar-chart-2', label: 'Analytics', bg: '#FFF7ED', onPress: () => { haptic('selection'); navigation.navigate('EmployerAnalytics' as never); } },
+              { icon: 'calendar', label: 'Attendance', bg: BLUE_LIGHT, color: BLUE, onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
+              { icon: 'dollar-sign', label: 'Salary', bg: '#F0FDF4', color: GREEN_DARK, onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
+              { icon: 'clipboard', label: 'Assign Task', bg: '#EDE9FE', color: '#7C3AED', onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
+              { icon: 'bar-chart-2', label: 'Analytics', bg: '#FFF7ED', color: ORANGE, onPress: () => { haptic('selection'); navigation.navigate('EmployerAnalytics' as never); } },
             ] as const).map((item) => (
               <Pressable
                 key={item.label}
@@ -601,23 +649,27 @@ export function EmployerHomeScreen() {
                 style={({ pressed }) => ({
                   flex: 1,
                   alignItems: 'center',
+                  minWidth: 0,
                   gap: spacing.sm,
                   opacity: pressed ? 0.75 : 1,
                 })}
               >
                 <View
                   style={{
-                    width: 58,
-                    height: 58,
-                    borderRadius: 14,
+                    width: 56,
+                    height: 56,
+                    borderRadius: 16,
                     backgroundColor: item.bg,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  <Feather name={item.icon} size={24} color={BLUE} />
+                  <Feather name={item.icon} size={22} color={item.color} />
                 </View>
                 <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
                   style={{
                     fontSize: 11,
                     fontWeight: '600',
@@ -636,14 +688,40 @@ export function EmployerHomeScreen() {
           <View style={{ paddingHorizontal: spacing.xl, marginBottom: spacing.lg }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary }}>Recent Activity</Text>
-              <Pressable hitSlop={8} onPress={() => navigation.navigate('Applicants' as never)}>
+              <Pressable
+                hitSlop={8}
+                onPress={() => navigation.navigate('Applicants' as never)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
+              >
                 <Text style={{ fontSize: 13, fontWeight: '600', color: BLUE }}>View all</Text>
+                <Feather name="chevron-right" size={14} color={BLUE} />
               </Pressable>
             </View>
             <View style={{ backgroundColor: cardBg, borderRadius: radii.lg, borderWidth: 1, borderColor: cardBorder, overflow: 'hidden' }}>
               {feedEvents.length === 0 ? (
-                <View style={{ padding: spacing.xl, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 13, color: textSecondary }}>No activity yet — post a job to get started.</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg }}>
+                  <View
+                    style={{
+                      width: 40, height: 40, borderRadius: 20,
+                      backgroundColor: BLUE_LIGHT,
+                      alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    <Feather name="clock" size={18} color={BLUE} />
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary }}>No activity yet</Text>
+                    <Text style={{ fontSize: 12, color: textSecondary }}>Post a job to get started.</Text>
+                  </View>
+                  <View
+                    style={{
+                      width: 40, height: 40, borderRadius: 12,
+                      backgroundColor: isLight ? '#F3F4F6' : '#1E1E1E',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    <Feather name="search" size={18} color={textSecondary} />
+                  </View>
                 </View>
               ) : (
                 feedEvents.map((event, i) => (
@@ -674,8 +752,12 @@ export function EmployerHomeScreen() {
             <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary }}>
               Active Jobs
             </Text>
-            <Pressable onPress={() => navigation.navigate('EmployerJobs' as never)}>
+            <Pressable
+              onPress={() => navigation.navigate('EmployerJobs' as never)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
+            >
               <Text style={{ fontSize: 13, fontWeight: '600', color: BLUE }}>View all</Text>
+              <Feather name="chevron-right" size={14} color={BLUE} />
             </Pressable>
           </View>
 
@@ -689,21 +771,36 @@ export function EmployerHomeScreen() {
                 borderColor: cardBorder,
                 backgroundColor: cardBg,
                 alignItems: 'center',
-                gap: spacing.sm,
+                gap: spacing.md,
               }}
             >
-              <Text style={{ fontSize: 28 }}>📋</Text>
-              <Text style={{ fontSize: 14, color: textSecondary, textAlign: 'center' }}>
-                No active jobs yet.{'\n'}Post one to start receiving applicants.
-              </Text>
+              <View
+                style={{
+                  width: 56, height: 56, borderRadius: 28,
+                  backgroundColor: BLUE_LIGHT,
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Feather name="clipboard" size={26} color={BLUE} />
+              </View>
+              <View style={{ alignItems: 'center', gap: 2 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary, textAlign: 'center' }}>
+                  No active jobs yet.
+                </Text>
+                <Text style={{ fontSize: 13, color: textSecondary, textAlign: 'center' }}>
+                  Post one to start receiving applicants.
+                </Text>
+              </View>
               <Pressable
                 onPress={() => { haptic('selection'); navigation.navigate('PostJob'); }}
                 style={{
                   backgroundColor: BLUE,
-                  borderRadius: 20,
-                  paddingHorizontal: spacing.lg,
-                  paddingVertical: spacing.sm,
+                  borderRadius: radii.lg,
+                  paddingHorizontal: spacing.xl,
+                  paddingVertical: 13,
                   marginTop: spacing.xs,
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
                 <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Post a Job</Text>
@@ -784,63 +881,93 @@ export function EmployerHomeScreen() {
           {/* ── Why Employers Love Doondo ── */}
           <View
             style={{
-              backgroundColor: isLight ? '#F9FAFB' : '#111',
+              backgroundColor: whySectionBg,
               marginTop: spacing.lg,
-              padding: spacing.xl,
+              paddingVertical: spacing.xl,
+              paddingHorizontal: spacing.xl,
             }}
           >
-            <Text style={{ fontSize: 17, fontWeight: '800', color: textPrimary, marginBottom: spacing.md }}>
+            <Text
+              style={{
+                fontSize: 19,
+                fontWeight: '800',
+                color: whyTitleColor,
+                textAlign: 'center',
+                marginBottom: spacing.xl,
+              }}
+            >
               Why Employers ❤️ Doondo
             </Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-              {([
-                { icon: '🎙️', title: 'Audio Search', desc: 'Find workers by speaking' },
-                { icon: '📍', title: 'Map Based Search', desc: 'Find nearby workers instantly' },
-                { icon: '👥', title: 'Verified Workers', desc: 'Background verified & trusted' },
-                { icon: '💬', title: 'Easy Communication', desc: 'Chat or call in app' },
-                { icon: '🛡️', title: 'Secure Payments', desc: 'Pay via Doondo Wallet' },
-                { icon: '🎧', title: '24/7 Support', desc: 'We are here to help' },
-              ] as const).map((item) => (
-                <View
-                  key={item.title}
-                  style={{
-                    width: '31%',
-                    backgroundColor: cardBg,
-                    borderRadius: radii.lg,
-                    padding: spacing.md,
-                    alignItems: 'center',
-                    shadowColor: '#000',
-                    shadowOpacity: 0.05,
-                    shadowRadius: 4,
-                    shadowOffset: { width: 0, height: 1 },
-                    elevation: 1,
-                  }}
-                >
-                  <Text style={{ fontSize: 26, marginBottom: 6 }}>{item.icon}</Text>
-                  <Text
+
+            {[0, 1].map((rowIndex) => (
+              <View
+                key={rowIndex}
+                style={{
+                  flexDirection: 'row',
+                  gap: spacing.sm,
+                  marginBottom: rowIndex === 0 ? spacing.sm : 0,
+                }}
+              >
+                {WHY_EMPLOYERS_FEATURES.slice(rowIndex * 3, rowIndex * 3 + 3).map((item) => (
+                  <View
+                    key={item.title}
                     style={{
-                      fontSize: 11,
-                      fontWeight: '700',
-                      color: textPrimary,
-                      textAlign: 'center',
-                      marginBottom: 3,
+                      flex: 1,
+                      minHeight: 150,
+                      backgroundColor: whyCardBg,
+                      borderWidth: 1,
+                      borderColor: whyCardBorder,
+                      borderRadius: radii.lg,
+                      paddingVertical: spacing.lg,
+                      paddingHorizontal: spacing.xs,
+                      alignItems: 'center',
                     }}
                   >
-                    {item.title}
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 10,
-                      color: textSecondary,
-                      textAlign: 'center',
-                      lineHeight: 14,
-                    }}
-                  >
-                    {item.desc}
-                  </Text>
-                </View>
-              ))}
-            </View>
+                    {/* Fixed-height icon area — keeps titles aligned across every card */}
+                    <View
+                      style={{
+                        height: 32,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: spacing.sm,
+                      }}
+                    >
+                      <Feather name={item.icon} size={22} color={BLUE} />
+                    </View>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontWeight: '700',
+                        color: whyTitleColor,
+                        textAlign: 'center',
+                      }}
+                    >
+                      {item.title}
+                    </Text>
+                    <View
+                      style={{
+                        width: 24,
+                        height: 3,
+                        borderRadius: 2,
+                        backgroundColor: ORANGE,
+                        marginTop: spacing.xs,
+                        marginBottom: spacing.xs,
+                      }}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        color: whyDescColor,
+                        textAlign: 'center',
+                        lineHeight: 15,
+                      }}
+                    >
+                      {item.desc}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ))}
           </View>
         </ScrollView>
       </View>
@@ -858,29 +985,24 @@ export function EmployerHomeScreen() {
               }}>
                 <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#333', alignSelf: 'center', marginBottom: spacing.lg }} />
                 <Text style={{ fontSize: 18, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB', paddingHorizontal: spacing.xl, marginBottom: spacing.md }}>Quick Access</Text>
-                {([
-                  { icon: 'bar-chart-2' as const, label: 'Analytics',              color: BLUE,        onPress: () => navigation.navigate('EmployerAnalytics') },
-                  { icon: 'calendar'    as const, label: 'Roster & Schedule',       color: '#7C3AED',   onPress: () => navigation.navigate('Roster') },
-                  { icon: 'dollar-sign' as const, label: 'Run Payroll',             color: '#16A34A',   onPress: () => navigation.navigate('RunPayroll') },
-                  { icon: 'clock'       as const, label: 'Time-Off Requests',       color: AMBER,       onPress: () => navigation.navigate('TimeOffRequests') },
-                  { icon: 'bell'        as const, label: 'Notification Settings',   color: '#6B7280',   onPress: () => navigation.navigate('NotifPreferences') },
-                  { icon: 'settings'    as const, label: 'Settings',                color: '#6B7280',   onPress: () => navigation.navigate('Settings') },
-                ] as { icon: React.ComponentProps<typeof Feather>['name']; label: string; color: string; onPress: () => void }[]).map((item) => (
-                  <Pressable
-                    key={item.label}
-                    onPress={() => { haptic('selection'); setShowMenu(false); item.onPress(); }}
-                    style={({ pressed }) => ({
-                      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-                      paddingHorizontal: spacing.xl, paddingVertical: 14,
-                      opacity: pressed ? 0.7 : 1,
-                    })}>
-                    <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: item.color + '18', alignItems: 'center', justifyContent: 'center' }}>
-                      <Feather name={item.icon} size={18} color={item.color} />
-                    </View>
-                    <Text style={{ fontSize: 15, fontWeight: '600', color: isLight ? '#111827' : '#F9FAFB' }}>{item.label}</Text>
-                    <Feather name="chevron-right" size={16} color={isLight ? '#9CA3AF' : '#6B7280'} style={{ marginLeft: 'auto' }} />
-                  </Pressable>
-                ))}
+                <View style={{ paddingHorizontal: spacing.xl, gap: spacing.sm }}>
+                  {([
+                    { icon: 'bar-chart-2' as const, label: 'Analytics',            description: 'View performance & insights',    onPress: () => navigation.navigate('EmployerAnalytics') },
+                    { icon: 'calendar'    as const, label: 'Roster & Schedule',     description: 'Manage shifts and your team',    onPress: () => navigation.navigate('Roster') },
+                    { icon: 'dollar-sign' as const, label: 'Run Payroll',           description: 'Process payments for your team', onPress: () => navigation.navigate('RunPayroll') },
+                    { icon: 'clock'       as const, label: 'Time-Off Requests',     description: 'Review and approve requests',    onPress: () => navigation.navigate('TimeOffRequests') },
+                    { icon: 'bell'        as const, label: 'Notification Settings', description: 'Manage alerts and preferences',  onPress: () => navigation.navigate('NotifPreferences') },
+                    { icon: 'settings'    as const, label: 'Settings',              description: 'Account and app preferences',    onPress: () => navigation.navigate('Settings') },
+                  ] as { icon: React.ComponentProps<typeof Feather>['name']; label: string; description: string; onPress: () => void }[]).map((item) => (
+                    <QuickAccessCard
+                      key={item.label}
+                      icon={item.icon}
+                      title={item.label}
+                      description={item.description}
+                      onPress={() => { haptic('selection'); setShowMenu(false); item.onPress(); }}
+                    />
+                  ))}
+                </View>
               </View>
             </Pressable>
           </Pressable>
@@ -987,6 +1109,64 @@ export function EmployerHomeScreen() {
         </BlurOverlay>
       </Modal>
     </Screen>
+  );
+}
+
+// ── Quick Access card ──────────────────────────────────────────────────────────
+function QuickAccessCard({
+  icon,
+  title,
+  description,
+  onPress,
+}: {
+  icon: React.ComponentProps<typeof Feather>['name'];
+  title: string;
+  description: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
+      <LinearGradient
+        colors={[blue[900], blue[800], blue[700]]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.md,
+          minHeight: 76,
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          borderRadius: radii.xl,
+          borderWidth: 1,
+          borderColor: 'rgba(96,165,250,0.25)',
+        }}
+      >
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(96,165,250,0.18)',
+            borderWidth: 1,
+            borderColor: 'rgba(96,165,250,0.35)',
+          }}
+        >
+          <Feather name={icon} size={19} color={blue[200]} />
+        </View>
+
+        <View style={{ flex: 1, justifyContent: 'center', gap: 2 }}>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>{title}</Text>
+          <Text numberOfLines={1} style={{ fontSize: 12, color: blue[300] }}>
+            {description}
+          </Text>
+        </View>
+
+        <Feather name="chevron-right" size={18} color={blue[300]} />
+      </LinearGradient>
+    </Pressable>
   );
 }
 

@@ -21,13 +21,14 @@
  * keeps the page density tight (no scrollbars on small phones).
  */
 
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, ScrollView, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
-import { radii, spacing } from '@doondo/tokens';
+import { radii, spacing, blue } from '@doondo/tokens';
 import { Screen, Text, Pill } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
@@ -146,30 +147,50 @@ export function FirstMatchPreviewScreen() {
           </Pressable>
         </View>
 
-        {/* Header */}
-        <View style={{ gap: spacing.xs, marginBottom: spacing.xl }}>
+        {/* Header banner — same gradient treatment as Login/Signup so this
+            screen doesn't feel like a bare, unstyled placeholder. Text-only,
+            no logo mark — matches the Solo/Team sheet's banner. */}
+        <LinearGradient
+          colors={['#060B16', '#0D1B33', blue[900]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            alignItems: 'center',
+            gap: 4,
+            borderRadius: radii.xl,
+            padding: spacing.lg,
+            borderWidth: 1,
+            borderColor: 'rgba(96,165,250,0.25)',
+            marginBottom: spacing.xl,
+          }}
+        >
           <Text
-            variant="footnote"
+            variant="titleLarge"
             weight="medium"
-            style={{
-              letterSpacing: 1.2,
-              color: theme.brand.hero,
-            }}
+            style={{ color: '#FFFFFF', textAlign: 'center' }}
+          >
+            {t('first_match.title')}
+          </Text>
+          <Text
+            variant="caption"
+            style={{ letterSpacing: 1.2, color: blue[300], textAlign: 'center' }}
           >
             {t('first_match.eyebrow')}
           </Text>
-          <Text variant="displayLarge" weight="medium" display>
-            {t('first_match.title')}
-          </Text>
-          <Text variant="body" tone="secondary">
+          <Text
+            variant="footnote"
+            style={{ color: 'rgba(255,255,255,0.78)', marginTop: 4, textAlign: 'center' }}
+          >
             {t('first_match.subtitle')}
           </Text>
-        </View>
+        </LinearGradient>
 
         {/* Cards */}
         {loading ? (
-          <View style={{ alignItems: 'center', paddingVertical: spacing['2xl'] }}>
-            <ActivityIndicator />
+          <View style={{ gap: spacing.md }}>
+            <PreviewCardSkeleton />
+            <PreviewCardSkeleton />
+            <PreviewCardSkeleton />
           </View>
         ) : jobs && jobs.length > 0 ? (
           <View style={{ gap: spacing.md }}>
@@ -209,20 +230,22 @@ export function FirstMatchPreviewScreen() {
         )}
 
         {/* Primary CTA */}
-        <Pressable
-          onPress={goSignup}
-          style={{
-            marginTop: spacing.xl,
-            backgroundColor: theme.brand.hero,
-            paddingVertical: spacing.md,
-            paddingHorizontal: spacing.xl,
-            borderRadius: radii.lg,
-            alignItems: 'center',
-          }}
-        >
-          <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFDF7' }}>
-            {t('first_match.cta')}
-          </Text>
+        <Pressable onPress={goSignup} style={{ marginTop: spacing.xl }}>
+          <LinearGradient
+            colors={[blue[500], blue[400]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{
+              paddingVertical: spacing.md,
+              paddingHorizontal: spacing.xl,
+              borderRadius: radii.lg,
+              alignItems: 'center',
+            }}
+          >
+            <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+              {t('first_match.cta')}
+            </Text>
+          </LinearGradient>
         </Pressable>
         <Text
           variant="caption"
@@ -233,6 +256,59 @@ export function FirstMatchPreviewScreen() {
         </Text>
       </ScrollView>
     </Screen>
+  );
+}
+
+// ─── Loading skeleton ───────────────────────────────────────────────────────
+
+/**
+ * Stand-in for a job card while /jobs/preview is in flight. Pulses gently
+ * so the page reads as "loading" rather than "broken" if the request is
+ * slow — a lone spinner floating in an otherwise finished page looked
+ * unfinished, this fills the same footprint the real cards will take.
+ */
+function PreviewCardSkeleton() {
+  const { theme } = useTheme();
+  const opacity = useRef(new Animated.Value(0.4)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.4,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [opacity]);
+
+  return (
+    <Animated.View
+      style={{
+        opacity,
+        padding: spacing.lg,
+        borderRadius: radii.lg,
+        borderWidth: 0.5,
+        borderColor: theme.border.default,
+        backgroundColor: theme.bg.surface,
+        gap: spacing.sm,
+      }}
+    >
+      <View style={{ width: '70%', height: 16, borderRadius: 4, backgroundColor: theme.bg.muted }} />
+      <View style={{ width: '45%', height: 12, borderRadius: 4, backgroundColor: theme.bg.muted }} />
+      <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xs }}>
+        <View style={{ width: 60, height: 12, borderRadius: 4, backgroundColor: theme.bg.muted }} />
+        <View style={{ width: 60, height: 12, borderRadius: 4, backgroundColor: theme.bg.muted }} />
+      </View>
+    </Animated.View>
   );
 }
 

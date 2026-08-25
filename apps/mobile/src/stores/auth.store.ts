@@ -74,6 +74,13 @@ interface AuthState {
   activeAccountId: string | null;
 
   /**
+   * Whether the active session is allowed to persist to secure storage.
+   * False for a "Remember me" = off login — the session stays in-memory
+   * only, including across token refreshes, and disappears on next launch.
+   */
+  rememberMe: boolean;
+
+  /**
    * Display name of the account a switch is moving to. Set for the
    * duration of an in-flight switchAccount so the boot splash can show
    * "Switching to …"; null at all other times.
@@ -83,8 +90,13 @@ interface AuthState {
   /** Hydrate from secure store + /me on app start. Idempotent. */
   bootstrap: () => Promise<void>;
 
-  /** Set after a successful login or register. Replaces the active session. */
-  setSession: (auth: AuthSuccess) => Promise<void>;
+  /**
+   * Set after a successful login or register. Replaces the active session.
+   * `remember` (default true) controls whether the session survives an app
+   * restart — false keeps it in memory for the current run only and never
+   * touches secure storage (used for the Login screen's "Remember me").
+   */
+  setSession: (auth: AuthSuccess, remember?: boolean) => Promise<void>;
 
   /**
    * Add a new account without signing out the current one. Used by the
@@ -187,6 +199,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   offline: false,
   savedAccounts: [],
   activeAccountId: null,
+  rememberMe: true,
   switchingToName: null,
 
   async bootstrap() {
@@ -285,20 +298,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  async setSession(auth) {
-    await setSecure('refreshToken', auth.tokens.refreshToken);
-    await setSecure('activeAccountId', auth.user.id);
-    const next = upsertAccount(get().savedAccounts, snapshotAccount(auth));
-    await writeSavedAccounts(next);
-    void cacheUser(auth.user);
+  async setSession(auth, remember = true) {
+    if (remember) {
+      await setSecure('refreshToken', auth.tokens.refreshToken);
+      await setSecure('activeAccountId', auth.user.id);
+      const next = upsertAccount(get().savedAccounts, snapshotAccount(auth));
+      await writeSavedAccounts(next);
+      void cacheUser(auth.user);
+      set({
+        status: 'authenticated',
+        user: auth.user,
+        accessToken: auth.tokens.accessToken,
+        refreshToken: auth.tokens.refreshToken,
+        offline: false,
+        savedAccounts: next,
+        activeAccountId: auth.user.id,
+        rememberMe: true,
+      });
+      return;
+    }
+    // Remember me = off — keep the session in memory only. Nothing is
+    // written to secure storage, so it won't survive an app restart and
+    // won't show up in the account switcher.
     set({
       status: 'authenticated',
       user: auth.user,
       accessToken: auth.tokens.accessToken,
       refreshToken: auth.tokens.refreshToken,
       offline: false,
-      savedAccounts: next,
-      activeAccountId: auth.user.id,
+      rememberMe: false,
     });
   },
 
@@ -410,6 +438,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   async updateTokens(accessToken, refreshToken) {
+    // Remember me = off — a rotated token stays in memory only. Persisting
+    // it here would silently turn a "don't remember" session into a
+    // remembered one the next time the access token refreshes.
+    if (!get().rememberMe) {
+      set({ accessToken, refreshToken });
+      return;
+    }
     await setSecure('refreshToken', refreshToken);
     // Mirror the rotated refresh token onto the active SavedAccount entry.
     const active = get().activeAccountId;

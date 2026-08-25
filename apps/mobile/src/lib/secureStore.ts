@@ -86,7 +86,9 @@ export type SecureKey =
    * Recent global search queries — JSON array of strings, newest first,
    * capped at 5. Powers the spotlight search overlay.
    */
-  | 'recentSearches';
+  | 'recentSearches'
+  /** "1" once the employer has dismissed/used the mic FAB discovery bubble. */
+  | 'micBubbleSeen';
 
 const PREFIX = 'doondo:';
 const memoryFallback = new Map<string, string>();

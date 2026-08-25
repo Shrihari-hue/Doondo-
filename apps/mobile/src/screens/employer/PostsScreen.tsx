@@ -9,19 +9,20 @@
  *
  * Tapping the View applicants row opens JobApplicants for that job.
  *
- * Top-right "+ New" CTA opens the PostJob modal.
+ * The empty state's "Post a job" button is the sole CTA that opens the
+ * PostJob modal — there's no header/FAB duplicate.
  */
 
 import { useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, RefreshControl, ScrollView, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Feather } from '@expo/vector-icons';
-import { radii, spacing } from '@doondo/tokens';
-import { Screen, Text, Card, Pill, Button, SkeletonCard, EmptyState, BlurOverlay, AnimatedPressable } from '@/components';
+import { LinearGradient } from 'expo-linear-gradient';
+import { radii, spacing, blue } from '@doondo/tokens';
+import { Screen, Text, Card, Pill, SkeletonCard, EmptyState, BlurOverlay, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { jobsApi } from '@/api/jobs.api';
@@ -31,10 +32,11 @@ import type { JobStatus, PublicJob } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 import { JobIcon } from './JobIcon';
 
-const BLUE  = '#2563EB';
-const GREEN = '#16A34A';
-const AMBER = '#F59E0B';
-const RED   = '#EF4444';
+const BLUE   = '#2563EB';
+const ORANGE = '#F97316';
+const GREEN  = '#16A34A';
+const AMBER  = '#F59E0B';
+const RED    = '#EF4444';
 
 /**
  * Returns a health colour for an active job:
@@ -62,7 +64,6 @@ export function PostsScreen() {
   const navigation = useNavigation<Nav>();
   const { theme } = useTheme();
   const t = useTranslate();
-  const insets = useSafeAreaInsets();
 
   const query = useQuery({
     queryKey: ['jobs', 'mine'],
@@ -115,7 +116,7 @@ export function PostsScreen() {
           />
         }
       >
-        <Header onPostJob={onPostJob} count={jobs.length} t={t} />
+        <Header count={jobs.length} t={t} />
 
         {(query.isLoading || query.isRefetching) ? (
           <View style={{ gap: spacing.md }}>
@@ -133,15 +134,7 @@ export function PostsScreen() {
             tall
           />
         ) : jobs.length === 0 ? (
-          <EmptyState
-            glyph="+"
-            tone="hero"
-            eyebrow={t('employer.posts.empty_eyebrow')}
-            title={t('employer.posts.empty_title')}
-            message={t('employer.posts.empty_message')}
-            cta={{ label: t('employer.posts.cta_post'), onPress: onPostJob }}
-            tall
-          />
+          <PostJobEmptyState onPostJob={onPostJob} t={t} />
         ) : (
           <>
             {active.length > 0 && (
@@ -164,59 +157,200 @@ export function PostsScreen() {
           </>
         )}
       </ScrollView>
-
-      {/* ── Sticky Post a Job FAB ── */}
-      <AnimatedPressable
-        onPress={onPostJob}
-        style={{
-          position: 'absolute',
-          right: 20,
-          bottom: insets.bottom + 16,
-          backgroundColor: BLUE,
-          borderRadius: 28,
-          paddingVertical: 13,
-          paddingHorizontal: 20,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 8,
-          shadowColor: BLUE,
-          shadowOpacity: 0.4,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 8,
-        }}
-      >
-        <Feather name="plus" size={18} color="#FFFFFF" />
-        <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>Post a Job</Text>
-      </AnimatedPressable>
     </Screen>
   );
 }
 
-function Header({ onPostJob, count, t }: { onPostJob: () => void; count: number; t: TFn }) {
+function Header({ count, t }: { count: number; t: TFn }) {
+  return (
+    <LinearGradient
+      colors={['#060B16', '#0D1B33', blue[900]]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{
+        width: '100%',
+        alignItems: 'center',
+        gap: spacing.xs,
+        borderRadius: radii.xl,
+        padding: spacing.lg,
+        borderWidth: 1,
+        borderColor: 'rgba(96,165,250,0.25)',
+      }}
+    >
+      <Text
+        variant="caption"
+        weight="medium"
+        style={{ letterSpacing: 1.4, color: blue[300], textAlign: 'center' }}
+      >
+        {t('employer.posts.eyebrow')}
+      </Text>
+      <Text
+        variant="display"
+        weight="medium"
+        display
+        style={{ color: '#FFFFFF', textAlign: 'center' }}
+      >
+        {t('employer.posts.title')}
+      </Text>
+      <Text
+        variant="footnote"
+        style={{ color: 'rgba(255,255,255,0.65)', textAlign: 'center' }}
+      >
+        {count > 0
+          ? t('employer.posts.subtitle_manage')
+          : t('employer.posts.subtitle_empty')}
+      </Text>
+    </LinearGradient>
+  );
+}
+
+/**
+ * Blue-themed "no jobs yet" state — the single Post-a-job entry point on
+ * this screen (the header's "+ New" button and the floating FAB were
+ * removed so there's exactly one CTA, matching the reference design).
+ */
+function PostJobEmptyState({ onPostJob, t }: { onPostJob: () => void; t: TFn }) {
+  const { theme } = useTheme();
   return (
     <View
       style={{
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
         gap: spacing.md,
+        paddingVertical: spacing['3xl'],
+        paddingHorizontal: spacing.xl,
       }}
     >
-      <View style={{ flex: 1, gap: spacing.xs }}>
-        <Text variant="caption" tone="hero" weight="medium" style={{ letterSpacing: 1.4 }}>
-          {t('employer.posts.eyebrow')}
-        </Text>
-        <Text variant="display" weight="medium" display>
-          {t('employer.posts.title')}
-        </Text>
-        <Text variant="footnote" tone="secondary">
-          {count > 0
-            ? t('employer.posts.subtitle_manage')
-            : t('employer.posts.subtitle_empty')}
-        </Text>
+      <View style={{ width: 140, height: 140, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm }}>
+        {/* Sparkle accents */}
+        <Sparkle size={9} color={BLUE} style={{ top: 10, right: 14 }} />
+        <Sparkle size={7} color={BLUE} style={{ top: 34, left: 4 }} />
+        <Sparkle size={8} color={ORANGE} style={{ bottom: 16, left: 20 }} />
+        <Sparkle size={7} color={BLUE} style={{ bottom: 44, right: 0 }} />
+
+        {/* Outer circle */}
+        <View
+          style={{
+            width: 108,
+            height: 108,
+            borderRadius: 54,
+            borderWidth: 1,
+            borderColor: BLUE + '33',
+            backgroundColor: BLUE + '0D',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {/* Layered document + briefcase glyphs */}
+          <Feather
+            name="file-text"
+            size={30}
+            color={blue[300]}
+            style={{ position: 'absolute', top: 26, right: 24 }}
+          />
+          <Feather
+            name="briefcase"
+            size={34}
+            color={BLUE}
+            style={{ position: 'absolute', bottom: 24, left: 22 }}
+          />
+
+          {/* Small "+" badge */}
+          <View
+            style={{
+              position: 'absolute',
+              bottom: 6,
+              right: 6,
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              backgroundColor: BLUE,
+              borderWidth: 3,
+              borderColor: theme.bg.canvas,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Feather name="plus" size={16} color="#FFFFFF" />
+          </View>
+        </View>
       </View>
-      <Button label={t('employer.posts.cta_new')} onPress={onPostJob} variant="primary" />
+
+      <Text
+        variant="caption"
+        weight="medium"
+        style={{ letterSpacing: 1.2, textAlign: 'center', color: BLUE }}
+      >
+        {t('employer.posts.empty_eyebrow')}
+      </Text>
+
+      <Text variant="bodyLarge" weight="medium" style={{ textAlign: 'center' }}>
+        {t('employer.posts.empty_title')}
+      </Text>
+
+      <Text variant="footnote" tone="secondary" style={{ textAlign: 'center', maxWidth: 280 }}>
+        {t('employer.posts.empty_message')}
+      </Text>
+
+      <Pressable
+        onPress={onPostJob}
+        style={({ pressed }) => ({
+          marginTop: spacing.md,
+          alignSelf: 'stretch',
+          maxWidth: 280,
+          backgroundColor: ORANGE,
+          borderRadius: radii.lg,
+          paddingVertical: spacing.md,
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: spacing.sm,
+          opacity: pressed ? 0.85 : 1,
+        })}
+      >
+        <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>
+          {t('employer.posts.cta_post')}
+        </Text>
+        <Feather name="plus" size={18} color="#FFFFFF" />
+      </Pressable>
+    </View>
+  );
+}
+
+/** Small 4-point sparkle accent — hand-drawn from two crossed bars, no glyph/emoji. */
+function Sparkle({
+  size,
+  color,
+  style,
+}: {
+  size: number;
+  color: string;
+  style: { top?: number; bottom?: number; left?: number; right?: number };
+}) {
+  return (
+    <View style={[{ position: 'absolute', width: size, height: size }, style]}>
+      <View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: size / 2 - 1,
+          width: 2,
+          height: size,
+          backgroundColor: color,
+          borderRadius: 1,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          top: size / 2 - 1,
+          left: 0,
+          width: size,
+          height: 2,
+          backgroundColor: color,
+          borderRadius: 1,
+        }}
+      />
     </View>
   );
 }

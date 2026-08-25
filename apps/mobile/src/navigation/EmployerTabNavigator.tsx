@@ -35,6 +35,7 @@ import type { EmployerTabParamList } from './types';
 const Tab = createBottomTabNavigator<EmployerTabParamList>();
 
 const BLUE = '#2563EB';
+const ORANGE = '#F97316';
 
 // Map route → Feather icon name + label
 const TAB_META: Record<
@@ -101,6 +102,18 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
   const inactiveColor = isLight ? '#9CA3AF' : '#6B7280';
   const barBg = isLight ? '#FFFFFF' : '#111111';
   const barBorder = isLight ? '#E5E7EB' : '#1F1F1F';
+
+  // Mic FAB discovery bubble — shown until the user dismisses it or tries voice search once
+  const [showMicBubble, setShowMicBubble] = useState(false);
+  useEffect(() => {
+    void getSecure('micBubbleSeen').then((seen) => {
+      if (!seen) setShowMicBubble(true);
+    });
+  }, []);
+  const dismissMicBubble = () => {
+    setShowMicBubble(false);
+    void setSecure('micBubbleSeen', '1');
+  };
 
   // Live badge counts
   const applicantsQuery = useQuery({
@@ -217,23 +230,59 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
               key={route.key}
               style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', overflow: 'visible' }}
             >
+              {showMicBubble && (
+                <Pressable
+                  onPress={dismissMicBubble}
+                  style={{ position: 'absolute', bottom: 78, alignItems: 'center' }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: ORANGE,
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      borderRadius: 12,
+                      shadowColor: '#000',
+                      shadowOpacity: 0.25,
+                      shadowRadius: 6,
+                      shadowOffset: { width: 0, height: 3 },
+                      elevation: 6,
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFFFFF' }}>
+                      Try voice search
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      width: 0,
+                      height: 0,
+                      borderLeftWidth: 5,
+                      borderRightWidth: 5,
+                      borderTopWidth: 5,
+                      borderLeftColor: 'transparent',
+                      borderRightColor: 'transparent',
+                      borderTopColor: ORANGE,
+                    }}
+                  />
+                </Pressable>
+              )}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Voice search"
-                onPress={() => { haptic('medium'); rootNav.navigate('EmployerVoiceAgent'); }}
+                onPress={() => { haptic('medium'); dismissMicBubble(); rootNav.navigate('EmployerVoiceAgent'); }}
                 onLongPress={() => { haptic('medium'); setShowSearch(true); }}
                 style={({ pressed }) => ({
-                  width: 58,
-                  height: 58,
-                  borderRadius: 29,
-                  backgroundColor: BLUE,
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
+                  backgroundColor: ORANGE,
                   alignItems: 'center',
                   justifyContent: 'center',
                   // White ring separates the FAB from the white tab bar in light mode
                   borderWidth: 3,
                   borderColor: barBg,
-                  // Lift it above the tab bar
-                  marginBottom: 10,
+                  // Lift it clearly above the tab bar
+                  marginBottom: 16,
                   shadowColor: '#000000',
                   shadowOpacity: 0.25,
                   shadowRadius: 8,

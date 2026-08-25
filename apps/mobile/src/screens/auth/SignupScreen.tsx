@@ -1,9 +1,22 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  LayoutAnimation,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Switch,
+  UIManager,
+  View,
+} from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { radii, spacing } from '@doondo/tokens';
-import { Screen, Text, Button, TextField, FormError } from '@/components';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
+import { radii, spacing, blue } from '@doondo/tokens';
+import { Screen, Text, TextField, FormError, DoondoMark } from '@/components';
 import { authApi } from '@/api/auth.api';
 import { ApiError } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +29,11 @@ import type { UserRole, WorkType } from '@/api/types';
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
 type SignupRoute = RouteProp<AuthStackParamList, 'Signup'>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
+type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface FieldErrors {
   name?: string;
@@ -145,14 +163,44 @@ export function SignupScreen() {
           }}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={{ gap: spacing.xs }}>
-            <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              {t('auth.signup.eyebrow')}
-            </Text>
-            <Text variant="titleLarge" weight="medium">
-              {t('auth.signup.title')}
-            </Text>
-          </View>
+          <LinearGradient
+            colors={['#060B16', '#0D1B33', blue[900]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.md,
+              borderRadius: radii.xl,
+              padding: spacing.lg,
+              borderWidth: 1,
+              borderColor: 'rgba(96,165,250,0.25)',
+            }}
+          >
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: radii.lg,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(59,130,246,0.16)',
+                borderWidth: 1,
+                borderColor: 'rgba(96,165,250,0.5)',
+              }}
+            >
+              <DoondoMark size={30} color={blue[300]} />
+            </View>
+
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+                {t('auth.signup.title')}
+              </Text>
+              <Text variant="caption" style={{ letterSpacing: 1.2, color: blue[300] }}>
+                {t('auth.signup.eyebrow')}
+              </Text>
+            </View>
+          </LinearGradient>
 
           <FormError message={formError} />
 
@@ -175,6 +223,7 @@ export function SignupScreen() {
               teamSizeText={teamSizeText}
               teamSizeError={fieldErrors.teamSize ?? null}
               onWorkTypeChange={(next) => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                 setWorkType(next);
                 if (fieldErrors.teamSize) {
                   setFieldErrors((state) => ({ ...state, teamSize: undefined }));
@@ -272,11 +321,26 @@ export function SignupScreen() {
           </View>
 
           <View style={{ gap: spacing.md }}>
-            <Button
-              label={submitting ? t('auth.signup.cta_creating') : t('auth.signup.cta_create')}
+            <Pressable
               onPress={onSubmit}
               disabled={submitting}
-            />
+              style={{ opacity: submitting ? 0.7 : 1 }}
+            >
+              <LinearGradient
+                colors={[blue[500], blue[400]]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{
+                  paddingVertical: spacing.md,
+                  borderRadius: radii.lg,
+                  alignItems: 'center',
+                }}
+              >
+                <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+                  {submitting ? t('auth.signup.cta_creating') : t('auth.signup.cta_create')}
+                </Text>
+              </LinearGradient>
+            </Pressable>
           </View>
 
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.xs }}>
@@ -294,6 +358,35 @@ export function SignupScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={submitting} transparent animationType="fade" statusBarTranslucent>
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0,0,0,0.55)',
+          }}
+        >
+          <View
+            style={{
+              alignItems: 'center',
+              gap: spacing.md,
+              paddingVertical: spacing.xl,
+              paddingHorizontal: spacing['2xl'],
+              borderRadius: radii.xl,
+              backgroundColor: '#0D1B33',
+              borderWidth: 1,
+              borderColor: 'rgba(96,165,250,0.3)',
+            }}
+          >
+            <ActivityIndicator size="large" color={blue[400]} />
+            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
+              {t('auth.signup.cta_creating')}
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -324,52 +417,40 @@ function AssistedSetupToggle({
   t: TFn;
 }) {
   const { theme } = useTheme();
+
   return (
-    <View style={{ gap: spacing.sm }}>
-      <Pressable
-        onPress={() => onChange(!value)}
-        accessibilityRole="switch"
-        accessibilityState={{ checked: value }}
-        accessibilityLabel={t('auth.signup.assisted_a11y')}
-        style={({ pressed }) => ({
+    <View style={{ gap: spacing.xs }}>
+      <View
+        style={{
           flexDirection: 'row',
           alignItems: 'center',
-          gap: spacing.md,
-          padding: spacing.md,
-          borderRadius: radii.lg,
-          borderWidth: 0.5,
-          borderColor: value ? '#2563EB' : theme.border.default,
-          backgroundColor: value ? '#EFF6FF' : theme.bg.surface,
-          opacity: pressed ? 0.7 : 1,
-        })}
+          alignSelf: 'flex-start',
+          gap: spacing.sm,
+        }}
       >
-        <View
-          style={{
-            width: 22,
-            height: 22,
-            borderRadius: 11,
-            borderWidth: 1.5,
-            borderColor: value ? '#2563EB' : theme.border.strong,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: value ? '#2563EB' : 'transparent',
+        <Text variant="body" weight="medium">
+          {t('auth.signup.assisted_title')}
+        </Text>
+
+        <Switch
+          value={value}
+          onValueChange={onChange}
+          trackColor={{
+            false: theme.border.default,
+            true: blue[500],
           }}
-        >
-          {value ? (
-            <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
-              ✓
-            </Text>
-          ) : null}
-        </View>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="body" weight="medium">
-            {t('auth.signup.assisted_title')}
-          </Text>
-          <Text variant="footnote" tone="secondary">
-            {t('auth.signup.assisted_body')}
-          </Text>
-        </View>
-      </Pressable>
+          thumbColor="#FFFFFF"
+          ios_backgroundColor={theme.border.default}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: value }}
+          accessibilityLabel={t('auth.signup.assisted_a11y')}
+        />
+      </View>
+
+      <Text variant="footnote" tone="secondary">
+        {t('auth.signup.assisted_body')}
+      </Text>
+
       {value ? (
         <View
           style={{
@@ -397,10 +478,9 @@ function WorkTypeSection({
   onTeamSizeChange,
   t,
 }: WorkTypeSectionProps & { t: TFn }) {
-  const { theme } = useTheme();
-  const options: Array<{ value: WorkType; label: string; helper: string }> = [
-    { value: 'solo', label: t('auth.signup.worktype_solo'), helper: t('auth.signup.worktype_solo_helper') },
-    { value: 'team', label: t('auth.signup.worktype_team'), helper: t('auth.signup.worktype_team_helper') },
+  const options: Array<{ value: WorkType; label: string; helper: string; icon: FeatherIconName }> = [
+    { value: 'solo', label: t('auth.signup.worktype_solo'), helper: t('auth.signup.worktype_solo_helper'), icon: 'user' },
+    { value: 'team', label: t('auth.signup.worktype_team'), helper: t('auth.signup.worktype_team_helper'), icon: 'users' },
   ];
 
   return (
@@ -408,35 +488,20 @@ function WorkTypeSection({
       <Text variant="footnote" weight="medium" tone="secondary">
         {t('auth.signup.worktype_label')}
       </Text>
-      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-        {options.map((opt) => {
-          const selected = workType === opt.value;
-          return (
-            <Pressable
-              key={opt.value}
-              onPress={() => {
-                haptic('selection');
-                onWorkTypeChange(opt.value);
-              }}
-              style={{
-                flex: 1,
-                padding: spacing.md,
-                borderRadius: radii.md,
-                borderWidth: 0.5,
-                borderColor: selected ? theme.brand.heroBorder : theme.border.default,
-                backgroundColor: selected ? theme.brand.heroSubtle : theme.bg.surface,
-                gap: spacing.xs,
-              }}
-            >
-              <Text variant="bodyLarge" weight="medium" tone={selected ? 'hero' : 'primary'}>
-                {opt.label}
-              </Text>
-              <Text variant="footnote" tone="tertiary">
-                {opt.helper}
-              </Text>
-            </Pressable>
-          );
-        })}
+      <View style={{ flexDirection: 'row', gap: spacing.md }} accessibilityRole="tablist">
+        {options.map((opt) => (
+          <RolePill
+            key={opt.value}
+            label={opt.label}
+            helper={opt.helper}
+            icon={opt.icon}
+            active={workType === opt.value}
+            onPress={() => {
+              haptic('selection');
+              onWorkTypeChange(opt.value);
+            }}
+          />
+        ))}
       </View>
       {workType === 'team' ? (
         <TextField
@@ -465,15 +530,16 @@ interface RoleToggleProps {
 }
 
 /**
- * Placeholder role toggle. Phase 1.5 replaces this with the 3D role-picker
- * scene (task #5) — a much more memorable first-launch moment. Until then,
- * the toggle keeps the signup flow functional.
+ * Role toggle — two pills matching the same visual language as the Login
+ * screen's role selector: flat muted pill when unselected, bright blue
+ * gradient with a soft glow when selected. Kept file-local since the
+ * Login screen's version is also file-local; if a third screen needs
+ * this we can promote it to /components then.
  */
 function RoleToggle({ value, onChange, t }: RoleToggleProps & { t: TFn }) {
-  const { theme } = useTheme();
-  const options: { value: UserRole; label: string; helper: string }[] = [
-    { value: 'seeker', label: t('auth.signup.role_seeker'), helper: t('auth.signup.role_seeker_helper') },
-    { value: 'employer', label: t('auth.signup.role_employer'), helper: t('auth.signup.role_employer_helper') },
+  const options: { value: UserRole; label: string; icon: FeatherIconName }[] = [
+    { value: 'seeker', label: t('auth.signup.role_seeker'), icon: 'user' },
+    { value: 'employer', label: t('auth.signup.role_employer'), icon: 'briefcase' },
   ];
 
   return (
@@ -481,37 +547,117 @@ function RoleToggle({ value, onChange, t }: RoleToggleProps & { t: TFn }) {
       <Text variant="footnote" weight="medium" tone="secondary">
         {t('auth.signup.role_label')}
       </Text>
-      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-        {options.map((opt) => {
-          const selected = value === opt.value;
-          return (
-            <Pressable
-              key={opt.value}
-              onPress={() => {
-                haptic('selection');
-                onChange(opt.value);
-              }}
-              style={{
-                flex: 1,
-                padding: spacing.md,
-                borderRadius: radii.md,
-                borderWidth: 0.5,
-                borderColor: selected ? theme.brand.heroBorder : theme.border.default,
-                backgroundColor: selected ? theme.brand.heroSubtle : theme.bg.surface,
-                gap: spacing.xs,
-              }}
-            >
-              <Text variant="bodyLarge" weight="medium" tone={selected ? 'hero' : 'primary'}>
-                {opt.label}
-              </Text>
-              <Text variant="footnote" tone="tertiary">
-                {opt.helper}
-              </Text>
-            </Pressable>
-          );
-        })}
+      <View style={{ flexDirection: 'row', gap: spacing.md }} accessibilityRole="tablist">
+        {options.map((opt) => (
+          <RolePill
+            key={opt.value}
+            label={opt.label}
+            icon={opt.icon}
+            active={value === opt.value}
+            onPress={() => {
+              haptic('selection');
+              onChange(opt.value);
+            }}
+          />
+        ))}
       </View>
     </View>
+  );
+}
+
+function RolePill({
+  label,
+  helper,
+  icon,
+  active,
+  onPress,
+}: {
+  label: string;
+  helper?: string;
+  icon: FeatherIconName;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const { theme } = useTheme();
+
+  const content = (
+    <>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: spacing.sm,
+        }}
+      >
+        <Feather name={icon} size={18} color={active ? '#FFFFFF' : theme.text.secondary} />
+        <Text
+          style={{
+            fontSize: 15,
+            fontWeight: '700',
+            color: active ? '#FFFFFF' : theme.text.primary,
+            textAlign: 'center',
+          }}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+      </View>
+      {helper ? (
+        <Text
+          style={{
+            fontSize: 12,
+            marginTop: 4,
+            textAlign: 'center',
+            color: active ? 'rgba(255,255,255,0.85)' : theme.text.tertiary,
+          }}
+          numberOfLines={1}
+        >
+          {helper}
+        </Text>
+      ) : null}
+    </>
+  );
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={label}
+      style={{ flex: 1 }}
+    >
+      {active ? (
+        <LinearGradient
+          colors={[blue[500], blue[400]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            borderRadius: radii.lg,
+            padding: spacing.md,
+            shadowColor: blue[400],
+            shadowOpacity: 0.5,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 6,
+          }}
+        >
+          {content}
+        </LinearGradient>
+      ) : (
+        <View
+          style={{
+            borderRadius: radii.lg,
+            padding: spacing.md,
+            backgroundColor: theme.bg.muted,
+            borderWidth: 1,
+            borderColor: theme.border.subtle,
+          }}
+        >
+          {content}
+        </View>
+      )}
+    </Pressable>
   );
 }
 

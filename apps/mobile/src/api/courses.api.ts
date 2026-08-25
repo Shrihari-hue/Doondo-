@@ -4,7 +4,7 @@
  *
  * The catalogue lives in code on the backend (`courses.catalogue.ts`),
  * so list/detail responses change only when the backend is redeployed.
- * Enrollments and lesson-completion state are stored in MongoDB and
+ * Enrollments and lesson-completion state are stored PostgreSQL/Supabase and
  * survive across devices.
  */
 
@@ -71,3 +71,4 @@ export const coursesApi = {
       `/seekers/${seekerId}/badges`,
     ),
 };
+
