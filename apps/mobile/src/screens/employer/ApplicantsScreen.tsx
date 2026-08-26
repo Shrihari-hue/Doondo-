@@ -380,13 +380,15 @@ export function ApplicantsScreen() {
             </>
           ) : (
             <>
-              <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-                <Feather name="arrow-left" size={22} color={textPrimary} />
-              </Pressable>
-              <Text style={{ flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: textPrimary, marginRight: 34 }}>
+              <View style={{ flex: 1, alignItems: 'flex-start' }}>
+                <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
+                  <Feather name="arrow-left" size={22} color={textPrimary} />
+                </Pressable>
+              </View>
+              <Text style={{ textAlign: 'center', fontSize: 17, fontWeight: '700', color: textPrimary }} numberOfLines={1}>
                 Applicants
               </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: spacing.md }}>
                 {/* List / Board toggle */}
                 <Pressable onPress={() => { haptic('selection'); setViewMode((m) => m === 'list' ? 'board' : 'list'); }} hitSlop={8}>
                   <Feather name={viewMode === 'list' ? 'trello' : 'list'} size={20} color={viewMode === 'board' ? BLUE : textPrimary} />
@@ -527,7 +529,7 @@ export function ApplicantsScreen() {
             {(query.isLoading || query.isRefetching) ? (
               <><SkeletonCard lines={2} /><SkeletonCard lines={2} /><SkeletonCard lines={2} /></>
             ) : query.isError ? (
-              <EmptyState glyph="✕" tone="warning" eyebrow="Offline" title="Could not load applicants"
+              <EmptyState icon="x-circle" tone="warning" eyebrow="Offline" title="Could not load applicants"
                 message="Check your connection and pull to refresh." tall />
             ) : applicants.length === 0 ? (
               <EmptyState
@@ -639,11 +641,11 @@ export function ApplicantsScreen() {
             <Pressable onPress={() => { haptic('selection'); setShowBulkMsg(true); }}
               style={({ pressed }) => ({
                 flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-                borderRadius: 12, paddingVertical: 10, borderWidth: 1.5, borderColor: '#7C3AED',
+                borderRadius: 12, paddingVertical: 10, borderWidth: 1.5, borderColor: BLUE,
                 opacity: pressed ? 0.75 : 1,
               })}>
-              <Feather name="message-circle" size={15} color="#7C3AED" />
-              <Text style={{ fontSize: 14, fontWeight: '700', color: '#7C3AED' }}>Message {selected.size} Selected</Text>
+              <Feather name="message-circle" size={15} color={BLUE} />
+              <Text style={{ fontSize: 14, fontWeight: '700', color: BLUE }}>Message {selected.size} Selected</Text>
             </Pressable>
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
               <Pressable disabled={isBulkPending} onPress={() => {
@@ -1010,7 +1012,7 @@ export function ApplicantsScreen() {
               onPress={() => void sendBulkMessage()}
               disabled={!bulkMsgText.trim() || bulkMsgSending}
               style={({ pressed }) => ({
-                backgroundColor: bulkMsgText.trim() ? '#7C3AED' : '#C4B5FD',
+                backgroundColor: bulkMsgText.trim() ? BLUE : BLUE_LIGHT,
                 borderRadius: 14, paddingVertical: 15,
                 flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
                 opacity: pressed || bulkMsgSending ? 0.8 : 1,

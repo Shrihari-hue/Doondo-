@@ -30,6 +30,7 @@ type Nav = NativeStackNavigationProp<AppStackParamList>;
 const BLUE   = '#2563EB';
 const GREEN  = '#16A34A';
 const AMBER  = '#F59E0B';
+const CORAL  = '#C8533A';
 
 // Storage key inside 'notifPrefs' — we piggyback the same secureStore key
 // used by WorkerPerformanceScreen for different sub-keys in the same JSON map.
@@ -70,7 +71,7 @@ const PREF_ITEMS: Array<{
     icon:  'calendar',
     label: 'Interview Reminder',
     desc:  'Reminder 1 hour before a scheduled interview.',
-    color: '#7C3AED',
+    color: CORAL,
   },
   {
     key:   'workerAbsent',

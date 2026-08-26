@@ -92,7 +92,7 @@ export function PostJobScreen() {
 
   // Prefill from duplicate / edit params
   const routeParams = route.params;
-  const { theme } = useTheme();
+  const { theme, scheme } = useTheme();
   const t = useTranslate();
 
   const insets = useSafeAreaInsets();
@@ -403,19 +403,23 @@ export function PostJobScreen() {
 
   const canSave = validationReason === null && !mutation.isPending;
 
-  const isLight = true; // PostJob is always light-themed per design
+  const isLight = scheme !== 'dark';
   const BLUE = '#2563EB';
-  const BLUE_LIGHT = '#EFF6FF';
-  const inputBorder = '#E5E7EB';
-  const labelColor = '#374151';
-  const placeholderColor = '#9CA3AF';
-  const textColor = '#1F2937';
+  const BLUE_LIGHT = isLight ? '#EFF6FF' : 'rgba(37,99,235,0.16)';
+  const screenBg = isLight ? '#FFFFFF' : '#0C0A0E';
+  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
+  const inputFill = isLight ? '#FAFAFA' : '#141414';
+  const inputBorder = isLight ? '#E5E7EB' : '#1E1E1E';
+  const labelColor = isLight ? '#374151' : '#D1D5DB';
+  const placeholderColor = isLight ? '#9CA3AF' : '#6B7280';
+  const textColor = isLight ? '#1F2937' : '#F9FAFB';
+  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
 
   return (
     <Screen edges={[]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1, backgroundColor: '#FFFFFF' }}
+        style={{ flex: 1, backgroundColor: screenBg }}
       >
         {/* ── Header ── */}
         <View
@@ -492,7 +496,7 @@ export function PostJobScreen() {
                       borderRadius: radii.lg,
                       borderWidth: active ? 2 : 1,
                       borderColor: active ? BLUE : inputBorder,
-                      backgroundColor: active ? BLUE_LIGHT : '#FFFFFF',
+                      backgroundColor: active ? BLUE_LIGHT : cardBg,
                     }}
                   >
                     <Feather name={opt.icon} size={18} color={active ? BLUE : inputBorder} />
@@ -500,7 +504,7 @@ export function PostJobScreen() {
                       style={{
                         fontSize: 13,
                         fontWeight: active ? '700' : '500',
-                        color: active ? BLUE : '#374151',
+                        color: active ? BLUE : labelColor,
                         flexShrink: 1,
                       }}
                     >
@@ -524,7 +528,7 @@ export function PostJobScreen() {
                 borderRadius: radii.lg,
                 paddingHorizontal: spacing.md,
                 paddingVertical: 12,
-                backgroundColor: '#FAFAFA',
+                backgroundColor: inputFill,
               }}
             >
               <TextInput
@@ -553,7 +557,7 @@ export function PostJobScreen() {
                 borderRadius: radii.lg,
                 paddingHorizontal: spacing.md,
                 paddingVertical: 14,
-                backgroundColor: '#FAFAFA',
+                backgroundColor: inputFill,
               }}
             >
               <Text style={{ fontSize: 15, color: category ? textColor : placeholderColor }}>
@@ -577,7 +581,7 @@ export function PostJobScreen() {
                 borderRadius: radii.lg,
                 paddingHorizontal: spacing.md,
                 paddingVertical: 12,
-                backgroundColor: '#FAFAFA',
+                backgroundColor: inputFill,
                 gap: spacing.sm,
               }}
             >
@@ -603,8 +607,8 @@ export function PostJobScreen() {
             </Pressable>
             {coords && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Feather name="map-pin" size={11} color="#9CA3AF" />
-                <Text style={{ fontSize: 11, color: '#9CA3AF' }}>
+                <Feather name="map-pin" size={11} color={placeholderColor} />
+                <Text style={{ fontSize: 11, color: placeholderColor }}>
                   {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
                 </Text>
               </View>
@@ -639,7 +643,7 @@ export function PostJobScreen() {
                       borderRadius: radii.pill,
                       borderWidth: 1,
                       borderColor: active ? BLUE : inputBorder,
-                      backgroundColor: '#FFFFFF',
+                      backgroundColor: cardBg,
                     }}
                   >
                     {/* Radio dot */}
@@ -649,8 +653,8 @@ export function PostJobScreen() {
                         height: 16,
                         borderRadius: 8,
                         borderWidth: 2,
-                        borderColor: active ? BLUE : '#D1D5DB',
-                        backgroundColor: '#FFFFFF',
+                        borderColor: active ? BLUE : inputBorder,
+                        backgroundColor: cardBg,
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}
@@ -670,7 +674,7 @@ export function PostJobScreen() {
                       style={{
                         fontSize: 12,
                         fontWeight: active ? '700' : '500',
-                        color: active ? BLUE : '#374151',
+                        color: active ? BLUE : labelColor,
                       }}
                     >
                       {opt.label}
@@ -720,7 +724,7 @@ export function PostJobScreen() {
                   borderWidth: 1,
                   borderColor: inputBorder,
                   borderRadius: radii.lg,
-                  backgroundColor: '#FAFAFA',
+                  backgroundColor: inputFill,
                   overflow: 'hidden',
                 }}
               >
@@ -732,7 +736,7 @@ export function PostJobScreen() {
                     borderRightColor: inputBorder,
                   }}
                 >
-                  <Text style={{ fontSize: 16, color: '#374151', fontWeight: '600' }}>₹</Text>
+                  <Text style={{ fontSize: 16, color: labelColor, fontWeight: '600' }}>₹</Text>
                 </View>
                 <TextInput
                   value={amount}
@@ -761,7 +765,7 @@ export function PostJobScreen() {
                   borderWidth: 1,
                   borderColor: inputBorder,
                   borderRadius: radii.lg,
-                  backgroundColor: '#FAFAFA',
+                  backgroundColor: inputFill,
                 }}
               >
                 <Text style={{ fontSize: 14, color: textColor, fontWeight: '600' }}>
@@ -782,7 +786,7 @@ export function PostJobScreen() {
                 borderWidth: 1,
                 borderColor: inputBorder,
                 borderRadius: radii.lg,
-                backgroundColor: '#FAFAFA',
+                backgroundColor: inputFill,
                 padding: spacing.md,
               }}
             >
@@ -1241,7 +1245,7 @@ export function PostJobScreen() {
               </Text>
             </Pressable>
             {validationReason && !mutation.isPending && (
-              <Text style={{ fontSize: 12, color: '#6B7280', textAlign: 'center' }}>
+              <Text style={{ fontSize: 12, color: textSecondary, textAlign: 'center' }}>
                 {validationReason}
               </Text>
             )}
@@ -1263,7 +1267,7 @@ export function PostJobScreen() {
               bottom: 0,
               left: 0,
               right: 0,
-              backgroundColor: '#FFFFFF',
+              backgroundColor: cardBg,
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
               paddingTop: 12,
@@ -1272,7 +1276,7 @@ export function PostJobScreen() {
             }}
           >
             {/* Drag handle */}
-            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginBottom: 16 }} />
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: inputBorder, alignSelf: 'center', marginBottom: 16 }} />
             <Text style={{ fontSize: 17, fontWeight: '700', color: textColor, marginHorizontal: 20, marginBottom: 16 }}>
               Saved Templates
             </Text>
@@ -1295,7 +1299,7 @@ export function PostJobScreen() {
                       <Feather name="trash-2" size={16} color="#EF4444" />
                     </Pressable>
                   </View>
-                  <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 10 }} numberOfLines={2}>
+                  <Text style={{ fontSize: 13, color: textSecondary, marginBottom: 10 }} numberOfLines={2}>
                     {tpl.description || tpl.title}
                   </Text>
                   <Pressable
@@ -1312,7 +1316,7 @@ export function PostJobScreen() {
                 </View>
               ))}
               {templates.length === 0 && (
-                <Text style={{ fontSize: 14, color: '#9CA3AF', textAlign: 'center', marginTop: 20 }}>
+                <Text style={{ fontSize: 14, color: placeholderColor, textAlign: 'center', marginTop: 20 }}>
                   No saved templates yet. Fill out the form and tap the bookmark icon to save one.
                 </Text>
               )}
@@ -1335,27 +1339,27 @@ export function PostJobScreen() {
         >
           <Pressable onPress={(e) => e.stopPropagation?.()}>
             <View style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor: cardBg,
               borderTopLeftRadius: 24, borderTopRightRadius: 24,
               padding: spacing.xl, gap: spacing.lg,
               paddingBottom: insets.bottom + spacing.xl,
               maxHeight: '80%',
             }}>
               {/* Handle */}
-              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center' }} />
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: inputBorder, alignSelf: 'center' }} />
 
               {/* Header */}
               <View style={{ gap: 4 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Feather name="check-circle" size={20} color="#16A34A" />
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>Job posted!</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: textColor }}>Job posted!</Text>
                 </View>
                 {reHireSuggestions.length > 0 ? (
-                  <Text style={{ fontSize: 14, color: '#6B7280' }}>
+                  <Text style={{ fontSize: 14, color: textSecondary }}>
                     Workers you've hired before might be a great fit. Send them a quick invite?
                   </Text>
                 ) : (
-                  <Text style={{ fontSize: 14, color: '#6B7280' }}>
+                  <Text style={{ fontSize: 14, color: textSecondary }}>
                     Your job is live. No past workers match this role type yet.
                   </Text>
                 )}
@@ -1364,7 +1368,7 @@ export function PostJobScreen() {
               {/* Suggestions list */}
               {pastWorkersQuery.isLoading ? (
                 <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-                  <Text style={{ color: '#9CA3AF', fontSize: 14 }}>Loading suggestions…</Text>
+                  <Text style={{ color: placeholderColor, fontSize: 14 }}>Loading suggestions…</Text>
                 </View>
               ) : reHireSuggestions.length > 0 ? (
                 <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 280 }}>
@@ -1375,13 +1379,13 @@ export function PostJobScreen() {
                         key={app.id}
                         style={{
                           flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-                          paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+                          paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: inputBorder,
                         }}
                       >
                         <Avatar name={app.seeker?.name ?? '?'} photoUrl={app.seeker?.photoUrl ?? null} size={42} />
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 15, fontWeight: '600', color: '#111827' }}>{app.seeker?.name ?? 'Worker'}</Text>
-                          <Text style={{ fontSize: 12, color: '#6B7280' }}>Hired for: {app.job?.title ?? 'previous role'}</Text>
+                          <Text style={{ fontSize: 15, fontWeight: '600', color: textColor }}>{app.seeker?.name ?? 'Worker'}</Text>
+                          <Text style={{ fontSize: 12, color: textSecondary }}>Hired for: {app.job?.title ?? 'previous role'}</Text>
                         </View>
                         <Pressable
                           onPress={() => void inviteWorker(app)}
@@ -1389,12 +1393,12 @@ export function PostJobScreen() {
                           style={({ pressed }) => ({
                             paddingHorizontal: 14, paddingVertical: 8,
                             borderRadius: 20,
-                            backgroundColor: invited ? '#F3F4F6' : (pressed ? '#1D4ED8' : BLUE),
+                            backgroundColor: invited ? inputFill : (pressed ? '#1D4ED8' : BLUE),
                             borderWidth: invited ? 1 : 0,
-                            borderColor: '#E5E7EB',
+                            borderColor: inputBorder,
                           })}
                         >
-                          <Text style={{ fontSize: 13, fontWeight: '700', color: invited ? '#9CA3AF' : '#FFFFFF' }}>
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: invited ? placeholderColor : '#FFFFFF' }}>
                             {invited ? 'Invited ✓' : 'Invite'}
                           </Text>
                         </Pressable>
@@ -1409,14 +1413,14 @@ export function PostJobScreen() {
                 onPress={() => { setShowReHire(false); navigation.goBack(); }}
                 style={({ pressed }) => ({
                   paddingVertical: 14, borderRadius: 14,
-                  backgroundColor: reHireSuggestions.length > 0 ? '#F3F4F6' : BLUE,
+                  backgroundColor: reHireSuggestions.length > 0 ? inputFill : BLUE,
                   alignItems: 'center',
                   opacity: pressed ? 0.8 : 1,
                 })}
               >
                 <Text style={{
                   fontSize: 16, fontWeight: '700',
-                  color: reHireSuggestions.length > 0 ? '#374151' : '#FFFFFF',
+                  color: reHireSuggestions.length > 0 ? labelColor : '#FFFFFF',
                 }}>
                   {reHireSuggestions.length > 0 ? 'Done — Go to My Jobs' : 'View My Jobs'}
                 </Text>
@@ -1453,7 +1457,8 @@ function VoiceDescriptionField({
   onStop: () => void;
   onClear: () => void;
 }) {
-  const { theme } = useTheme();
+  const { theme, scheme } = useTheme();
+  const isLight = scheme !== 'dark';
   const t = useTranslate();
   const ORANGE = '#F97316';
 
@@ -1463,9 +1468,9 @@ function VoiceDescriptionField({
         style={{
           padding: spacing.md,
           borderRadius: radii.lg,
-          backgroundColor: '#FFF7ED',
+          backgroundColor: isLight ? '#FFF7ED' : 'rgba(249,115,22,0.14)',
           borderWidth: 0.5,
-          borderColor: '#FED7AA',
+          borderColor: isLight ? '#FED7AA' : 'rgba(249,115,22,0.35)',
           flexDirection: 'row',
           alignItems: 'center',
           gap: spacing.md,
@@ -1518,19 +1523,19 @@ function VoiceDescriptionField({
           borderRadius: radii.lg,
           borderWidth: 1,
           borderStyle: 'dashed',
-          borderColor: recording ? '#DC2626' : theme.border.default,
-          backgroundColor: recording ? '#FEE2E2' : theme.bg.surface,
+          borderColor: recording ? theme.status.danger : theme.border.default,
+          backgroundColor: recording ? theme.status.dangerSubtle : theme.bg.surface,
           alignItems: 'center',
           gap: 4,
           opacity: pressed && !recording ? 0.7 : 1,
         })}
       >
-        <Feather name={recording ? 'stop-circle' : 'mic'} size={22} color={recording ? '#DC2626' : ORANGE} />
+        <Feather name={recording ? 'stop-circle' : 'mic'} size={22} color={recording ? theme.status.danger : ORANGE} />
         <Text
           style={{
             fontSize: 14,
             fontWeight: '600',
-            color: recording ? '#991B1B' : theme.text.primary,
+            color: recording ? theme.status.danger : theme.text.primary,
           }}
         >
           {recording
@@ -1629,9 +1634,9 @@ function AnswerChip({
   onPress: () => void;
 }) {
   const { theme } = useTheme();
-  const activeBg = tone === 'yes' ? theme.status.successSubtle : '#FEE2E2';
-  const activeBorder = tone === 'yes' ? theme.status.success : '#FCA5A5';
-  const activeFg = tone === 'yes' ? theme.status.success : '#991B1B';
+  const activeBg = tone === 'yes' ? theme.status.successSubtle : theme.status.dangerSubtle;
+  const activeBorder = tone === 'yes' ? theme.status.success : theme.status.dangerBorder;
+  const activeFg = tone === 'yes' ? theme.status.success : theme.status.danger;
   return (
     <Pressable
       onPress={() => {

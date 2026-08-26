@@ -321,7 +321,7 @@ function ExploreJobsSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
 function SameDaySwipeSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
   return (
     <LinearGradient
-      colors={['#312E81', '#4C1D95', '#2D1B69']}
+      colors={['#1E3A8A', '#1D4ED8', '#1E40AF']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{
@@ -340,9 +340,9 @@ function SameDaySwipeSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
             paddingHorizontal: 8,
             paddingVertical: 3,
             borderRadius: radii.pill,
-            backgroundColor: 'rgba(167,139,250,0.28)',
+            backgroundColor: 'rgba(96,165,250,0.28)',
             borderWidth: 0.5,
-            borderColor: 'rgba(167,139,250,0.55)',
+            borderColor: 'rgba(96,165,250,0.55)',
           }}
         >
           <Text
@@ -350,7 +350,7 @@ function SameDaySwipeSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
               fontSize: 9,
               fontWeight: '800',
               letterSpacing: 1.8,
-              color: '#C4B5FD',
+              color: '#BFDBFE',
             }}
           >
             NEW FEATURE
@@ -385,8 +385,8 @@ function SameDaySwipeSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
             alignSelf: 'flex-start',
             marginTop: spacing.xs,
             borderRadius: radii.pill,
-            backgroundColor: '#7C3AED',
-            shadowColor: '#7C3AED',
+            backgroundColor: '#2563EB',
+            shadowColor: '#2563EB',
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.45,
             shadowRadius: 12,
@@ -453,9 +453,9 @@ function SwipeIllustration() {
           width: 80,
           height: 100,
           borderRadius: 14,
-          backgroundColor: 'rgba(124,58,237,0.45)',
+          backgroundColor: 'rgba(37,99,235,0.45)',
           borderWidth: 1,
-          borderColor: 'rgba(167,139,250,0.35)',
+          borderColor: 'rgba(96,165,250,0.35)',
           top: 20,
           left: 25,
           transform: [{ rotate: '10deg' }],
@@ -468,9 +468,9 @@ function SwipeIllustration() {
           width: 80,
           height: 100,
           borderRadius: 14,
-          backgroundColor: 'rgba(109,40,217,0.6)',
+          backgroundColor: 'rgba(29,78,216,0.6)',
           borderWidth: 1,
-          borderColor: 'rgba(167,139,250,0.45)',
+          borderColor: 'rgba(96,165,250,0.45)',
           top: 12,
           left: 15,
           transform: [{ rotate: '-5deg' }],

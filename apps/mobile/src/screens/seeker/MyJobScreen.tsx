@@ -23,6 +23,7 @@ import { Screen, Text, Card, Avatar, EmptyState, LoadingSpinner } from '@/compon
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { haptic } from '@/lib/haptics';
+import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { applicationsApi } from '@/api/applications.api';
 import { workerJobApi } from '@/api/workerJob.api';
 import type { AppStackParamList } from '@/navigation/types';
@@ -46,7 +47,7 @@ interface EmployerGroup {
   awaitingPayment: number;
 }
 
-export function MyJobScreen() {
+function Inner() {
   const { theme } = useTheme();
   const t = useTranslate();
   const navigation = useNavigation<Nav>();
@@ -198,6 +199,14 @@ export function MyJobScreen() {
         )}
       </ScrollView>
     </Screen>
+  );
+}
+
+export function MyJobScreen() {
+  return (
+    <SeekerThemeOverride>
+      <Inner />
+    </SeekerThemeOverride>
   );
 }
 

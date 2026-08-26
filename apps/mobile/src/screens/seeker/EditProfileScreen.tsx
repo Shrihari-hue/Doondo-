@@ -29,6 +29,7 @@ import { Feather } from '@expo/vector-icons';
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Button, TextField, Pill, FormError } from '@/components';
 import { useTheme } from '@/theme/useTheme';
+import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuth } from '@/hooks/useAuth';
 import { meApi } from '@/api/me.api';
@@ -57,7 +58,25 @@ type Nav = NativeStackNavigationProp<AppStackParamList, 'EditProfile'>;
 type Route = RouteProp<AppStackParamList, 'EditProfile'>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
+/**
+ * Top-level export wraps in the seekerLight palette ONLY when the current
+ * user is a seeker. Employers editing their profile keep their warm-dark
+ * theme — same pattern as ConversationScreen, since this form is shared
+ * between both roles.
+ */
 export function EditProfileScreen() {
+  const { user } = useAuth();
+  if (user?.role === 'seeker') {
+    return (
+      <SeekerThemeOverride>
+        <EditProfileScreenInner />
+      </SeekerThemeOverride>
+    );
+  }
+  return <EditProfileScreenInner />;
+}
+
+function EditProfileScreenInner() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { user } = useAuth();

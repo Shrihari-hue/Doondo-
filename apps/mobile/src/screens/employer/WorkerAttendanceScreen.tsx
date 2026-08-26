@@ -116,7 +116,7 @@ export function WorkerAttendanceScreen() {
     present:    GREEN + '25',
     late:       AMBER + '30',
     absent:     RED   + '20',
-    leave:      '#8B5CF620',
+    leave:      BLUE + '20',
     weekly_off: 'transparent',
     future:     'transparent',
   };
@@ -124,7 +124,7 @@ export function WorkerAttendanceScreen() {
     present:    GREEN + '50',
     late:       AMBER + '60',
     absent:     RED   + '40',
-    leave:      '#8B5CF640',
+    leave:      BLUE + '40',
     weekly_off: 'transparent',
     future:     'transparent',
   };
@@ -132,7 +132,7 @@ export function WorkerAttendanceScreen() {
     present:    GREEN,
     late:       '#B45309',
     absent:     RED,
-    leave:      '#7C3AED',
+    leave:      BLUE,
     weekly_off: null,
     future:     null,
   };
@@ -297,7 +297,7 @@ export function WorkerAttendanceScreen() {
               { color: GREEN,     label: 'Present' },
               { color: AMBER,     label: 'Late' },
               { color: RED,       label: 'Absent' },
-              { color: '#7C3AED', label: 'Leave' },
+              { color: BLUE, label: 'Leave' },
             ].map((item) => (
               <View key={item.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: item.color + '40',
@@ -315,7 +315,7 @@ export function WorkerAttendanceScreen() {
               { value: present,   label: 'Present',    color: GREEN },
               { value: late,      label: 'Late',       color: AMBER },
               { value: absent,    label: 'Absent',     color: RED },
-              { value: leave,     label: 'Leave',      color: '#7C3AED' },
+              { value: leave,     label: 'Leave',      color: BLUE },
             ].map((stat, i) => (
               <View key={stat.label} style={{ flex: 1, alignItems: 'center', paddingVertical: spacing.md,
                 borderRightWidth: i < 3 ? 1 : 0, borderRightColor: border }}>

@@ -15,7 +15,7 @@
  * needs no QR or SVG library.
  */
 import { useRef, useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { Alert, ScrollView, View, useWindowDimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -137,6 +137,11 @@ function Inner() {
   const insets = useSafeAreaInsets();
   const t = useTranslate();
   const { user } = useAuth();
+  const { width: windowWidth } = useWindowDimensions();
+  // Cap at 320 (the credential card's normal size, also what gets shared as
+  // an image) but shrink on narrower devices so it never overflows the
+  // screen's edges.
+  const cardWidth = Math.min(320, windowWidth - spacing.xl * 2);
 
   const cardRef = useRef<View>(null);
   const [busy, setBusy] = useState(false);
@@ -279,7 +284,7 @@ function Inner() {
             ref={cardRef}
             collapsable={false}
             style={{
-              width: 320,
+              width: cardWidth,
               backgroundColor: theme.bg.surface,
               borderRadius: 22,
               borderWidth: 1.5,

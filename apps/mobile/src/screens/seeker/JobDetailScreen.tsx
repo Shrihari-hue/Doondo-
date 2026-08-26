@@ -23,6 +23,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -752,26 +753,31 @@ function Header({
         paddingBottom: spacing.sm,
       }}
     >
-      <Pressable onPress={onClose} hitSlop={12} style={{ width: 40 }}>
-        <Text style={{ fontSize: 22, color: theme.text.primary }}>←</Text>
-      </Pressable>
+      <View style={{ flex: 1, alignItems: 'flex-start' }}>
+        <Pressable onPress={onClose} hitSlop={12} style={{ width: 40 }}>
+          <Text style={{ fontSize: 22, color: theme.text.primary }}>←</Text>
+        </Pressable>
+      </View>
       <Text
         variant="bodyLarge"
         weight="medium"
-        style={{ flex: 1, textAlign: 'center' }}
+        style={{ textAlign: 'center' }}
+        numberOfLines={1}
       >
         {t('job_detail.header_title')}
       </Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: spacing.md }}>
         {onDownloadToggle && (
           <Pressable
             onPress={onDownloadToggle}
             hitSlop={12}
             accessibilityLabel={downloaded ? t('job_detail.header.remove_offline_a11y') : t('job_detail.header.save_offline_a11y')}
           >
-            <Text style={{ fontSize: 18, color: downloaded ? theme.brand.hero : theme.text.primary }}>
-              {downloaded ? '📥' : '⤓'}
-            </Text>
+            <Feather
+              name="download"
+              size={18}
+              color={downloaded ? theme.brand.hero : theme.text.primary}
+            />
           </Pressable>
         )}
         {onShare && (
@@ -792,12 +798,9 @@ function Header({
               opacity: pressed ? 0.7 : 1,
             })}
           >
-            <Text style={{ fontSize: 16, color: '#2563EB', fontWeight: '700' }}>
-              ↗
-            </Text>
+            <Feather name="share" size={15} color="#2563EB" />
           </Pressable>
         )}
-        {!onShare && !onDownloadToggle && <View style={{ width: 40 }} />}
       </View>
     </View>
   );

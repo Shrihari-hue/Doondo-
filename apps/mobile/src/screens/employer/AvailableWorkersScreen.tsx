@@ -207,6 +207,7 @@ export function AvailableWorkersScreen() {
         style={{
           flexDirection: 'row',
           alignItems: 'center',
+          justifyContent: 'space-between',
           paddingTop: insets.top + spacing.sm,
           paddingHorizontal: spacing.xl,
           paddingBottom: spacing.md,
@@ -219,11 +220,12 @@ export function AvailableWorkersScreen() {
           <Feather name="arrow-left" size={22} color={textPrimary} />
         </Pressable>
         <Text
-          style={{ flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: textPrimary, marginRight: 22 }}
+          style={{ fontSize: 17, fontWeight: '700', color: textPrimary }}
           numberOfLines={1}
         >
           {t('employer.available_workers.header_title')}
         </Text>
+        <View style={{ width: 22 }} />
       </View>
 
       <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md, gap: spacing.md, backgroundColor: bg }}>
@@ -740,7 +742,7 @@ function AvailabilityRow({
           accessibilityLabel={`Send a hiring request to ${item.seeker.name}`}
           style={({ pressed }) => ({
             flex: 1,
-            backgroundColor: theme.brand.hero,
+            backgroundColor: BLUE,
             paddingVertical: 12,
             borderRadius: radii.pill,
             alignItems: 'center',
@@ -748,7 +750,7 @@ function AvailabilityRow({
             opacity: pressed ? 0.85 : 1,
           })}
         >
-          <Text style={{ color: '#FFFDF7', fontSize: 14, fontWeight: '700' }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
             Send hiring request
           </Text>
         </Pressable>

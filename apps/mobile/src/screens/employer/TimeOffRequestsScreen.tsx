@@ -256,7 +256,7 @@ export function TimeOffRequestsScreen() {
           </View>
         ) : allRequests.length === 0 ? (
           <EmptyState
-            glyph="✓"
+            icon="check-circle"
             tone="hero"
             eyebrow="All clear"
             title="No time-off requests from your crew yet."

@@ -191,12 +191,12 @@ export function RosterScreen() {
           </View>
         ) : query.isError ? (
           <View style={{ padding: spacing.xl }}>
-            <EmptyState glyph="✕" tone="warning" eyebrow="Offline" title="Could not load roster"
+            <EmptyState icon="x-circle" tone="warning" eyebrow="Offline" title="Could not load roster"
               message="Check your connection and pull to refresh." tall />
           </View>
         ) : entries.length === 0 ? (
           <View style={{ padding: spacing.xl }}>
-            <EmptyState glyph="📅" tone="hero" eyebrow="No shifts yet" title="Your roster is empty"
+            <EmptyState icon="calendar" tone="hero" eyebrow="No shifts yet" title="Your roster is empty"
               message="Post a recurring job and assign workers to see the schedule here." tall />
           </View>
         ) : (

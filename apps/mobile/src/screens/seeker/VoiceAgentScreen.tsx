@@ -33,6 +33,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Button } from '@/components';
@@ -49,6 +50,10 @@ import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type TFn = (key: string, options?: Record<string, unknown>) => string;
+
+// Established Doondo voice-interaction accent — matches VoicePostButton and
+// EmployerVoiceAgentScreen; the mic language is the same across roles.
+const ORANGE = '#F97316';
 
 // ─── Speech-to-text adapter ──────────────────────────────────────────────────
 // expo-speech-recognition is loaded via require() so the bundle still works
@@ -678,8 +683,8 @@ function VoiceAgentScreenInner() {
               height: 132,
             }}
           >
-            {isListening && ring(pulse1, 116, theme.brand.heroBorder)}
-            {isListening && ring(pulse2, 116, theme.brand.heroBorder)}
+            {isListening && ring(pulse1, 116, ORANGE)}
+            {isListening && ring(pulse2, 116, ORANGE)}
             <Pressable
               onPress={onMicPress}
               disabled={micDisabled}
@@ -693,19 +698,17 @@ function VoiceAgentScreenInner() {
                   ? theme.status.danger
                   : micDisabled
                     ? theme.border.default
-                    : theme.brand.hero,
+                    : ORANGE,
                 alignItems: 'center',
                 justifyContent: 'center',
-                shadowColor: isListening ? theme.status.danger : theme.brand.hero,
+                shadowColor: isListening ? theme.status.danger : ORANGE,
                 shadowOffset: { width: 0, height: 5 },
                 shadowOpacity: micDisabled ? 0 : 0.32,
                 shadowRadius: 14,
                 elevation: micDisabled ? 0 : 7,
               }}
             >
-              <Text style={{ fontSize: 40, color: '#FFFFFF', lineHeight: 44 }}>
-                {isListening ? '■' : '🎤'}
-              </Text>
+              <Feather name={isListening ? 'square' : 'mic'} size={36} color="#FFFFFF" />
             </Pressable>
           </View>
         )}

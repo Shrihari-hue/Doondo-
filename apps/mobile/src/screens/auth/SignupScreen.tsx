@@ -456,12 +456,12 @@ function AssistedSetupToggle({
           style={{
             padding: spacing.md,
             borderRadius: radii.md,
-            backgroundColor: '#FEF3C7',
+            backgroundColor: theme.status.warningSubtle,
             borderWidth: 0.5,
-            borderColor: '#FDE68A',
+            borderColor: theme.status.warningBorder,
           }}
         >
-          <Text style={{ fontSize: 13, lineHeight: 19, color: '#78350F' }}>
+          <Text style={{ fontSize: 13, lineHeight: 19, color: theme.status.warning }}>
             {t('auth.signup.assisted_banner')}
           </Text>
         </View>

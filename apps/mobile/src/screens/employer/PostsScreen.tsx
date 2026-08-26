@@ -126,7 +126,7 @@ export function PostsScreen() {
           </View>
         ) : query.isError ? (
           <EmptyState
-            glyph="✕"
+            icon="x-circle"
             tone="warning"
             eyebrow={t('employer.posts.offline_eyebrow')}
             title={t('employer.posts.offline_title')}
@@ -503,7 +503,10 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
             <Text variant="bodyLarge" weight="medium" numberOfLines={1}>{job.title}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
               {job.location.area ? (
-                <Text variant="footnote" tone="secondary">📍 {job.location.area}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <Feather name="map-pin" size={11} color={theme.text.secondary} />
+                  <Text variant="footnote" tone="secondary">{job.location.area}</Text>
+                </View>
               ) : null}
               {job.location.area ? <Text variant="footnote" tone="tertiary">·</Text> : null}
               <Text variant="footnote" tone="secondary">{formatType(job.type, t)}</Text>
@@ -636,13 +639,16 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
               }}>
                 <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#374151', alignSelf: 'center' }} />
                 <View style={{ gap: spacing.xs }}>
-                  <Text style={{ fontSize: 22, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>⚡ Boost this job</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Feather name="zap" size={20} color={isLight ? '#111827' : '#F9FAFB'} />
+                    <Text style={{ fontSize: 22, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>Boost this job</Text>
+                  </View>
                   <Text style={{ fontSize: 14, color: isLight ? '#6B7280' : '#9CA3AF' }}>Reach more qualified workers faster.</Text>
                 </View>
                 {[
-                  { emoji: '🔥', tag: 'Urgent Hire', desc: 'Top of search results for 7 days', price: '₹299', color: '#EF4444' },
-                  { emoji: '⭐', tag: 'Featured', desc: 'Highlighted card for 14 days', price: '₹499', color: AMBER },
-                  { emoji: '🚀', tag: 'Sponsored', desc: 'Push notification to 500+ matched workers', price: '₹899', color: BLUE },
+                  { icon: 'zap' as const, tag: 'Urgent Hire', desc: 'Top of search results for 7 days', price: '₹299', color: '#EF4444' },
+                  { icon: 'star' as const, tag: 'Featured', desc: 'Highlighted card for 14 days', price: '₹499', color: AMBER },
+                  { icon: 'send' as const, tag: 'Sponsored', desc: 'Push notification to 500+ matched workers', price: '₹899', color: BLUE },
                 ].map((opt) => (
                   <Pressable key={opt.tag} onPress={() => { haptic('selection'); setShowBoost(false); }}
                     style={({ pressed }) => ({
@@ -651,7 +657,7 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
                       borderWidth: 1, borderColor: opt.color + '40', opacity: pressed ? 0.75 : 1,
                     })}>
                     <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: opt.color + '20', alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontSize: 20 }}>{opt.emoji}</Text>
+                      <Feather name={opt.icon} size={20} color={opt.color} />
                     </View>
                     <View style={{ flex: 1, gap: 2 }}>
                       <Text style={{ fontSize: 15, fontWeight: '700', color: opt.color }}>{opt.tag}</Text>
@@ -735,9 +741,7 @@ function TipCard({ t }: { t: TFn }) {
           justifyContent: 'center',
         }}
       >
-        <Text variant="title" style={{ color: theme.brand.hero }}>
-          💡
-        </Text>
+        <Feather name="info" size={20} color={theme.brand.hero} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text variant="footnote" weight="medium" tone="hero">

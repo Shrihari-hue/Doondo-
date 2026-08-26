@@ -67,7 +67,7 @@ function getStatusStyle(isLight: boolean): Record<DocStatus, { color: string; bg
     Verified:  { color: GREEN,     bg: isLight ? '#F0FDF4' : '#052E16' },
     Signed:    { color: BLUE,      bg: isLight ? '#EFF6FF' : '#1E3A5F' },
     Pending:   { color: '#F59E0B', bg: isLight ? '#FFFBEB' : '#2A1A00' },
-    Uploading: { color: '#8B5CF6', bg: isLight ? '#F5F3FF' : '#2D1B69' },
+    Uploading: { color: '#C8533A', bg: isLight ? '#FBEEEA' : '#3F140A' },
   };
 }
 
@@ -155,16 +155,16 @@ export function WorkerDocumentsScreen() {
                   borderBottomColor: border, opacity: pressed && !isUploading ? 0.75 : 1,
                 })}>
                 <View style={{ width: 42, height: 42, borderRadius: 10,
-                  backgroundColor: isUploading ? (isLight ? '#F5F3FF' : '#2D1B69') : (isLight ? '#F3F4F6' : '#1F2937'),
+                  backgroundColor: isUploading ? (isLight ? '#FBEEEA' : '#3F140A') : (isLight ? '#F3F4F6' : '#1F2937'),
                   alignItems: 'center', justifyContent: 'center' }}>
                   {isUploading
-                    ? <Feather name="upload-cloud" size={19} color="#8B5CF6" />
+                    ? <Feather name="upload-cloud" size={19} color="#C8533A" />
                     : <Feather name={doc.icon} size={19} color={textSecondary} />}
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={{ fontSize: 14, fontWeight: '600', color: textPrimary }}>{doc.label}</Text>
                   {doc.filename && isUploading && (
-                    <Text style={{ fontSize: 11, color: '#8B5CF6' }}>Uploading…</Text>
+                    <Text style={{ fontSize: 11, color: '#C8533A' }}>Uploading…</Text>
                   )}
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>

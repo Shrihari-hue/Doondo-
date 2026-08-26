@@ -12,7 +12,9 @@
  */
 
 import { Pressable, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   createBottomTabNavigator,
   type BottomTabBarProps,
@@ -35,6 +37,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const Tab = createBottomTabNavigator<SeekerTabParamList>();
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
+
+// Established Doondo voice-interaction accent — matches VoicePostButton,
+// EmployerVoiceAgentScreen, and the employer tab bar's mic FAB.
+const ORANGE = '#F97316';
 
 /** Glyphs only — labels resolve to translations via useTranslate(). */
 const TAB_META: Record<keyof SeekerTabParamList, { i18nKey: string; glyph: string }> = {
@@ -73,6 +79,7 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { theme } = useTheme();
   const t = useTranslate();
   const rootNavigation = useNavigation<AppNav>();
+  const insets = useSafeAreaInsets();
 
   function renderTab(routeIndex: number) {
     const route = state.routes[routeIndex]!;
@@ -159,25 +166,17 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             width: 42,
             height: 42,
             borderRadius: 21,
-            backgroundColor: theme.brand.hero,
+            backgroundColor: ORANGE,
             alignItems: 'center',
             justifyContent: 'center',
-            shadowColor: theme.brand.hero,
+            shadowColor: ORANGE,
             shadowOffset: { width: 0, height: 6 },
             shadowOpacity: 0.24,
             shadowRadius: 10,
             elevation: 6,
           }}
         >
-          <Text
-            style={{
-              color: '#FFFFFF',
-              fontSize: 18,
-              lineHeight: 18,
-            }}
-          >
-            🎤
-          </Text>
+          <Feather name="mic" size={18} color="#FFFFFF" />
         </View>
         <Text
           variant="caption"
@@ -185,7 +184,7 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           numberOfLines={1}
           style={{
             fontSize: 10,
-            color: theme.brand.hero,
+            color: ORANGE,
           }}
         >
           {t('tabs.voice')}
@@ -202,7 +201,7 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         borderTopWidth: 0.5,
         borderTopColor: theme.border.default,
         paddingTop: spacing.xs,
-        paddingBottom: spacing.lg,
+        paddingBottom: insets.bottom + spacing.xs,
         paddingHorizontal: spacing.xs,
         alignItems: 'flex-end',
         minHeight: 76,

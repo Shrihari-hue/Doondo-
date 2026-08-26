@@ -134,7 +134,7 @@ export function AvailabilityBeaconChip({
           borderRadius: radii.lg,
           backgroundColor: isLive ? '#ECFDF5' : '#EFF6FF',
           borderWidth: 1,
-          borderColor: isLive ? '#86EFAC' : '#0855b3',
+          borderColor: isLive ? '#86EFAC' : '#2563EB',
           shadowColor: isLive ? '#10B981' : '#2563EB',
           shadowOffset: { width: 0, height: 3 },
           shadowOpacity: 0.12,
@@ -974,7 +974,7 @@ function AvailabilityBeaconSheet({
                 style={{
                   fontSize: 16,
                   fontWeight: '700',
-                  color: canPublish ? '#FFFFFF' : '#EEF2F7',
+                  color: canPublish ? '#FFFFFF' : '#64748B',
                   letterSpacing: 0.2,
                 }}
               >

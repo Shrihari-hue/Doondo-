@@ -304,7 +304,7 @@ export function ApplicantDetailScreen() {
       <Screen>
         <View style={{ flex: 1, justifyContent: 'center' }}>
           <EmptyState
-            glyph="✕"
+            icon="x-circle"
             tone="warning"
             eyebrow={t('employer.applicant_detail.error_eyebrow')}
             title={t('employer.applicant_detail.error_title')}
@@ -497,7 +497,7 @@ export function ApplicantDetailScreen() {
                 <View style={{ flexDirection: 'row', gap: spacing.md }}>
                   {[1, 2, 3, 4, 5].map((n) => (
                     <Pressable key={n} onPress={() => { haptic('selection'); setFeedbackImpression(n); }} hitSlop={8}>
-                      <Text style={{ fontSize: 28, opacity: n <= feedbackImpression ? 1 : 0.25 }}>⭐</Text>
+                      <Text style={{ fontSize: 28, color: '#F59E0B', opacity: n <= feedbackImpression ? 1 : 0.25 }}>★</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -508,18 +508,20 @@ export function ApplicantDetailScreen() {
                 <Text style={{ fontSize: 14, fontWeight: '600', color: isLight ? '#374151' : '#D1D5DB' }}>Next step</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
                   {[
-                    { val: 'hire' as const,      label: '🤝 Hire' },
-                    { val: 'followup' as const,  label: '📞 Follow up' },
-                    { val: 'pass' as const,      label: '👋 Pass' },
-                  ].map(({ val, label }) => (
+                    { val: 'hire' as const,      label: 'Hire',       icon: 'check' as const },
+                    { val: 'followup' as const,  label: 'Follow up',  icon: 'phone' as const },
+                    { val: 'pass' as const,      label: 'Pass',       icon: 'x' as const },
+                  ].map(({ val, label, icon }) => (
                     <Pressable key={val} onPress={() => { haptic('selection'); setFeedbackNextStep(val); }}
                       style={({ pressed }) => ({
+                        flexDirection: 'row', alignItems: 'center', gap: 6,
                         paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
                         borderWidth: 1.5,
                         borderColor: feedbackNextStep === val ? '#2563EB' : (isLight ? '#E5E7EB' : '#374151'),
                         backgroundColor: feedbackNextStep === val ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent',
                         opacity: pressed ? 0.75 : 1,
                       })}>
+                      <Feather name={icon} size={14} color={feedbackNextStep === val ? '#2563EB' : (isLight ? '#6B7280' : '#9CA3AF')} />
                       <Text style={{ fontSize: 14, fontWeight: '600', color: feedbackNextStep === val ? '#2563EB' : (isLight ? '#6B7280' : '#9CA3AF') }}>{label}</Text>
                     </Pressable>
                   ))}
@@ -705,15 +707,15 @@ export function ApplicantDetailScreen() {
               flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
               marginHorizontal: spacing.xl, marginTop: spacing.sm,
               borderRadius: 12, paddingVertical: 11,
-              borderWidth: 1.5, borderColor: '#7C3AED',
-              backgroundColor: isLight ? '#F5F3FF' : '#2D1B69',
+              borderWidth: 1.5, borderColor: '#C8533A',
+              backgroundColor: isLight ? '#FBEEEA' : '#3F140A',
               opacity: pressed || generatingLetter ? 0.75 : 1,
             })}
           >
             {generatingLetter
-              ? <ActivityIndicator size="small" color="#7C3AED" />
-              : <Feather name="file-text" size={16} color="#7C3AED" />}
-            <Text style={{ fontSize: 14, fontWeight: '700', color: '#7C3AED' }}>
+              ? <ActivityIndicator size="small" color="#C8533A" />
+              : <Feather name="file-text" size={16} color="#C8533A" />}
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#C8533A' }}>
               {generatingLetter ? 'Generating…' : 'Generate Offer Letter'}
             </Text>
           </Pressable>
@@ -802,7 +804,7 @@ export function ApplicantDetailScreen() {
                 opacity: pressed ? 0.7 : 1,
               })}
             >
-              <Text style={{ fontSize: 20 }}>📋</Text>
+              <Feather name="clipboard" size={20} color={isLight ? '#92400E' : '#FCD34D'} />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: isLight ? '#92400E' : '#FCD34D' }}>Interview Feedback</Text>
                 <Text style={{ fontSize: 12, color: isLight ? '#B45309' : '#FCD34D' }}>Your interview with {name.split(' ')[0]} has passed — leave feedback.</Text>
@@ -891,14 +893,14 @@ export function ApplicantDetailScreen() {
               <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary }}>Availability</Text>
               <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                 {(['Morning', 'Afternoon', 'Evening'] as const).map((slot) => {
-                  const icons = { Morning: '🌅', Afternoon: '☀️', Evening: '🌙' } as const;
+                  const icons = { Morning: 'sunrise', Afternoon: 'sun', Evening: 'moon' } as const;
                   // Show all slots as available when no slot data in the API type yet
                   const hasSlot = true;
                   return (
                     <View key={slot} style={{ flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12,
                       backgroundColor: hasSlot ? (isLight ? '#EFF6FF' : '#1E3A5F') : subtleBg,
                       borderWidth: 1.5, borderColor: hasSlot ? '#2563EB' : borderColor, gap: 4 }}>
-                      <Text style={{ fontSize: 18 }}>{icons[slot]}</Text>
+                      <Feather name={icons[slot]} size={18} color={hasSlot ? '#2563EB' : '#9CA3AF'} />
                       <Text style={{ fontSize: 12, fontWeight: '700', color: hasSlot ? '#2563EB' : '#9CA3AF' }}>
                         {slot}
                       </Text>
@@ -1030,7 +1032,7 @@ export function ApplicantDetailScreen() {
             {/* Rating summary */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xl }}>
               <View style={{ alignItems: 'center', gap: 4 }}>
-                <Text style={{ fontSize: 52, fontWeight: '900', color: '#1F2937', lineHeight: 56 }}>
+                <Text style={{ fontSize: 52, fontWeight: '900', color: textPrimary, lineHeight: 56 }}>
                   {rating ?? '\u2014'}
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 2 }}>
@@ -1252,14 +1254,15 @@ export function ApplicantDetailScreen() {
             <View style={{ gap: 8 }}>
               <Text style={{ fontSize: 13, fontWeight: '600', color: textSecondary }}>Mode</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                {([{ key: 'in_person', label: '📍 In Person' }, { key: 'video', label: '📹 Video' }, { key: 'phone', label: '📞 Phone' }] as const).map(({ key, label }) => {
+                {([{ key: 'in_person', label: 'In Person', icon: 'map-pin' as const }, { key: 'video', label: 'Video', icon: 'video' as const }, { key: 'phone', label: 'Phone', icon: 'phone' as const }] as const).map(({ key, label, icon }) => {
                   const active = scheduleMode === key;
                   return (
                     <Pressable key={key} onPress={() => { haptic('selection'); setScheduleMode(key); }}
-                      style={{ flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center',
+                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 9, borderRadius: 10,
                         borderWidth: active ? 1.5 : 1,
                         borderColor: active ? BLUE : borderColor,
                         backgroundColor: active ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent' }}>
+                      <Feather name={icon} size={13} color={active ? BLUE : textSecondary} />
                       <Text style={{ fontSize: 12, fontWeight: active ? '700' : '500', color: active ? BLUE : textSecondary }}>{label}</Text>
                     </Pressable>
                   );
@@ -1404,7 +1407,7 @@ function VideoPitchCard({
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
         paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: border }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ fontSize: 16 }}>🎬</Text>
+          <Feather name="video" size={16} color={textPrimary} />
           <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>Video Pitch</Text>
         </View>
         <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
@@ -2663,7 +2666,7 @@ function ApplicantBadgesSection({ seekerId }: { seekerId: string }) {
               gap: 6,
             }}
           >
-            <Text style={{ fontSize: 14 }}>🏅</Text>
+            <Feather name="award" size={14} color="#78350F" />
             <Text style={{ fontSize: 12 }}>{b.emoji}</Text>
             <Text style={{ fontSize: 12, fontWeight: '700', color: '#78350F' }}>
               {b.title}

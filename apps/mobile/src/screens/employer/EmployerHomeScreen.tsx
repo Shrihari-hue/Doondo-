@@ -44,6 +44,8 @@ const BLUE_LIGHT = '#EFF6FF';
 const GREEN_DARK = '#16A34A';
 const AMBER = '#F59E0B';
 const ORANGE = '#F97316';
+const CORAL = '#C8533A';
+const CORAL_LIGHT = '#FBEEEA';
 
 const WHY_EMPLOYERS_FEATURES: ReadonlyArray<{
   icon: React.ComponentProps<typeof Feather>['name'];
@@ -125,7 +127,14 @@ export function EmployerHomeScreen() {
   }, [applications]);
 
   // ── Live activity feed — derived from applications cache ──────────────────
-  type FeedEvent = { key: string; icon: string; text: string; time: string; bg: string };
+  type FeedEvent = {
+    key: string;
+    icon: React.ComponentProps<typeof Feather>['name'];
+    color: string;
+    text: string;
+    time: string;
+    bg: string;
+  };
 
   const feedEvents = useMemo<FeedEvent[]>(() => {
     const events: FeedEvent[] = [];
@@ -137,7 +146,8 @@ export function EmployerHomeScreen() {
       if (a.status === 'hired' && a.timeline.hiredAt) {
         events.push({
           key:  `hire-${a.id}`,
-          icon: '🎉',
+          icon: 'check-circle',
+          color: GREEN_DARK,
           text: `${name} hired for ${job}`,
           time: a.timeline.hiredAt,
           bg:   isLight ? '#F0FDF4' : '#052E16',
@@ -146,7 +156,8 @@ export function EmployerHomeScreen() {
       if (a.status === 'shortlisted' && a.timeline.shortlistedAt) {
         events.push({
           key:  `short-${a.id}`,
-          icon: '⭐',
+          icon: 'star',
+          color: BLUE,
           text: `${name} shortlisted for ${job}`,
           time: a.timeline.shortlistedAt,
           bg:   isLight ? '#EFF6FF' : '#1E3A5F',
@@ -155,7 +166,8 @@ export function EmployerHomeScreen() {
       if (a.status === 'pending' && a.timeline.appliedAt) {
         events.push({
           key:  `apply-${a.id}`,
-          icon: '👤',
+          icon: 'user',
+          color: AMBER,
           text: `${name} applied for ${job}`,
           time: a.timeline.appliedAt,
           bg:   isLight ? '#FFFBEB' : '#2A1A00',
@@ -164,10 +176,11 @@ export function EmployerHomeScreen() {
       if (a.interview && a.interview.scheduledAt) {
         events.push({
           key:  `intv-${a.id}`,
-          icon: '📅',
+          icon: 'calendar',
+          color: CORAL,
           text: `Interview with ${name} scheduled`,
           time: a.interview.scheduledAt,
-          bg:   '#EDE9FE',
+          bg:   CORAL_LIGHT,
         });
       }
     }
@@ -639,7 +652,7 @@ export function EmployerHomeScreen() {
             {([
               { icon: 'calendar', label: 'Attendance', bg: BLUE_LIGHT, color: BLUE, onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
               { icon: 'dollar-sign', label: 'Salary', bg: '#F0FDF4', color: GREEN_DARK, onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
-              { icon: 'clipboard', label: 'Assign Task', bg: '#EDE9FE', color: '#7C3AED', onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
+              { icon: 'clipboard', label: 'Assign Task', bg: CORAL_LIGHT, color: CORAL, onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
               { icon: 'bar-chart-2', label: 'Analytics', bg: '#FFF7ED', color: ORANGE, onPress: () => { haptic('selection'); navigation.navigate('EmployerAnalytics' as never); } },
             ] as const).map((item) => (
               <Pressable
@@ -729,7 +742,7 @@ export function EmployerHomeScreen() {
                     padding: spacing.md, borderBottomWidth: i < feedEvents.length - 1 ? 1 : 0, borderBottomColor: cardBorder }}>
                     <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: event.bg,
                       alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontSize: 16 }}>{event.icon}</Text>
+                      <Feather name={event.icon} size={16} color={event.color} />
                     </View>
                     <Text style={{ flex: 1, fontSize: 13, color: textPrimary }} numberOfLines={2}>{event.text}</Text>
                     <Text style={{ fontSize: 12, color: textSecondary, flexShrink: 0 }}>{formatEventTime(event.time)}</Text>
@@ -1049,8 +1062,8 @@ export function EmployerHomeScreen() {
                   {
                     group: 'Interviews',
                     icon: 'calendar' as const,
-                    color: '#7C3AED',
-                    bg: isLight ? '#F5F3FF' : '#2D1B69',
+                    color: CORAL,
+                    bg: isLight ? CORAL_LIGHT : '#3F140A',
                     items: applications.filter((a) => (a as any).interview?.scheduledAt).slice(0, 2).map((a) => ({
                       id: a.id,
                       text: `Interview with ${a.seeker?.name ?? 'a candidate'} coming up`,

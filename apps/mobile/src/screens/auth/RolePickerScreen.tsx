@@ -16,7 +16,7 @@ import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { radii, spacing, blue } from '@doondo/tokens';
+import { radii, spacing, blue, coral, jade } from '@doondo/tokens';
 import { Screen, Text, DoondoMark } from '@/components';
 import { haptic } from '@/lib/haptics';
 import {
@@ -163,7 +163,7 @@ export function RolePickerScreen() {
               width: compact ? 280 : 420,
               height: compact ? 280 : 420,
               borderRadius: 999,
-              backgroundColor: isLight ? 'rgba(211, 165, 86, 0.10)' : 'rgba(113, 74, 255, 0.08)',
+              backgroundColor: isLight ? 'rgba(211, 165, 86, 0.10)' : 'rgba(59, 130, 246, 0.08)',
             }}
           />
 
@@ -240,7 +240,7 @@ export function RolePickerScreen() {
                   paddingHorizontal: spacing.lg,
                   paddingVertical: spacing.sm,
                   borderWidth: 0.5,
-                  borderColor: isLight ? 'rgba(211, 165, 86, 0.35)' : 'rgba(141, 109, 255, 0.35)',
+                  borderColor: isLight ? 'rgba(29, 78, 216, 0.35)' : 'rgba(147, 197, 253, 0.35)',
                   backgroundColor: isLight ? 'rgba(255,255,255,0.72)' : 'rgba(19,16,35,0.72)',
                   // Cap pill width so the longer eyebrow tagline wraps
                   // gracefully into two centred lines instead of pushing
@@ -256,7 +256,7 @@ export function RolePickerScreen() {
                     // so the longer copy fits without feeling stretched.
                     letterSpacing: 0.8,
                     textAlign: 'center',
-                    color: isLight ? '#A97215' : '#B08CFF',
+                    color: isLight ? blue[700] : blue[300],
                   }}
                 >
                   {t('role_picker.eyebrow')}
@@ -300,7 +300,7 @@ export function RolePickerScreen() {
               }}
             >
               <JourneyCard
-                accent={isLight ? '#2F774B' : '#22C55E'}
+                accent={isLight ? blue[700] : blue[400]}
                 badgeIcon="briefcase"
                 icon="map-pin"
                 headline={t('role_picker.seeker_headline')}
@@ -311,7 +311,7 @@ export function RolePickerScreen() {
               />
 
               <JourneyCard
-                accent={isLight ? '#6D28D9' : '#8B5CF6'}
+                accent={isLight ? coral[600] : coral[400]}
                 badgeIcon="user"
                 icon="search"
                 headline={t('role_picker.employer_headline')}
@@ -680,7 +680,7 @@ function TopBar({
         >
           <DoondoMark
             size={Math.round(logoSize * 0.78)}
-            color={isLight ? '#A97215' : '#B08CFF'}
+            color={isLight ? blue[700] : blue[300]}
           />
         </View>
         {!tight && (
@@ -952,7 +952,7 @@ function HowItWorks({ compact, t }: { compact: boolean; t: TFn }) {
           weight="medium"
           style={{
             letterSpacing: 1.4,
-            color: isLight ? '#A97215' : '#B08CFF',
+            color: isLight ? blue[700] : blue[300],
           }}
         >
           {t('role_picker.how_eyebrow')}
@@ -1046,7 +1046,7 @@ function ActivityTicker({ compact, t }: { compact: boolean; t: TFn }) {
     return () => loop.stop();
   }, [textWidth, translate]);
 
-  const accent = isLight ? '#A97215' : '#B08CFF';
+  const accent = isLight ? blue[700] : blue[300];
 
   // Render one strip. The first copy reports its width via onLayout so
   // we know how far to translate; the second copy renders identically
@@ -1109,7 +1109,7 @@ function ActivityTicker({ compact, t }: { compact: boolean; t: TFn }) {
             borderRadius: radii.pill,
             backgroundColor: isLight
               ? 'rgba(211, 165, 86, 0.16)'
-              : 'rgba(141, 109, 255, 0.18)',
+              : 'rgba(147, 197, 253, 0.18)',
             borderWidth: 0.5,
             borderColor: theme.premium.hairline,
             marginLeft: compact ? spacing.lg : spacing['2xl'],
@@ -1123,7 +1123,7 @@ function ActivityTicker({ compact, t }: { compact: boolean; t: TFn }) {
               width: 6,
               height: 6,
               borderRadius: 3,
-              backgroundColor: '#22C55E',
+              backgroundColor: jade[300],
             }}
           />
           <Text

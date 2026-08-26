@@ -673,7 +673,7 @@ export function SeekerHomeScreen() {
                       style={{
                         fontSize: 13,
                         fontWeight: '600',
-                        color: '#288f16',
+                        color: '#FFFFFF',
                       }}
                     >
                       {t('home.jobs.apply_now')}

@@ -130,7 +130,8 @@ export function SentHiringRequestsScreen() {
           />
         ) : requests.length === 0 ? (
           <EmptyState
-            glyph="📤"
+            icon="send"
+            tone="blue"
             eyebrow="NOTHING SENT YET"
             title="No hiring requests sent"
             message="Find a worker on the map or the available-workers list, then send them a request to apply for one of your jobs."
@@ -148,7 +149,7 @@ export function SentHiringRequestsScreen() {
               <RefreshControl
                 refreshing={query.isRefetching}
                 onRefresh={() => void query.refetch()}
-                tintColor={theme.brand.hero}
+                tintColor={blue[600]}
               />
             }
             renderItem={({ item }) => (

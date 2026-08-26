@@ -244,7 +244,7 @@ export function WorkersScreen() {
           {query.isLoading ? (
             <><SkeletonCard lines={3} /><SkeletonCard lines={3} /><SkeletonCard lines={3} /></>
           ) : query.isError ? (
-            <EmptyState glyph="✕" tone="warning" eyebrow="Offline" title="Could not load workers"
+            <EmptyState icon="x-circle" tone="warning" eyebrow="Offline" title="Could not load workers"
               message="Check your connection and pull to refresh." tall />
           ) : visible.length === 0 ? (
             <EmptyState illustration="workers" tone="hero" eyebrow="No workers"

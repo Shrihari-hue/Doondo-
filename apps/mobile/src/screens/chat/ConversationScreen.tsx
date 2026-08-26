@@ -698,8 +698,11 @@ function ConversationScreenInner() {
         )}
 
         {/* Quick-reply bar — pre-translated chips. Hidden once the user
-            starts typing so it never competes with a real draft. */}
-        {draft.trim().length === 0 && (
+            starts typing so it never competes with a real draft, and while
+            a voice note is being recorded or previewed so its floating
+            banner (bottom: 80, sized for the composer alone) never has to
+            clear this bar's variable height too. */}
+        {draft.trim().length === 0 && !recording && !pendingVoice && (
           <QuickReplyBar
             role={user?.role}
             disabled={sendMutation.isPending}

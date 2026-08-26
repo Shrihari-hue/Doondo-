@@ -25,6 +25,7 @@ import { Screen, Text, Card, Button, TextField, Pill, LoadingSpinner, QrCode } f
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { haptic } from '@/lib/haptics';
+import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { collectApi, type CollectQr, type CollectQrKind } from '@/api/collect.api';
 import type { AppStackParamList } from '@/navigation/types';
 
@@ -34,7 +35,7 @@ function rupees(paise: number): string {
   return `₹${Math.round(paise / 100).toLocaleString('en-IN')}`;
 }
 
-export function CollectScreen() {
+function Inner() {
   const { theme } = useTheme();
   const t = useTranslate();
   const navigation = useNavigation<Nav>();
@@ -358,5 +359,13 @@ export function CollectScreen() {
         )}
       </ScrollView>
     </Screen>
+  );
+}
+
+export function CollectScreen() {
+  return (
+    <SeekerThemeOverride>
+      <Inner />
+    </SeekerThemeOverride>
   );
 }

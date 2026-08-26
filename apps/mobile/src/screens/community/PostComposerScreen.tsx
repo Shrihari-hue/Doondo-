@@ -24,7 +24,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { spacing, radii } from '@doondo/tokens';
+import { Feather } from '@expo/vector-icons';
+import { spacing, radii, blue } from '@doondo/tokens';
 import { Screen, Text, Avatar } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
@@ -47,10 +48,10 @@ interface TypeCfg {
 const TYPES: TypeCfg[] = [
   { key: 'text', label: 'Thought', glyph: '✏️', tint: '#FEF3C7' },
   { key: 'photo', label: 'Photo', glyph: '📷', tint: '#DBEAFE' },
-  { key: 'video', label: 'Video', glyph: '🎥', tint: '#EDE9FE' },
+  { key: 'video', label: 'Video', glyph: '🎥', tint: '#BFDBFE' },
   { key: 'certificate', label: 'Certificate', glyph: '🏆', tint: '#FDE7B8' },
   { key: 'resume', label: 'Resume', glyph: '📄', tint: '#DCFCE7' },
-  { key: 'voice', label: 'Voice', glyph: '🎤', tint: '#FCE7F3' },
+  { key: 'voice', label: 'Voice', glyph: '🎤', tint: '#FFEDD5' },
 ];
 
 interface Suggestion {
@@ -173,39 +174,59 @@ function Inner() {
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'space-between',
           }}
         >
-          <Pressable
-            onPress={() => navigation.goBack()}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: theme.bg.surface,
-              borderWidth: 0.5,
-              borderColor: theme.border.subtle,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ fontSize: 20, color: theme.text.primary }}>←</Text>
-          </Pressable>
+          <View style={{ flex: 1, alignItems: 'flex-start' }}>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: theme.bg.surface,
+                borderWidth: 0.5,
+                borderColor: theme.border.subtle,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 20, color: theme.text.primary }}>←</Text>
+            </Pressable>
+          </View>
 
           <Text
-            style={{ fontSize: 18, fontWeight: '700', color: theme.text.primary }}
+            style={{ fontSize: 18, fontWeight: '700', color: theme.text.primary, textAlign: 'center' }}
+            numberOfLines={1}
           >
             Create Update
           </Text>
 
-          {canPost ? (
-            <Pressable onPress={submit} accessibilityRole="button" accessibilityLabel="Post">
-              <LinearGradient
-                colors={['#3B82F6', '#7C3AED']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+            {canPost ? (
+              <Pressable onPress={submit} accessibilityRole="button" accessibilityLabel="Post">
+                <LinearGradient
+                  colors={[blue[500], blue[400]]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    paddingHorizontal: 18,
+                    paddingVertical: 9,
+                    borderRadius: radii.pill,
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
+                    Post
+                  </Text>
+                  <Feather name="send" size={14} color="#FFFFFF" />
+                </LinearGradient>
+              </Pressable>
+            ) : (
+              <View
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -213,32 +234,16 @@ function Inner() {
                   paddingHorizontal: 18,
                   paddingVertical: 9,
                   borderRadius: radii.pill,
+                  backgroundColor: theme.border.default,
                 }}
               >
-                <Text style={{ color: '#FFFFFF', fontSize: 13 }}>➤</Text>
                 <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
                   Post
                 </Text>
-              </LinearGradient>
-            </Pressable>
-          ) : (
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                paddingHorizontal: 18,
-                paddingVertical: 9,
-                borderRadius: radii.pill,
-                backgroundColor: theme.border.default,
-              }}
-            >
-              <Text style={{ color: '#FFFFFF', fontSize: 13 }}>➤</Text>
-              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
-                Post
-              </Text>
-            </View>
-          )}
+                <Feather name="send" size={14} color="#FFFFFF" />
+              </View>
+            )}
+          </View>
         </View>
         <Text
           style={{
@@ -297,10 +302,10 @@ function Inner() {
                   paddingHorizontal: 10,
                   paddingVertical: 3,
                   borderRadius: radii.pill,
-                  backgroundColor: '#EDE9FE',
+                  backgroundColor: blue[50],
                 }}
               >
-                <Text style={{ fontSize: 11, fontWeight: '700', color: '#6D28D9' }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: blue[700] }}>
                   {role}
                 </Text>
               </View>
@@ -647,7 +652,7 @@ function MediaArea({
               width: 76,
               height: 76,
               borderRadius: 38,
-              backgroundColor: '#FCE7F3',
+              backgroundColor: '#FFEDD5',
               alignItems: 'center',
               justifyContent: 'center',
             }}

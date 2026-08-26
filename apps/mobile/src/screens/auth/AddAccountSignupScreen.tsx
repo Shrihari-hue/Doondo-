@@ -19,16 +19,17 @@
  */
 
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 
-import { radii, spacing } from '@doondo/tokens';
-import { Screen, Text, Button, TextField, FormError } from '@/components';
+import { radii, spacing, blue } from '@doondo/tokens';
+import { Screen, Text, Button, TextField, FormError, DoondoMark } from '@/components';
 import { authApi, isLoginRoleChoice } from '@/api/auth.api';
 import { ApiError } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
-import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
@@ -59,7 +60,6 @@ export function AddAccountSignupScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { user, addAccount } = useAuth();
-  const { theme } = useTheme();
   const t = useTranslate();
 
   const role: UserRole = route.params?.role ?? 'employer';
@@ -248,6 +248,32 @@ export function AddAccountSignupScreen() {
     navigation.navigate('ForgotPassword');
   }
 
+  const heroTitle = isRecovery
+    ? isEmployer
+      ? t('auth.add_account_signup.recovery_title_employer')
+      : t('auth.add_account_signup.recovery_title_default')
+    : isLogin
+      ? t('auth.add_account_signup.login_title')
+      : isEmployer
+        ? t('auth.add_account_signup.title_employer')
+        : t('auth.add_account_signup.title_default');
+
+  const heroEyebrow = isRecovery
+    ? t('auth.add_account_signup.recovery_eyebrow')
+    : isLogin
+      ? t('auth.add_account_signup.login_eyebrow')
+      : isEmployer
+        ? t('auth.add_account_signup.eyebrow_employer')
+        : t('auth.add_account_signup.eyebrow_default');
+
+  const heroSubtitle = isRecovery
+    ? t('auth.add_account_signup.recovery_subtitle', { email: email.trim() })
+    : isLogin
+      ? t('auth.add_account_signup.login_subtitle')
+      : user?.role === 'seeker'
+        ? t('auth.add_account_signup.subtitle_seeker')
+        : t('auth.add_account_signup.subtitle_default');
+
   return (
     <Screen>
       <KeyboardAvoidingView
@@ -263,39 +289,50 @@ export function AddAccountSignupScreen() {
           }}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={{ gap: spacing.xs }}>
-            <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              {isRecovery
-                ? t('auth.add_account_signup.recovery_eyebrow')
-                : isLogin
-                  ? t('auth.add_account_signup.login_eyebrow')
-                  : isEmployer
-                    ? t('auth.add_account_signup.eyebrow_employer')
-                    : t('auth.add_account_signup.eyebrow_default')}
-            </Text>
-            <Text variant="titleLarge" weight="medium">
-              {isRecovery
-                ? isEmployer
-                  ? t('auth.add_account_signup.recovery_title_employer')
-                  : t('auth.add_account_signup.recovery_title_default')
-                : isLogin
-                  ? t('auth.add_account_signup.login_title')
-                  : isEmployer
-                    ? t('auth.add_account_signup.title_employer')
-                    : t('auth.add_account_signup.title_default')}
-            </Text>
-            <Text variant="footnote" tone="secondary" style={{ marginTop: spacing.xs }}>
-              {isRecovery
-                ? t('auth.add_account_signup.recovery_subtitle', {
-                    email: email.trim(),
-                  })
-                : isLogin
-                  ? t('auth.add_account_signup.login_subtitle')
-                  : user?.role === 'seeker'
-                    ? t('auth.add_account_signup.subtitle_seeker')
-                    : t('auth.add_account_signup.subtitle_default')}
-            </Text>
-          </View>
+          <LinearGradient
+            colors={['#060B16', '#0D1B33', blue[900]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.md,
+              borderRadius: radii.xl,
+              padding: spacing.lg,
+              borderWidth: 1,
+              borderColor: 'rgba(96,165,250,0.25)',
+            }}
+          >
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: radii.lg,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(59,130,246,0.16)',
+                borderWidth: 1,
+                borderColor: 'rgba(96,165,250,0.5)',
+              }}
+            >
+              <DoondoMark size={30} color={blue[300]} />
+            </View>
+
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+                {heroTitle}
+              </Text>
+              <Text variant="caption" style={{ letterSpacing: 1.2, color: blue[300] }}>
+                {heroEyebrow}
+              </Text>
+              <Text
+                variant="footnote"
+                style={{ marginTop: spacing.xs, color: 'rgba(255,255,255,0.75)' }}
+              >
+                {heroSubtitle}
+              </Text>
+            </View>
+          </LinearGradient>
 
           {/* ─── Recovery panel ───────────────────────────────────────
               Shown only after the server rejected signup with
@@ -306,28 +343,40 @@ export function AddAccountSignupScreen() {
               style={{
                 padding: spacing.lg,
                 borderRadius: radii.lg,
-                backgroundColor: theme.brand.heroSubtle,
+                backgroundColor: 'rgba(59,130,246,0.12)',
                 borderWidth: 0.5,
-                borderColor: theme.brand.heroBorder,
+                borderColor: 'rgba(96,165,250,0.35)',
                 gap: spacing.md,
               }}
             >
-              <Text
-                style={{ fontSize: 14, fontWeight: '600', color: theme.brand.hero }}
-              >
-                {t('auth.add_account_signup.recovery_card_title')}
-              </Text>
-              <Text style={{ fontSize: 13, color: theme.text.secondary }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                <Feather name="info" size={16} color={blue[300]} />
+                <Text style={{ fontSize: 14, fontWeight: '700', color: blue[300], flex: 1 }}>
+                  {t('auth.add_account_signup.recovery_card_title')}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 13, lineHeight: 19, color: 'rgba(255,255,255,0.85)' }}>
                 {t('auth.add_account_signup.recovery_card_body')}
               </Text>
-              <Button
-                label={
-                  isEmployer
-                    ? t('auth.add_account_signup.recovery_signin_employer')
-                    : t('auth.add_account_signup.recovery_signin_default')
-                }
-                onPress={recoverViaSignIn}
-              />
+
+              <Pressable onPress={recoverViaSignIn} style={{ opacity: 1 }}>
+                <LinearGradient
+                  colors={[blue[500], blue[400]]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{
+                    paddingVertical: spacing.md,
+                    borderRadius: radii.pill,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>
+                    {isEmployer
+                      ? t('auth.add_account_signup.recovery_signin_employer')
+                      : t('auth.add_account_signup.recovery_signin_default')}
+                  </Text>
+                </LinearGradient>
+              </Pressable>
               <Button
                 label={t('auth.add_account_signup.recovery_forgot')}
                 variant="ghost"
@@ -350,22 +399,16 @@ export function AddAccountSignupScreen() {
               style={{
                 padding: spacing.md,
                 borderRadius: radii.md,
-                backgroundColor: theme.brand.heroSubtle,
+                backgroundColor: 'rgba(59,130,246,0.12)',
                 borderWidth: 0.5,
-                borderColor: theme.brand.heroBorder,
+                borderColor: 'rgba(96,165,250,0.35)',
                 gap: 2,
               }}
             >
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: '600',
-                  color: theme.brand.hero,
-                }}
-              >
+              <Text style={{ fontSize: 13, fontWeight: '700', color: blue[300] }}>
                 {t('auth.add_account_signup.banner_title')}
               </Text>
-              <Text style={{ fontSize: 12, color: theme.text.secondary }}>
+              <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>
                 {t('auth.add_account_signup.banner_body')}
               </Text>
             </View>
@@ -373,137 +416,187 @@ export function AddAccountSignupScreen() {
 
           {!isRecovery && <FormError message={formError} />}
 
-          {!isRecovery && <View style={{ gap: spacing.lg }}>
-            {/* Name + phone are only needed when creating a new account.
-                In login mode the existing account already has them. */}
-            {!isLogin && (
+          {!isRecovery && (
+            <View style={{ gap: spacing.lg }}>
+              {/* Name + phone are only needed when creating a new account.
+                  In login mode the existing account already has them. */}
+              {!isLogin && (
+                <TextField
+                  label={isEmployer ? t('auth.add_account_signup.name_label_employer') : t('auth.add_account_signup.name_label_default')}
+                  value={name}
+                  onChangeText={(v) => {
+                    setName(v);
+                    if (fieldErrors.name) setFieldErrors((s) => ({ ...s, name: undefined }));
+                  }}
+                  placeholder={isEmployer ? t('auth.add_account_signup.name_placeholder_employer') : t('auth.add_account_signup.name_placeholder_default')}
+                  autoCapitalize="words"
+                  autoComplete="name"
+                  error={fieldErrors.name ?? null}
+                  helper={
+                    isEmployer
+                      ? t('auth.add_account_signup.name_helper_employer')
+                      : undefined
+                  }
+                />
+              )}
               <TextField
-                label={isEmployer ? t('auth.add_account_signup.name_label_employer') : t('auth.add_account_signup.name_label_default')}
-                value={name}
+                label={t('auth.add_account_signup.email_label')}
+                value={email}
                 onChangeText={(v) => {
-                  setName(v);
-                  if (fieldErrors.name) setFieldErrors((s) => ({ ...s, name: undefined }));
+                  setEmail(v);
+                  if (fieldErrors.email) setFieldErrors((s) => ({ ...s, email: undefined }));
                 }}
-                placeholder={isEmployer ? t('auth.add_account_signup.name_placeholder_employer') : t('auth.add_account_signup.name_placeholder_default')}
-                autoCapitalize="words"
-                autoComplete="name"
-                error={fieldErrors.name ?? null}
-                helper={
-                  isEmployer
-                    ? t('auth.add_account_signup.name_helper_employer')
-                    : undefined
+                placeholder={t('auth.add_account_signup.email_placeholder')}
+                autoCapitalize="none"
+                autoComplete="email"
+                autoCorrect={false}
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                error={fieldErrors.email ?? null}
+                helper={isLogin ? undefined : t('auth.add_account_signup.email_helper')}
+              />
+              <TextField
+                label={t('auth.add_account_signup.password_label')}
+                value={password}
+                onChangeText={(v) => {
+                  setPassword(v);
+                  if (fieldErrors.password) setFieldErrors((s) => ({ ...s, password: undefined }));
+                }}
+                placeholder={
+                  isLogin
+                    ? t('auth.add_account_signup.password_label')
+                    : t('auth.add_account_signup.password_placeholder')
                 }
+                autoCapitalize="none"
+                autoComplete={isLogin ? 'current-password' : 'password-new'}
+                textContentType={isLogin ? 'password' : 'newPassword'}
+                passwordToggle
+                error={fieldErrors.password ?? null}
               />
-            )}
-            <TextField
-              label={t('auth.add_account_signup.email_label')}
-              value={email}
-              onChangeText={(v) => {
-                setEmail(v);
-                if (fieldErrors.email) setFieldErrors((s) => ({ ...s, email: undefined }));
-              }}
-              placeholder={t('auth.add_account_signup.email_placeholder')}
-              autoCapitalize="none"
-              autoComplete="email"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              error={fieldErrors.email ?? null}
-              helper={isLogin ? undefined : t('auth.add_account_signup.email_helper')}
-            />
-            <TextField
-              label={t('auth.add_account_signup.password_label')}
-              value={password}
-              onChangeText={(v) => {
-                setPassword(v);
-                if (fieldErrors.password) setFieldErrors((s) => ({ ...s, password: undefined }));
-              }}
-              placeholder={
-                isLogin
-                  ? t('auth.add_account_signup.password_label')
-                  : t('auth.add_account_signup.password_placeholder')
-              }
-              autoCapitalize="none"
-              autoComplete={isLogin ? 'current-password' : 'password-new'}
-              textContentType={isLogin ? 'password' : 'newPassword'}
-              passwordToggle
-              error={fieldErrors.password ?? null}
-            />
-            {!isLogin && (
-              <TextField
-                label={t('auth.add_account_signup.phone_label')}
-                value={phone}
-                onChangeText={(v) => {
-                  setPhone(v);
-                  if (fieldErrors.phone) setFieldErrors((s) => ({ ...s, phone: undefined }));
-                }}
-                placeholder={t('auth.add_account_signup.phone_placeholder')}
-                autoComplete="tel"
-                keyboardType="phone-pad"
-                textContentType="telephoneNumber"
-                helper={t('auth.add_account_signup.phone_helper')}
-                error={fieldErrors.phone ?? null}
-              />
-            )}
-          </View>}
+              {!isLogin && (
+                <TextField
+                  label={t('auth.add_account_signup.phone_label')}
+                  value={phone}
+                  onChangeText={(v) => {
+                    setPhone(v);
+                    if (fieldErrors.phone) setFieldErrors((s) => ({ ...s, phone: undefined }));
+                  }}
+                  placeholder={t('auth.add_account_signup.phone_placeholder')}
+                  autoComplete="tel"
+                  keyboardType="phone-pad"
+                  textContentType="telephoneNumber"
+                  helper={t('auth.add_account_signup.phone_helper')}
+                  error={fieldErrors.phone ?? null}
+                />
+              )}
+            </View>
+          )}
 
-          {!isRecovery && <View style={{ gap: spacing.md }}>
-            <Button
-              label={
-                submitting
-                  ? isLogin
-                    ? t('auth.add_account_signup.cta_signing_in')
-                    : t('auth.add_account_signup.cta_creating')
-                  : isLogin
-                    ? t('auth.add_account_signup.cta_signin')
-                    : isEmployer
-                      ? t('auth.add_account_signup.cta_create_employer')
-                      : t('auth.add_account_signup.cta_create_default')
-              }
-              onPress={onSubmit}
-              disabled={submitting}
-            />
-            {/* Forgot-password link — visible only in login mode. The
-                user is trying to sign into an account they already
-                own; if they don't remember the password they should
-                have a one-tap path to recovery. */}
-            {isLogin && (
+          {!isRecovery && (
+            <View style={{ gap: spacing.md }}>
+              <Pressable onPress={onSubmit} disabled={submitting} style={{ opacity: submitting ? 0.7 : 1 }}>
+                <LinearGradient
+                  colors={[blue[500], blue[400]]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: spacing.sm,
+                    borderRadius: radii.pill,
+                    paddingVertical: spacing.lg,
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+                    {submitting
+                      ? isLogin
+                        ? t('auth.add_account_signup.cta_signing_in')
+                        : t('auth.add_account_signup.cta_creating')
+                      : isLogin
+                        ? t('auth.add_account_signup.cta_signin')
+                        : isEmployer
+                          ? t('auth.add_account_signup.cta_create_employer')
+                          : t('auth.add_account_signup.cta_create_default')}
+                  </Text>
+                  {!submitting && <Feather name="arrow-right" size={18} color="#FFFFFF" />}
+                </LinearGradient>
+              </Pressable>
+              {/* Forgot-password link — visible only in login mode. The
+                  user is trying to sign into an account they already
+                  own; if they don't remember the password they should
+                  have a one-tap path to recovery. */}
+              {isLogin && (
+                <Button
+                  label={t('auth.add_account_signup.cta_forgot')}
+                  variant="ghost"
+                  onPress={recoverViaForgotPassword}
+                  disabled={submitting}
+                />
+              )}
               <Button
-                label={t('auth.add_account_signup.cta_forgot')}
+                label={t('auth.add_account_signup.cta_cancel')}
                 variant="ghost"
-                onPress={recoverViaForgotPassword}
+                onPress={() => navigation.goBack()}
                 disabled={submitting}
               />
-            )}
-            <Button
-              label={t('auth.add_account_signup.cta_cancel')}
-              variant="ghost"
-              onPress={() => navigation.goBack()}
-              disabled={submitting}
-            />
-          </View>}
+            </View>
+          )}
 
           {/* Mode toggle — switch between creating a new account and
               signing into one the worker already owns. */}
-          {!isRecovery && <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.xs }}>
-            <Text variant="footnote" tone="secondary">
-              {isLogin
-                ? t('auth.add_account_signup.no_account_q')
-                : t('auth.add_account_signup.have_account_q')}
-            </Text>
-            <Text
-              variant="footnote"
-              weight="medium"
-              tone="hero"
-              onPress={() => switchMode(isLogin ? 'signup' : 'login')}
-            >
-              {isLogin
-                ? t('auth.add_account_signup.no_account_cta')
-                : t('auth.add_account_signup.have_account_cta')}
-            </Text>
-          </View>}
+          {!isRecovery && (
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.xs }}>
+              <Text variant="footnote" tone="secondary">
+                {isLogin
+                  ? t('auth.add_account_signup.no_account_q')
+                  : t('auth.add_account_signup.have_account_q')}
+              </Text>
+              <Text
+                variant="footnote"
+                weight="medium"
+                tone="hero"
+                onPress={() => switchMode(isLogin ? 'signup' : 'login')}
+              >
+                {isLogin
+                  ? t('auth.add_account_signup.no_account_cta')
+                  : t('auth.add_account_signup.have_account_cta')}
+              </Text>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={submitting} transparent animationType="fade" statusBarTranslucent>
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0,0,0,0.55)',
+          }}
+        >
+          <View
+            style={{
+              alignItems: 'center',
+              gap: spacing.md,
+              paddingVertical: spacing.xl,
+              paddingHorizontal: spacing['2xl'],
+              borderRadius: radii.xl,
+              backgroundColor: '#0D1B33',
+              borderWidth: 1,
+              borderColor: 'rgba(96,165,250,0.3)',
+            }}
+          >
+            <ActivityIndicator size="large" color={blue[400]} />
+            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
+              {isLogin
+                ? t('auth.add_account_signup.cta_signing_in')
+                : t('auth.add_account_signup.cta_creating')}
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }

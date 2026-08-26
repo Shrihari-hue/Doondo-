@@ -24,7 +24,7 @@ const BLUE   = '#2563EB';
 const GREEN  = '#16A34A';
 const AMBER  = '#F59E0B';
 const RED    = '#EF4444';
-const PURPLE = '#8B5CF6';
+const BLUE_DEEP = '#1E40AF';
 
 const STATUS_COLORS: Record<string, string> = {
   pending:     AMBER,
@@ -92,20 +92,41 @@ function BarChart({
   );
 }
 
-function StatCard({ value, label, icon, color, surface, border, textPrimary, textSecondary }: {
-  value: string; label: string;
-  icon: React.ComponentProps<typeof Feather>['name']; color: string;
-  surface: string; border: string; textPrimary: string; textSecondary: string;
+/** One equal-width centered column inside a StatRow — value on top, label below. */
+function StatColumn({ value, label, color, textSecondary }: {
+  value: string; label: string; color: string; textSecondary: string;
 }) {
   return (
-    <View style={{ flex: 1, backgroundColor: surface, borderRadius: 14, borderWidth: 1, borderColor: border,
-      padding: spacing.md, gap: 4 }}>
-      <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: color + '1A',
-        alignItems: 'center', justifyContent: 'center' }}>
-        <Feather name={icon} size={18} color={color} />
-      </View>
-      <Text style={{ fontSize: 24, fontWeight: '900', color: textPrimary }}>{value}</Text>
-      <Text style={{ fontSize: 11, color: textSecondary }}>{label}</Text>
+    <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
+      <Text style={{ fontSize: 20, fontWeight: '800', color }} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
+      <Text style={{ fontSize: 11, color: textSecondary }} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+/** A row of equal-width, centered stat columns separated by hairline dividers. */
+function StatRow({
+  items, surface, border, textSecondary,
+}: {
+  items: { value: string; label: string; color: string }[];
+  surface: string; border: string; textSecondary: string;
+}) {
+  return (
+    <View style={{
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border,
+      paddingVertical: spacing.md, paddingHorizontal: spacing.sm,
+    }}>
+      {items.map((it, i) => (
+        <View key={it.label} style={{ flexDirection: 'row', flex: 1, alignItems: 'center' }}>
+          {i > 0 && <View style={{ width: 1, height: 28, backgroundColor: border, marginRight: spacing.sm }} />}
+          <StatColumn value={it.value} label={it.label} color={it.color} textSecondary={textSecondary} />
+        </View>
+      ))}
     </View>
   );
 }
@@ -199,14 +220,28 @@ export function EmployerAnalyticsScreen() {
       <ScrollView style={{ flex: 1, backgroundColor: bg }}
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.xl, paddingBottom: 80 }}>
 
-        {/* KPI cards */}
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <StatCard value={String(apps.length)}           label="Total Applicants" icon="users"       color={BLUE}   surface={surface} border={border} textPrimary={textPrimary} textSecondary={textSecondary} />
-          <StatCard value={String(statusCounts.hired)}    label="Hired"            icon="user-check"  color={GREEN}  surface={surface} border={border} textPrimary={textPrimary} textSecondary={textSecondary} />
-        </View>
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <StatCard value={hireRate}                      label="Hire Rate"        icon="trending-up" color={PURPLE} surface={surface} border={border} textPrimary={textPrimary} textSecondary={textSecondary} />
-          <StatCard value={String(statusCounts.pending)}  label="Awaiting Review"  icon="clock"       color={AMBER}  surface={surface} border={border} textPrimary={textPrimary} textSecondary={textSecondary} />
+        {/* KPI stat rows — equal-width centered columns, consistent with the
+           metrics band on the Posts tab. */}
+        <View style={{ gap: spacing.sm }}>
+          <StatRow
+            surface={surface}
+            border={border}
+            textSecondary={textSecondary}
+            items={[
+              { value: String(apps.length), label: 'Applications', color: BLUE },
+              { value: String(statusCounts.shortlisted), label: 'Shortlisted', color: BLUE_DEEP },
+              { value: String(statusCounts.hired), label: 'Hired', color: GREEN },
+            ]}
+          />
+          <StatRow
+            surface={surface}
+            border={border}
+            textSecondary={textSecondary}
+            items={[
+              { value: hireRate, label: 'Hire Rate', color: BLUE_DEEP },
+              { value: String(statusCounts.pending), label: 'Awaiting Review', color: AMBER },
+            ]}
+          />
         </View>
 
         {/* Applicants by status — horizontal bar */}

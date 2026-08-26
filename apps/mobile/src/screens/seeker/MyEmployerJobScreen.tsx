@@ -30,6 +30,7 @@ import { Screen, Text, Card, Avatar, Button, DisputeSection, HiredJobTools, Paym
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { haptic } from '@/lib/haptics';
+import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { applicationsApi } from '@/api/applications.api';
 import { employersApi } from '@/api/employers.api';
 import { workerJobApi } from '@/api/workerJob.api';
@@ -55,7 +56,7 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-export function MyEmployerJobScreen() {
+function Inner() {
   const { theme } = useTheme();
   const t = useTranslate();
   const navigation = useNavigation<Nav>();
@@ -344,6 +345,14 @@ export function MyEmployerJobScreen() {
         {primary ? <DisputeSection applicationId={primary.id} /> : null}
       </ScrollView>
     </Screen>
+  );
+}
+
+export function MyEmployerJobScreen() {
+  return (
+    <SeekerThemeOverride>
+      <Inner />
+    </SeekerThemeOverride>
   );
 }
 

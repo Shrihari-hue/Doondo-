@@ -163,7 +163,7 @@ export function WorkerDetailScreen() {
                       {
                         text: 'Confirm',
                         onPress: () => {
-                          haptic('notification');
+                          haptic('success');
                           Alert.alert('Done', `${name} has been marked on leave.`);
                         },
                       },
@@ -179,7 +179,7 @@ export function WorkerDetailScreen() {
                         text: 'Remove',
                         style: 'destructive',
                         onPress: () => {
-                          haptic('notification');
+                          haptic('success');
                           navigation.goBack();
                         },
                       },
