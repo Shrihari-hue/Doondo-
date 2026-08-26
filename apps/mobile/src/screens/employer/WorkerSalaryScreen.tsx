@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
-import { spacing } from '@doondo/tokens';
+import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, SkeletonCard, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
@@ -181,7 +181,7 @@ export function WorkerSalaryScreen() {
 
         {/* Salary hero card */}
         <LinearGradient colors={[BLUE, '#1D4ED8']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={{ borderRadius: 20, padding: spacing.xl, gap: 4 }}>
+          style={{ borderRadius: radii.xl, padding: spacing.xl, gap: 4 }}>
           <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600' }}>
             Monthly Salary ({payPeriod})
           </Text>
@@ -211,7 +211,7 @@ export function WorkerSalaryScreen() {
           const maxPaise = Math.max(...months3.map((m) => m.paise));
           return (
             <View style={{
-              backgroundColor: surface, borderRadius: 16,
+              backgroundColor: surface, borderRadius: radii.lg,
               borderWidth: 1, borderColor: border, padding: spacing.md, gap: spacing.md,
             }}>
               <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>3-Month Earnings</Text>
@@ -258,7 +258,7 @@ export function WorkerSalaryScreen() {
         })()}
 
         {/* Breakdown */}
-        <View style={{ backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
+        <View style={{ backgroundColor: surface, borderRadius: radii.lg, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
           <View style={{ padding: spacing.md, borderBottomWidth: 1, borderBottomColor: border }}>
             <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>Salary Breakdown</Text>
           </View>
@@ -275,7 +275,7 @@ export function WorkerSalaryScreen() {
         </View>
 
         {/* Payment history */}
-        <View style={{ backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
+        <View style={{ backgroundColor: surface, borderRadius: radii.lg, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
             padding: spacing.md, borderBottomWidth: 1, borderBottomColor: border }}>
             <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>Payment History</Text>
@@ -308,7 +308,7 @@ export function WorkerSalaryScreen() {
           disabled={sharing}
           style={{
             flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-            borderRadius: 12, paddingVertical: 13, borderWidth: 1.5, borderColor: BLUE,
+            borderRadius: radii.lg, paddingVertical: 13, borderWidth: 1.5, borderColor: BLUE,
             opacity: sharing ? 0.7 : 1,
           }}>
           {sharing
@@ -320,7 +320,7 @@ export function WorkerSalaryScreen() {
         </AnimatedPressable>
 
         {/* Pay now */}
-        <AnimatedPressable style={{ backgroundColor: BLUE, borderRadius: 12, paddingVertical: 15, alignItems: 'center' }}>
+        <AnimatedPressable style={{ backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 15, alignItems: 'center' }}>
           <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
             Pay {name.split(' ')[0]} — {formatINR(totalPaise)}
           </Text>

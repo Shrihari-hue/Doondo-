@@ -13,7 +13,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
-import { spacing } from '@doondo/tokens';
+import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, BlurOverlay, EmptyState, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
@@ -25,7 +25,7 @@ type Route = RouteProp<AppStackParamList, 'WorkerTasks'>;
 const BLUE   = '#2563EB';
 const GREEN  = '#16A34A';
 const AMBER  = '#F59E0B';
-const ORANGE = '#EA580C';
+const ORANGE = '#F97316';
 
 type TaskStatus   = 'pending' | 'in_progress' | 'completed';
 type TaskPriority = 'High' | 'Medium' | 'Low';
@@ -194,7 +194,7 @@ export function WorkerTasksScreen() {
           const st = STATUS_STYLE[task.status];
           const pr = PRIORITY_STYLE[task.priority];
           return (
-            <View key={task.id} style={{ backgroundColor: surface, borderRadius: 16,
+            <View key={task.id} style={{ backgroundColor: surface, borderRadius: radii.lg,
               borderWidth: 1, borderColor: border, padding: spacing.md, gap: spacing.sm,
               shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } }}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
@@ -227,10 +227,12 @@ export function WorkerTasksScreen() {
                 </View>
                 {task.status !== 'completed' && (
                   <AnimatedPressable onPress={() => advanceTask(task.id)} hitSlop={8}
-                    style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4,
+                      paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
                       backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F', marginLeft: 4 }}>
+                    <Feather name={task.status === 'pending' ? 'play' : 'check'} size={11} color={BLUE} />
                     <Text style={{ fontSize: 11, fontWeight: '700', color: BLUE }}>
-                      {task.status === 'pending' ? '▶ Start' : '✓ Done'}
+                      {task.status === 'pending' ? 'Start' : 'Done'}
                     </Text>
                   </AnimatedPressable>
                 )}
@@ -312,7 +314,7 @@ export function WorkerTasksScreen() {
             </View>
 
             <Pressable onPress={addTask} style={({ pressed }) => ({
-              backgroundColor: BLUE, borderRadius: 12, paddingVertical: 14,
+              backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 14,
               alignItems: 'center', opacity: pressed ? 0.85 : 1,
             })}>
               <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>Assign Task</Text>

@@ -14,6 +14,7 @@ import { Alert, Modal, Pressable, ScrollView, Share, View } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Card, Avatar, EmptyState, LoadingSpinner, Button, TextField, BlurOverlay} from '@/components';
@@ -608,7 +609,7 @@ export function WorkforceScreen() {
           <LoadingSpinner />
         ) : crew.length === 0 ? (
           <EmptyState
-            glyph="👥"
+            illustration="workers"
             tone="hero"
             eyebrow={t('employer.crew.empty_eyebrow')}
             title={t('employer.crew.empty_title')}
@@ -833,9 +834,11 @@ export function WorkforceScreen() {
                       <Text variant="body" weight="medium" style={{ flex: 1 }} numberOfLines={1}>
                         {w.name}
                       </Text>
-                      <Text style={{ color: picked ? theme.brand.hero : theme.text.tertiary, fontSize: 16 }}>
-                        {picked ? '✓' : '+'}
-                      </Text>
+                      <Feather
+                        name={picked ? 'check-circle' : 'circle'}
+                        size={18}
+                        color={picked ? theme.brand.hero : theme.text.tertiary}
+                      />
                     </Pressable>
                   );
                 })}

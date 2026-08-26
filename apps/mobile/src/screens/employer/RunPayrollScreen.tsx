@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, SkeletonCard, BlurOverlay, AnimatedPressable } from '@/components';
+import { Screen, Text, SkeletonCard, BlurOverlay, AnimatedPressable, EmptyState } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
 import { haptic } from '@/lib/haptics';
@@ -143,17 +143,18 @@ export function RunPayrollScreen() {
         {query.isLoading ? (
           <><SkeletonCard lines={3} /><SkeletonCard lines={3} /></>
         ) : rows.length === 0 ? (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing['2xl'], gap: spacing.md }}>
-            <Text style={{ fontSize: 48 }}>💼</Text>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: textPrimary, textAlign: 'center' }}>No active workers</Text>
-            <Text style={{ fontSize: 14, color: textSecondary, textAlign: 'center' }}>
-              Hire workers first to run payroll.
-            </Text>
-          </View>
+          <EmptyState
+            illustration="workers"
+            tone="hero"
+            eyebrow="No workers yet"
+            title="No active workers"
+            message="Hire workers first to run payroll."
+            tall
+          />
         ) : (
           <>
             {/* Summary card */}
-            <View style={{ backgroundColor: BLUE, borderRadius: 16, padding: spacing.lg, gap: spacing.xs }}>
+            <View style={{ backgroundColor: BLUE, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.xs }}>
               <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: '600' }}>
                 Total Payout — {rows.length} worker{rows.length !== 1 ? 's' : ''}
               </Text>
@@ -166,7 +167,7 @@ export function RunPayrollScreen() {
             </View>
 
             {/* Worker table */}
-            <View style={{ backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
+            <View style={{ backgroundColor: surface, borderRadius: radii.lg, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
               {/* Table header */}
               <Pressable onPress={toggleAll}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
@@ -299,7 +300,14 @@ export function RunPayrollScreen() {
             backgroundColor: surface, borderRadius: 24, padding: 40, alignItems: 'center', gap: 16,
             transform: [{ scale: celebScale }],
           }}>
-            <Text style={{ fontSize: 64 }}>🎉</Text>
+            <View style={{
+              width: 88, height: 88, borderRadius: 44,
+              backgroundColor: isLight ? '#F0FDF4' : '#052E16',
+              alignItems: 'center', justifyContent: 'center',
+              borderWidth: 2, borderColor: GREEN,
+            }}>
+              <Feather name="award" size={40} color={GREEN} />
+            </View>
             <Text style={{ fontSize: 22, fontWeight: '900', color: textPrimary, textAlign: 'center' }}>
               Payroll complete!
             </Text>

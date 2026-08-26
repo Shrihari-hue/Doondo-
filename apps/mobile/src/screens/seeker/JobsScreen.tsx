@@ -29,6 +29,7 @@ import {
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Feather } from '@expo/vector-icons';
 import { useWomenModeStore } from '@/stores/womenMode.store';
 
 import { spacing, radii, coral, champagne } from '@doondo/tokens';
@@ -360,7 +361,7 @@ export function JobsScreen() {
                   paddingHorizontal: spacing.xl,
                 }}
               >
-                <Text style={{ fontSize: 40 }}>📍</Text>
+                <Feather name="map-pin" size={36} color={theme.text.tertiary} />
                 <Text
                   variant="bodyLarge"
                   weight="medium"
@@ -391,7 +392,7 @@ export function JobsScreen() {
               </View>
             ) : (
               <EmptyState
-                glyph="◔"
+                icon="briefcase"
                 eyebrow={t('jobs.empty.eyebrow')}
                 title={t('jobs.empty.title')}
                 message={t('jobs.empty.message')}
@@ -661,7 +662,7 @@ function Header({
                     paddingVertical: 5,
                   }}
                 >
-                  <Text style={{ fontSize: 12 }}>📍</Text>
+                  <Feather name="map-pin" size={12} color={theme.brand.hero} />
                   <Text
                     variant="footnote"
                     weight="medium"
@@ -678,7 +679,7 @@ function Header({
                   accessibilityLabel={t('jobs.clear_location')}
                   style={{ paddingRight: 9, paddingLeft: 2, paddingVertical: 5 }}
                 >
-                  <Text style={{ fontSize: 13, color: theme.brand.hero }}>✕</Text>
+                  <Feather name="x" size={13} color={theme.brand.hero} />
                 </Pressable>
               </View>
               <Text variant="footnote" tone="tertiary">
@@ -764,7 +765,7 @@ function Header({
           minHeight: 52,
         }}
       >
-        <Text style={{ fontSize: 18, color: theme.text.tertiary }}>⌕</Text>
+        <Feather name="search" size={17} color={theme.text.tertiary} />
         <TextInput
           value={search}
           onChangeText={onChangeSearch}
@@ -782,7 +783,7 @@ function Header({
         />
         {search.length > 0 && (
           <Pressable onPress={() => onChangeSearch('')} hitSlop={8}>
-            <Text style={{ fontSize: 18, color: theme.text.tertiary }}>×</Text>
+            <Feather name="x" size={17} color={theme.text.tertiary} />
           </Pressable>
         )}
       </View>
@@ -869,12 +870,11 @@ function Header({
             gap: 4,
           }}
         >
-          <Text
-            variant="footnote"
-            style={{ color: safeForWomenOnly ? '#065F46' : theme.text.secondary }}
-          >
-            🛡
-          </Text>
+          <Feather
+            name="shield"
+            size={12}
+            color={safeForWomenOnly ? '#065F46' : theme.text.secondary}
+          />
           <Text
             variant="footnote"
             weight={safeForWomenOnly ? 'medium' : 'regular'}
@@ -916,7 +916,7 @@ function Header({
             justifyContent: 'center',
           }}
         >
-          <Text style={{ fontSize: 20 }}>🃏</Text>
+          <Feather name="layers" size={19} color={theme.brand.hero} />
         </View>
         <View style={{ flex: 1 }}>
           <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
@@ -926,7 +926,7 @@ function Header({
             {t('jobs.swipe.entry_subtitle')}
           </Text>
         </View>
-        <Text style={{ fontSize: 16, color: theme.brand.hero, fontWeight: '700' }}>›</Text>
+        <Feather name="chevron-right" size={18} color={theme.brand.hero} />
       </Pressable>
 
       {/* Recommended for you — section header for the job cards. Only shown
@@ -1004,7 +1004,7 @@ function HiringRequestsBanner({
           justifyContent: 'center',
         }}
       >
-        <Text style={{ fontSize: 20 }}>📨</Text>
+        <Feather name="mail" size={19} color="#FFFFFF" />
       </View>
       <View style={{ flex: 1 }}>
         <Text
@@ -1022,7 +1022,7 @@ function HiringRequestsBanner({
           {t('jobs.hiring_requests_banner.subtitle')}
         </Text>
       </View>
-      <Text style={{ fontSize: 18, color: '#FFFFFF', fontWeight: '700' }}>›</Text>
+      <Feather name="chevron-right" size={18} color="#FFFFFF" />
     </Pressable>
   );
 }
@@ -1127,15 +1127,7 @@ function JobCard({
                   }}
                 >
                   {selected ? (
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        color: '#FFFFFF',
-                        lineHeight: 16,
-                      }}
-                    >
-                      ✓
-                    </Text>
+                    <Feather name="check" size={13} color="#FFFFFF" />
                   ) : null}
                 </View>
               ) : (
@@ -1144,14 +1136,11 @@ function JobCard({
                   hitSlop={10}
                   style={{ paddingHorizontal: 4 }}
                 >
-                  <Text
-                    style={{
-                      fontSize: 18,
-                      color: saved ? coral[500] : theme.text.tertiary,
-                    }}
-                  >
-                    {saved ? '♥' : '♡'}
-                  </Text>
+                  <Feather
+                    name="heart"
+                    size={17}
+                    color={saved ? coral[500] : theme.text.tertiary}
+                  />
                 </Pressable>
               )}
             </View>

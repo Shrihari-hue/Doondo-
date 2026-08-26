@@ -21,6 +21,7 @@
  */
 
 import { View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { radii, spacing } from '@doondo/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { Text } from './Text';
@@ -35,6 +36,8 @@ type IllustrationVariant = 'jobs' | 'applicants' | 'workers' | 'calendar' | 'sea
 interface Props {
   /** Single character / emoji shown inside the soft hairline circle. */
   glyph?: string;
+  /** Feather icon name shown inside the soft hairline circle (preferred over glyph — never emoji). */
+  icon?: React.ComponentProps<typeof Feather>['name'];
   /** Built-in geometric illustration (preferred over glyph). */
   illustration?: IllustrationVariant;
   /** Small uppercase label above the title (e.g. "NOTHING SAVED"). */
@@ -47,12 +50,20 @@ interface Props {
   cta?: { label: string; onPress: () => void };
   /** Stretch vertically to fill available space. */
   tall?: boolean;
-  /** Tone of the glyph badge. 'neutral' (default), 'hero', 'premium', 'warning'. */
-  tone?: 'neutral' | 'hero' | 'premium' | 'warning';
+  /**
+   * Tone of the glyph badge. 'neutral' (default), 'hero' (theme's coral —
+   * this is the ORIGINAL warm-dark brand, still correct on screens that
+   * haven't been moved to the Doondo-blue redesign), 'blue' (explicit
+   * Doondo-blue accent — use this on employer screens that HAVE been
+   * redesigned to blue, since `theme.brand.hero` stays coral by design),
+   * 'premium', 'warning'.
+   */
+  tone?: 'neutral' | 'hero' | 'blue' | 'premium' | 'warning';
 }
 
 export function EmptyState({
   glyph,
+  icon,
   illustration,
   eyebrow,
   title,
@@ -67,6 +78,11 @@ export function EmptyState({
   const toneMap = {
     neutral: { bg: theme.bg.muted, border: theme.border.default, color: theme.text.tertiary },
     hero: { bg: theme.brand.heroSubtle, border: theme.brand.heroBorder, color: theme.brand.hero },
+    blue: {
+      bg: isLight ? '#EFF6FF' : 'rgba(37,99,235,0.14)',
+      border: isLight ? '#DBEAFE' : 'rgba(96,165,250,0.35)',
+      color: '#2563EB',
+    },
     premium: { bg: theme.premium.goldSubtle, border: theme.premium.goldBorder, color: theme.premium.gold },
     warning: { bg: theme.status.warningSubtle, border: theme.status.warningBorder, color: theme.status.warning },
   };
@@ -85,6 +101,22 @@ export function EmptyState({
     >
       {illustration ? (
         <EmptyIllustration variant={illustration} color={t.color} bg={t.bg} border={t.border} />
+      ) : icon ? (
+        <View
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: radii.pill,
+            backgroundColor: t.bg,
+            borderWidth: 0.5,
+            borderColor: t.border,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: spacing.xs,
+          }}
+        >
+          <Feather name={icon} size={26} color={t.color} />
+        </View>
       ) : glyph ? (
         <View
           style={{

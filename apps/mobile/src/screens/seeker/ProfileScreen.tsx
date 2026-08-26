@@ -31,6 +31,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii, blue } from '@doondo/tokens';
 import {
@@ -63,6 +64,7 @@ import type { AppStackParamList } from '@/navigation/types';
 import type { PublicUser } from '@/api/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
+type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
 export function ProfileScreen() {
   const { theme } = useTheme();
@@ -294,7 +296,7 @@ export function ProfileScreen() {
                   shadowRadius: 4,
                 }}
               >
-                <Text style={{ fontSize: 16 }}>📷</Text>
+                <Feather name="camera" size={16} color={theme.brand.hero} />
               </View>
             </View>
           </Pressable>
@@ -352,7 +354,7 @@ export function ProfileScreen() {
                   backgroundColor: 'rgba(255,255,255,0.18)',
                 }}
               >
-                <Text style={{ color: '#FCD34D', fontSize: 13, lineHeight: 16 }}>★</Text>
+                <Feather name="star" size={13} color="#FCD34D" />
                 <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>
                   {user.rating.avg.toFixed(1)}
                 </Text>
@@ -482,7 +484,7 @@ export function ProfileScreen() {
                   justifyContent: 'center',
                 }}
               >
-                <Text style={{ fontSize: 22 }}>📸</Text>
+                <Feather name="camera" size={22} color="#FFFDF7" />
               </View>
               <View style={{ flex: 1, gap: 2 }}>
                 <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFDF7' }}>
@@ -554,7 +556,7 @@ export function ProfileScreen() {
                   justifyContent: 'center',
                 }}
               >
-                <Text style={{ fontSize: 18 }}>⭐</Text>
+                <Feather name="star" size={18} color={theme.brand.hero} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text
@@ -904,13 +906,15 @@ export function ProfileScreen() {
               "ACTIVITY" list; jobs / money / community actions moved to
               their own bottom-tab destinations. */}
           <CollapsibleGroup
-            glyph="📈"
+            glyph="trending-up"
+            iconColor="#7C3AED"
             tint="#DDD6FE"
             title={t('profile_groups.grow')}
             defaultOpen
           >
             <MenuRow
-              icon="📚"
+              icon="book-open"
+              iconColor="#7C3AED"
               tint="#DDD6FE"
               label={t('profile.menu.training')}
               subtitle={t('profile.menu.training_subtitle')}
@@ -921,7 +925,8 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
-              icon="🧠"
+              icon="check-square"
+              iconColor="#D97706"
               tint="#FEF3C7"
               label={t('profile.menu.skill_tests')}
               subtitle={t('profile.menu.skill_tests_subtitle')}
@@ -932,7 +937,8 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
-              icon="🪪"
+              icon="credit-card"
+              iconColor="#0D9488"
               tint="#CCFBF1"
               label={t('skill_passport.title')}
               subtitle={t('skill_passport.tagline')}
@@ -943,7 +949,8 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
-              icon="🪜"
+              icon="bar-chart-2"
+              iconColor="#4F46E5"
               tint="#C7D2FE"
               label={t('career_path.title')}
               subtitle={t('career_path.tagline')}
@@ -954,7 +961,8 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
-              icon="💬"
+              icon="message-circle"
+              iconColor="#4F46E5"
               tint="#E0E7FF"
               label={t('profile_screen.menu_extra.interview_prep')}
               subtitle={t('profile_screen.menu_extra.interview_prep_subtitle')}
@@ -970,12 +978,14 @@ export function ProfileScreen() {
               orphaned (built + routed, but no entry point); this group
               is their home. */}
           <CollapsibleGroup
-            glyph="🤝"
+            glyph="users"
+            iconColor="#059669"
             tint="#D1FAE5"
             title={t('profile_groups.connect')}
           >
             <MenuRow
-              icon="📇"
+              icon="user-plus"
+              iconColor="#2563EB"
               tint="#DBEAFE"
               label={t('profile_screen.menu_extra.find_friends')}
               subtitle={t('profile_screen.menu_extra.find_friends_subtitle')}
@@ -986,7 +996,8 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
-              icon="🧑‍🏫"
+              icon="users"
+              iconColor="#D97706"
               tint="#FEF3C7"
               label={t('profile_screen.menu_extra.trade_buddies')}
               subtitle={t('profile_screen.menu_extra.trade_buddies_subtitle')}
@@ -998,12 +1009,14 @@ export function ProfileScreen() {
           </CollapsibleGroup>
 
           <CollapsibleGroup
-            glyph="🛡️"
+            glyph="shield"
+            iconColor="#DC2626"
             tint="#FEE2E2"
             title={t('profile_groups.rights')}
           >
             <MenuRow
-              icon="📜"
+              icon="file-text"
+              iconColor="#D97706"
               tint="#FDE68A"
               label={t('constitution.title')}
               subtitle={t('constitution.tagline')}
@@ -1014,7 +1027,8 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
-              icon="🧾"
+              icon="file"
+              iconColor="#16A34A"
               tint="#BBF7D0"
               label={t('payslip.title')}
               subtitle={t('payslip.tagline')}
@@ -1025,7 +1039,8 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
-              icon="🌸"
+              icon="heart"
+              iconColor="#DB2777"
               tint="#FBCFE8"
               label={t('women.menu_label')}
               subtitle={t('women.menu_subtitle')}
@@ -1037,12 +1052,14 @@ export function ProfileScreen() {
           </CollapsibleGroup>
 
           <CollapsibleGroup
-            glyph="⚙️"
+            glyph="settings"
+            iconColor="#4F46E5"
             tint="#E0E7FF"
             title={t('profile_groups.account')}
           >
             <MenuRow
-              icon="★"
+              icon="star"
+              iconColor="#2563EB"
               tint="#DBEAFE"
               label={t('tabs.my_job')}
               subtitle={t('profile.menu.my_job_subtitle')}
@@ -1053,7 +1070,8 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
-              icon="📝"
+              icon="file-text"
+              iconColor="#7C3AED"
               tint="#DDD6FE"
               label={user.workHistory?.length ? t('profile_screen.menu_extra.my_resume') : t('profile_screen.menu_extra.build_resume')}
               subtitle={
@@ -1075,7 +1093,8 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
-              icon="🎬"
+              icon="video"
+              iconColor="#D97706"
               tint="#FEF3C7"
               label={t('reels.menu_label')}
               subtitle={t('reels.menu_subtitle')}
@@ -1086,7 +1105,8 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
-              icon="✏️"
+              icon="edit-2"
+              iconColor="#4F46E5"
               tint="#E0E7FF"
               label={t('profile.menu.edit_profile')}
               subtitle={t('profile.menu.edit_profile_subtitle')}
@@ -1094,7 +1114,8 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
-              icon="📥"
+              icon="download"
+              iconColor="#DB2777"
               tint="#FCE7F3"
               label={t('profile.menu.downloads')}
               subtitle={t('profile.menu.downloads_subtitle')}
@@ -1102,7 +1123,8 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
-              icon="⚙️"
+              icon="settings"
+              iconColor="#475569"
               tint="#F1F5F9"
               label={t('profile.menu.settings')}
               subtitle={t('profile.menu.settings_subtitle')}
@@ -1192,7 +1214,7 @@ function ProfileViewsBanner() {
           justifyContent: 'center',
         }}
       >
-        <Text style={{ fontSize: 20 }}>👀</Text>
+        <Feather name="eye" size={20} color="#2563EB" />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 15, fontWeight: '700', color: '#1E3A8A' }}>
@@ -1334,7 +1356,7 @@ function HiringRequestsRow() {
             marginRight: spacing.md,
           }}
         >
-          <Text style={{ fontSize: 22 }}>📨</Text>
+          <Feather name="mail" size={22} color="#2563EB" />
         </View>
         <View style={{ flex: 1, paddingRight: spacing.sm }}>
           <Text
@@ -1368,12 +1390,7 @@ function HiringRequestsRow() {
             </Text>
           </View>
         ) : null}
-        <Text
-          style={{ fontSize: 22, color: theme.text.tertiary, lineHeight: 24 }}
-          allowFontScaling={false}
-        >
-          ›
-        </Text>
+        <Feather name="chevron-right" size={20} color={theme.text.tertiary} />
       </View>
     </Pressable>
   );
@@ -1426,7 +1443,7 @@ function StreakChip({
       })}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-        {active && <Text style={{ fontSize: 14 }}>🔥</Text>}
+        {active && <Feather name="zap" size={14} color={theme.brand.hero} />}
         <Text
           style={{
             fontSize: 18,
@@ -1476,12 +1493,14 @@ function StreakChip({
  */
 function CollapsibleGroup({
   glyph,
+  iconColor,
   tint,
   title,
   defaultOpen,
   children,
 }: {
-  glyph: string;
+  glyph: FeatherIconName;
+  iconColor: string;
   tint: string;
   title: string;
   defaultOpen?: boolean;
@@ -1521,7 +1540,7 @@ function CollapsibleGroup({
               marginRight: spacing.md,
             }}
           >
-            <Text style={{ fontSize: 22 }}>{glyph}</Text>
+            <Feather name={glyph} size={20} color={iconColor} />
           </View>
           <Text
             style={{
@@ -1534,12 +1553,11 @@ function CollapsibleGroup({
           >
             {title}
           </Text>
-          <Text
-            style={{ fontSize: 16, color: theme.text.tertiary, lineHeight: 20 }}
-            allowFontScaling={false}
-          >
-            {open ? '▾' : '▸'}
-          </Text>
+          <Feather
+            name={open ? 'chevron-down' : 'chevron-right'}
+            size={18}
+            color={theme.text.tertiary}
+          />
         </View>
       </Pressable>
       {open ? (
@@ -1618,12 +1636,14 @@ function StatTile({
 
 function MenuRow({
   icon,
+  iconColor,
   tint,
   label,
   subtitle,
   onPress,
 }: {
-  icon: string;
+  icon: FeatherIconName;
+  iconColor: string;
   tint: string;
   label: string;
   subtitle?: string;
@@ -1663,7 +1683,7 @@ function MenuRow({
             marginRight: spacing.md,
           }}
         >
-          <Text style={{ fontSize: 22 }}>{icon}</Text>
+          <Feather name={icon} size={20} color={iconColor} />
         </View>
 
         {/* Label + optional subtitle — flexes to fill */}
@@ -1700,16 +1720,7 @@ function MenuRow({
             justifyContent: 'center',
           }}
         >
-          <Text
-            style={{
-              fontSize: 22,
-              color: theme.text.tertiary,
-              lineHeight: 24,
-            }}
-            allowFontScaling={false}
-          >
-            ›
-          </Text>
+          <Feather name="chevron-right" size={18} color={theme.text.tertiary} />
         </View>
       </View>
     </Pressable>

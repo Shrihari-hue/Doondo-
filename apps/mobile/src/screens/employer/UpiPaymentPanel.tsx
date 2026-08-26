@@ -22,6 +22,9 @@ import { useTranslate } from '@/i18n/useTranslate';
 import { haptic } from '@/lib/haptics';
 import { paymentsApi, type PaymentIntent } from '@/api/payments.api';
 
+const BLUE  = '#2563EB';
+const GREEN = '#16A34A';
+
 interface Props {
   seekerId: string;
   seekerName: string;
@@ -123,7 +126,7 @@ export function UpiPaymentPanel({
     <View
       style={{
         padding: spacing.md,
-        borderRadius: 14,
+        borderRadius: radii.lg,
         borderWidth: 0.5,
         borderColor: theme.border.subtle,
         backgroundColor: theme.bg.surface,
@@ -164,7 +167,7 @@ export function UpiPaymentPanel({
             paddingHorizontal: spacing.md,
             paddingVertical: 8,
             borderRadius: radii.pill,
-            backgroundColor: '#2563EB',
+            backgroundColor: BLUE,
             opacity: createMut.isPending ? 0.6 : 1,
           }}
         >
@@ -186,7 +189,7 @@ export function UpiPaymentPanel({
                 flex: 1,
                 paddingVertical: 8,
                 borderRadius: radii.pill,
-                backgroundColor: '#10B981',
+                backgroundColor: GREEN,
                 alignItems: 'center',
               }}
             >

@@ -24,6 +24,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii, blue } from '@doondo/tokens';
 import { Screen, Text, LoadingSpinner, EmptyState } from '@/components';
@@ -91,8 +92,8 @@ function CoursesInner() {
             marginBottom: spacing.sm,
           }}
         >
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={{ fontSize: 22, color: '#FFFFFF' }}>←</Text>
+          <Pressable onPress={() => navigation.goBack()} hitSlop={12} accessibilityRole="button" accessibilityLabel={t('common.back')}>
+            <Feather name="arrow-left" size={22} color="#FFFFFF" />
           </Pressable>
           <Text
             style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
@@ -239,7 +240,7 @@ function BadgeStrip({
                     gap: 6,
                   }}
                 >
-                  <Text style={{ fontSize: 14 }}>🏅</Text>
+                  <Feather name="award" size={13} color="#B45309" />
                   <Text style={{ fontSize: 12 }}>{c.emoji}</Text>
                   <Text
                     style={{ fontSize: 12, fontWeight: '700', color: '#78350F' }}
@@ -351,7 +352,7 @@ function CourseCard({
               {course.title}
             </Text>
             {isCompleted ? (
-              <Text style={{ fontSize: 12 }}>🏅</Text>
+              <Feather name="award" size={13} color="#B45309" />
             ) : null}
           </View>
           <Text

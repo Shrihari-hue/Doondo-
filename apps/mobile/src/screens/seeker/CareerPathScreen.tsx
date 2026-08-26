@@ -17,8 +17,11 @@ import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 
-import { spacing, radii } from '@doondo/tokens';
+import { spacing, radii, blue } from '@doondo/tokens';
 import { Screen, Text, Button } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
@@ -41,6 +44,7 @@ type TFn = (key: string, opts?: Record<string, unknown>) => string;
 function CareerPathInner() {
   const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const t = useTranslate();
   const { user } = useAuth();
   const skills = user?.skills ?? [];
@@ -53,7 +57,38 @@ function CareerPathInner() {
   const currentIdx = currentStepIndex(path, skills);
 
   return (
-    <Screen>
+    <Screen edges={[]}>
+      <LinearGradient
+        colors={[blue[700], blue[600], blue[500]]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          paddingTop: insets.top + spacing.md,
+          paddingHorizontal: spacing.xl,
+          paddingBottom: spacing.xl,
+          borderBottomLeftRadius: radii.xl,
+          borderBottomRightRadius: radii.xl,
+          gap: spacing.xs,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t('career_path.back')}
+          >
+            <Feather name="arrow-left" size={22} color="#FFFFFF" />
+          </Pressable>
+          <Text style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}>
+            {t('career_path.title')}
+          </Text>
+        </View>
+        <Text style={{ fontSize: 13, lineHeight: 19, color: 'rgba(255,255,255,0.85)' }}>
+          {t('career_path.tagline')}
+        </Text>
+      </LinearGradient>
+
       <ScrollView
         contentContainerStyle={{
           padding: spacing.xl,
@@ -61,21 +96,6 @@ function CareerPathInner() {
           gap: spacing.xl,
         }}
       >
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-          <Text variant="body" tone="secondary">
-            {t('career_path.back')}
-          </Text>
-        </Pressable>
-
-        <View style={{ gap: spacing.xs }}>
-          <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-            {t('career_path.title')}
-          </Text>
-          <Text variant="footnote" tone="secondary">
-            {t('career_path.tagline')}
-          </Text>
-        </View>
-
         {/* Trade selector */}
         <ScrollView
           horizontal

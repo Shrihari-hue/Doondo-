@@ -281,7 +281,7 @@ export function WalletTopUpScreen() {
               borderRadius: radii.lg, padding: spacing.md, borderWidth: 1,
               borderColor: isLight ? '#BFDBFE' : '#1E3A5F',
             }}>
-              <Text style={{ fontSize: 18 }}>⚡</Text>
+              <Feather name="zap" size={18} color={isLight ? '#1E40AF' : '#93C5FD'} />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 13, fontWeight: '700', color: isLight ? '#1E40AF' : '#93C5FD' }}>
                   Instant via UPI
@@ -356,7 +356,7 @@ export function WalletTopUpScreen() {
               onPress={() => void openUpiAndPoll()}
               style={{ backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 16,
                 alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: spacing.sm }}>
-              <Text style={{ fontSize: 18 }}>⚡</Text>
+              <Feather name="zap" size={18} color="#FFFFFF" />
               <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>
                 Pay {paise(order.amountPaise)} via UPI
               </Text>
@@ -429,17 +429,17 @@ export function WalletTopUpScreen() {
             {/* Receipt summary */}
             <View style={{ width: '100%', backgroundColor: surface, borderRadius: radii.lg,
               borderWidth: 1, borderColor: border, padding: spacing.md, gap: spacing.sm }}>
-              {[
-                { label: 'Transaction ID', value: order.txnRef },
-                { label: 'Status', value: '✓ Paid' },
-              ].map(({ label, value }) => (
-                <View key={label} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ fontSize: 13, color: textSecondary }}>{label}</Text>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: label === 'Status' ? GREEN : textPrimary }}>
-                    {value}
-                  </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: 13, color: textSecondary }}>Transaction ID</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: textPrimary }}>{order.txnRef}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 13, color: textSecondary }}>Status</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Feather name="check-circle" size={13} color={GREEN} />
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: GREEN }}>Paid</Text>
                 </View>
-              ))}
+              </View>
             </View>
 
             <AnimatedPressable

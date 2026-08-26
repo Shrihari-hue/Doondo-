@@ -29,7 +29,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii, blue } from '@doondo/tokens';
 import { Screen, Text, LoadingSpinner, EmptyState, Avatar, Stars } from '@/components';
@@ -57,14 +57,26 @@ type ViewMode = 'list' | 'map';
 
 const SEARCH_RADIUS_M = 15_000;
 
+const BLUE = '#2563EB';
+const BLUE_LIGHT = '#EFF6FF';
+const GREEN = '#16A34A';
+const AMBER = '#F59E0B';
+
 export function AvailableWorkersScreen() {
-  const { theme } = useTheme();
+  const { scheme } = useTheme();
+  const isLight = scheme !== 'dark';
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const t = useTranslate();
   const { user } = useAuth();
   const [coords, setCoords] = useState<ResolvedCoords | null>(null);
   const [mode, setMode] = useState<ViewMode>('list');
+
+  const bg = isLight ? '#FFFFFF' : '#0C0A0E';
+  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
+  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
+  const textPrimary = isLight ? '#1F2937' : '#F9FAFB';
+  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
 
   // Prefer live GPS → the employer's saved location → a flagged default,
   // so a denied GPS permission doesn't silently search a far-off city.
@@ -190,69 +202,57 @@ export function AvailableWorkersScreen() {
 
   return (
     <Screen edges={[]}>
-      <LinearGradient
-        colors={[blue[700], blue[600], blue[500]]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      {/* ── Header ── */}
+      <View
         style={{
-          paddingTop: insets.top + spacing.md,
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingTop: insets.top + spacing.sm,
           paddingHorizontal: spacing.xl,
-          paddingBottom: spacing.lg,
-          borderBottomLeftRadius: radii.xl,
-          borderBottomRightRadius: radii.xl,
+          paddingBottom: spacing.md,
+          borderBottomWidth: 0.5,
+          borderBottomColor: cardBorder,
+          backgroundColor: bg,
         }}
       >
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: spacing.md,
-            marginBottom: spacing.md,
-          }}
-        >
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={{ fontSize: 22, color: '#FFFFFF' }}>←</Text>
-          </Pressable>
-          <Text
-            style={{
-              fontSize: 17,
-              fontWeight: '600',
-              color: '#FFFFFF',
-              flex: 1,
-            }}
-          >
-            {t('employer.available_workers.header_title')}
-          </Text>
-        </View>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
+          <Feather name="arrow-left" size={22} color={textPrimary} />
+        </Pressable>
         <Text
-          style={{
-            fontSize: 13,
-            lineHeight: 19,
-            color: 'rgba(255,255,255,0.85)',
-            marginBottom: spacing.md,
-          }}
+          style={{ flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: textPrimary, marginRight: 22 }}
+          numberOfLines={1}
         >
+          {t('employer.available_workers.header_title')}
+        </Text>
+      </View>
+
+      <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md, gap: spacing.md, backgroundColor: bg }}>
+        <Text style={{ fontSize: 13, lineHeight: 19, color: textSecondary }}>
           {t('employer.available_workers.header_subtitle')}
         </Text>
 
         {/* Quick links — inbound interest + outbound requests */}
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           <HeaderLink
-            label="🙋  Interested in you"
+            icon="user-plus"
+            label="Interested in you"
+            isLight={isLight}
             onPress={() => {
               haptic('selection');
               navigation.navigate('InterestedWorkers');
             }}
           />
           <HeaderLink
-            label="📤  Requests sent"
+            icon="send"
+            label="Requests sent"
+            isLight={isLight}
             onPress={() => {
               haptic('selection');
               navigation.navigate('SentHiringRequests');
             }}
           />
         </View>
-      </LinearGradient>
+      </View>
 
       {/* List / Map toggle */}
       <View
@@ -260,10 +260,10 @@ export function AvailableWorkersScreen() {
           flexDirection: 'row',
           alignSelf: 'center',
           marginTop: spacing.md,
-          backgroundColor: theme.bg.surface,
+          backgroundColor: cardBg,
           borderRadius: radii.pill,
-          borderWidth: 0.5,
-          borderColor: theme.border.subtle,
+          borderWidth: 1,
+          borderColor: cardBorder,
           padding: 3,
         }}
       >
@@ -278,12 +278,16 @@ export function AvailableWorkersScreen() {
             marginHorizontal: spacing.xl,
             padding: spacing.md,
             borderRadius: radii.lg,
-            borderWidth: 0.5,
-            borderColor: theme.status.warningBorder,
-            backgroundColor: theme.status.warningSubtle,
+            borderWidth: 1,
+            borderColor: isLight ? '#FDE68A' : '#78350F',
+            backgroundColor: isLight ? '#FFFBEB' : '#2A1A00',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.sm,
           }}
         >
-          <Text variant="footnote" weight="medium" tone="warning">
+          <Feather name="alert-triangle" size={14} color={AMBER} />
+          <Text style={{ flex: 1, fontSize: 12, fontWeight: '600', color: isLight ? '#92400E' : '#FCD34D' }}>
             {t('employer.available_workers.location_default')}
           </Text>
         </View>
@@ -317,7 +321,8 @@ export function AvailableWorkersScreen() {
           />
         ) : availabilities.length === 0 ? (
           <EmptyState
-            glyph="📡"
+            illustration="search"
+            tone="hero"
             eyebrow={t('employer.available_workers.empty_eyebrow')}
             title={t('employer.available_workers.empty_title')}
             message={t('employer.available_workers.empty_message')}
@@ -335,7 +340,7 @@ export function AvailableWorkersScreen() {
               <RefreshControl
                 refreshing={query.isRefetching}
                 onRefresh={() => void query.refetch()}
-                tintColor={theme.brand.hero}
+                tintColor={BLUE}
               />
             }
             ListHeaderComponent={
@@ -514,25 +519,39 @@ function TrustedWorkersStrip({
 
 // ─── Header pieces ───────────────────────────────────────────────────────────
 
-function HeaderLink({ label, onPress }: { label: string; onPress: () => void }) {
+function HeaderLink({
+  icon,
+  label,
+  isLight,
+  onPress,
+}: {
+  icon: React.ComponentProps<typeof Feather>['name'];
+  label: string;
+  isLight: boolean;
+  onPress: () => void;
+}) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       style={({ pressed }) => ({
         flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
         paddingVertical: 8,
         paddingHorizontal: spacing.sm,
         borderRadius: radii.lg,
-        backgroundColor: 'rgba(255,255,255,0.18)',
+        backgroundColor: isLight ? '#EFF6FF' : 'rgba(59,130,246,0.14)',
         borderWidth: 0.5,
-        borderColor: 'rgba(255,255,255,0.35)',
-        alignItems: 'center',
+        borderColor: isLight ? '#DBEAFE' : 'rgba(96,165,250,0.35)',
         opacity: pressed ? 0.8 : 1,
       })}
     >
+      <Feather name={icon} size={13} color={blue[600]} />
       <Text
-        style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}
+        style={{ fontSize: 12, fontWeight: '700', color: blue[600] }}
         numberOfLines={1}
       >
         {label}

@@ -2,23 +2,23 @@
  * JobIcon — the rounded category tile that sits on the left of every
  * employer job card on PostsScreen.
  *
- * The icon glyph and color tint are chosen from the job's title (so a
- * "Driver" post gets a steering-wheel glyph on a blue tile, a "Software
- * Engineer" post gets a laptop glyph on a violet tile, and so on). If we
- * can't recognise the title we fall back to a category derived from the
- * job's employment type (gig → ⚡, full-time → 💼, etc).
+ * The icon and color tint are chosen from the job's title (so a "Driver"
+ * post gets a truck glyph on a blue tile, a "Software Engineer" post gets
+ * a code glyph on a violet tile, and so on). If we can't recognise the
+ * title we fall back to a category derived from the job's employment type
+ * (gig → clock, full-time → briefcase, etc).
  *
- * The codebase has no SVG icon library installed (we deliberately stay on
- * pure RN Views + unicode glyphs — see EmptyState.tsx, FestivalBanner.tsx).
- * This component keeps to that convention so it works everywhere without
- * adding a new dependency.
+ * Icons are Feather glyphs (@expo/vector-icons) — matches the rest of the
+ * app's icon convention (no emoji/unicode glyphs for UI chrome).
  */
 
 import { View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { radii } from '@doondo/tokens';
-import { Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import type { JobType } from '@/api/types';
+
+type FeatherName = React.ComponentProps<typeof Feather>['name'];
 
 /** A recognised job category — used internally to pick the glyph + tint. */
 export type JobCategory =
@@ -59,7 +59,7 @@ interface Props {
 export function JobIcon({ title, type, size = 44 }: Props) {
   const { theme } = useTheme();
   const category = categoriseJob(title, type);
-  const { glyph, tint } = decorate(category, theme);
+  const { icon, tint } = decorate(category, theme);
 
   return (
     <View
@@ -74,12 +74,7 @@ export function JobIcon({ title, type, size = 44 }: Props) {
         justifyContent: 'center',
       }}
     >
-      <Text
-        variant="title"
-        style={{ color: tint.fg, fontSize: Math.round(size * 0.5), lineHeight: size }}
-      >
-        {glyph}
-      </Text>
+      <Feather name={icon} size={Math.round(size * 0.46)} color={tint.fg} />
     </View>
   );
 }
@@ -213,61 +208,61 @@ function palette(theme: Theme): Record<
   };
 }
 
-function decorate(category: JobCategory, theme: Theme): { glyph: string; tint: Tint } {
+function decorate(category: JobCategory, theme: Theme): { icon: FeatherName; tint: Tint } {
   const p = palette(theme);
   switch (category) {
     case 'driver':
-      return { glyph: '🚗', tint: p.blue };
+      return { icon: 'truck', tint: p.blue };
     case 'delivery':
-      return { glyph: '📦', tint: p.amber };
+      return { icon: 'package', tint: p.amber };
     case 'software':
-      return { glyph: '💻', tint: p.violet };
+      return { icon: 'code', tint: p.violet };
     case 'electrician':
-      return { glyph: '⚡', tint: p.amber };
+      return { icon: 'zap', tint: p.amber };
     case 'plumber':
-      return { glyph: '🔧', tint: p.blue };
+      return { icon: 'droplet', tint: p.blue };
     case 'mason':
-      return { glyph: '🧱', tint: p.rose };
+      return { icon: 'layers', tint: p.rose };
     case 'carpenter':
-      return { glyph: '🪚', tint: p.amber };
+      return { icon: 'tool', tint: p.amber };
     case 'painter':
-      return { glyph: '🎨', tint: p.violet };
+      return { icon: 'edit-3', tint: p.violet };
     case 'mechanic':
-      return { glyph: '🔩', tint: p.slate };
+      return { icon: 'settings', tint: p.slate };
     case 'cook':
-      return { glyph: '🍳', tint: p.rose };
+      return { icon: 'coffee', tint: p.rose };
     case 'cleaner':
-      return { glyph: '🧹', tint: p.jade };
+      return { icon: 'wind', tint: p.jade };
     case 'security':
-      return { glyph: '🛡️', tint: p.slate };
+      return { icon: 'shield', tint: p.slate };
     case 'teacher':
-      return { glyph: '📚', tint: p.jade };
+      return { icon: 'book-open', tint: p.jade };
     case 'salon':
-      return { glyph: '💇', tint: p.rose };
+      return { icon: 'scissors', tint: p.rose };
     case 'tailor':
-      return { glyph: '🧵', tint: p.violet };
+      return { icon: 'tag', tint: p.violet };
     case 'farm':
-      return { glyph: '🌾', tint: p.jade };
+      return { icon: 'sun', tint: p.jade };
     case 'helper':
-      return { glyph: '🧰', tint: p.amber };
+      return { icon: 'life-buoy', tint: p.amber };
     case 'office':
-      return { glyph: '🗂️', tint: p.violet };
+      return { icon: 'folder', tint: p.violet };
     case 'sales':
-      return { glyph: '📈', tint: p.jade };
+      return { icon: 'trending-up', tint: p.jade };
     case 'healthcare':
-      return { glyph: '🩺', tint: p.jade };
+      return { icon: 'activity', tint: p.jade };
     case 'gig':
-      return { glyph: '⚡', tint: p.amber };
+      return { icon: 'clock', tint: p.amber };
     case 'fulltime':
-      return { glyph: '💼', tint: p.blue };
+      return { icon: 'briefcase', tint: p.blue };
     case 'parttime':
-      return { glyph: '🕐', tint: p.blue };
+      return { icon: 'watch', tint: p.blue };
     case 'shift':
-      return { glyph: '🕓', tint: p.amber };
+      return { icon: 'sunrise', tint: p.amber };
     case 'contract':
-      return { glyph: '📄', tint: p.violet };
+      return { icon: 'file-text', tint: p.violet };
     case 'generic':
     default:
-      return { glyph: '💼', tint: p.slate };
+      return { icon: 'briefcase', tint: p.slate };
   }
 }

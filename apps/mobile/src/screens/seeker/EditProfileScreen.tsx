@@ -24,6 +24,7 @@ import {
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation } from '@tanstack/react-query';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Button, TextField, Pill, FormError } from '@/components';
@@ -601,11 +602,7 @@ function SkillsForm({ user }: { user: PublicUser }) {
               >
                 {tradeShortLabel(trade)}
               </Text>
-              {active && (
-                <Text style={{ fontSize: 12, color: '#FFFFFF', fontWeight: '700' }}>
-                  ✓
-                </Text>
-              )}
+              {active && <Feather name="check" size={13} color="#FFFFFF" />}
             </Pressable>
           );
         })}
@@ -793,7 +790,6 @@ function SkillProofSection({
       {selectedSkills.map((skill) => {
         const trade = findTrade(skill);
         const label = trade ? tradeShortLabel(trade) : prettifySkill(skill);
-        const emoji = trade ? trade.emoji : '🧰';
         const docs = (user.skillDocuments ?? []).filter((d) => d.skill === skill);
         return (
           <View
@@ -815,14 +811,17 @@ function SkillProofSection({
                 gap: spacing.sm,
               }}
             >
-              <Text
-                variant="footnote"
-                weight="medium"
-                numberOfLines={1}
-                style={{ flex: 1 }}
-              >
-                {emoji}  {label}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                <Feather name="tool" size={14} color={theme.text.secondary} />
+                <Text
+                  variant="footnote"
+                  weight="medium"
+                  numberOfLines={1}
+                  style={{ flex: 1 }}
+                >
+                  {label}
+                </Text>
+              </View>
               <Pressable
                 onPress={() => onAddProof(skill)}
                 disabled={uploadMutation.isPending}
@@ -858,9 +857,11 @@ function SkillProofSection({
                     paddingVertical: 4,
                   }}
                 >
-                  <Text style={{ fontSize: 14 }}>
-                    {d.kind === 'photo' ? '🖼️' : '📄'}
-                  </Text>
+                  <Feather
+                    name={d.kind === 'photo' ? 'image' : 'file-text'}
+                    size={14}
+                    color={theme.text.tertiary}
+                  />
                   <View style={{ flex: 1 }}>
                     <Text
                       variant="caption"
@@ -889,7 +890,7 @@ function SkillProofSection({
                       name: d.fileName,
                     })}
                   >
-                    <Text style={{ fontSize: 16, color: theme.text.tertiary }}>×</Text>
+                    <Feather name="x" size={16} color={theme.text.tertiary} />
                   </Pressable>
                 </View>
               ))

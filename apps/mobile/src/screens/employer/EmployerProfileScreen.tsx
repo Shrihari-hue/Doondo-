@@ -43,6 +43,8 @@ import type { AppStackParamList } from '@/navigation/types';
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
+const BLUE = '#2563EB';
+
 export function EmployerProfileScreen() {
   const { user, logout, savedAccounts } = useAuth();
   const setStore = useAuthStore.setState;
@@ -265,7 +267,7 @@ export function EmployerProfileScreen() {
                     {t('employer.profile.recovery_body')}
                   </Text>
                 </View>
-                <Pill label={t('employer.profile.recovery_pill')} tone="hero" />
+                <Pill label={t('employer.profile.recovery_pill')} tone="info" />
               </View>
             </Card>
           </AnimatedPressable>
@@ -299,9 +301,9 @@ export function EmployerProfileScreen() {
               {user.isVerified ? (
                 <Pill label={t('employer.profile.verification_verified_pill')} tone="premium" leading="★" />
               ) : user.verificationStatus === 'pending' ? (
-                <Pill label={t('employer.profile.verification_continue')} tone="hero" />
+                <Pill label={t('employer.profile.verification_continue')} tone="info" />
               ) : (
-                <Pill label={t('employer.profile.verification_verify')} tone="hero" />
+                <Pill label={t('employer.profile.verification_verify')} tone="info" />
               )}
             </View>
           </Card>
@@ -398,7 +400,7 @@ function LaborBudgetCard({ t }: { t: TFn }) {
                 style={{
                   width: `${Math.round(pct * 100)}%`,
                   height: '100%',
-                  backgroundColor: over ? theme.status.warning : theme.brand.hero,
+                  backgroundColor: over ? theme.status.warning : BLUE,
                 }}
               />
             </View>
@@ -431,11 +433,30 @@ function LaborBudgetCard({ t }: { t: TFn }) {
               placeholder="0"
             />
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <Button
-                label={mutation.isPending ? t('employer.labor_budget.saving') : t('employer.labor_budget.save')}
+              <Pressable
                 onPress={() => mutation.mutate()}
                 disabled={mutation.isPending || !amount}
-              />
+                style={({ pressed }) => ({
+                  backgroundColor: BLUE,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md,
+                  paddingHorizontal: spacing.xl,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: mutation.isPending || !amount ? 0.5 : pressed ? 0.85 : 1,
+                })}
+              >
+                <Text
+                  variant="bodyLarge"
+                  weight="medium"
+                  numberOfLines={2}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.85}
+                  style={{ textAlign: 'center', color: '#FFFFFF' }}
+                >
+                  {mutation.isPending ? t('employer.labor_budget.saving') : t('employer.labor_budget.save')}
+                </Text>
+              </Pressable>
               <Button
                 label={t('employer.labor_budget.cancel')}
                 variant="secondary"
@@ -465,7 +486,7 @@ function FavoritedByStat({ t }: { t: TFn }) {
   const count = query.data?.count ?? 0;
   if (count <= 0) return null;
   return (
-    <Text variant="footnote" tone="hero" weight="medium">
+    <Text variant="footnote" weight="medium" style={{ color: BLUE }}>
       {t('employer.profile.favorited_by', { n: count })}
     </Text>
   );
@@ -533,7 +554,7 @@ function ResponseSettingsCard({ t }: { t: TFn }) {
           <Switch
             value={settings.quietHoursEnabled}
             onValueChange={(v) => update({ quietHoursEnabled: v })}
-            trackColor={{ true: theme.brand.hero, false: theme.border.strong }}
+            trackColor={{ true: BLUE, false: theme.border.strong }}
           />
         </View>
 
@@ -549,7 +570,7 @@ function ResponseSettingsCard({ t }: { t: TFn }) {
           <Switch
             value={settings.smsApplicantAlerts}
             onValueChange={(v) => update({ smsApplicantAlerts: v })}
-            trackColor={{ true: theme.brand.hero, false: theme.border.strong }}
+            trackColor={{ true: BLUE, false: theme.border.strong }}
           />
         </View>
 
@@ -651,7 +672,7 @@ function SectionCard({
             >
               {label}
             </Text>
-            <Text variant="footnote" tone="hero">
+            <Text variant="footnote" style={{ color: BLUE }}>
               {t('employer.profile.edit')}
             </Text>
           </View>

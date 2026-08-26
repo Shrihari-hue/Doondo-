@@ -22,6 +22,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii, blue } from '@doondo/tokens';
 import { Screen, Text, LoadingSpinner, EmptyState } from '@/components';
@@ -165,8 +166,8 @@ function CourseDetailInner() {
             gap: spacing.md,
           }}
         >
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={{ fontSize: 22, color: '#FFFFFF' }}>←</Text>
+          <Pressable onPress={() => navigation.goBack()} hitSlop={12} accessibilityRole="button" accessibilityLabel={t('common.back')}>
+            <Feather name="arrow-left" size={22} color="#FFFFFF" />
           </Pressable>
           <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
             <View
@@ -217,7 +218,7 @@ function CourseDetailInner() {
                     gap: 4,
                   }}
                 >
-                  <Text style={{ fontSize: 12 }}>🏅</Text>
+                  <Feather name="award" size={12} color="#78350F" />
                   <Text style={{ fontSize: 11, fontWeight: '700', color: '#78350F' }}>
                     {t('course_detail.badge_earned')}
                   </Text>
@@ -353,15 +354,19 @@ function CourseDetailInner() {
                     justifyContent: 'center',
                   }}
                 >
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: '700',
-                      color: done ? '#065F46' : theme.text.secondary,
-                    }}
-                  >
-                    {done ? '✓' : `${i + 1}`}
-                  </Text>
+                  {done ? (
+                    <Feather name="check" size={15} color="#065F46" />
+                  ) : (
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: '700',
+                        color: theme.text.secondary,
+                      }}
+                    >
+                      {i + 1}
+                    </Text>
+                  )}
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text

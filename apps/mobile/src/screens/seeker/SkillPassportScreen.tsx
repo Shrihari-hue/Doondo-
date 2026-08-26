@@ -19,8 +19,11 @@
 import { Pressable, ScrollView, Share, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 
-import { spacing, radii } from '@doondo/tokens';
+import { spacing, radii, blue } from '@doondo/tokens';
 import { Screen, Text, Button, Avatar, LoadingSpinner, ErrorPanel } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
@@ -36,7 +39,6 @@ type Nav = NativeStackNavigationProp<AppStackParamList>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 function SkillPassportInner() {
-  const { theme } = useTheme();
   const navigation = useNavigation<Nav>();
   const t = useTranslate();
   const { user } = useAuth();
@@ -71,8 +73,10 @@ function SkillPassportInner() {
     void Share.share({ message: lines.join('\n') }).catch(() => undefined);
   }
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <Screen>
+    <Screen edges={[]}>
       {isLoading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <LoadingSpinner />
@@ -88,40 +92,41 @@ function SkillPassportInner() {
       ) : (
         <ScrollView
           contentContainerStyle={{
-            padding: spacing.xl,
-            paddingBottom: spacing['5xl'],
-            gap: spacing.xl,
+            paddingBottom: insets.bottom + spacing['5xl'],
           }}
         >
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text variant="body" tone="secondary">
-              {t('skill_passport.back')}
-            </Text>
-          </Pressable>
-
-          <PassportHero passport={data} name={user?.name ?? ''} photoUrl={user?.photoUrl ?? null} t={t} />
-
-          <SkillsSection skills={data.skills} t={t} />
-
-          <TestsSection tests={data.skillTests} t={t} />
-
-          <StatsRow passport={data} t={t} />
-
-          <Button label={t('skill_passport.share')} onPress={() => onShare(data)} />
-
-          {/* Doondo Score QR — a signed, scannable credential anyone can
-             verify without a Doondo account. */}
-          <Button
-            label={t('score_qr.passport_cta')}
-            variant="secondary"
-            onPress={() => navigation.navigate('ScoreCredential')}
+          <PassportHero
+            passport={data}
+            name={user?.name ?? ''}
+            photoUrl={user?.photoUrl ?? null}
+            t={t}
+            insetsTop={insets.top}
+            onBack={() => navigation.goBack()}
           />
 
-          {isRefetching && (
-            <Text variant="caption" tone="tertiary" style={{ textAlign: 'center' }}>
-              …
-            </Text>
-          )}
+          <View style={{ padding: spacing.xl, gap: spacing.xl }}>
+            <SkillsSection skills={data.skills} t={t} />
+
+            <TestsSection tests={data.skillTests} t={t} />
+
+            <StatsRow passport={data} t={t} />
+
+            <Button label={t('skill_passport.share')} onPress={() => onShare(data)} />
+
+            {/* Doondo Score QR — a signed, scannable credential anyone can
+               verify without a Doondo account. */}
+            <Button
+              label={t('score_qr.passport_cta')}
+              variant="secondary"
+              onPress={() => navigation.navigate('ScoreCredential')}
+            />
+
+            {isRefetching && (
+              <Text variant="caption" tone="tertiary" style={{ textAlign: 'center' }}>
+                …
+              </Text>
+            )}
+          </View>
         </ScrollView>
       )}
     </Screen>
@@ -134,36 +139,58 @@ function PassportHero({
   name,
   photoUrl,
   t,
+  insetsTop,
+  onBack,
 }: {
   passport: SkillPassport;
   name: string;
   photoUrl: string | null;
   t: TFn;
+  insetsTop: number;
+  onBack: () => void;
 }) {
-  const { theme } = useTheme();
   const memberSince = formatMonthYear(passport.memberSince);
 
   return (
-    <View
+    <LinearGradient
+      colors={[blue[700], blue[600], blue[500]]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
       style={{
-        borderRadius: radii.xl,
-        backgroundColor: theme.brand.heroSubtle,
-        borderWidth: 0.5,
-        borderColor: theme.border.default,
-        padding: spacing.xl,
+        paddingTop: insetsTop + spacing.md,
+        paddingHorizontal: spacing.xl,
+        paddingBottom: spacing.xl,
+        borderBottomLeftRadius: radii.xl,
+        borderBottomRightRadius: radii.xl,
         gap: spacing.md,
         alignItems: 'center',
       }}
     >
-      <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-        {t('skill_passport.title')}
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+        <Pressable onPress={onBack} hitSlop={12} accessibilityRole="button" accessibilityLabel={t('skill_passport.back')}>
+          <Feather name="arrow-left" size={22} color="#FFFFFF" />
+        </Pressable>
+        <Text
+          style={{
+            flex: 1,
+            textAlign: 'center',
+            fontSize: 12,
+            fontWeight: '600',
+            letterSpacing: 1.2,
+            color: 'rgba(255,255,255,0.85)',
+            marginRight: 22,
+          }}
+        >
+          {t('skill_passport.title').toUpperCase()}
+        </Text>
+      </View>
+
       <Avatar name={name} photoUrl={photoUrl} size={72} />
       <View style={{ alignItems: 'center', gap: 2 }}>
-        <Text variant="bodyLarge" weight="medium" numberOfLines={1}>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFFFFF' }} numberOfLines={1}>
           {name}
         </Text>
-        <Text variant="footnote" tone="secondary">
+        <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.82)' }}>
           {t('skill_passport.tagline')}
         </Text>
       </View>
@@ -172,16 +199,23 @@ function PassportHero({
       <View style={{ alignItems: 'center', gap: 0 }}>
         <Text
           style={{
-            fontSize: 44,
-            lineHeight: 50,
-            fontWeight: '700',
-            color: theme.brand.hero,
+            fontSize: 48,
+            lineHeight: 54,
+            fontWeight: '800',
+            color: '#FFFFFF',
           }}
         >
           {passport.score}
         </Text>
-        <Text variant="caption" tone="tertiary" style={{ letterSpacing: 0.8 }}>
-          {t('skill_passport.score_label')} · 100
+        <Text
+          style={{
+            fontSize: 11,
+            fontWeight: '700',
+            letterSpacing: 1,
+            color: 'rgba(255,255,255,0.75)',
+          }}
+        >
+          {t('skill_passport.score_label').toUpperCase()} · 100
         </Text>
       </View>
 
@@ -195,33 +229,34 @@ function PassportHero({
           paddingVertical: 6,
           borderRadius: radii.pill,
           backgroundColor: passport.isIdentityVerified
-            ? theme.status.successSubtle
-            : theme.bg.surface,
+            ? 'rgba(16,185,129,0.22)'
+            : 'rgba(255,255,255,0.14)',
           borderWidth: 0.5,
           borderColor: passport.isIdentityVerified
-            ? theme.status.success
-            : theme.border.default,
+            ? 'rgba(16,185,129,0.55)'
+            : 'rgba(255,255,255,0.32)',
         }}
       >
+        {passport.isIdentityVerified ? (
+          <Feather name="check-circle" size={13} color="#D1FAE5" />
+        ) : null}
         <Text
-          variant="footnote"
-          weight="medium"
           style={{
-            color: passport.isIdentityVerified
-              ? theme.status.success
-              : theme.text.secondary,
+            fontSize: 12,
+            fontWeight: '600',
+            color: passport.isIdentityVerified ? '#D1FAE5' : 'rgba(255,255,255,0.85)',
           }}
         >
           {passport.isIdentityVerified
-            ? `✓ ${t('skill_passport.verified_id')}`
+            ? t('skill_passport.verified_id')
             : t('skill_passport.unverified_id')}
         </Text>
       </View>
 
-      <Text variant="caption" tone="tertiary">
+      <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)' }}>
         {t('skill_passport.member_since', { date: memberSince })}
       </Text>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -300,12 +335,15 @@ function SkillBadge({ skill, t }: { skill: PassportSkill; t: TFn }) {
   // Verified — show "Tested" when test-backed, otherwise the endorsement
   // count, which is the stronger, employer-given signal.
   const label = skill.tested
-    ? `✓ ${t('skill_passport.tested')}`
-    : `✓ ${t('skill_passport.verified')} · ${skill.endorsementCount}`;
+    ? t('skill_passport.tested')
+    : `${t('skill_passport.verified')} · ${skill.endorsementCount}`;
 
   return (
     <View
       style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 3,
         paddingHorizontal: spacing.sm,
         paddingVertical: 3,
         borderRadius: radii.pill,
@@ -314,6 +352,7 @@ function SkillBadge({ skill, t }: { skill: PassportSkill; t: TFn }) {
         borderColor: theme.status.success,
       }}
     >
+      <Feather name="check" size={11} color={theme.status.success} />
       <Text variant="caption" weight="medium" style={{ color: theme.status.success }}>
         {label}
       </Text>

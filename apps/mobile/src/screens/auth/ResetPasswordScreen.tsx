@@ -1,11 +1,22 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { spacing } from '@doondo/tokens';
-import { Screen, Text, Button, TextField, FormError, Card } from '@/components';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
+import { spacing, radii, blue } from '@doondo/tokens';
+import { Screen, Text, Button, TextField, FormError, DoondoMark } from '@/components';
 import { authApi } from '@/api/auth.api';
 import { ApiError } from '@/api/errors';
+import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
 import type { AuthStackParamList } from '@/navigation/types';
@@ -30,6 +41,7 @@ type ResetRoute = RouteProp<AuthStackParamList, 'ResetPassword'>;
 export function ResetPasswordScreen() {
   const navigation = useNavigation<Nav>();
   const { resetToken } = useRoute<ResetRoute>().params;
+  const { theme } = useTheme();
   const t = useTranslate();
 
   const [password, setPassword] = useState('');
@@ -109,27 +121,75 @@ export function ResetPasswordScreen() {
           style={{
             flex: 1,
             padding: spacing.xl,
-            paddingTop: spacing['5xl'],
+            paddingTop: spacing['4xl'],
             gap: spacing['2xl'],
           }}
         >
-          <View style={{ gap: spacing.xs }}>
-            <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
+          <LinearGradient
+            colors={['#060B16', '#0D1B33', blue[900]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              alignItems: 'center',
+              gap: spacing.md,
+              borderRadius: radii.xl,
+              padding: spacing['2xl'],
+              borderWidth: 1,
+              borderColor: 'rgba(96,165,250,0.25)',
+            }}
+          >
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: radii.lg,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: theme.status.successSubtle,
+                borderWidth: 1,
+                borderColor: theme.status.success,
+              }}
+            >
+              <Feather name="check-circle" size={32} color={theme.status.success} />
+            </View>
+            <Text
+              variant="caption"
+              weight="medium"
+              style={{ letterSpacing: 1.2, color: blue[300], textAlign: 'center' }}
+            >
               {t('auth.reset.done_eyebrow')}
             </Text>
-            <Text variant="titleLarge" weight="medium">
+            <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF', textAlign: 'center' }}>
               {t('auth.reset.done_title')}
             </Text>
-          </View>
-          <Card>
-            <Text variant="body" tone="secondary">
+            <Text
+              variant="footnote"
+              style={{ color: 'rgba(255,255,255,0.75)', textAlign: 'center' }}
+            >
               {t('auth.reset.done_body')}
             </Text>
-          </Card>
-          <Button
-            label={t('auth.reset.done_cta')}
-            onPress={() => navigation.popToTop()}
-          />
+          </LinearGradient>
+
+          <Pressable onPress={() => navigation.popToTop()}>
+            <LinearGradient
+              colors={[blue[500], blue[400]]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: spacing.sm,
+                borderRadius: radii.pill,
+                paddingVertical: spacing.lg,
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+                {t('auth.reset.done_cta')}
+              </Text>
+              <Feather name="arrow-right" size={18} color="#FFFFFF" />
+            </LinearGradient>
+          </Pressable>
         </View>
       </Screen>
     );
@@ -144,23 +204,56 @@ export function ResetPasswordScreen() {
         <ScrollView
           contentContainerStyle={{
             padding: spacing.xl,
-            paddingTop: spacing['5xl'],
+            paddingTop: spacing['4xl'],
             paddingBottom: spacing['4xl'],
             gap: spacing['2xl'],
           }}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={{ gap: spacing.xs }}>
-            <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              {t('auth.reset.eyebrow')}
-            </Text>
-            <Text variant="titleLarge" weight="medium">
-              {t('auth.reset.title')}
-            </Text>
-            <Text variant="body" tone="secondary">
-              {t('auth.reset.subtitle')}
-            </Text>
-          </View>
+          <LinearGradient
+            colors={['#060B16', '#0D1B33', blue[900]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.md,
+              borderRadius: radii.xl,
+              padding: spacing.lg,
+              borderWidth: 1,
+              borderColor: 'rgba(96,165,250,0.25)',
+            }}
+          >
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: radii.lg,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(59,130,246,0.16)',
+                borderWidth: 1,
+                borderColor: 'rgba(96,165,250,0.5)',
+              }}
+            >
+              <DoondoMark size={30} color={blue[300]} />
+            </View>
+
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+                {t('auth.reset.title')}
+              </Text>
+              <Text variant="caption" style={{ letterSpacing: 1.2, color: blue[300] }}>
+                {t('auth.reset.eyebrow')}
+              </Text>
+              <Text
+                variant="footnote"
+                style={{ marginTop: spacing.xs, color: 'rgba(255,255,255,0.75)' }}
+              >
+                {t('auth.reset.subtitle')}
+              </Text>
+            </View>
+          </LinearGradient>
 
           <FormError message={formError} />
 
@@ -198,19 +291,64 @@ export function ResetPasswordScreen() {
           </View>
 
           <View style={{ gap: spacing.md }}>
-            <Button
-              label={submitting ? t('auth.reset.cta_saving') : t('auth.reset.cta_save')}
-              onPress={onSubmit}
-              disabled={submitting}
-            />
+            <Pressable onPress={onSubmit} disabled={submitting} style={{ opacity: submitting ? 0.7 : 1 }}>
+              <LinearGradient
+                colors={[blue[500], blue[400]]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: spacing.sm,
+                  borderRadius: radii.pill,
+                  paddingVertical: spacing.lg,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+                  {submitting ? t('auth.reset.cta_saving') : t('auth.reset.cta_save')}
+                </Text>
+                {!submitting && <Feather name="arrow-right" size={18} color="#FFFFFF" />}
+              </LinearGradient>
+            </Pressable>
             <Button
               label={t('auth.reset.cta_start_over')}
               variant="ghost"
               onPress={() => navigation.popToTop()}
+              disabled={submitting}
             />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={submitting} transparent animationType="fade" statusBarTranslucent>
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0,0,0,0.55)',
+          }}
+        >
+          <View
+            style={{
+              alignItems: 'center',
+              gap: spacing.md,
+              paddingVertical: spacing.xl,
+              paddingHorizontal: spacing['2xl'],
+              borderRadius: radii.xl,
+              backgroundColor: '#0D1B33',
+              borderWidth: 1,
+              borderColor: 'rgba(96,165,250,0.3)',
+            }}
+          >
+            <ActivityIndicator size="large" color={blue[400]} />
+            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
+              {t('auth.reset.cta_saving')}
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }

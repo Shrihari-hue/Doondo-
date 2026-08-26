@@ -35,8 +35,6 @@ interface Props {
 }
 
 const BLUE = '#2563EB';
-const GREEN = '#16A34A';
-const GREEN_LIGHT = '#DCFCE7';
 
 export function ApplicantCard({ applicant, showJobTitle = false, blind = false, blindIndex, onLongPress, fitScore }: Props) {
   const navigation = useNavigation<Nav>();

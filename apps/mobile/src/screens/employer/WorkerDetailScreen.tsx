@@ -73,7 +73,7 @@ export function WorkerDetailScreen() {
   }
 
   if (workerQuery.isError || !workerQuery.data) {
-    return <Screen><EmptyState glyph="✕" tone="warning" eyebrow="Error" title="Worker not found"
+    return <Screen><EmptyState icon="alert-circle" tone="warning" eyebrow="Error" title="Worker not found"
       message="Go back and try again." cta={{ label: 'Go back', onPress: () => navigation.goBack() }} /></Screen>;
   }
 

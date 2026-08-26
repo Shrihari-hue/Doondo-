@@ -16,6 +16,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Text } from '@/components';
@@ -42,6 +43,8 @@ export interface VoicePostButtonProps {
     transcript: string,
   ) => void;
 }
+
+const ORANGE = '#F97316';
 
 export function VoicePostButton({ onDraft }: VoicePostButtonProps) {
   const { theme } = useTheme();
@@ -130,8 +133,8 @@ export function VoicePostButton({ onDraft }: VoicePostButtonProps) {
     <View
       style={{
         borderWidth: 1,
-        borderColor: active ? theme.brand.hero : theme.border.default,
-        backgroundColor: active ? theme.brand.heroSubtle : theme.bg.surface,
+        borderColor: active ? ORANGE : theme.border.default,
+        backgroundColor: active ? ORANGE + '1F' : theme.bg.surface,
         borderRadius: radii.lg,
         padding: spacing.md,
         gap: spacing.xs,
@@ -151,13 +154,13 @@ export function VoicePostButton({ onDraft }: VoicePostButtonProps) {
             borderRadius: 22,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: active ? theme.brand.hero : theme.brand.heroSubtle,
+            backgroundColor: active ? ORANGE : ORANGE + '1F',
           }}
         >
           {busy ? (
-            <ActivityIndicator color={active ? theme.bg.surface : theme.brand.hero} />
+            <ActivityIndicator color={active ? '#FFFFFF' : ORANGE} />
           ) : (
-            <Text style={{ fontSize: 20 }}>{listening ? '⏹' : '🎤'}</Text>
+            <Feather name={listening ? 'square' : 'mic'} size={20} color={active ? '#FFFFFF' : ORANGE} />
           )}
         </View>
         <View style={{ flex: 1 }}>

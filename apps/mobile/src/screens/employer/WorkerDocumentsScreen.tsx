@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
-import { spacing } from '@doondo/tokens';
+import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
@@ -143,7 +143,7 @@ export function WorkerDocumentsScreen() {
       <ScrollView style={{ flex: 1, backgroundColor: bg }}
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg, paddingBottom: insets.bottom + 32 }}>
 
-        <View style={{ backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
+        <View style={{ backgroundColor: surface, borderRadius: radii.lg, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
           {docs.map((doc, i) => {
             const st = STATUS_STYLE[doc.status];
             const isUploading = doc.status === 'Uploading';
@@ -181,14 +181,14 @@ export function WorkerDocumentsScreen() {
         </View>
 
         <AnimatedPressable onPress={handleUpload} style={{
-          backgroundColor: BLUE, borderRadius: 12, paddingVertical: 15,
+          backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 15,
           flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
         }}>
           <Feather name="upload" size={18} color="#FFFFFF" />
           <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>Upload New Document</Text>
         </AnimatedPressable>
 
-        <View style={{ backgroundColor: isLight ? '#F8FAFF' : '#1A1F2E', borderRadius: 10, padding: spacing.md,
+        <View style={{ backgroundColor: isLight ? '#F8FAFF' : '#1A1F2E', borderRadius: radii.md, padding: spacing.md,
           flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm,
           borderWidth: 1, borderColor: isLight ? '#DBEAFE' : '#1E3A5F' }}>
           <Feather name="info" size={14} color={BLUE} style={{ marginTop: 1 }} />

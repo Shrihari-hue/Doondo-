@@ -1,9 +1,19 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { spacing } from '@doondo/tokens';
-import { Screen, Text, Button, TextField, FormError } from '@/components';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
+import { spacing, radii, blue } from '@doondo/tokens';
+import { Screen, Text, Button, TextField, FormError, DoondoMark } from '@/components';
 import { authApi } from '@/api/auth.api';
 import { ApiError } from '@/api/errors';
 import { haptic } from '@/lib/haptics';
@@ -92,23 +102,56 @@ export function ForgotPasswordScreen() {
         <ScrollView
           contentContainerStyle={{
             padding: spacing.xl,
-            paddingTop: spacing['5xl'],
+            paddingTop: spacing['4xl'],
             paddingBottom: spacing['4xl'],
             gap: spacing['2xl'],
           }}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={{ gap: spacing.xs }}>
-            <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.2 }}>
-              {t('auth.forgot.eyebrow')}
-            </Text>
-            <Text variant="titleLarge" weight="medium">
-              {t('auth.forgot.title')}
-            </Text>
-            <Text variant="body" tone="secondary">
-              {t('auth.forgot.subtitle')}
-            </Text>
-          </View>
+          <LinearGradient
+            colors={['#060B16', '#0D1B33', blue[900]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.md,
+              borderRadius: radii.xl,
+              padding: spacing.lg,
+              borderWidth: 1,
+              borderColor: 'rgba(96,165,250,0.25)',
+            }}
+          >
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: radii.lg,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(59,130,246,0.16)',
+                borderWidth: 1,
+                borderColor: 'rgba(96,165,250,0.5)',
+              }}
+            >
+              <DoondoMark size={30} color={blue[300]} />
+            </View>
+
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+                {t('auth.forgot.title')}
+              </Text>
+              <Text variant="caption" style={{ letterSpacing: 1.2, color: blue[300] }}>
+                {t('auth.forgot.eyebrow')}
+              </Text>
+              <Text
+                variant="footnote"
+                style={{ marginTop: spacing.xs, color: 'rgba(255,255,255,0.75)' }}
+              >
+                {t('auth.forgot.subtitle')}
+              </Text>
+            </View>
+          </LinearGradient>
 
           <FormError message={formError} />
 
@@ -129,19 +172,64 @@ export function ForgotPasswordScreen() {
           />
 
           <View style={{ gap: spacing.md }}>
-            <Button
-              label={submitting ? t('auth.forgot.cta_sending') : t('auth.forgot.cta_send')}
-              onPress={onSubmit}
-              disabled={submitting}
-            />
+            <Pressable onPress={onSubmit} disabled={submitting} style={{ opacity: submitting ? 0.7 : 1 }}>
+              <LinearGradient
+                colors={[blue[500], blue[400]]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: spacing.sm,
+                  borderRadius: radii.pill,
+                  paddingVertical: spacing.lg,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+                  {submitting ? t('auth.forgot.cta_sending') : t('auth.forgot.cta_send')}
+                </Text>
+                {!submitting && <Feather name="arrow-right" size={18} color="#FFFFFF" />}
+              </LinearGradient>
+            </Pressable>
             <Button
               label={t('auth.forgot.cta_back')}
               variant="ghost"
               onPress={() => navigation.goBack()}
+              disabled={submitting}
             />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={submitting} transparent animationType="fade" statusBarTranslucent>
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0,0,0,0.55)',
+          }}
+        >
+          <View
+            style={{
+              alignItems: 'center',
+              gap: spacing.md,
+              paddingVertical: spacing.xl,
+              paddingHorizontal: spacing['2xl'],
+              borderRadius: radii.xl,
+              backgroundColor: '#0D1B33',
+              borderWidth: 1,
+              borderColor: 'rgba(96,165,250,0.3)',
+            }}
+          >
+            <ActivityIndicator size="large" color={blue[400]} />
+            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
+              {t('auth.forgot.cta_sending')}
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }

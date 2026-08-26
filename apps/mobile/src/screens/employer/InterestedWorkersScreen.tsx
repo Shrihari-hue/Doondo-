@@ -140,7 +140,7 @@ export function InterestedWorkersScreen() {
           />
         ) : interests.length === 0 ? (
           <EmptyState
-            glyph="🙋"
+            icon="users"
             eyebrow="NOBODY YET"
             title="No interested workers yet"
             message="When a worker visits your profile and expresses interest, they show up here for you to invite."
@@ -158,7 +158,7 @@ export function InterestedWorkersScreen() {
               <RefreshControl
                 refreshing={query.isRefetching}
                 onRefresh={() => void query.refetch()}
-                tintColor={theme.brand.hero}
+                tintColor={blue[600]}
               />
             }
             renderItem={({ item }) => (
@@ -204,7 +204,7 @@ function InterestCard({
         backgroundColor: theme.bg.surface,
         borderRadius: radii.lg,
         borderWidth: 0.5,
-        borderColor: isNew ? theme.brand.hero : theme.border.subtle,
+        borderColor: isNew ? blue[500] : theme.border.subtle,
         padding: spacing.md,
         gap: spacing.sm,
       }}

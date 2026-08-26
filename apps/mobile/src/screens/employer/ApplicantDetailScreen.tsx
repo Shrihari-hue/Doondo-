@@ -376,21 +376,30 @@ export function ApplicantDetailScreen() {
               {/* Handle */}
               <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#374151', alignSelf: 'center' }} />
 
-              <View style={{ gap: spacing.xs }}>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>
-                  🎉 Day 1 Checklist
-                </Text>
-                <Text style={{ fontSize: 14, color: isLight ? '#6B7280' : '#9CA3AF' }}>
-                  Make sure {name.split(' ')[0]}'s first day goes smoothly.
-                </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                <View style={{
+                  width: 34, height: 34, borderRadius: 17,
+                  backgroundColor: isLight ? '#F0FDF4' : '#052E16',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Feather name="check-circle" size={18} color="#16A34A" />
+                </View>
+                <View style={{ gap: 2, flex: 1 }}>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>
+                    Day 1 Checklist
+                  </Text>
+                  <Text style={{ fontSize: 13, color: isLight ? '#6B7280' : '#9CA3AF' }}>
+                    Make sure {name.split(' ')[0]}'s first day goes smoothly.
+                  </Text>
+                </View>
               </View>
 
               {[
-                { key: 'id',       emoji: '🪪', label: 'Verify ID & documents' },
-                { key: 'uniform',  emoji: '👕', label: 'Provide uniform / PPE if needed' },
-                { key: 'shift',    emoji: '🕘', label: 'Confirm first shift time & location' },
-                { key: 'payroll',  emoji: '💳', label: 'Add to payroll / collect bank details' },
-                { key: 'intro',    emoji: '👋', label: 'Introduce to team and workspace' },
+                { key: 'id',       icon: 'shield' as const,        label: 'Verify ID & documents' },
+                { key: 'uniform',  icon: 'shopping-bag' as const,  label: 'Provide uniform / PPE if needed' },
+                { key: 'shift',    icon: 'clock' as const,         label: 'Confirm first shift time & location' },
+                { key: 'payroll',  icon: 'dollar-sign' as const,   label: 'Add to payroll / collect bank details' },
+                { key: 'intro',    icon: 'users' as const,         label: 'Introduce to team and workspace' },
               ].map((item) => (
                 <Pressable
                   key={item.key}
@@ -414,7 +423,7 @@ export function ApplicantDetailScreen() {
                       <Feather name="check" size={14} color="#FFFFFF" />
                     )}
                   </View>
-                  <Text style={{ fontSize: 16 }}>{item.emoji}</Text>
+                  <Feather name={item.icon} size={16} color={isLight ? '#6B7280' : '#9CA3AF'} />
                   <Text style={{
                     flex: 1, fontSize: 15, fontWeight: '500',
                     color: onboardingChecked[item.key]
@@ -456,21 +465,26 @@ export function ApplicantDetailScreen() {
               padding: spacing.xl, gap: spacing.lg, paddingBottom: spacing['2xl'],
             }}>
               <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#374151', alignSelf: 'center' }} />
-              <Text style={{ fontSize: 20, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>📋 Interview Feedback</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                <Feather name="clipboard" size={18} color={BLUE} />
+                <Text style={{ fontSize: 20, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>Interview Feedback</Text>
+              </View>
 
               {/* Showed up? */}
               <View style={{ gap: spacing.sm }}>
                 <Text style={{ fontSize: 14, fontWeight: '600', color: isLight ? '#374151' : '#D1D5DB' }}>Did {name.split(' ')[0]} show up?</Text>
                 <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                  {[{ val: true, label: '✅ Yes' }, { val: false, label: '❌ No-show' }].map(({ val, label }) => (
+                  {[{ val: true, label: 'Yes', icon: 'check' as const }, { val: false, label: 'No-show', icon: 'x' as const }].map(({ val, label, icon }) => (
                     <Pressable key={label} onPress={() => { haptic('selection'); setFeedbackShowedUp(val); }}
                       style={({ pressed }) => ({
-                        flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+                        flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        paddingVertical: 10, borderRadius: 10,
                         borderWidth: 1.5,
                         borderColor: feedbackShowedUp === val ? '#2563EB' : (isLight ? '#E5E7EB' : '#374151'),
                         backgroundColor: feedbackShowedUp === val ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent',
                         opacity: pressed ? 0.75 : 1,
                       })}>
+                      <Feather name={icon} size={14} color={feedbackShowedUp === val ? '#2563EB' : (isLight ? '#6B7280' : '#9CA3AF')} />
                       <Text style={{ fontSize: 14, fontWeight: '600', color: feedbackShowedUp === val ? '#2563EB' : (isLight ? '#6B7280' : '#9CA3AF') }}>{label}</Text>
                     </Pressable>
                   ))}

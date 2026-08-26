@@ -1,8 +1,11 @@
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { spacing } from '@doondo/tokens';
-import { Screen, Text, Button } from '@/components';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
+import { spacing, radii, blue } from '@doondo/tokens';
+import { Screen, Text, Button, DoondoMark } from '@/components';
+import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
 import type { AuthStackParamList } from '@/navigation/types';
 
@@ -12,8 +15,8 @@ type Nav = NativeStackNavigationProp<AuthStackParamList, 'Welcome'>;
  * WelcomeScreen — the unauthenticated landing.
  *
  * In Phase 1.5 the role-picker 3D scene replaces this as the actual app
- * entry. For now we keep it minimal and elegant: a hero word, a tagline,
- * and two buttons.
+ * entry. For now we keep it minimal and elegant: a hero banner matching the
+ * Login/Signup dark gradient treatment, and two buttons.
  */
 export function WelcomeScreen() {
   const navigation = useNavigation<Nav>();
@@ -25,27 +28,90 @@ export function WelcomeScreen() {
         style={{
           flex: 1,
           paddingHorizontal: spacing.xl,
-          paddingTop: spacing['7xl'],
+          paddingTop: spacing['4xl'],
           paddingBottom: spacing['3xl'],
           justifyContent: 'space-between',
         }}
       >
         {/* Hero */}
-        <View style={{ gap: spacing.md }}>
-          <Text variant="caption" tone="tertiary" style={{ letterSpacing: 1.4 }}>
+        <LinearGradient
+          colors={['#060B16', '#0D1B33', blue[900]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            alignItems: 'center',
+            gap: spacing.md,
+            borderRadius: radii.xl,
+            padding: spacing['2xl'],
+            borderWidth: 1,
+            borderColor: 'rgba(96,165,250,0.25)',
+          }}
+        >
+          <View
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: radii.lg,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(59,130,246,0.16)',
+              borderWidth: 1,
+              borderColor: 'rgba(96,165,250,0.5)',
+            }}
+          >
+            <DoondoMark size={40} color={blue[300]} />
+          </View>
+
+          <Text
+            variant="caption"
+            weight="medium"
+            style={{ letterSpacing: 1.4, color: blue[300], textAlign: 'center' }}
+          >
             {t('auth.welcome.eyebrow')}
           </Text>
-          <Text variant="displayLarge" weight="medium" display>
+          <Text
+            variant="display"
+            weight="medium"
+            display
+            style={{ color: '#FFFFFF', textAlign: 'center' }}
+          >
             {t('auth.welcome.hero')}
           </Text>
-          <Text variant="bodyLarge" tone="secondary" style={{ marginTop: spacing.sm }}>
+          <Text
+            variant="bodyLarge"
+            style={{ color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: spacing.xs }}
+          >
             {t('auth.welcome.tagline')}
           </Text>
-        </View>
+        </LinearGradient>
 
         {/* CTAs */}
         <View style={{ gap: spacing.md }}>
-          <Button label={t('auth.welcome.cta_create')} onPress={() => navigation.navigate('Signup')} />
+          <Pressable
+            onPress={() => {
+              haptic('light');
+              navigation.navigate('Signup');
+            }}
+          >
+            <LinearGradient
+              colors={[blue[500], blue[400]]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: spacing.sm,
+                borderRadius: radii.pill,
+                paddingVertical: spacing.lg,
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+                {t('auth.welcome.cta_create')}
+              </Text>
+              <Feather name="arrow-right" size={18} color="#FFFFFF" />
+            </LinearGradient>
+          </Pressable>
           <Button
             label={t('auth.welcome.cta_have_account')}
             variant="ghost"

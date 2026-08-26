@@ -475,8 +475,8 @@ export function PostJobScreen() {
             </Text>
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
               {([
-                { key: 'business', icon: '🏢', label: 'Business / Company' },
-                { key: 'household', icon: '🏠', label: 'Home / Household' },
+                { key: 'business', icon: 'briefcase' as const, label: 'Business / Company' },
+                { key: 'household', icon: 'home' as const, label: 'Home / Household' },
               ] as const).map((opt) => {
                 const active = hiringFor === opt.key;
                 return (
@@ -495,7 +495,7 @@ export function PostJobScreen() {
                       backgroundColor: active ? BLUE_LIGHT : '#FFFFFF',
                     }}
                   >
-                    <Text style={{ fontSize: 18 }}>{opt.icon}</Text>
+                    <Feather name={opt.icon} size={18} color={active ? BLUE : inputBorder} />
                     <Text
                       style={{
                         fontSize: 13,
@@ -602,9 +602,12 @@ export function PostJobScreen() {
               </Text>
             </Pressable>
             {coords && (
-              <Text style={{ fontSize: 11, color: '#9CA3AF' }}>
-                📍 {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Feather name="map-pin" size={11} color="#9CA3AF" />
+                <Text style={{ fontSize: 11, color: '#9CA3AF' }}>
+                  {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
+                </Text>
+              </View>
             )}
           </View>
 
@@ -1343,7 +1346,10 @@ export function PostJobScreen() {
 
               {/* Header */}
               <View style={{ gap: 4 }}>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>🎉 Job posted!</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Feather name="check-circle" size={20} color="#16A34A" />
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>Job posted!</Text>
+                </View>
                 {reHireSuggestions.length > 0 ? (
                   <Text style={{ fontSize: 14, color: '#6B7280' }}>
                     Workers you've hired before might be a great fit. Send them a quick invite?
@@ -1449,6 +1455,7 @@ function VoiceDescriptionField({
 }) {
   const { theme } = useTheme();
   const t = useTranslate();
+  const ORANGE = '#F97316';
 
   if (audio) {
     return (
@@ -1456,9 +1463,9 @@ function VoiceDescriptionField({
         style={{
           padding: spacing.md,
           borderRadius: radii.lg,
-          backgroundColor: '#EFF6FF',
+          backgroundColor: '#FFF7ED',
           borderWidth: 0.5,
-          borderColor: '#BFDBFE',
+          borderColor: '#FED7AA',
           flexDirection: 'row',
           alignItems: 'center',
           gap: spacing.md,
@@ -1469,12 +1476,12 @@ function VoiceDescriptionField({
             width: 36,
             height: 36,
             borderRadius: 18,
-            backgroundColor: '#2563EB',
+            backgroundColor: ORANGE,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Text style={{ color: '#FFFFFF', fontSize: 16 }}>🎙</Text>
+          <Feather name="mic" size={16} color="#FFFFFF" />
         </View>
         <View style={{ flex: 1 }}>
           <Text variant="body" weight="medium">
@@ -1518,7 +1525,7 @@ function VoiceDescriptionField({
           opacity: pressed && !recording ? 0.7 : 1,
         })}
       >
-        <Text style={{ fontSize: 22 }}>{recording ? '🔴' : '🎙'}</Text>
+        <Feather name={recording ? 'stop-circle' : 'mic'} size={22} color={recording ? '#DC2626' : ORANGE} />
         <Text
           style={{
             fontSize: 14,
@@ -1708,8 +1715,8 @@ function WomenSafetyField({
                 height: 22,
                 borderRadius: 6,
                 borderWidth: 1.5,
-                borderColor: on ? theme.brand.hero : theme.border.default,
-                backgroundColor: on ? theme.brand.hero : 'transparent',
+                borderColor: on ? '#2563EB' : theme.border.default,
+                backgroundColor: on ? '#2563EB' : 'transparent',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}

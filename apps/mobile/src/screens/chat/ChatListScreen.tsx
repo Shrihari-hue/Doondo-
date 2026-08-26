@@ -1,17 +1,17 @@
 /**
- * ChatListScreen — conversations inbox, blue seeker design.
+ * ChatListScreen — conversations inbox, Doondo blue design.
  *
- * Layout matches the seeker Phase-2 mockup:
+ * Layout:
  *   - "Conversations" title
  *   - Segmented tabs: All / Employers / Support
  *   - List of conversation rows (avatar, name, last message, time, unread)
  *   - Sticky "+ New Chat" button at the bottom
  *
- * Used by both seekers and employers. The seeker view is wrapped in
- * SeekerThemeOverride; employers see the inherited dark palette since
- * the wrapper is only mounted in the seeker tab navigator (this same
- * file is also used in the EmployerTabNavigator — there the parent
- * dark theme applies).
+ * Used by both seekers and employers. Restyled to the shared Doondo design
+ * language (see EmployerHomeScreen.tsx / PostsScreen.tsx) — local BLUE/
+ * ORANGE/RED consts + isLight from useTheme(), rather than the legacy
+ * per-role theme tokens, so the chat surface reads identically for both
+ * seekers and employers.
  *
  * Tab filter logic:
  *   - All       → every conversation
@@ -26,6 +26,7 @@ import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
 import {
@@ -33,9 +34,6 @@ import {
   Text,
   Avatar,
   SkeletonCard,
-  Card,
-  EmptyState as SharedEmptyState,
-  Button,
   AnimatedPressable,
 } from '@/components';
 import { useTheme } from '@/theme/useTheme';
@@ -51,12 +49,22 @@ type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 type TabKey = 'all' | 'employers' | 'support';
 
+const BLUE = '#2563EB';
+const RED = '#EF4444';
+
 export function ChatListScreen() {
   const { isAuthenticated, user } = useAuth();
-  const { theme } = useTheme();
+  const { scheme } = useTheme();
+  const isLight = scheme !== 'dark';
   const navigation = useNavigation<Nav>();
   const t = useTranslate();
   const [tab, setTab] = useState<TabKey>('all');
+
+  const bg = isLight ? '#FFFFFF' : '#0C0A0E';
+  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
+  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
+  const textPrimary = isLight ? '#1F2937' : '#F9FAFB';
+  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
 
   const query = useQuery({
     queryKey: ['chat', 'conversations'],
@@ -81,119 +89,156 @@ export function ChatListScreen() {
 
   return (
     <Screen edges={['top']}>
-      <ScrollView
-        contentContainerStyle={{
-          paddingHorizontal: spacing.xl,
-          paddingTop: spacing['2xl'],
-          paddingBottom: spacing['7xl'] + 80, // room for sticky New Chat
-          gap: spacing.lg,
-        }}
-        refreshControl={
-          <RefreshControl
-            refreshing={query.isRefetching}
-            onRefresh={() => void query.refetch()}
-            tintColor={theme.brand.hero}
-          />
-        }
-      >
-        <Text variant="display" weight="medium" display>
-          {t('chat_list.title')}
-        </Text>
-
-        {/* Segmented tabs */}
-        <View
-          style={{
-            flexDirection: 'row',
-            backgroundColor: theme.bg.surface,
-            borderRadius: radii.lg,
-            padding: 4,
-            borderWidth: 0.5,
-            borderColor: theme.border.default,
+      <View style={{ flex: 1, backgroundColor: bg }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: spacing.xl,
+            paddingTop: spacing.lg,
+            paddingBottom: spacing['7xl'] + 80, // room for sticky New Chat
+            gap: spacing.lg,
           }}
+          refreshControl={
+            <RefreshControl
+              refreshing={query.isRefetching}
+              onRefresh={() => void query.refetch()}
+              tintColor={BLUE}
+            />
+          }
         >
-          {TABS.map((tabDef) => {
-            const active = tab === tabDef.key;
-            return (
-              <Pressable
-                key={tabDef.key}
-                onPress={() => {
-                  haptic('selection');
-                  setTab(tabDef.key);
-                }}
-                style={{
-                  flex: 1,
-                  paddingVertical: spacing.sm,
-                  borderRadius: radii.md,
-                  alignItems: 'center',
-                  backgroundColor: active ? theme.bg.canvas : 'transparent',
-                  // Soft inner shadow effect via border on inactive
-                  borderWidth: active ? 0.5 : 0,
-                  borderColor: theme.border.default,
-                }}
-              >
-                <Text
-                  variant="footnote"
-                  weight={active ? 'medium' : 'regular'}
+          <Text style={{ fontSize: 24, fontWeight: '800', color: textPrimary }}>
+            {t('chat_list.title')}
+          </Text>
+
+          {/* Segmented tabs */}
+          <View
+            style={{
+              flexDirection: 'row',
+              backgroundColor: isLight ? '#F3F4F6' : '#141414',
+              borderRadius: radii.lg,
+              padding: 4,
+              borderWidth: 1,
+              borderColor: cardBorder,
+            }}
+          >
+            {TABS.map((tabDef) => {
+              const active = tab === tabDef.key;
+              return (
+                <Pressable
+                  key={tabDef.key}
+                  onPress={() => {
+                    haptic('selection');
+                    setTab(tabDef.key);
+                  }}
                   style={{
-                    color: active ? theme.brand.hero : theme.text.secondary,
+                    flex: 1,
+                    paddingVertical: spacing.sm,
+                    borderRadius: radii.md,
+                    alignItems: 'center',
+                    backgroundColor: active ? cardBg : 'transparent',
+                    borderWidth: active ? 1 : 0,
+                    borderColor: cardBorder,
                   }}
                 >
-                  {t(`chat_list.tabs.${tabDef.key}`)}
-                </Text>
-              </Pressable>
-            );
-          })}
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontWeight: active ? '700' : '500',
+                      color: active ? BLUE : textSecondary,
+                    }}
+                  >
+                    {t(`chat_list.tabs.${tabDef.key}`)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* List body */}
+          {query.isLoading ? (
+            <View style={{ gap: spacing.md }}>
+              <SkeletonCard lines={2} />
+              <SkeletonCard lines={2} />
+            </View>
+          ) : query.isError ? (
+            <View
+              style={{
+                backgroundColor: cardBg,
+                borderWidth: 1,
+                borderColor: cardBorder,
+                borderRadius: radii.lg,
+                padding: spacing.lg,
+              }}
+            >
+              <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>
+                {t('chat_list.error_title')}
+              </Text>
+              <Text style={{ fontSize: 13, color: textSecondary, marginTop: spacing.xs }}>
+                {t('chat_list.error_hint')}
+              </Text>
+            </View>
+          ) : filtered.length === 0 ? (
+            <EmptyTab
+              t={t}
+              tab={tab}
+              role={user?.role}
+              isLight={isLight}
+              textPrimary={textPrimary}
+              textSecondary={textSecondary}
+            />
+          ) : (
+            <View style={{ gap: spacing.xs }}>
+              {filtered.map((c) => (
+                <ConversationRow
+                  key={c.id}
+                  t={t}
+                  conversation={c}
+                  cardBorder={isLight ? '#F3F4F6' : '#1E1E1E'}
+                  textPrimary={textPrimary}
+                  textSecondary={textSecondary}
+                  onPress={() =>
+                    navigation.navigate('Conversation', { conversationId: c.id })
+                  }
+                />
+              ))}
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Sticky New Chat button */}
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            paddingHorizontal: spacing.xl,
+            paddingTop: spacing.md,
+            paddingBottom: spacing.xl,
+            backgroundColor: bg,
+            borderTopWidth: 1,
+            borderTopColor: cardBorder,
+          }}
+        >
+          <Pressable
+            onPress={newChat}
+            style={({ pressed }) => ({
+              backgroundColor: BLUE,
+              borderRadius: radii.lg,
+              paddingVertical: 14,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: spacing.xs,
+              opacity: pressed ? 0.88 : 1,
+            })}
+          >
+            <Feather name="edit" size={16} color="#FFFFFF" />
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>
+              {t('chat_list.new_chat_btn')}
+            </Text>
+          </Pressable>
         </View>
-
-        {/* List body */}
-        {query.isLoading ? (
-          <View style={{ gap: spacing.md }}>
-            <SkeletonCard lines={2} />
-            <SkeletonCard lines={2} />
-          </View>
-        ) : query.isError ? (
-          <Card>
-            <Text variant="bodyLarge" weight="medium">
-              {t('chat_list.error_title')}
-            </Text>
-            <Text variant="footnote" tone="secondary" style={{ marginTop: spacing.xs }}>
-              {t('chat_list.error_hint')}
-            </Text>
-          </Card>
-        ) : filtered.length === 0 ? (
-          <EmptyTab t={t} tab={tab} role={user?.role} />
-        ) : (
-          <View style={{ gap: spacing.sm }}>
-            {filtered.map((c) => (
-              <ConversationRow
-                key={c.id}
-                t={t}
-                conversation={c}
-                onPress={() =>
-                  navigation.navigate('Conversation', { conversationId: c.id })
-                }
-              />
-            ))}
-          </View>
-        )}
-      </ScrollView>
-
-      {/* Sticky New Chat button */}
-      <View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          paddingHorizontal: spacing.xl,
-          paddingTop: spacing.md,
-          paddingBottom: spacing.xl,
-          backgroundColor: theme.bg.canvas,
-          borderTopWidth: 0.5,
-          borderTopColor: theme.border.default,
-        }}
-      >
-        <Button label={t('chat_list.new_chat_btn')} onPress={newChat} />
       </View>
     </Screen>
   );
@@ -229,13 +274,18 @@ function filterByTab(
 function ConversationRow({
   t,
   conversation,
+  cardBorder,
+  textPrimary,
+  textSecondary,
   onPress,
 }: {
   t: TFn;
   conversation: PublicConversation;
+  cardBorder: string;
+  textPrimary: string;
+  textSecondary: string;
   onPress: () => void;
 }) {
-  const { theme } = useTheme();
   const counterpart = conversation.counterpart;
   const displayName =
     counterpart?.companyName ?? counterpart?.name ?? t('chat_list.fallback_name');
@@ -251,8 +301,8 @@ function ConversationRow({
           gap: spacing.md,
           paddingVertical: spacing.md,
           paddingHorizontal: spacing.sm,
-          borderBottomWidth: 0.5,
-          borderBottomColor: theme.border.subtle,
+          borderBottomWidth: 1,
+          borderBottomColor: cardBorder,
         }}
       >
         <Avatar
@@ -271,14 +321,17 @@ function ConversationRow({
             }}
           >
             <Text
-              variant="bodyLarge"
-              weight={isUnread ? 'medium' : 'regular'}
+              style={{
+                fontSize: 15,
+                fontWeight: isUnread ? '700' : '600',
+                color: textPrimary,
+                flex: 1,
+              }}
               numberOfLines={1}
-              style={{ flex: 1 }}
             >
               {displayName}
             </Text>
-            <Text variant="footnote" tone="tertiary">
+            <Text style={{ fontSize: 12, color: textSecondary }}>
               {timeShort(conversation.lastMessageAt, t)}
             </Text>
           </View>
@@ -290,11 +343,13 @@ function ConversationRow({
             }}
           >
             <Text
-              variant="footnote"
-              tone={isUnread ? 'primary' : 'secondary'}
-              weight={isUnread ? 'medium' : 'regular'}
+              style={{
+                fontSize: 13,
+                color: isUnread ? textPrimary : textSecondary,
+                fontWeight: isUnread ? '600' : '400',
+                flex: 1,
+              }}
               numberOfLines={1}
-              style={{ flex: 1 }}
             >
               {conversation.lastMessagePreview ?? t('chat_list.preview_empty')}
             </Text>
@@ -303,9 +358,9 @@ function ConversationRow({
                 style={{
                   minWidth: 22,
                   height: 22,
-                  paddingHorizontal: 8,
+                  paddingHorizontal: 7,
                   borderRadius: 11,
-                  backgroundColor: theme.brand.hero,
+                  backgroundColor: RED,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -314,7 +369,7 @@ function ConversationRow({
                   style={{
                     color: '#FFFFFF',
                     fontSize: 11,
-                    fontWeight: '600',
+                    fontWeight: '700',
                   }}
                 >
                   {conversation.unread > 99 ? '99+' : conversation.unread}
@@ -329,24 +384,40 @@ function ConversationRow({
 }
 
 // ─── Empty per-tab ───────────────────────────────────────────────────────────
+// Blue-tinted circular icon badge + eyebrow + bold title + gray message,
+// matching PostsScreen's PostJobEmptyState reference pattern.
 
-function EmptyTab({ t, tab, role }: { t: TFn; tab: TabKey; role?: string }) {
+function EmptyTab({
+  t,
+  tab,
+  role,
+  isLight,
+  textPrimary,
+  textSecondary,
+}: {
+  t: TFn;
+  tab: TabKey;
+  role?: string;
+  isLight: boolean;
+  textPrimary: string;
+  textSecondary: string;
+}) {
   if (tab === 'support') {
     return (
-      <SharedEmptyState
-        illustration="check"
-        tone="hero"
+      <ChatEmptyBlock
+        icon="check-circle"
         eyebrow={t('chat_list.empty_support_eyebrow')}
         title={t('chat_list.empty_support_title')}
         message={t('chat_list.empty_support_message')}
+        textPrimary={textPrimary}
+        textSecondary={textSecondary}
       />
     );
   }
   if (tab === 'employers') {
     return (
-      <SharedEmptyState
-        illustration="search"
-        tone="hero"
+      <ChatEmptyBlock
+        icon="briefcase"
         eyebrow={t('chat_list.empty_employers_eyebrow')}
         title={t('chat_list.empty_employers_title')}
         message={
@@ -354,14 +425,15 @@ function EmptyTab({ t, tab, role }: { t: TFn; tab: TabKey; role?: string }) {
             ? t('chat_list.empty_employers_message_employer')
             : t('chat_list.empty_employers_message_seeker')
         }
+        textPrimary={textPrimary}
+        textSecondary={textSecondary}
       />
     );
   }
   // 'all' tab
   return (
-    <SharedEmptyState
-      illustration="applicants"
-      tone="hero"
+    <ChatEmptyBlock
+      icon="message-circle"
       eyebrow={t('chat_list.empty_all_eyebrow')}
       title={t('chat_list.empty_all_title')}
       message={
@@ -370,7 +442,68 @@ function EmptyTab({ t, tab, role }: { t: TFn; tab: TabKey; role?: string }) {
           : t('chat_list.empty_all_message_seeker')
       }
       tall
+      textPrimary={textPrimary}
+      textSecondary={textSecondary}
     />
+  );
+}
+
+function ChatEmptyBlock({
+  icon,
+  eyebrow,
+  title,
+  message,
+  tall,
+  textPrimary,
+  textSecondary,
+}: {
+  icon: React.ComponentProps<typeof Feather>['name'];
+  eyebrow: string;
+  title: string;
+  message: string;
+  tall?: boolean;
+  textPrimary: string;
+  textSecondary: string;
+}) {
+  return (
+    <View
+      style={{
+        flex: tall ? 1 : undefined,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.sm,
+        paddingVertical: spacing['3xl'],
+        paddingHorizontal: spacing.xl,
+      }}
+    >
+      <View
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: 32,
+          borderWidth: 1,
+          borderColor: BLUE + '33',
+          backgroundColor: BLUE + '0D',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: spacing.xs,
+        }}
+      >
+        <Feather name={icon} size={26} color={BLUE} />
+      </View>
+
+      <Text style={{ fontSize: 12, fontWeight: '700', letterSpacing: 1.2, color: BLUE, textAlign: 'center' }}>
+        {eyebrow.toUpperCase()}
+      </Text>
+
+      <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary, textAlign: 'center' }}>
+        {title}
+      </Text>
+
+      <Text style={{ fontSize: 13, color: textSecondary, textAlign: 'center', maxWidth: 280 }}>
+        {message}
+      </Text>
+    </View>
   );
 }
 

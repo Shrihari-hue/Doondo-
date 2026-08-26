@@ -131,7 +131,8 @@ export function SendHiringRequestScreen() {
         />
       ) : jobs.length === 0 ? (
         <EmptyState
-          glyph="📋"
+          icon="briefcase"
+          tone="blue"
           title="No active jobs"
           message="Post a job first — then you can invite workers to apply for it."
           cta={{

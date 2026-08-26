@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
-import { spacing } from '@doondo/tokens';
+import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, SkeletonCard } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { timesheetApi } from '@/api/timesheet.api';
@@ -70,7 +70,7 @@ function TimelineSection({
   return (
     <View style={{ gap: spacing.sm }}>
       <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>{title}</Text>
-      <View style={{ backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border, padding: spacing.md }}>
+      <View style={{ backgroundColor: surface, borderRadius: radii.lg, borderWidth: 1, borderColor: border, padding: spacing.md }}>
         {events.map((ev, i) => {
           const color  = EVENT_COLOR[ev.type];
           const isLast = i === events.length - 1;
@@ -216,7 +216,7 @@ export function WorkerActivityScreen() {
               { label: 'Days present',      value: String(currentWorker.days) },
               { label: 'Total hours',       value: `${Math.floor(currentWorker.totalMinutes / 60)}h` },
             ].map((stat) => (
-              <View key={stat.label} style={{ flex: 1, backgroundColor: surface, borderRadius: 12,
+              <View key={stat.label} style={{ flex: 1, backgroundColor: surface, borderRadius: radii.lg,
                 borderWidth: 1, borderColor: border, padding: spacing.md, gap: 2, alignItems: 'center' }}>
                 <Text style={{ fontSize: 20, fontWeight: '800', color: textPrimary }}>{stat.value}</Text>
                 <Text style={{ fontSize: 11, color: textSecondary, textAlign: 'center' }}>{stat.label}</Text>
@@ -227,7 +227,7 @@ export function WorkerActivityScreen() {
 
         {/* Info banner when using fallback */}
         {!hasRealData && (
-          <View style={{ backgroundColor: isLight ? '#F8FAFF' : '#1E2A3A', borderRadius: 10, padding: spacing.md,
+          <View style={{ backgroundColor: isLight ? '#F8FAFF' : '#1E2A3A', borderRadius: radii.md, padding: spacing.md,
             flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
             borderWidth: 1, borderColor: isLight ? '#DBEAFE' : '#1E3A5F' }}>
             <Feather name="info" size={14} color={BLUE} />

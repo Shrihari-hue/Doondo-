@@ -14,6 +14,7 @@ import { Alert, FlatList, Pressable, RefreshControl, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Avatar } from '@/components';
@@ -121,6 +122,11 @@ function Inner() {
                 borderColor: theme.border.subtle,
                 padding: spacing.md,
                 gap: spacing.md,
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.06,
+                shadowRadius: 12,
+                elevation: 2,
               }}
             >
               <Pressable
@@ -159,10 +165,10 @@ function Inner() {
                   paddingTop: spacing.xs,
                 }}
               >
-                <QuickAction glyph="📷" label="Photo" onPress={() => openComposer('photo')} />
-                <QuickAction glyph="🎬" label="Video" onPress={() => openComposer('video')} />
+                <QuickAction icon="camera" label="Photo" onPress={() => openComposer('photo')} />
+                <QuickAction icon="video" label="Video" onPress={() => openComposer('video')} />
                 <QuickAction
-                  glyph="🎓"
+                  icon="award"
                   label="Certificate"
                   onPress={() => openComposer('certificate')}
                 />
@@ -186,11 +192,11 @@ function Inner() {
 }
 
 function QuickAction({
-  glyph,
+  icon,
   label,
   onPress,
 }: {
-  glyph: string;
+  icon: React.ComponentProps<typeof Feather>['name'];
   label: string;
   onPress: () => void;
 }) {
@@ -211,7 +217,7 @@ function QuickAction({
         opacity: pressed ? 0.6 : 1,
       })}
     >
-      <Text style={{ fontSize: 15 }}>{glyph}</Text>
+      <Feather name={icon} size={15} color={theme.brand.hero} />
       <Text style={{ fontSize: 12, fontWeight: '500', color: theme.text.secondary }}>
         {label}
       </Text>

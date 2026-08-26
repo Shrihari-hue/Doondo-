@@ -30,6 +30,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Text, BlurOverlay} from '@/components';
@@ -143,7 +144,7 @@ function ReelCard({
           }}
           pointerEvents="none"
         >
-          <Text style={{ fontSize: 40 }}>🎬</Text>
+          <Feather name="film" size={36} color="rgba(255,255,255,0.7)" />
           <Text
             variant="bodyLarge"
             weight="medium"
@@ -278,7 +279,7 @@ export function ReelFeedScreen() {
             gap: spacing.sm,
           }}
         >
-          <Text style={{ fontSize: 40 }}>🎬</Text>
+          <Feather name="film" size={36} color="rgba(255,255,255,0.7)" />
           <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFFFF' }}>
             {t('reels.feed_empty_title')}
           </Text>

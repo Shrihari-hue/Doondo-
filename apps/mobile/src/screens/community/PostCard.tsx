@@ -10,6 +10,7 @@
  * are delegated to the parent via `onOpen` / `onRepost`.
  */
 import { Image, Pressable, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Avatar, Text } from '@/components';
@@ -28,6 +29,9 @@ interface MediaShape {
   mediaUris: string[];
   certificateTitle?: string;
 }
+
+const BLUE = '#2563EB';
+const GREEN = '#16A34A';
 
 /** Bar heights for the voice-note waveform. */
 const VOICE_BARS = [8, 16, 24, 12, 20, 28, 14, 22, 10, 18, 26, 12, 20, 16, 9, 22, 14];
@@ -51,6 +55,11 @@ export function PostCard({
         borderWidth: 0.5,
         borderColor: theme.border.subtle,
         overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 2,
       }}
     >
       <Pressable
@@ -58,19 +67,22 @@ export function PostCard({
         android_ripple={{ color: 'rgba(0,0,0,0.04)' }}
         style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
       >
-        <View style={{ padding: spacing.lg }}>
+        <View style={{ padding: spacing.md }}>
           {post.reshared ? (
             <>
-              <Text
+              <View
                 style={{
-                  fontSize: 11,
-                  fontWeight: '600',
-                  color: theme.text.tertiary,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
                   marginBottom: spacing.xs,
                 }}
               >
-                🔁 {firstName(post.author.name)} reposted
-              </Text>
+                <Feather name="repeat" size={12} color={theme.text.tertiary} />
+                <Text style={{ fontSize: 11, fontWeight: '600', color: theme.text.tertiary }}>
+                  {firstName(post.author.name)} reposted
+                </Text>
+              </View>
               <AuthorRow
                 author={post.author}
                 headline={post.headline}
@@ -209,7 +221,7 @@ export function PostMedia({ media }: { media: MediaShape }) {
             justifyContent: 'center',
           }}
         >
-          <Text style={{ color: '#FFFFFF', fontSize: 17, marginLeft: 2 }}>▶</Text>
+          <Feather name="play" size={18} color="#FFFFFF" style={{ marginLeft: 2 }} />
         </View>
         <View
           style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 3 }}
@@ -274,7 +286,7 @@ export function PostMedia({ media }: { media: MediaShape }) {
             justifyContent: 'center',
           }}
         >
-          <Text style={{ fontSize: 22 }}>📄</Text>
+          <Feather name="file-text" size={22} color={GREEN} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text.primary }}>
@@ -284,7 +296,7 @@ export function PostMedia({ media }: { media: MediaShape }) {
             Tap to view this worker's resume
           </Text>
         </View>
-        <Text style={{ fontSize: 18, color: theme.text.tertiary }}>›</Text>
+        <Feather name="chevron-right" size={18} color={theme.text.tertiary} />
       </View>
     );
   }
@@ -316,7 +328,7 @@ export function PostMedia({ media }: { media: MediaShape }) {
               justifyContent: 'center',
             }}
           >
-            <Text style={{ fontSize: 40 }}>🎓</Text>
+            <Feather name="award" size={36} color="#8A6D1A" />
           </View>
         )}
         <View
@@ -328,7 +340,7 @@ export function PostMedia({ media }: { media: MediaShape }) {
             backgroundColor: '#FBF3DC',
           }}
         >
-          <Text style={{ fontSize: 18 }}>📜</Text>
+          <Feather name="award" size={16} color="#8A6D1A" />
           <View style={{ flex: 1 }}>
             <Text
               style={{
@@ -368,7 +380,7 @@ export function PostMedia({ media }: { media: MediaShape }) {
           justifyContent: 'center',
         }}
       >
-        <Text style={{ fontSize: 44 }}>{isVideo ? '🎬' : '🖼️'}</Text>
+        <Feather name={isVideo ? 'film' : 'image'} size={36} color={theme.text.tertiary} />
         <Text style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 4 }}>
           {isVideo ? 'Video' : 'Photo'}
         </Text>
@@ -485,7 +497,7 @@ function PlayOverlay() {
           justifyContent: 'center',
         }}
       >
-        <Text style={{ fontSize: 20, color: '#FFFFFF', marginLeft: 3 }}>▶</Text>
+        <Feather name="play" size={24} color="#FFFFFF" style={{ marginLeft: 3 }} />
       </View>
     </View>
   );

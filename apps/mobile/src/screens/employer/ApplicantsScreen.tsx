@@ -531,7 +531,7 @@ export function ApplicantsScreen() {
                 message="Check your connection and pull to refresh." tall />
             ) : applicants.length === 0 ? (
               <EmptyState
-                glyph={filter === 'all' ? '📋' : '◔'}
+                {...(filter === 'all' ? { illustration: 'applicants' as const } : { glyph: '◔' })}
                 tone="hero"
                 eyebrow={filter === 'all' ? 'No applicants yet' : `No ${filter} applicants`}
                 title={filter === 'all' ? 'Post a job to start receiving applications' : `No applicants in "${filter}" stage`}
@@ -902,7 +902,10 @@ export function ApplicantsScreen() {
               maxHeight: '75%',
             }}>
               <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#374151', alignSelf: 'center' }} />
-              <Text style={{ fontSize: 20, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>📁 Shortlist Folders</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Feather name="folder" size={20} color={isLight ? '#111827' : '#F9FAFB'} />
+                <Text style={{ fontSize: 20, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>Shortlist Folders</Text>
+              </View>
 
               {/* Create new folder */}
               <View style={{ flexDirection: 'row', gap: spacing.sm }}>
@@ -948,7 +951,7 @@ export function ApplicantsScreen() {
                         opacity: pressed ? 0.7 : 1,
                       })}
                     >
-                      <Text style={{ fontSize: 20 }}>📁</Text>
+                      <Feather name="folder" size={20} color={BLUE} />
                       <View style={{ flex: 1, gap: 2 }}>
                         <Text style={{ fontSize: 15, fontWeight: '600', color: isLight ? '#111827' : '#F9FAFB' }}>{folder.name}</Text>
                         <Text style={{ fontSize: 12, color: isLight ? '#6B7280' : '#9CA3AF' }}>{folder.applicationIds.length} applicants</Text>

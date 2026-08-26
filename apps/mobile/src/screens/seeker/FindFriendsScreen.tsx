@@ -16,6 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Contacts from 'expo-contacts';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Avatar, EmptyState, LoadingSpinner } from '@/components';
@@ -180,8 +181,21 @@ function Inner() {
             paddingHorizontal: spacing.xl,
           }}
         >
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={{ fontSize: 22, color: theme.text.primary }}>←</Text>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            hitSlop={12}
+            accessibilityRole="button"
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              borderWidth: 0.5,
+              borderColor: theme.border.default,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Feather name="chevron-left" size={20} color={theme.text.primary} />
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 22, fontWeight: '700', color: theme.text.primary }}>
@@ -205,21 +219,22 @@ function Inner() {
         {state.kind === 'permission_denied' && (
           <View style={{ paddingHorizontal: spacing.xl }}>
             <EmptyState
-              glyph="📵"
+              icon="user-x"
               eyebrow={t('find_friends.permission_eyebrow')}
               title={t('find_friends.permission_title')}
               message={t('find_friends.permission_message')}
             />
             <Pressable
               onPress={() => void Linking.openSettings()}
-              style={{
+              style={({ pressed }) => ({
                 alignSelf: 'center',
                 marginTop: spacing.lg,
                 paddingHorizontal: spacing.lg,
                 paddingVertical: spacing.sm,
                 borderRadius: radii.pill,
-                backgroundColor: '#2563EB',
-              }}
+                backgroundColor: theme.brand.hero,
+                opacity: pressed ? 0.85 : 1,
+              })}
             >
               <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
                 {t('find_friends.open_settings')}
@@ -231,7 +246,8 @@ function Inner() {
         {state.kind === 'unsupported' && (
           <View style={{ paddingHorizontal: spacing.xl }}>
             <EmptyState
-              glyph="⚠️"
+              icon="alert-triangle"
+              tone="warning"
               eyebrow={t('find_friends.unsupported_eyebrow')}
               title={t('find_friends.unsupported_title')}
               message={state.message}
@@ -277,9 +293,7 @@ function Inner() {
                         {f.role === 'employer' ? t('find_friends.role_employer') : t('find_friends.role_seeker')}
                       </Text>
                     </View>
-                    <Text style={{ color: theme.brand.hero, fontSize: 12, fontWeight: '600' }}>
-                      {t('find_friends.open_arrow')}
-                    </Text>
+                    <Feather name="chevron-right" size={16} color={theme.brand.hero} />
                   </Pressable>
                 ))
               )}
@@ -326,9 +340,12 @@ function Inner() {
                         </Text>
                       ) : null}
                     </View>
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#10B981' }}>
-                      {t('find_friends.invite_arrow')}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Feather name="share-2" size={13} color={theme.status.success} />
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: theme.status.success }}>
+                        {t('find_friends.invite_arrow')}
+                      </Text>
+                    </View>
                   </Pressable>
                 ))}
               </View>
@@ -350,11 +367,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <View
         style={{
           backgroundColor: theme.bg.surface,
-          borderRadius: 16,
+          borderRadius: radii.lg,
           borderWidth: 0.5,
           borderColor: theme.border.subtle,
           overflow: 'hidden',
           paddingVertical: spacing.sm,
+          shadowColor: '#0F172A',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.05,
+          shadowRadius: 10,
+          elevation: 2,
         }}
       >
         {children}

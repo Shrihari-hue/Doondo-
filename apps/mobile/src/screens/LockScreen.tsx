@@ -10,25 +10,31 @@
  * worker can never be permanently trapped behind a failing sensor.
  *
  * Design notes:
- *   - Pure-View glyphs (keyhole, fingerprint, person, chevron). We don't
- *     pull react-native-svg or an icon font just for this screen — the
- *     same approach DoondoLogo uses keeps the bundle lean and the marks
- *     theme-aware.
- *   - Champagne-gold accents on the keyhole, the wordmark divider, and
- *     the primary unlock card. The fallback "sign in" card uses the
- *     default border so the gold stays special.
+ *   - Dark navy gradient brand banner, matching the LoginScreen header
+ *     treatment, with a blue-tinted keyhole mark.
+ *   - Blue accents on the primary unlock card (mirrors the BLUE hero
+ *     color used across the redesigned screens). The fallback "sign in"
+ *     card uses the default neutral border so the primary action stays
+ *     the visual focus.
+ *   - Fingerprint/keyhole marks stay pure-View glyphs (no icon font
+ *     equivalent exists for them); the person + chevron glyphs were
+ *     swapped for Feather icons to match the rest of the app.
  */
 
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 
-import { radii, spacing } from '@doondo/tokens';
+import { radii, spacing, blue } from '@doondo/tokens';
 import { Screen, Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { haptic } from '@/lib/haptics';
 import { useAppLockStore } from '@/stores/appLock.store';
 import { useAuth } from '@/hooks/useAuth';
+
+const BLUE = '#2563EB';
 
 export function LockScreen() {
   const { theme } = useTheme();
@@ -69,22 +75,47 @@ export function LockScreen() {
           gap: spacing.lg,
         }}
       >
-        {/* Brand mark — gold keyhole inside a rounded vertical capsule. */}
-        <KeyholeMark size={72} color={theme.premium.gold} />
-
-        {/* Serif display wordmark + hairline gold rule underneath. */}
-        <View style={{ alignItems: 'center', gap: spacing.md }}>
-          <Text variant="display" weight="regular" display>
-            Doondo
-          </Text>
-          <View
+        {/* Brand banner — dark navy gradient matching the LoginScreen header. */}
+        <View style={{ alignSelf: 'stretch', maxWidth: 360, width: '100%' }}>
+          <LinearGradient
+            colors={['#060B16', '#0D1B33', blue[900]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={{
-              width: 36,
-              height: 1,
-              backgroundColor: theme.premium.gold,
-              opacity: 0.85,
+              alignItems: 'center',
+              gap: spacing.xs,
+              borderRadius: radii.xl,
+              padding: spacing.lg,
+              borderWidth: 1,
+              borderColor: 'rgba(96,165,250,0.25)',
             }}
-          />
+          >
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: radii.lg,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(59,130,246,0.16)',
+                borderWidth: 1,
+                borderColor: 'rgba(96,165,250,0.5)',
+                marginBottom: spacing.xs,
+              }}
+            >
+              <KeyholeMark size={38} color={blue[300]} />
+            </View>
+            <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+              Doondo
+            </Text>
+            <Text
+              variant="caption"
+              weight="medium"
+              style={{ letterSpacing: 1.4, color: blue[300] }}
+            >
+              SECURE ACCESS
+            </Text>
+          </LinearGradient>
         </View>
 
         <Text

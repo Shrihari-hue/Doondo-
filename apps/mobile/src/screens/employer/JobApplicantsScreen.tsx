@@ -24,6 +24,8 @@ import { haptic } from '@/lib/haptics';
 import { ApplicantCard } from './ApplicantCard';
 import type { AppStackParamList } from '@/navigation/types';
 
+const BLUE = '#2563EB';
+
 type Nav = NativeStackNavigationProp<AppStackParamList, 'JobApplicants'>;
 type Route = RouteProp<AppStackParamList, 'JobApplicants'>;
 
@@ -138,7 +140,7 @@ export function JobApplicantsScreen() {
           <RefreshControl
             refreshing={query.isRefetching}
             onRefresh={() => void query.refetch()}
-            tintColor={theme.brand.hero}
+            tintColor={BLUE}
           />
         }
       >
@@ -164,7 +166,8 @@ export function JobApplicantsScreen() {
             <Text
               variant="footnote"
               weight="medium"
-              tone={hiredCount >= headcount ? 'success' : 'hero'}
+              tone={hiredCount >= headcount ? 'success' : undefined}
+              style={hiredCount >= headcount ? undefined : { color: BLUE }}
             >
               {t('employer.applicants.fill', { hired: hiredCount, headcount })}
             </Text>
@@ -180,10 +183,10 @@ export function JobApplicantsScreen() {
                 paddingVertical: 8,
                 borderRadius: radii.pill,
                 borderWidth: 0.5,
-                borderColor: theme.brand.hero,
+                borderColor: BLUE,
               }}
             >
-              <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
+              <Text variant="footnote" weight="medium" style={{ color: BLUE }}>
                 {t('employer.bulk_message.cta', { n: shortlistedCount })}
               </Text>
             </Pressable>
@@ -214,7 +217,7 @@ export function JobApplicantsScreen() {
                 <Text variant="body" weight="medium" style={{ flex: 1 }}>
                   {t('employer.project.title')}
                 </Text>
-                <Text variant="footnote" weight="medium" tone="hero">
+                <Text variant="footnote" weight="medium" style={{ color: BLUE }}>
                   {t('employer.project.day_of', {
                     day: project.elapsedDays,
                     total: project.totalDays,
@@ -234,7 +237,7 @@ export function JobApplicantsScreen() {
                   style={{
                     width: `${Math.min(100, project.percentElapsed)}%`,
                     height: '100%',
-                    backgroundColor: theme.brand.hero,
+                    backgroundColor: BLUE,
                   }}
                 />
               </View>
@@ -294,7 +297,7 @@ export function JobApplicantsScreen() {
           </View>
         ) : query.isError ? (
           <EmptyState
-            glyph="✕"
+            icon="x-circle"
             tone="warning"
             eyebrow={t('employer.applicants.offline_eyebrow')}
             title={t('employer.applicants.offline_title')}
@@ -303,8 +306,8 @@ export function JobApplicantsScreen() {
           />
         ) : applicants.length === 0 ? (
           <EmptyState
-            glyph="◔"
-            tone="hero"
+            icon="clock"
+            tone="blue"
             eyebrow={t('employer.applicants.empty_waiting_eyebrow')}
             title={t('employer.applicants.empty_no_applicants_title')}
             message={t('employer.applicants.empty_no_applicants_per_job')}
@@ -331,7 +334,7 @@ export function JobApplicantsScreen() {
                   <Switch
                     value={blind}
                     onValueChange={setBlind}
-                    trackColor={{ true: theme.brand.hero, false: theme.border.strong }}
+                    trackColor={{ true: BLUE, false: theme.border.strong }}
                   />
                 </Pressable>
               </Card>
@@ -384,11 +387,21 @@ export function JobApplicantsScreen() {
               multiline
               numberOfLines={3}
             />
-            <Button
-              label={sending ? t('employer.bulk_message.sending') : t('employer.bulk_message.send')}
+            <Pressable
               onPress={() => void sendBulk()}
               disabled={sending || !bulkMsg.trim()}
-            />
+              style={({ pressed }) => ({
+                backgroundColor: BLUE,
+                borderRadius: radii.lg,
+                paddingVertical: spacing.md,
+                alignItems: 'center',
+                opacity: sending || !bulkMsg.trim() ? 0.5 : pressed ? 0.85 : 1,
+              })}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>
+                {sending ? t('employer.bulk_message.sending') : t('employer.bulk_message.send')}
+              </Text>
+            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -427,17 +440,30 @@ export function JobApplicantsScreen() {
               numberOfLines={3}
             />
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <Button
-                label={t('employer.briefing.add_photo', { n: briefingPhotos.length })}
-                variant="secondary"
-                onPress={() => void addBriefingPhoto()}
-                disabled={briefingPhotos.length >= 3}
-              />
-              <Button
-                label={savingBriefing ? t('employer.briefing.saving') : t('employer.briefing.save')}
+              <View style={{ flex: 1 }}>
+                <Button
+                  label={t('employer.briefing.add_photo', { n: briefingPhotos.length })}
+                  variant="secondary"
+                  onPress={() => void addBriefingPhoto()}
+                  disabled={briefingPhotos.length >= 3}
+                />
+              </View>
+              <Pressable
                 onPress={() => void saveBriefing()}
                 disabled={savingBriefing}
-              />
+                style={({ pressed }) => ({
+                  flex: 1,
+                  backgroundColor: BLUE,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md,
+                  alignItems: 'center',
+                  opacity: savingBriefing ? 0.5 : pressed ? 0.85 : 1,
+                })}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>
+                  {savingBriefing ? t('employer.briefing.saving') : t('employer.briefing.save')}
+                </Text>
+              </Pressable>
             </View>
           </Pressable>
         </Pressable>

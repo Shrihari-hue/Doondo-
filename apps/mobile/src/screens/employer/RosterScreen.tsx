@@ -203,7 +203,7 @@ export function RosterScreen() {
           <View style={{ padding: spacing.xl, gap: spacing.md }}>
             {entries.map((entry) => (
               <View key={entry.jobId} style={{
-                backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border,
+                backgroundColor: surface, borderRadius: radii.lg, borderWidth: 1, borderColor: border,
                 overflow: 'hidden',
               }}>
                 {/* Shift header row */}

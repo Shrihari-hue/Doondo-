@@ -147,7 +147,7 @@ export function TimeOffRequestsScreen() {
         onPress={() => setSelected(req)}
         style={({ pressed }) => ({
           backgroundColor: surface,
-          borderRadius: 14,
+          borderRadius: radii.lg,
           borderWidth: 1,
           borderColor: border,
           padding: spacing.md,
@@ -196,22 +196,26 @@ export function TimeOffRequestsScreen() {
             <Pressable
               onPress={(e) => { e.stopPropagation?.(); decide(req.id, 'approved'); }}
               style={({ pressed }) => ({
-                flex: 1, alignItems: 'center', paddingVertical: 8,
+                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+                paddingVertical: 8,
                 backgroundColor: GREEN + (pressed ? 'CC' : '1A'),
-                borderRadius: 10, borderWidth: 1, borderColor: GREEN,
+                borderRadius: radii.md, borderWidth: 1, borderColor: GREEN,
               })}
             >
-              <Text style={{ fontSize: 13, fontWeight: '700', color: GREEN }}>✓ Approve</Text>
+              <Feather name="check" size={13} color={GREEN} />
+              <Text style={{ fontSize: 13, fontWeight: '700', color: GREEN }}>Approve</Text>
             </Pressable>
             <Pressable
               onPress={(e) => { e.stopPropagation?.(); decide(req.id, 'denied'); }}
               style={({ pressed }) => ({
-                flex: 1, alignItems: 'center', paddingVertical: 8,
+                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+                paddingVertical: 8,
                 backgroundColor: RED + (pressed ? 'CC' : '1A'),
-                borderRadius: 10, borderWidth: 1, borderColor: RED,
+                borderRadius: radii.md, borderWidth: 1, borderColor: RED,
               })}
             >
-              <Text style={{ fontSize: 13, fontWeight: '700', color: RED }}>✕ Deny</Text>
+              <Feather name="x" size={13} color={RED} />
+              <Text style={{ fontSize: 13, fontWeight: '700', color: RED }}>Deny</Text>
             </Pressable>
           </View>
         )}

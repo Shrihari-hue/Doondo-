@@ -17,6 +17,7 @@ import { Pressable, ScrollView, Switch, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, LoadingSpinner, WomenSafetyBadge } from '@/components';
@@ -33,6 +34,16 @@ import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type TFn = (key: string, options?: Record<string, unknown>) => string;
+
+/** Feather icon per guidance tip id — keeps the hub emoji-free without
+ * touching the shared womenSafetyCatalog (also used by the employer
+ * PostJob screen and the JobDetail signal chips). */
+const TIP_ICONS: Record<string, React.ComponentProps<typeof Feather>['name']> = {
+  know_rights: 'file-text',
+  trusted_contact: 'phone-call',
+  safe_commute: 'navigation',
+  trust_instincts: 'compass',
+};
 
 function payLabel(pay: PublicJob['pay'], t: TFn): string {
   const symbol =
@@ -107,10 +118,21 @@ function WomenHubScreenInner() {
           paddingBottom: spacing.sm,
         }}
       >
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-          <Text variant="body" tone="secondary">
-            {t('women.back')}
-          </Text>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          hitSlop={12}
+          accessibilityRole="button"
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            borderWidth: 0.5,
+            borderColor: theme.border.default,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Feather name="chevron-left" size={18} color={theme.text.primary} />
         </Pressable>
         <Text variant="bodyLarge" weight="medium" style={{ flex: 1 }}>
           {t('women.hub_title')}
@@ -199,11 +221,17 @@ function WomenHubScreenInner() {
                   navigation.navigate('JobDetail', { jobId: job.id });
                 }}
                 style={{
-                  borderWidth: 1,
-                  borderColor: theme.border.default,
+                  borderWidth: 0.5,
+                  borderColor: theme.border.subtle,
+                  backgroundColor: theme.bg.surface,
                   borderRadius: radii.lg,
                   padding: spacing.md,
                   gap: 6,
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.05,
+                  shadowRadius: 8,
+                  elevation: 1,
                 }}
               >
                 <Text variant="body" weight="medium" numberOfLines={2}>
@@ -257,13 +285,26 @@ function WomenHubScreenInner() {
               style={{
                 flexDirection: 'row',
                 gap: spacing.md,
-                borderWidth: 1,
-                borderColor: theme.border.default,
+                borderWidth: 0.5,
+                borderColor: theme.border.subtle,
+                backgroundColor: theme.bg.surface,
                 borderRadius: radii.lg,
                 padding: spacing.md,
+                alignItems: 'flex-start',
               }}
             >
-              <Text style={{ fontSize: 22 }}>{tip.icon}</Text>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: theme.brand.heroSubtle,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Feather name={TIP_ICONS[tip.id] ?? 'info'} size={16} color={theme.brand.hero} />
+              </View>
               <View style={{ flex: 1, gap: 2 }}>
                 <Text variant="body" weight="medium">
                   {t(`women.tip.${tip.id}_title`)}
@@ -283,8 +324,8 @@ function WomenHubScreenInner() {
           </Text>
           {(
             [
-              { route: 'Sos' as const, icon: '🆘', key: 'sos' },
-              { route: 'TrustCircle' as const, icon: '👥', key: 'trust_circle' },
+              { route: 'Sos' as const, icon: 'alert-octagon' as const, key: 'sos', tone: 'danger' as const },
+              { route: 'TrustCircle' as const, icon: 'users' as const, key: 'trust_circle', tone: 'hero' as const },
             ]
           ).map((tool) => (
             <Pressable
@@ -293,17 +334,34 @@ function WomenHubScreenInner() {
                 haptic('selection');
                 navigation.navigate(tool.route);
               }}
-              style={{
+              style={({ pressed }) => ({
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: spacing.md,
-                borderWidth: 1,
-                borderColor: theme.border.default,
+                borderWidth: 0.5,
+                borderColor: theme.border.subtle,
+                backgroundColor: theme.bg.surface,
                 borderRadius: radii.lg,
                 padding: spacing.md,
-              }}
+                opacity: pressed ? 0.8 : 1,
+              })}
             >
-              <Text style={{ fontSize: 22 }}>{tool.icon}</Text>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: tool.tone === 'danger' ? theme.status.dangerSubtle : theme.brand.heroSubtle,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Feather
+                  name={tool.icon}
+                  size={16}
+                  color={tool.tone === 'danger' ? theme.status.danger : theme.brand.hero}
+                />
+              </View>
               <View style={{ flex: 1, gap: 2 }}>
                 <Text variant="body" weight="medium">
                   {t(`women.tool_${tool.key}_label`)}
@@ -312,9 +370,7 @@ function WomenHubScreenInner() {
                   {t(`women.tool_${tool.key}_desc`)}
                 </Text>
               </View>
-              <Text variant="body" tone="tertiary">
-                ›
-              </Text>
+              <Feather name="chevron-right" size={16} color={theme.text.tertiary} />
             </Pressable>
           ))}
         </View>

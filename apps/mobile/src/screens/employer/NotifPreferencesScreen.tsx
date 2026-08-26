@@ -18,7 +18,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
-import { spacing, radii } from '@doondo/tokens';
+import { spacing, radii, blue } from '@doondo/tokens';
 import { Screen, Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
@@ -27,7 +27,9 @@ import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
-const BLUE  = '#2563EB';
+const BLUE   = '#2563EB';
+const GREEN  = '#16A34A';
+const AMBER  = '#F59E0B';
 
 // Storage key inside 'notifPrefs' — we piggyback the same secureStore key
 // used by WorkerPerformanceScreen for different sub-keys in the same JSON map.
@@ -51,38 +53,38 @@ type PrefKey = keyof NotifPrefs;
 
 const PREF_ITEMS: Array<{
   key: PrefKey;
-  icon: string;
+  icon: React.ComponentProps<typeof Feather>['name'];
   label: string;
   desc: string;
   color: string;
 }> = [
   {
     key:   'newApplicant',
-    icon:  '👤',
+    icon:  'user-plus',
     label: 'New Applicant',
     desc:  'Get notified when someone applies to your job posting.',
     color: BLUE,
   },
   {
     key:   'interviewReminder',
-    icon:  '📅',
+    icon:  'calendar',
     label: 'Interview Reminder',
     desc:  'Reminder 1 hour before a scheduled interview.',
     color: '#7C3AED',
   },
   {
     key:   'workerAbsent',
-    icon:  '⚠️',
+    icon:  'alert-triangle',
     label: 'Worker Absent',
     desc:  'Alert when a hired worker hasn\'t checked in for their shift.',
-    color: '#F59E0B',
+    color: AMBER,
   },
   {
     key:   'payrollDue',
-    icon:  '₹',
+    icon:  'dollar-sign',
     label: 'Payroll Due',
     desc:  'Monthly reminder to run payroll before the pay date.',
-    color: '#16A34A',
+    color: GREEN,
   },
 ];
 
@@ -168,14 +170,19 @@ export function NotifPreferencesScreen() {
           backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F', borderRadius: radii.lg, borderWidth: 0.5, borderColor: isLight ? '#BFDBFE' : '#1E3A5F',
           padding: spacing.md, flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md,
         }}>
-          <Text style={{ fontSize: 18 }}>🔔</Text>
-          <Text style={{ flex: 1, fontSize: 13, color: '#1E40AF', lineHeight: 19 }}>
+          <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: BLUE + '22', alignItems: 'center', justifyContent: 'center' }}>
+            <Feather name="bell" size={15} color={BLUE} />
+          </View>
+          <Text style={{ flex: 1, fontSize: 13, color: isLight ? '#1E40AF' : '#93C5FD', lineHeight: 19 }}>
             Choose which events trigger a push notification. Changes take effect immediately.
           </Text>
         </View>
 
         {/* Preference items */}
-        <View style={{ backgroundColor: surface, borderRadius: radii.lg, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
+        <View style={{
+          backgroundColor: surface, borderRadius: radii.lg, borderWidth: 1, borderColor: border, overflow: 'hidden',
+          shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+        }}>
           {PREF_ITEMS.map((item, i) => (
             <Pressable
               key={item.key}
@@ -194,7 +201,7 @@ export function NotifPreferencesScreen() {
                 backgroundColor: prefs[item.key] ? item.color + '18' : (isLight ? '#F3F4F6' : '#111111'),
                 alignItems: 'center', justifyContent: 'center',
               }}>
-                <Text style={{ fontSize: 20 }}>{item.icon}</Text>
+                <Feather name={item.icon} size={19} color={prefs[item.key] ? item.color : textSecondary} />
               </View>
 
               {/* Text */}
@@ -207,22 +214,27 @@ export function NotifPreferencesScreen() {
               <Switch
                 value={loaded ? prefs[item.key] : false}
                 onValueChange={() => void toggle(item.key)}
-                trackColor={{ false: '#D1D5DB', true: item.color + '80' }}
-                thumbColor={prefs[item.key] ? item.color : '#9CA3AF'}
-                ios_backgroundColor="#D1D5DB"
+                trackColor={{ false: border, true: blue[500] }}
+                thumbColor="#FFFFFF"
+                ios_backgroundColor={border}
               />
             </Pressable>
           ))}
         </View>
 
         {/* Status summary */}
-        <View style={{ alignItems: 'center', paddingVertical: spacing.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: spacing.sm }}>
+          <Feather
+            name={allOff ? 'bell-off' : 'bell'}
+            size={13}
+            color={textSecondary}
+          />
           <Text style={{ fontSize: 13, color: textSecondary }}>
             {allOff
-              ? '🔕 All notifications muted'
+              ? 'All notifications muted'
               : allOn
-                ? '🔔 All notifications enabled'
-                : `🔔 ${Object.values(prefs).filter(Boolean).length} of ${PREF_ITEMS.length} notifications enabled`}
+                ? 'All notifications enabled'
+                : `${Object.values(prefs).filter(Boolean).length} of ${PREF_ITEMS.length} notifications enabled`}
           </Text>
         </View>
 

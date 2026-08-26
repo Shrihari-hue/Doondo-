@@ -1,5 +1,5 @@
 /**
- * ConversationScreen — premium chat thread.
+ * ConversationScreen — Doondo blue chat thread.
  *
  * Layout:
  *   ┌──────────────────────────────────────────────┐
@@ -8,17 +8,17 @@
  *   ├──────────────────────────────────────────────┤
  *   │                                              │
  *   │           [received bubble]                  │  inverted FlatList
- *   │ [sent bubble — coral]                        │
+ *   │ [sent bubble — blue]                          │
  *   │                                              │
  *   ├──────────────────────────────────────────────┤
- *   │  ▢ Message…                       Send →    │  composer
+ *   │  📎 Message…                       [send]    │  composer
  *   └──────────────────────────────────────────────┘
  *
- * Bubbles:
- *   - sent     → coral (brand.hero) with #FFFDF7 text, right-aligned
- *   - received → bg.elevated with primary text, left-aligned
- *   - verified counterpart's bubbles get a champagne hairline
- *   - read receipts under sent bubbles ("Read" in champagne when read)
+ * Bubbles (see ChatListScreen.tsx for the shared BLUE/isLight consts):
+ *   - sent     → solid BLUE with white text, right-aligned
+ *   - received → card surface with primary text, left-aligned
+ *   - verified counterpart's bubbles get a subtle blue hairline
+ *   - read receipts under sent bubbles ("Read" in blue when read)
  *
  * Optimistic send: messages appear instantly with id="optimistic-…",
  * replaced by the real message once the API call returns. Failed sends
@@ -43,7 +43,9 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { spacing, radii, champagne } from '@doondo/tokens';
+import { Feather } from '@expo/vector-icons';
+
+import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Avatar, LoadingSpinner, Pill, BlurOverlay} from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
@@ -73,6 +75,11 @@ import type { AppStackParamList } from '@/navigation/types';
 type Nav = NativeStackNavigationProp<AppStackParamList, 'Conversation'>;
 type Route = RouteProp<AppStackParamList, 'Conversation'>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
+
+// Doondo design language — see ChatListScreen.tsx (direct sibling reference)
+// for the same values.
+const BLUE = '#2563EB';
+const RED = '#EF4444';
 
 /** How the reader wants foreign-language messages shown. */
 type TranslateMode = 'both' | 'translation-only';
@@ -104,7 +111,14 @@ function ConversationScreenInner() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { user } = useAuth();
-  const { theme } = useTheme();
+  const { scheme } = useTheme();
+  const isLight = scheme !== 'dark';
+  const bg = isLight ? '#FFFFFF' : '#0C0A0E';
+  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
+  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
+  const textPrimary = isLight ? '#1F2937' : '#F9FAFB';
+  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+  const heroSubtle = isLight ? '#EFF6FF' : '#1E3A5F';
   const queryClient = useQueryClient();
   const t = useTranslate();
   const [draft, setDraft] = useState('');
@@ -551,15 +565,13 @@ function ConversationScreenInner() {
             gap: spacing.md,
             paddingHorizontal: spacing.xl,
             paddingVertical: spacing.md,
-            borderBottomWidth: 0.5,
-            borderBottomColor: theme.border.default,
-            backgroundColor: theme.bg.canvas,
+            borderBottomWidth: 1,
+            borderBottomColor: cardBorder,
+            backgroundColor: bg,
           }}
         >
           <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text variant="bodyLarge" tone="hero">
-              ←
-            </Text>
+            <Feather name="arrow-left" size={22} color={textPrimary} />
           </Pressable>
           <Avatar
             name={displayName}
@@ -570,10 +582,8 @@ function ConversationScreenInner() {
           <View style={{ flex: 1, gap: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
               <Text
-                variant="bodyLarge"
-                weight="medium"
                 numberOfLines={1}
-                style={{ flexShrink: 1 }}
+                style={{ flexShrink: 1, fontSize: 15, fontWeight: '700', color: textPrimary }}
               >
                 {displayName}
               </Text>
@@ -582,7 +592,7 @@ function ConversationScreenInner() {
               )}
             </View>
             {job?.title && (
-              <Text variant="caption" tone="tertiary" numberOfLines={1}>
+              <Text numberOfLines={1} style={{ fontSize: 12, color: textSecondary }}>
                 {t('conversation.re_prefix', { title: job.title })}
               </Text>
             )}
@@ -607,11 +617,15 @@ function ConversationScreenInner() {
               justifyContent: 'center',
               backgroundColor:
                 translateMode === 'translation-only' || myTranslationLang
-                  ? theme.brand.heroSubtle
+                  ? heroSubtle
                   : 'transparent',
             }}
           >
-            <Text style={{ fontSize: 18 }}>🌐</Text>
+            <Feather
+              name="globe"
+              size={18}
+              color={translateMode === 'translation-only' || myTranslationLang ? BLUE : textSecondary}
+            />
           </Pressable>
         </View>
 
@@ -627,13 +641,28 @@ function ConversationScreenInner() {
               alignItems: 'center',
               justifyContent: 'center',
               padding: spacing.xl,
-              gap: spacing.xs,
+              gap: spacing.sm,
             }}
           >
-            <Text variant="bodyLarge" weight="medium">
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                borderWidth: 1,
+                borderColor: BLUE + '33',
+                backgroundColor: BLUE + '0D',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: spacing.xs,
+              }}
+            >
+              <Feather name="message-circle" size={24} color={BLUE} />
+            </View>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>
               {t('conversation.empty_say_hello')}
             </Text>
-            <Text variant="footnote" tone="secondary" style={{ textAlign: 'center' }}>
+            <Text style={{ fontSize: 13, color: textSecondary, textAlign: 'center' }}>
               {user?.role === 'employer'
                 ? t('conversation.empty_hint_employer')
                 : t('conversation.empty_hint_seeker')}
@@ -688,22 +717,22 @@ function ConversationScreenInner() {
             paddingHorizontal: spacing.lg,
             paddingTop: spacing.sm,
             paddingBottom: Platform.OS === 'ios' ? spacing.md : spacing.lg,
-            borderTopWidth: 0.5,
-            borderTopColor: theme.border.default,
-            backgroundColor: theme.bg.canvas,
+            borderTopWidth: 1,
+            borderTopColor: cardBorder,
+            backgroundColor: bg,
           }}
         >
           {/* Attachment icon — image picker (camera or gallery) */}
-          <IconCircleButton label="📎" onPress={onAttach} />
+          <IconCircleButton icon="paperclip" onPress={onAttach} />
 
           {/* Text input */}
           <View
             style={{
               flex: 1,
-              backgroundColor: theme.bg.surface,
+              backgroundColor: cardBg,
               borderRadius: radii.lg,
-              borderWidth: 0.5,
-              borderColor: theme.border.default,
+              borderWidth: 1,
+              borderColor: cardBorder,
               paddingHorizontal: spacing.md,
               paddingVertical: 6,
               minHeight: 44,
@@ -714,10 +743,10 @@ function ConversationScreenInner() {
               value={draft}
               onChangeText={setDraft}
               placeholder={t('conversation.composer_placeholder')}
-              placeholderTextColor={theme.text.tertiary}
+              placeholderTextColor={textSecondary}
               multiline
               style={{
-                color: theme.text.primary,
+                color: textPrimary,
                 fontSize: 15,
                 lineHeight: 20,
                 paddingTop: 6,
@@ -761,16 +790,14 @@ function ConversationScreenInner() {
                 borderRadius: 22,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: recording ? theme.status.danger : theme.brand.hero,
-                shadowColor: recording ? theme.status.danger : theme.brand.hero,
+                backgroundColor: recording ? RED : BLUE,
+                shadowColor: recording ? RED : BLUE,
                 shadowOffset: { width: 0, height: 3 },
                 shadowOpacity: 0.3,
                 shadowRadius: 6,
               }}
             >
-              <Text style={{ fontSize: 20, color: '#FFFFFF' }}>
-                {recording ? '■' : '🎤'}
-              </Text>
+              <Feather name={recording ? 'square' : 'mic'} size={18} color="#FFFFFF" />
             </Pressable>
           ) : (
             <SendButton
@@ -837,7 +864,7 @@ function ConversationScreenInner() {
             )}
             <View
               style={{
-                backgroundColor: theme.status.danger,
+                backgroundColor: RED,
                 paddingVertical: spacing.sm,
                 paddingHorizontal: spacing.md,
                 borderRadius: radii.pill,
@@ -882,7 +909,7 @@ function ConversationScreenInner() {
                 borderRadius: radii.pill,
               }}
             >
-              <Text style={{ color: theme.status.danger, fontWeight: '700' }}>
+              <Text style={{ color: RED, fontWeight: '700' }}>
                 {t('conversation.recording_send')}
               </Text>
             </Pressable>
@@ -906,14 +933,14 @@ function ConversationScreenInner() {
           <Pressable
             onPress={() => undefined}
             style={{
-              backgroundColor: theme.bg.surface,
+              backgroundColor: cardBg,
               borderTopLeftRadius: radii.xl,
               borderTopRightRadius: radii.xl,
               padding: spacing.xl,
               gap: spacing.md,
             }}
           >
-            <Text style={{ fontSize: 17, fontWeight: '700', color: theme.text.primary }}>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: textPrimary }}>
               {t('conversation.lang_sheet_title')}
             </Text>
 
@@ -929,17 +956,17 @@ function ConversationScreenInner() {
                 paddingVertical: spacing.sm,
               }}
             >
-              <Text style={{ flex: 1, fontSize: 14, color: theme.text.primary }}>
+              <Text style={{ flex: 1, fontSize: 14, color: textPrimary }}>
                 {t('conversation.lang_sheet_only_translation')}
               </Text>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: theme.brand.hero }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: BLUE }}>
                 {translateMode === 'translation-only'
                   ? t('conversation.lang_sheet_on')
                   : t('conversation.lang_sheet_off')}
               </Text>
             </Pressable>
 
-            <Text style={{ fontSize: 12, color: theme.text.tertiary }}>
+            <Text style={{ fontSize: 12, color: textSecondary }}>
               {t('conversation.lang_sheet_hint')}
             </Text>
 
@@ -966,7 +993,7 @@ function ConversationScreenInner() {
                     paddingVertical: 10,
                     paddingHorizontal: spacing.md,
                     borderRadius: radii.lg,
-                    backgroundColor: selected ? theme.brand.heroSubtle : 'transparent',
+                    backgroundColor: selected ? heroSubtle : 'transparent',
                     opacity: setLangMutation.isPending ? 0.6 : 1,
                   }}
                 >
@@ -975,14 +1002,12 @@ function ConversationScreenInner() {
                       flex: 1,
                       fontSize: 15,
                       fontWeight: selected ? '700' : '400',
-                      color: selected ? theme.brand.hero : theme.text.primary,
+                      color: selected ? BLUE : textPrimary,
                     }}
                   >
                     {label}
                   </Text>
-                  {selected ? (
-                    <Text style={{ color: theme.brand.hero, fontWeight: '700' }}>✓</Text>
-                  ) : null}
+                  {selected ? <Feather name="check" size={16} color={BLUE} /> : null}
                 </Pressable>
               );
             })}
@@ -1004,15 +1029,18 @@ function formatSeconds(s: number): string {
 // ─── Composer icon buttons ───────────────────────────────────────────────────
 
 function IconCircleButton({
-  label,
+  icon,
   filled,
   onPress,
 }: {
-  label: string;
+  icon: React.ComponentProps<typeof Feather>['name'];
   filled?: boolean;
   onPress: () => void;
 }) {
-  const { theme } = useTheme();
+  const { scheme } = useTheme();
+  const isLight = scheme !== 'dark';
+  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
+  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
   return (
     <Pressable
       onPress={onPress}
@@ -1022,14 +1050,12 @@ function IconCircleButton({
         borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: filled ? theme.brand.hero : 'transparent',
-        borderWidth: filled ? 0 : 0.5,
-        borderColor: theme.border.default,
+        backgroundColor: filled ? BLUE : 'transparent',
+        borderWidth: filled ? 0 : 1,
+        borderColor: cardBorder,
       }}
     >
-      <Text style={{ fontSize: 20, color: filled ? '#FFFFFF' : theme.text.secondary }}>
-        {label}
-      </Text>
+      <Feather name={icon} size={19} color={filled ? '#FFFFFF' : textSecondary} />
     </Pressable>
   );
 }
@@ -1053,7 +1079,12 @@ function QuickReplyBar({
   onPick: (qr: QuickReply) => void;
   t: TFn;
 }) {
-  const { theme } = useTheme();
+  const { scheme } = useTheme();
+  const isLight = scheme !== 'dark';
+  const bg = isLight ? '#FFFFFF' : '#0C0A0E';
+  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
+  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
+  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
   const replies = quickRepliesForRole(role);
   return (
     <ScrollView
@@ -1062,9 +1093,9 @@ function QuickReplyBar({
       keyboardShouldPersistTaps="handled"
       style={{
         maxHeight: 56,
-        borderTopWidth: 0.5,
-        borderTopColor: theme.border.default,
-        backgroundColor: theme.bg.canvas,
+        borderTopWidth: 1,
+        borderTopColor: cardBorder,
+        backgroundColor: bg,
       }}
       contentContainerStyle={{
         alignItems: 'center',
@@ -1084,13 +1115,13 @@ function QuickReplyBar({
             paddingHorizontal: spacing.md,
             paddingVertical: spacing.xs,
             borderRadius: radii.pill,
-            borderWidth: 0.5,
-            borderColor: theme.border.default,
-            backgroundColor: theme.bg.surface,
+            borderWidth: 1,
+            borderColor: cardBorder,
+            backgroundColor: cardBg,
             opacity: pressed || disabled ? 0.5 : 1,
           })}
         >
-          <Text variant="footnote" weight="medium" tone="secondary" numberOfLines={1}>
+          <Text style={{ fontSize: 12, fontWeight: '600', color: textSecondary }} numberOfLines={1}>
             {t(qr.key)}
           </Text>
         </Pressable>
@@ -1118,12 +1149,16 @@ function MessageBubble({
   onRetryTranslate: (messageId: string) => void;
   t: TFn;
 }) {
-  const { theme } = useTheme();
+  const { scheme } = useTheme();
+  const isLight = scheme !== 'dark';
+  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
+  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
+  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
   const failed = message.id.startsWith('failed-');
   const optimistic = message.id.startsWith('optimistic-');
 
-  const bg = isMine ? theme.brand.hero : theme.bg.elevated;
-  const fg = isMine ? '#FFFDF7' : theme.text.primary;
+  const bg = isMine ? BLUE : cardBg;
+  const fg = isMine ? '#FFFFFF' : (isLight ? '#1F2937' : '#F9FAFB');
 
   return (
     <View
@@ -1136,15 +1171,15 @@ function MessageBubble({
       <View
         style={{
           backgroundColor:
-            failed ? '#5C1414' : message.kind === 'image' ? 'transparent' : bg,
+            failed ? RED : message.kind === 'image' ? 'transparent' : bg,
           paddingHorizontal: message.kind === 'image' ? 0 : 12,
           paddingVertical: message.kind === 'image' ? 0 : 8,
-          borderRadius: 18,
+          borderRadius: radii.lg,
           // Slight asymmetric corner on the tail side for the "speech" feel.
-          borderBottomRightRadius: isMine && showTail ? 4 : 18,
-          borderBottomLeftRadius: !isMine && showTail ? 4 : 18,
-          borderWidth: !isMine && isVerifiedCounterpart ? 0.5 : 0,
-          borderColor: champagne[300],
+          borderBottomRightRadius: isMine && showTail ? 4 : radii.lg,
+          borderBottomLeftRadius: !isMine && showTail ? 4 : radii.lg,
+          borderWidth: !isMine ? 1 : 0,
+          borderColor: !isMine && isVerifiedCounterpart ? BLUE + '55' : cardBorder,
           opacity: optimistic ? 0.75 : 1,
           overflow: 'hidden',
         }}
@@ -1188,13 +1223,12 @@ function MessageBubble({
       {/* Read receipt for sent messages */}
       {isMine && !optimistic && !failed && (
         <Text
-          variant="caption"
-          tone="tertiary"
           style={{
+            fontSize: 11,
             alignSelf: 'flex-end',
             marginTop: 2,
             marginRight: 6,
-            color: message.readAt ? champagne[300] : undefined,
+            color: message.readAt ? BLUE : textSecondary,
           }}
         >
           {message.readAt ? t('conversation.receipt_read') : t('conversation.receipt_sent')}
@@ -1202,9 +1236,7 @@ function MessageBubble({
       )}
       {failed && (
         <Text
-          variant="caption"
-          tone="danger"
-          style={{ alignSelf: 'flex-end', marginTop: 2, marginRight: 6 }}
+          style={{ fontSize: 11, color: RED, alignSelf: 'flex-end', marginTop: 2, marginRight: 6 }}
         >
           {t('conversation.send_failed')}
         </Text>
@@ -1238,7 +1270,6 @@ function TranslatedText({
   onRetry: (messageId: string) => void;
   t: TFn;
 }) {
-  const { theme } = useTheme();
   const [showOriginal, setShowOriginal] = useState(false);
   const original = renderMessageBody(message.body, message.templateKey, t);
   const status = message.translationStatus ?? 'none';
@@ -1270,7 +1301,7 @@ function TranslatedText({
       <View style={{ gap: 6 }}>
         <Text style={{ color: fg, fontSize: 15, lineHeight: 21 }}>{original}</Text>
         <Pressable onPress={() => onRetry(message.id)} hitSlop={6} accessibilityRole="button">
-          <Text style={{ fontSize: 12, fontWeight: '700', color: theme.brand.hero }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: BLUE }}>
             {t('conversation.translate_retry')}
           </Text>
         </Pressable>
@@ -1559,7 +1590,7 @@ function VoiceAttachment({
           {preparing ? (
             <ActivityIndicator size="small" color={fg} />
           ) : (
-            <Text style={{ fontSize: 16, color: fg }}>{playing ? '❚❚' : '▶'}</Text>
+            <Feather name={playing ? 'pause' : 'play'} size={15} color={fg} />
           )}
         </View>
         {/* Playback waveform — bars sized from the captured metering
@@ -1682,7 +1713,18 @@ function VideoAttachment({
           justifyContent: 'center',
         }}
       >
-        <Text style={{ fontSize: 36, color: '#FFFFFF' }}>▶</Text>
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: 'rgba(0,0,0,0.45)',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Feather name="play" size={20} color="#FFFFFF" style={{ marginLeft: 2 }} />
+        </View>
         <Text
           style={{
             position: 'absolute',
@@ -1719,7 +1761,10 @@ function SendButton({
   sending: boolean;
   onPress: () => void;
 }) {
-  const { theme } = useTheme();
+  const { scheme } = useTheme();
+  const isLight = scheme !== 'dark';
+  const mutedBg = isLight ? '#E5E7EB' : '#1E1E1E';
+  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
   return (
     <Pressable
       onPress={onPress}
@@ -1729,26 +1774,15 @@ function SendButton({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: disabled ? theme.bg.muted : theme.brand.hero,
+        backgroundColor: disabled ? mutedBg : BLUE,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
       {sending ? (
-        <ActivityIndicator
-          size="small"
-          color={disabled ? theme.text.tertiary : '#FFFDF7'}
-        />
+        <ActivityIndicator size="small" color={disabled ? textSecondary : '#FFFFFF'} />
       ) : (
-        <Text
-          style={{
-            color: disabled ? theme.text.tertiary : '#FFFDF7',
-            fontSize: 18,
-            fontWeight: '600',
-          }}
-        >
-          ↑
-        </Text>
+        <Feather name="send" size={17} color={disabled ? textSecondary : '#FFFFFF'} />
       )}
     </Pressable>
   );
@@ -1839,7 +1873,12 @@ function PendingVoicePreview({
   onDiscard: () => void;
   t: TFn;
 }) {
-  const { theme } = useTheme();
+  const { scheme } = useTheme();
+  const isLight = scheme !== 'dark';
+  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
+  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
+  const textPrimary = isLight ? '#1F2937' : '#F9FAFB';
+  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
   const playerRef = useRef<AudioPlayer | null>(null);
   const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -1923,10 +1962,10 @@ function PendingVoicePreview({
         left: spacing.lg,
         right: spacing.lg,
         bottom: 80,
-        backgroundColor: theme.bg.elevated,
+        backgroundColor: cardBg,
         borderRadius: radii.lg,
-        borderWidth: 0.5,
-        borderColor: theme.border.default,
+        borderWidth: 1,
+        borderColor: cardBorder,
         padding: spacing.md,
         gap: spacing.sm,
         shadowColor: '#000',
@@ -1944,37 +1983,29 @@ function PendingVoicePreview({
             width: 38,
             height: 38,
             borderRadius: 19,
-            backgroundColor: theme.brand.hero,
+            backgroundColor: BLUE,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Text style={{ fontSize: 16, color: '#FFFFFF' }}>
-            {playing ? '❚❚' : '▶'}
-          </Text>
+          <Feather name={playing ? 'pause' : 'play'} size={15} color="#FFFFFF" />
         </Pressable>
         <View style={{ flex: 1 }}>
           <PlaybackWaveform
             samples={attachment.waveform ?? null}
             progress={progress}
-            color={theme.text.primary}
+            color={textPrimary}
             fallbackSeed={attachment.dataUrl}
           />
         </View>
-        <Text
-          variant="footnote"
-          tone="secondary"
-          style={{ minWidth: 36, textAlign: 'right' }}
-        >
+        <Text style={{ fontSize: 12, color: textSecondary, minWidth: 36, textAlign: 'right' }}>
           {fmt(shown)}
         </Text>
       </View>
 
       {transcript.length > 0 && (
         <Text
-          variant="footnote"
-          tone="secondary"
-          style={{ fontStyle: 'italic' }}
+          style={{ fontSize: 12, color: textSecondary, fontStyle: 'italic' }}
           numberOfLines={3}
         >
           {transcript}
@@ -1989,12 +2020,12 @@ function PendingVoicePreview({
             flex: 1,
             paddingVertical: spacing.sm,
             borderRadius: radii.md,
-            borderWidth: 0.5,
-            borderColor: theme.border.default,
+            borderWidth: 1,
+            borderColor: cardBorder,
             alignItems: 'center',
           }}
         >
-          <Text variant="footnote" weight="medium" tone="secondary">
+          <Text style={{ fontSize: 12, fontWeight: '600', color: textSecondary }}>
             {t('conversation.preview_discard')}
           </Text>
         </Pressable>
@@ -2005,15 +2036,11 @@ function PendingVoicePreview({
             flex: 1,
             paddingVertical: spacing.sm,
             borderRadius: radii.md,
-            backgroundColor: theme.brand.hero,
+            backgroundColor: BLUE,
             alignItems: 'center',
           }}
         >
-          <Text
-            variant="footnote"
-            weight="medium"
-            style={{ color: '#FFFDF7' }}
-          >
+          <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFFFFF' }}>
             {t('conversation.preview_send')}
           </Text>
         </Pressable>

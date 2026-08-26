@@ -29,10 +29,11 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import { ScrollView } from 'react-native-gesture-handler';
 
 import { spacing, radii, blue } from '@doondo/tokens';
-import { Screen, Text, Button } from '@/components';
+import { Screen, Text, DoondoMark } from '@/components';
 import { setSecure } from '@/lib/secureStore';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
@@ -40,11 +41,12 @@ import type { AuthStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
+type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface Slide {
-  emoji: string;
+  icon: FeatherIconName;
   eyebrowKey: string;
   titleKey: string;
   bodyKey: string;
@@ -52,19 +54,19 @@ interface Slide {
 
 const SLIDES: Slide[] = [
   {
-    emoji: '🎤',
+    icon: 'mic',
     eyebrowKey: 'auth.onboarding.slide1_eyebrow',
     titleKey: 'auth.onboarding.slide1_title',
     bodyKey: 'auth.onboarding.slide1_body',
   },
   {
-    emoji: '⚡',
+    icon: 'zap',
     eyebrowKey: 'auth.onboarding.slide2_eyebrow',
     titleKey: 'auth.onboarding.slide2_title',
     bodyKey: 'auth.onboarding.slide2_body',
   },
   {
-    emoji: '⭐',
+    icon: 'star',
     eyebrowKey: 'auth.onboarding.slide3_eyebrow',
     titleKey: 'auth.onboarding.slide3_title',
     bodyKey: 'auth.onboarding.slide3_body',
@@ -135,16 +137,19 @@ export function OnboardingScreen() {
             justifyContent: 'space-between',
           }}
         >
-          <Text
-            style={{
-              fontSize: 22,
-              fontWeight: '700',
-              color: '#FFFFFF',
-              letterSpacing: -0.5,
-            }}
-          >
-            {t('auth.onboarding.brand')}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <DoondoMark size={22} color="#FFFFFF" accent="#FFFFFF" />
+            <Text
+              style={{
+                fontSize: 22,
+                fontWeight: '700',
+                color: '#FFFFFF',
+                letterSpacing: -0.5,
+              }}
+            >
+              {t('auth.onboarding.brand')}
+            </Text>
+          </View>
           <Pressable onPress={skip} hitSlop={12}>
             <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', fontWeight: '600' }}>
               {t('auth.onboarding.skip')}
@@ -240,7 +245,7 @@ function SlideView({ slide, t }: { slide: Slide; t: TFn }) {
           justifyContent: 'center',
         }}
       >
-        <Text style={{ fontSize: 64 }}>{slide.emoji}</Text>
+        <Feather name={slide.icon} size={56} color="#FFFFFF" />
       </View>
 
       <View style={{ gap: spacing.sm, alignItems: 'center' }}>

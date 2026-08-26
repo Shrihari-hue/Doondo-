@@ -35,6 +35,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 
 import { spacing, radii, categoryTints, blue } from '@doondo/tokens';
@@ -319,7 +320,7 @@ export function SeekerHomeScreen() {
               justifyContent: 'center',
             }}
           >
-            <Text style={{ fontSize: 16 }}>📍</Text>
+            <Feather name="map-pin" size={16} color={theme.brand.hero} />
           </View>
           <View style={{ flex: 1 }}>
             <Text
@@ -420,7 +421,7 @@ export function SeekerHomeScreen() {
                 borderColor: 'rgba(255,255,255,0.35)',
               }}
             >
-              <Text style={{ fontSize: 28, color: '#FFFFFF' }}>🎤</Text>
+              <Feather name="mic" size={26} color="#FFFFFF" />
             </View>
           </LinearGradient>
         </Pressable>
@@ -845,7 +846,7 @@ function PremiumHomeHeader({
           paddingBottom: spacing.xs,
         }}
       >
-        <Text style={{ fontSize: 16, color: theme.text.secondary }}>📍</Text>
+        <Feather name="map-pin" size={15} color={theme.text.secondary} />
         <Text
           style={{
             fontSize: 17,
@@ -857,9 +858,12 @@ function PremiumHomeHeader({
         >
           {cityLabel}
         </Text>
-        <Text style={{ fontSize: 14, color: theme.text.secondary, marginLeft: 2 }}>
-          ⌄
-        </Text>
+        <Feather
+          name="chevron-down"
+          size={15}
+          color={theme.text.secondary}
+          style={{ marginLeft: 2 }}
+        />
       </View>
     </View>
   );

@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 
-import { spacing } from '@doondo/tokens';
+import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
@@ -181,7 +181,7 @@ export function WorkerAttendanceScreen() {
 
         {/* Monthly summary from timesheet API */}
         {workerRow && (
-          <View style={{ backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
+          <View style={{ backgroundColor: surface, borderRadius: radii.lg, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
             <View style={{ padding: spacing.md, borderBottomWidth: 1, borderBottomColor: border }}>
               <Text style={{ fontSize: 13, fontWeight: '700', color: textSecondary, textTransform: 'uppercase', letterSpacing: 0.8 }}>
                 This Month · From Shifts
@@ -204,7 +204,7 @@ export function WorkerAttendanceScreen() {
         )}
 
         {/* Attendance summary strip */}
-        <View style={{ backgroundColor: surface, borderRadius: 14, borderWidth: 1, borderColor: border,
+        <View style={{ backgroundColor: surface, borderRadius: radii.lg, borderWidth: 1, borderColor: border,
           padding: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ gap: 2 }}>
             <Text style={{ fontSize: 22, fontWeight: '900', color: textPrimary }}>
@@ -224,7 +224,7 @@ export function WorkerAttendanceScreen() {
         </View>
 
         {/* Calendar card */}
-        <View style={{ backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border, padding: spacing.md }}>
+        <View style={{ backgroundColor: surface, borderRadius: radii.lg, borderWidth: 1, borderColor: border, padding: spacing.md }}>
           {/* Month nav */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
             <Pressable hitSlop={12} onPress={prevMonth}>
@@ -309,7 +309,7 @@ export function WorkerAttendanceScreen() {
         </View>
 
         {/* Summary stats */}
-        <View style={{ backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
+        <View style={{ backgroundColor: surface, borderRadius: radii.lg, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
           <View style={{ flexDirection: 'row' }}>
             {[
               { value: present,   label: 'Present',    color: GREEN },
@@ -327,7 +327,7 @@ export function WorkerAttendanceScreen() {
         </View>
 
         <AnimatedPressable style={{
-          backgroundColor: surface, borderRadius: 12, borderWidth: 1.5, borderColor: BLUE,
+          backgroundColor: surface, borderRadius: radii.lg, borderWidth: 1.5, borderColor: BLUE,
           paddingVertical: 14, alignItems: 'center',
         }}>
           <Text style={{ fontSize: 15, fontWeight: '700', color: BLUE }}>View Attendance History</Text>

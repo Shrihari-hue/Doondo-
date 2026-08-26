@@ -247,7 +247,7 @@ export function WorkersScreen() {
             <EmptyState glyph="✕" tone="warning" eyebrow="Offline" title="Could not load workers"
               message="Check your connection and pull to refresh." tall />
           ) : visible.length === 0 ? (
-            <EmptyState glyph="👷" tone="hero" eyebrow="No workers"
+            <EmptyState illustration="workers" tone="hero" eyebrow="No workers"
               title={filter === 'all' ? 'No hired workers yet' : `No ${filter.replace('_', ' ')} workers`}
               message="Workers you hire will appear here." tall />
           ) : (
@@ -375,7 +375,7 @@ function WorkerCard({
               </Text>
             </View>
           </View>
-          <Text style={{ fontSize: 8, color: BLUE }}>ⓘ</Text>
+          <Feather name="info" size={9} color={BLUE} />
         </Pressable>
       </View>
 
@@ -434,16 +434,16 @@ function WorkerCard({
               const reviews      = 20 + ((h * 3) % 6);    // 20–25
               const tenure       = score - verifiedId - onTimeRate - reviews; // remainder
               const components = [
-                { label: 'Verified ID', pts: verifiedId,  icon: '🪪', desc: 'Government-issued ID verified via Doondo' },
-                { label: 'On-time rate', pts: onTimeRate, icon: '⏱', desc: 'Punctuality across past jobs' },
-                { label: 'Reviews',     pts: reviews,     icon: '⭐', desc: 'Average rating from past employers' },
-                { label: 'Tenure',      pts: tenure,      icon: '📅', desc: 'Length of past employment history' },
+                { label: 'Verified ID', pts: verifiedId,  icon: 'shield' as const, desc: 'Government-issued ID verified via Doondo' },
+                { label: 'On-time rate', pts: onTimeRate, icon: 'clock' as const, desc: 'Punctuality across past jobs' },
+                { label: 'Reviews',     pts: reviews,     icon: 'star' as const, desc: 'Average rating from past employers' },
+                { label: 'Tenure',      pts: tenure,      icon: 'calendar' as const, desc: 'Length of past employment history' },
               ];
               return components.map((c) => (
                 <View key={c.label} style={{ gap: 4 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={{ fontSize: 16 }}>{c.icon}</Text>
+                      <Feather name={c.icon} size={16} color={GREEN} />
                       <View style={{ gap: 1 }}>
                         <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary }}>{c.label}</Text>
                         <Text style={{ fontSize: 12, color: textSecondary }}>{c.desc}</Text>

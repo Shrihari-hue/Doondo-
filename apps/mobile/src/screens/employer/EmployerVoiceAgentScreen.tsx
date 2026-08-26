@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text } from '@/components';
@@ -162,6 +163,7 @@ export function EmployerVoiceAgentScreen() {
   const navigation = useNavigation<Nav>();
 
   const BLUE = '#2563EB';
+  const ORANGE = '#F97316';
 
   const [recognizer, setRecognizer] = useState<Recognizer | null>(null);
   const [voiceAvailable, setVoiceAvailable] = useState<boolean | null>(null);
@@ -283,7 +285,7 @@ export function EmployerVoiceAgentScreen() {
   const ring = (anim: Animated.Value, size: number) => (
     <Animated.View style={{
       position: 'absolute', width: size, height: size,
-      borderRadius: size / 2, borderWidth: 1.5, borderColor: BLUE,
+      borderRadius: size / 2, borderWidth: 1.5, borderColor: ORANGE,
       opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
       transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.7] }) }],
     }} />
@@ -399,17 +401,15 @@ export function EmployerVoiceAgentScreen() {
               accessibilityLabel="Voice assistant microphone"
               style={{
                 width: 96, height: 96, borderRadius: 48,
-                backgroundColor: isListening ? '#EF4444' : micDisabled ? theme.border.default : BLUE,
+                backgroundColor: isListening ? '#EF4444' : micDisabled ? theme.border.default : ORANGE,
                 alignItems: 'center', justifyContent: 'center',
-                shadowColor: isListening ? '#EF4444' : BLUE,
+                shadowColor: isListening ? '#EF4444' : ORANGE,
                 shadowOffset: { width: 0, height: 5 },
                 shadowOpacity: micDisabled ? 0 : 0.32,
                 shadowRadius: 14, elevation: micDisabled ? 0 : 7,
               }}
             >
-              <Text style={{ fontSize: 40, color: '#FFFFFF', lineHeight: 44 }}>
-                {isListening ? '■' : '🎤'}
-              </Text>
+              <Feather name={isListening ? 'square' : 'mic'} size={36} color="#FFFFFF" />
             </Pressable>
           </View>
         )}
