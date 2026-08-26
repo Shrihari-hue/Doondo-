@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, TextInput, View, useWindowDimensions } from 'react-native';
 import { BlurOverlay } from '@/components';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -41,6 +41,24 @@ export function RosterScreen() {
   const { scheme }  = useTheme();
   const isLight     = scheme !== 'dark';
   const qc          = useQueryClient();
+  const { width: windowWidth } = useWindowDimensions();
+
+  // The 7 day-columns share each row with a fixed 110px label column. On
+  // normal phones (~360px+) there's always room for the original 28px
+  // (header) / 22px (shift) circles, so this clamps to those exact sizes
+  // there — nothing changes visually. On narrower devices (~320px) the
+  // circle diameters (and their inner text/icon) shrink to whatever room
+  // is actually left in each flex:1 day column, so neighboring circles
+  // never touch or overlap. The two rows have slightly different padding
+  // (the header row sits directly in the ScrollView; shift/worker rows sit
+  // inside a padded card), so each gets its own computed column width.
+  const DAY_LABEL_W = 110;
+  const headerDayColW = (windowWidth - spacing.xl * 2 - DAY_LABEL_W - spacing.sm) / 7;
+  const entryDayColW = (windowWidth - spacing.xl * 2 - spacing.md * 2 - 2 - DAY_LABEL_W - spacing.sm) / 7;
+  const HEADER_CIRCLE = Math.max(18, Math.min(28, Math.floor(headerDayColW - 3)));
+  const SHIFT_CIRCLE = Math.max(16, Math.min(22, Math.floor(entryDayColW - 3)));
+  const HEADER_FONT = Math.max(10, Math.round(HEADER_CIRCLE * 0.46));
+  const CHECK_ICON = Math.max(9, Math.round(SHIFT_CIRCLE * 0.55));
 
   const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
   const border        = isLight ? '#E5E7EB' : '#1E1E1E';
@@ -167,12 +185,12 @@ export function RosterScreen() {
               return (
                 <View key={i} style={{ flex: 1, alignItems: 'center' }}>
                   <View style={{
-                    width: 28, height: 28, borderRadius: 14,
+                    width: HEADER_CIRCLE, height: HEADER_CIRCLE, borderRadius: HEADER_CIRCLE / 2,
                     backgroundColor: isToday ? BLUE : 'transparent',
                     alignItems: 'center', justifyContent: 'center',
                   }}>
                     <Text style={{
-                      fontSize: 13, fontWeight: '700',
+                      fontSize: HEADER_FONT, fontWeight: '700',
                       color: isToday ? '#FFFFFF' : (i >= 5 ? '#EF4444' : textSecondary),
                     }}>
                       {d}
@@ -226,12 +244,12 @@ export function RosterScreen() {
                     return (
                       <View key={i} style={{ flex: 1, alignItems: 'center' }}>
                         <View style={{
-                          width: 22, height: 22, borderRadius: 11,
+                          width: SHIFT_CIRCLE, height: SHIFT_CIRCLE, borderRadius: SHIFT_CIRCLE / 2,
                           backgroundColor: isActive ? (isToday ? BLUE : GREEN) : 'transparent',
                           borderWidth: isActive ? 0 : 1, borderColor: border,
                           alignItems: 'center', justifyContent: 'center',
                         }}>
-                          {isActive && <Feather name="check" size={12} color="#FFFFFF" />}
+                          {isActive && <Feather name="check" size={CHECK_ICON} color="#FFFFFF" />}
                         </View>
                       </View>
                     );
