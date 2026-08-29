@@ -55,6 +55,7 @@ function ReelCard({
   height: number;
   t: TFn;
 }) {
+  const navigation = useNavigation<Nav>();
   const player = useVideoPlayer(resolveMediaUrl(reel.videoUrl), (p) => {
     p.loop = true;
     p.muted = false;
@@ -229,6 +230,40 @@ function ReelCard({
             {reel.caption}
           </Text>
         ) : null}
+
+        {/* Contact from reel — v1 stays browse-only in spirit (this
+            doesn't open a chat), but routes the employer into the
+            existing outbound Hiring Request flow so liking a reel has
+            a next step without leaving the feed. */}
+        {reel.seeker && (
+          <Pressable
+            onPress={() => {
+              haptic('selection');
+              navigation.navigate('SendHiringRequest', {
+                seekerId: reel.seeker!.id,
+                seekerName: reel.seeker!.name,
+              });
+            }}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: spacing.sm,
+              marginTop: spacing.md,
+              paddingVertical: spacing.sm,
+              borderRadius: radii.pill,
+              backgroundColor: '#FFFFFF',
+              opacity: pressed ? 0.85 : 1,
+              alignSelf: 'flex-start',
+              paddingHorizontal: spacing.lg,
+            })}
+          >
+            <Feather name="send" size={14} color="#111111" />
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#111111' }}>
+              {t('reels.contact_cta')}
+            </Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );

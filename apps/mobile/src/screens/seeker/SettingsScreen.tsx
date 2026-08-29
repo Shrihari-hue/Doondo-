@@ -100,9 +100,20 @@ function SettingsInner() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['notification-prefs'] }),
   });
 
-  function toggleType(k: keyof NotificationPrefs) {
+  function toggleType(k: Exclude<keyof NotificationPrefs, 'quietHours'>) {
     haptic('selection');
     saveMut.mutate({ [k]: !prefs[k] });
+  }
+
+  function toggleQuietHours() {
+    haptic('selection');
+    saveMut.mutate({ quietHours: prefs.quietHours ? null : { start: 22, end: 7 } });
+  }
+
+  function setQuietHour(edge: 'start' | 'end', hour: number) {
+    haptic('selection');
+    const current = prefs.quietHours ?? { start: 22, end: 7 };
+    saveMut.mutate({ quietHours: { ...current, [edge]: hour } });
   }
 
   function pickLanguage(code: LangCode) {
@@ -299,9 +310,48 @@ function SettingsInner() {
               value={prefs.referrals}
               onChange={() => toggleType('referrals')}
             />
+            <Divider color={theme.border.subtle} />
+            <PrefRow
+              icon="moon"
+              label="Quiet hours"
+              hint="Only SOS alerts land during this window"
+              value={prefs.quietHours !== null}
+              onChange={toggleQuietHours}
+            />
+            {prefs.quietHours && (
+              <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.md, gap: spacing.sm }}>
+                <View style={{ gap: 4 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.text.tertiary }}>FROM</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+                    {QUIET_START_HOURS.map((h) => (
+                      <HourChip
+                        key={h}
+                        hour={h}
+                        active={prefs.quietHours!.start === h}
+                        onPress={() => setQuietHour('start', h)}
+                      />
+                    ))}
+                  </View>
+                </View>
+                <View style={{ gap: 4 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.text.tertiary }}>UNTIL</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+                    {QUIET_END_HOURS.map((h) => (
+                      <HourChip
+                        key={h}
+                        hour={h}
+                        active={prefs.quietHours!.end === h}
+                        onPress={() => setQuietHour('end', h)}
+                      />
+                    ))}
+                  </View>
+                </View>
+              </View>
+            )}
           </View>
           <Hint icon="info" theme={theme}>
-            Turning a category off stops both push and in-app banners for that type.
+            Turning a category off stops both push and in-app banners for that type. Quiet
+            hours hold back everything except SOS alerts, which always land.
           </Hint>
         </Section>
 
@@ -825,6 +875,36 @@ function RowAction({
  * each row is parseable at a glance — the eye finds the category by
  * the icon shape, not by re-reading the label.
  */
+const QUIET_START_HOURS = [20, 21, 22, 23];
+const QUIET_END_HOURS = [5, 6, 7, 8];
+
+function formatHour(h: number): string {
+  const period = h < 12 ? 'AM' : 'PM';
+  const twelve = h % 12 === 0 ? 12 : h % 12;
+  return `${twelve} ${period}`;
+}
+
+function HourChip({ hour, active, onPress }: { hour: number; active: boolean; onPress: () => void }) {
+  const { theme } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 999,
+        borderWidth: active ? 1.5 : 1,
+        borderColor: active ? theme.brand.hero : theme.border.subtle,
+        backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+      }}
+    >
+      <Text style={{ fontSize: 12, fontWeight: active ? '700' : '500', color: active ? theme.brand.hero : theme.text.secondary }}>
+        {formatHour(hour)}
+      </Text>
+    </Pressable>
+  );
+}
+
 function PrefRow({
   icon,
   label,

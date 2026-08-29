@@ -50,6 +50,10 @@ export const NOTIFICATION_KINDS = [
   'job_escalated',            // a stalling job was auto-boosted / needs attention
   'reached_home_safe',        // a worker confirmed they got home safely (to circle)
   'profile_viewed',           // an employer viewed this seeker's profile
+  'mentor_session_booked',    // a mentee booked one of your open session slots
+  'mentor_session_cancelled', // the other side cancelled a booked mentor session
+  'cohort_invite',            // someone invited you into a peer cohort
+  'cohort_message',           // a new message landed in one of your cohorts
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

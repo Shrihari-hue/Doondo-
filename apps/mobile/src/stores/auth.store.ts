@@ -31,6 +31,7 @@
 
 import { create } from 'zustand';
 import { authApi } from '@/api/auth.api';
+import { clearPushToken } from '@/lib/push';
 import type { AuthSuccess, PublicUser, UserRole } from '@/api/types';
 import { ApiError } from '@/api/errors';
 import { setSecure, getSecure, deleteSecure } from '@/lib/secureStore';
@@ -479,6 +480,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   async logout() {
+    // Detach this device's push token from the account being signed out —
+    // must happen before the access token below is cleared, since it's an
+    // authenticated request. Best-effort: never block logout on it.
+    await clearPushToken().catch(() => undefined);
     const refreshToken = get().refreshToken;
     if (refreshToken) {
       try {

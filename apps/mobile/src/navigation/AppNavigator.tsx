@@ -10,6 +10,7 @@
  */
 
 import { useEffect } from 'react';
+import { AppState } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,6 +19,7 @@ import { useChatSocket } from '@/hooks/useChatSocket';
 import { useOfflineQueueSync } from '@/hooks/useOfflineQueue';
 import {
   attachTapHandler,
+  refreshPushTokenOnForeground,
   registerForPushNotifications,
   setupNotificationHandlers,
 } from '@/lib/push';
@@ -58,19 +60,28 @@ import { JobAlertFormScreen } from '@/screens/seeker/JobAlertFormScreen';
 import { AvailableWorkersScreen } from '@/screens/employer/AvailableWorkersScreen';
 import { WorkforceScreen } from '@/screens/employer/WorkforceScreen';
 import { SendHiringRequestScreen } from '@/screens/employer/SendHiringRequestScreen';
+import { SeekerReelScreen } from '@/screens/employer/SeekerReelScreen';
 import { SentHiringRequestsScreen } from '@/screens/employer/SentHiringRequestsScreen';
 import { InterestedWorkersScreen } from '@/screens/employer/InterestedWorkersScreen';
 import { HiringRequestsScreen } from '@/screens/seeker/HiringRequestsScreen';
 import { CoursesScreen } from '@/screens/seeker/CoursesScreen';
 import { CourseDetailScreen } from '@/screens/seeker/CourseDetailScreen';
+import { WhyRejectedScreen } from '@/screens/seeker/WhyRejectedScreen';
 import { SkillTestsScreen } from '@/screens/seeker/SkillTestsScreen';
 import { SkillPassportScreen } from '@/screens/seeker/SkillPassportScreen';
 import { ScoreCredentialScreen } from '@/screens/seeker/ScoreCredentialScreen';
+import { PassportCredentialScreen } from '@/screens/seeker/PassportCredentialScreen';
+import { MentorSessionsScreen } from '@/screens/seeker/MentorSessionsScreen';
+import { BookMentorSessionScreen } from '@/screens/seeker/BookMentorSessionScreen';
 import { ConstitutionScreen } from '@/screens/seeker/ConstitutionScreen';
 import { CareerPathScreen } from '@/screens/seeker/CareerPathScreen';
 import { PayslipExplainerScreen } from '@/screens/seeker/PayslipExplainerScreen';
 import { InterviewPrepScreen } from '@/screens/seeker/InterviewPrepScreen';
 import { FindFriendsScreen } from '@/screens/seeker/FindFriendsScreen';
+import { CohortsScreen } from '@/screens/seeker/CohortsScreen';
+import { StartCohortScreen } from '@/screens/seeker/StartCohortScreen';
+import { CohortChatScreen } from '@/screens/seeker/CohortChatScreen';
+import { ReportWageIssueScreen } from '@/screens/seeker/ReportWageIssueScreen';
 import { MentorsScreen } from '@/screens/seeker/MentorsScreen';
 import { PostComposerScreen } from '@/screens/community/PostComposerScreen';
 import { CommunityPostScreen } from '@/screens/community/CommunityPostScreen';
@@ -127,7 +138,17 @@ export function AppNavigator() {
     void setupNotificationHandlers();
     void registerForPushNotifications();
     const unsubscribe = attachTapHandler();
-    return unsubscribe;
+    // A push token can rotate mid-session (rare, but Expo documents it) —
+    // re-verify whenever the app comes back to the foreground rather than
+    // only on this initial mount, matching the same AppState 'active'
+    // pattern useOfflineQueueSync uses for its own foreground refresh.
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshPushTokenOnForeground();
+    });
+    return () => {
+      unsubscribe();
+      appStateSub.remove();
+    };
   }, []);
 
   return (
@@ -419,6 +440,11 @@ export function AppNavigator() {
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen
+        name="SeekerReel"
+        component={SeekerReelScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
         name="HiringRequests"
         component={HiringRequestsScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
@@ -444,6 +470,11 @@ export function AppNavigator() {
         options={{ presentation: 'modal', animation: 'slide_from_right' }}
       />
       <Stack.Screen
+        name="WhyRejected"
+        component={WhyRejectedScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
         name="SkillTests"
         component={SkillTestsScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
@@ -456,6 +487,41 @@ export function AppNavigator() {
       <Stack.Screen
         name="ScoreCredential"
         component={ScoreCredentialScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="PassportCredential"
+        component={PassportCredentialScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="MentorSessions"
+        component={MentorSessionsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="BookMentorSession"
+        component={BookMentorSessionScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="Cohorts"
+        component={CohortsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="StartCohort"
+        component={StartCohortScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="CohortChat"
+        component={CohortChatScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="ReportWageIssue"
+        component={ReportWageIssueScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen

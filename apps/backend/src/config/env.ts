@@ -232,6 +232,15 @@ const schema = z.object({
   /** Minimum hours between escalation stages for one job. Default 16. */
   ESCALATION_STAGE_GAP_HOURS: z.coerce.number().int().positive().default(16),
 
+  // ─── Push receipt sweep (dead-token pruning) ──────────────────────────
+  /**
+   * Cron for the weekly Expo push-receipt sweep — looks up delivery
+   * receipts for recently-sent push tickets and prunes any token that
+   * comes back DeviceNotRegistered. Default Sunday 03:30 UTC (quiet
+   * hour, doesn't collide with the other daily sweeps).
+   */
+  PUSH_RECEIPT_SWEEP_CRON: z.string().default('30 3 * * 0'),
+
   // ─── Dormant-user re-engagement sweep ─────────────────────────────────
   /**
    * Cron for the re-engagement sweep. Default 03:00 UTC = 08:30 IST —
@@ -299,6 +308,16 @@ const schema = z.object({
    * reasonable cost. Shares ANTHROPIC_API_KEY with the vision provider.
    */
   ANTHROPIC_TEXT_MODEL: z.string().default('claude-sonnet-4-6'),
+
+  // ─── "Why was I rejected?" — one-paragraph rejection explainer ───────
+  /**
+   * 'anthropic'/'openai' write a plain-language paragraph explaining a
+   * rejection from the missing-skill diff; 'mock' returns a templated
+   * paragraph so the feature works on a fresh checkout with no API key.
+   * Shares ANTHROPIC_API_KEY/ANTHROPIC_TEXT_MODEL and OPENAI_API_KEY/
+   * OPENAI_MODEL with the other text-generation features.
+   */
+  REJECTION_EXPLAINER_PROVIDER: z.enum(['anthropic', 'openai', 'mock']).default('mock'),
 
   // ─── Smart Resume — per-job AI resume rewrite ─────────────────────────
   /**

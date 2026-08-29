@@ -24,7 +24,14 @@
  * widen the South-Indian synonym sets over time.
  */
 
-export type VoiceIntentKind = 'search' | 'apply' | 'repeat' | 'help' | 'unknown';
+export type VoiceIntentKind =
+  | 'search'
+  | 'apply'
+  | 'repeat'
+  | 'help'
+  | 'interviews'
+  | 'messages'
+  | 'unknown';
 
 export interface VoiceIntent {
   kind: VoiceIntentKind;
@@ -213,6 +220,33 @@ const REPEAT_WORDS: readonly string[] = [
   'ಮತ್ತೆ ಹೇಳಿ', 'ಪುನಃ',
 ];
 
+/**
+ * Phrases that ask about an upcoming interview — "when's my interview",
+ * "do I have an interview". The agent reads back the next scheduled one.
+ */
+const INTERVIEW_PHRASES: readonly string[] = [
+  'interview', 'when is my interview', "when's my interview", 'do i have an interview',
+  'my interview', 'schedule my interview', 'interview time', 'interview date',
+  'इंटरव्यू', 'साक्षात्कार', 'मेरा इंटरव्यू', 'इंटरव्यू कब है',
+  'நேர்காணல்', 'எனது நேர்காணல்', 'இன்டர்வியூ',
+  'ఇంటర్వ్యూ', 'నా ఇంటర్వ్యూ',
+  'ಸಂದರ್ಶನ', 'ನನ್ನ ಸಂದರ್ಶನ',
+];
+
+/**
+ * Phrases that ask the agent to read chat replies aloud — "read my
+ * messages", "what did the employer say".
+ */
+const MESSAGE_PHRASES: readonly string[] = [
+  'read my messages', 'check my messages', 'my messages', 'read messages',
+  'what did the employer say', 'any messages', 'read my chat', 'read reply',
+  'read replies',
+  'मेरा मैसेज', 'मैसेज पढ़ो', 'संदेश पढ़ो', 'नियोक्ता ने क्या कहा',
+  'எனது செய்திகள்', 'செய்தி படி', 'என்ன சொன்னார்',
+  'నా సందేశాలు', 'సందేశం చదవండి', 'ఏమి చెప్పారు',
+  'ನನ್ನ ಸಂದೇಶಗಳು', 'ಸಂದೇಶ ಓದಿ', 'ಏನು ಹೇಳಿದರು',
+];
+
 /** Phrases that ask what the agent can do. */
 const HELP_PHRASES: readonly string[] = [
   'help', 'what can you do', 'what can i say', 'how does this work',
@@ -293,6 +327,16 @@ export function parseVoiceIntent(rawTranscript: string): VoiceIntent {
   // ─── repeat ─────────────────────────────────────────────────────────
   if (REPEAT_WORDS.some((w) => lc.includes(w))) {
     return { kind: 'repeat' };
+  }
+
+  // ─── interviews ─────────────────────────────────────────────────────
+  if (INTERVIEW_PHRASES.some((w) => lc.includes(w))) {
+    return { kind: 'interviews' };
+  }
+
+  // ─── messages ───────────────────────────────────────────────────────
+  if (MESSAGE_PHRASES.some((w) => lc.includes(w))) {
+    return { kind: 'messages' };
   }
 
   // ─── search (trade recognised) ──────────────────────────────────────

@@ -4,7 +4,7 @@
  */
 
 import { apiRequest } from './client';
-import type { JobType } from './types';
+import type { JobType, PayPeriod } from './types';
 
 /**
  * Recurring beacon window — "every Mon/Wed/Fri 7am-10am". When set, the
@@ -35,6 +35,12 @@ export interface PublicAvailability {
   /** Weekly recurring window, when the seeker has standing availability. */
   recurringPattern: RecurringPattern | null;
   note: string | null;
+  /**
+   * Open shift (#40) — set when a wage was named, turning a plain "I'm
+   * free" beacon into a full posted open shift nearby employers get
+   * pushed about. Null on a plain beacon.
+   */
+  wage: { amount: number; period: PayPeriod } | null;
   createdAt: string;
 }
 
@@ -54,6 +60,13 @@ export interface PublishAvailabilityPayload {
    * pattern window. Null = one-shot beacon (the legacy v1 shape).
    */
   recurringPattern?: RecurringPattern | null;
+  /**
+   * Open shift (#40) — set both to name a wage and turn this beacon
+   * into a full posted open shift (triggers a nearby-employer push).
+   * Omit both for a plain "I'm free" beacon.
+   */
+  wageAmount?: number | null;
+  wagePeriod?: PayPeriod | null;
 }
 
 export interface NearbyAvailability extends PublicAvailability {

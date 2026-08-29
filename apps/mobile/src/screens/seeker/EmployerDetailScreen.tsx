@@ -27,6 +27,7 @@ import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { employersApi, type EmployerProfile } from '@/api/employers.api';
 import { ratingsApi, type TagSummary, type TagSummaryEntry } from '@/api/ratings.api';
+import { wageFlagsApi } from '@/api/wageFlags.api';
 import { employerInterestApi } from '@/api/employerInterest.api';
 import { favoritesApi } from '@/api/favorites.api';
 import { haptic } from '@/lib/haptics';
@@ -58,6 +59,15 @@ function EmployerDetailInner() {
   const tagSummaryQuery = useQuery({
     queryKey: ['employer', userId, 'tagSummary'],
     queryFn: () => ratingsApi.tagSummary(userId, 'employer'),
+    staleTime: 60_000,
+  });
+
+  // Wage Strike Alerts (#46) — aggregate-only signal, withheld below a
+  // volume threshold server-side. Independent query, same reasoning as
+  // tagSummaryQuery above.
+  const wageFlagsQuery = useQuery({
+    queryKey: ['employer', userId, 'wageFlagsSummary'],
+    queryFn: () => wageFlagsApi.summaryForEmployer(userId),
     staleTime: 60_000,
   });
 
@@ -121,6 +131,9 @@ function EmployerDetailInner() {
               t={t}
             />
             <ResponsivenessBanner stats={profile.stats} />
+            {wageFlagsQuery.data?.summary.hasSignal && (
+              <WageSignalBanner summary={wageFlagsQuery.data.summary} />
+            )}
             {tagSummaryQuery.data && (
               <TagSummaryPanel summary={tagSummaryQuery.data} />
             )}
@@ -232,6 +245,54 @@ function ResponsivenessBanner({
           {slow
             ? t('employer_signals.slow_body', { pct })
             : t('employer_signals.responsive_body')}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ─── Wage Strike Alerts (#46) ───────────────────────────────────────────────
+
+/**
+ * Aggregate-only wage-issue signal. Deliberately non-accusatory copy —
+ * "workers report", never "this employer does X" — and the underlying
+ * query already withholds any signal below MIN_SIGNAL_FLAGS server-side,
+ * so by the time this renders there's real volume behind it. Individual
+ * reports are never shown; this is the entire public surface.
+ */
+function WageSignalBanner({
+  summary,
+}: {
+  summary: Extract<import('@/api/wageFlags.api').WageFlagSummary, { hasSignal: true }>;
+}) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  const top = summary.reasons[0];
+  if (!top) return null;
+
+  return (
+    <View
+      style={{
+        marginHorizontal: spacing.xl,
+        marginTop: spacing.lg,
+        marginBottom: spacing.xs,
+        padding: spacing.md,
+        borderRadius: radii.lg,
+        borderWidth: 0.5,
+        borderColor: theme.status.warningBorder,
+        backgroundColor: theme.status.warningSubtle,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+      }}
+    >
+      <Text style={{ fontSize: 16 }}>💰</Text>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text variant="footnote" weight="medium" style={{ color: theme.status.warning }}>
+          {t('employer_signals.wage_flag_title', { n: summary.totalFlags })}
+        </Text>
+        <Text variant="caption" tone="secondary">
+          {t(`employer_signals.wage_flag_reason_${top.reason}`, { pct: Math.round(top.ratio * 100) })}
         </Text>
       </View>
     </View>

@@ -100,6 +100,17 @@ function Inner() {
               {t('mentors.subtitle', { trade: trade ? prettifySkill(trade) : t('mentors.fallback_trade') })}
             </Text>
           </View>
+          <Pressable
+            onPress={() => {
+              haptic('selection');
+              navigation.navigate('MentorSessions');
+            }}
+            hitSlop={8}
+          >
+            <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.hero }}>
+              {t('mentors.my_sessions')}
+            </Text>
+          </Pressable>
         </View>
 
         {!trade || !city ? (
@@ -198,6 +209,22 @@ function Inner() {
                         ? t('mentors.status_declined')
                         : t('mentors.status_ended')}
                 </Text>
+                {r.status === 'accepted' && (
+                  <Pressable
+                    onPress={() => {
+                      haptic('selection');
+                      navigation.navigate('BookMentorSession', {
+                        mentorUserId: r.mentorId,
+                        trade: r.trade,
+                      });
+                    }}
+                    style={{ marginTop: spacing.xs }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: theme.brand.hero }}>
+                      {t('mentors.book_session_cta')}
+                    </Text>
+                  </Pressable>
+                )}
               </View>
             ))}
           </Section>

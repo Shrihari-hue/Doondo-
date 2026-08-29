@@ -1,0 +1,8 @@
+{
+  "name": "doondo-pulse-widget",
+  "version": "1.0.0",
+  "description": "Local Expo module bridging a Doondo Pulse snapshot to the iOS/Android home-screen widget's shared storage.",
+  "main": "index.ts",
+  "license": "UNLICENSED",
+  "private": true
+}

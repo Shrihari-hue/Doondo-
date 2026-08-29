@@ -117,6 +117,12 @@ export function buildApp(): BuiltApp {
     logger.info({ reelDir }, 'serving Hire Reels media from local disk');
   }
 
+  // ─── Static — Legal pages (Privacy Policy / Terms of Service) ──────────
+  // Plain static HTML, no templating needed. Linked from the in-app copy
+  // (WelcomeScreen, RolePickerScreen footer) and required by both app
+  // stores at submission time.
+  app.use('/legal', express.static(path.resolve(__dirname, '../public/legal')));
+
   // ─── Health ─────────────────────────────────────────────────────────────
   app.get('/healthz', (req: Request, res: Response) => {
     res.json({

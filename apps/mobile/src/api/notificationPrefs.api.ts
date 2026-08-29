@@ -13,6 +13,8 @@ export interface NotificationPrefs {
   messages: boolean;
   ratings: boolean;
   referrals: boolean;
+  /** Local (IST) 0-23 hour window during which only SOS pings land. `null` disables it. */
+  quietHours: { start: number; end: number } | null;
 }
 
 export const DEFAULT_PREFS: NotificationPrefs = {
@@ -21,12 +23,13 @@ export const DEFAULT_PREFS: NotificationPrefs = {
   messages: true,
   ratings: true,
   referrals: true,
+  quietHours: null,
 };
 
 export const notificationPrefsApi = {
   get: () => apiRequest<{ prefs: NotificationPrefs }>('/me/notification-prefs'),
   save: (patch: Partial<NotificationPrefs>) =>
-    apiRequest<{ ok: true }>('/me/notification-prefs', {
+    apiRequest<{ ok: true; notificationPrefs: NotificationPrefs }>('/me/notification-prefs', {
       method: 'POST',
       body: patch,
     }),

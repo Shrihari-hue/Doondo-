@@ -1496,32 +1496,12 @@ function SkillGapInlineCard({
   const { theme } = useTheme();
   const t = useTranslate();
   const navigation = useNavigation<Nav>();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  async function onPress() {
-    if (loading) return;
+  function onPress() {
     haptic('selection');
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await applicationsApi.skillGap(applicationId);
-      if (res.recommendedCourse) {
-        navigation.navigate('CourseDetail', {
-          courseId: res.recommendedCourse.id,
-        });
-      } else {
-        // No catalogue match — open the full courses screen so the
-        // seeker can browse rather than dead-end.
-        navigation.navigate('Courses');
-      }
-    } catch (err) {
-      setError(
-        friendlyErrorMessage(err, t('skill_gap_card.error')),
-      );
-    } finally {
-      setLoading(false);
-    }
+    // WhyRejectedScreen owns its own skill-gap fetch (explanation +
+    // similar jobs need it too) — this card is just the entry point.
+    navigation.navigate('WhyRejected', { applicationId });
   }
 
   return (
@@ -1536,7 +1516,7 @@ function SkillGapInlineCard({
         backgroundColor: theme.status.infoSubtle,
         borderWidth: 0.5,
         borderColor: theme.status.infoBorder,
-        opacity: pressed || loading ? 0.7 : 1,
+        opacity: pressed ? 0.7 : 1,
       })}
     >
       <Text style={{ fontSize: 16 }}>📚</Text>
@@ -1549,9 +1529,7 @@ function SkillGapInlineCard({
           }}
           numberOfLines={2}
         >
-          {error
-            ? error
-            : t('skill_gap_card.missing', { skill: missingSkill })}
+          {t('skill_gap_card.missing', { skill: missingSkill })}
         </Text>
       </View>
       <Text
@@ -1561,7 +1539,7 @@ function SkillGapInlineCard({
           color: theme.status.info,
         }}
       >
-        {loading ? '…' : t('skill_gap_card.open')}
+        {t('skill_gap_card.open')}
       </Text>
     </Pressable>
   );

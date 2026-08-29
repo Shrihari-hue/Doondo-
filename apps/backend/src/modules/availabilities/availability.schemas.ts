@@ -3,7 +3,7 @@
  */
 
 import { z } from 'zod';
-import { JOB_TYPES } from '@/modules/jobs/job.model';
+import { JOB_TYPES, PAY_PERIODS } from '@/modules/jobs/job.model';
 
 /** Max beacon duration — 8 hours. Beyond that it stops being "available NOW". */
 export const MAX_DURATION_MINUTES = 8 * 60;
@@ -44,8 +44,25 @@ export const upsertAvailabilitySchema = z.object({
        * and the seeker is considered live during any pattern window.
        */
       recurringPattern: recurringPatternSchema.nullable().optional(),
+      /**
+       * Open shift (#40) — set both to turn a plain "I'm free" beacon
+       * into a full posted open shift with a named wage, which also
+       * triggers a nearby-employer push fan-out on publish. Omit both
+       * for a plain beacon.
+       */
+      wageAmount: z.number().int().positive().max(10_000_000).nullable().optional(),
+      wagePeriod: z.enum(PAY_PERIODS).nullable().optional(),
     })
-    .strict(),
+    .strict()
+    .superRefine((v, ctx) => {
+      if ((v.wageAmount == null) !== (v.wagePeriod == null)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['wagePeriod'],
+          message: 'wageAmount and wagePeriod must be set together.',
+        });
+      }
+    }),
 });
 
 export const nearbyAvailabilitiesQuerySchema = z.object({

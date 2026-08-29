@@ -14,7 +14,14 @@
 import { apiRequest } from './client';
 import type { PublicJob } from './types';
 
-export type VoiceIntentKind = 'search' | 'apply' | 'repeat' | 'help' | 'unknown';
+export type VoiceIntentKind =
+  | 'search'
+  | 'apply'
+  | 'repeat'
+  | 'help'
+  | 'interviews'
+  | 'messages'
+  | 'unknown';
 
 export interface VoiceIntent {
   kind: VoiceIntentKind;
@@ -34,7 +41,28 @@ export type VoiceOutcome =
   | 'need_search_first'
   | 'repeat'
   | 'help'
+  | 'interview_upcoming'
+  | 'interview_none'
+  | 'messages_found'
+  | 'no_messages'
   | 'not_understood';
+
+/** The next scheduled interview, read back to the worker. */
+export interface UpcomingInterview {
+  applicationId: string;
+  jobTitle: string;
+  employerName: string;
+  scheduledFor: string;
+  mode: 'in_person' | 'video' | 'phone';
+  location: string | null;
+}
+
+/** One conversation's latest employer message, read back to the worker. */
+export interface SpokenMessage {
+  conversationId: string;
+  senderName: string;
+  body: string;
+}
 
 export interface VoiceTurnResult {
   intent: VoiceIntent;
@@ -45,6 +73,10 @@ export interface VoiceTurnResult {
   jobs: PublicJob[];
   /** The job an apply landed on (applied / already_applied outcomes). */
   appliedJob: { id: string; title: string } | null;
+  /** Populated when outcome === 'interview_upcoming'. */
+  upcomingInterview: UpcomingInterview | null;
+  /** Populated when outcome === 'messages_found'. */
+  latestMessages: SpokenMessage[];
   /** Result ids to pass back on the next turn so "the second one" resolves. */
   contextJobIds: string[];
 }

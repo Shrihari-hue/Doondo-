@@ -10,10 +10,12 @@
  * by the next publish (harmless, never returned).
  */
 
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 import { getDb } from '@/db/client';
-import { availabilities, users, type JobType, type RecurringPatternJson } from '@/db/schema';
+import { availabilities, users, type JobType, type PayPeriod, type RecurringPatternJson } from '@/db/schema';
+import { sendOpenShiftPush } from '@/lib/push';
 
 export type RecurringPattern = RecurringPatternJson;
 
@@ -30,6 +32,11 @@ export interface PublicAvailability {
   until: string;
   recurringPattern: RecurringPattern | null;
   note: string | null;
+  /**
+   * Open shift (#40) — set when the seeker named a wage, turning a plain
+   * "I'm free" beacon into a full posted open shift. Null on a beacon.
+   */
+  wage: { amount: number; period: PayPeriod } | null;
   createdAt: string;
 }
 
@@ -49,6 +56,7 @@ function toPublicJSON(row: AvailabilityRow): PublicAvailability {
     until: row.until.toISOString(),
     recurringPattern: row.recurringPattern ?? null,
     note: row.note ?? null,
+    wage: row.wageAmount != null && row.wagePeriod ? { amount: row.wageAmount, period: row.wagePeriod } : null,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -89,6 +97,8 @@ interface PublishInput {
   jobTypes?: JobType[];
   note?: string | null;
   recurringPattern?: RecurringPattern | null;
+  wageAmount?: number | null;
+  wagePeriod?: PayPeriod | null;
 }
 
 export async function publish(input: PublishInput): Promise<PublicAvailability> {
@@ -107,6 +117,8 @@ export async function publish(input: PublishInput): Promise<PublicAvailability> 
     until,
     recurringPattern: input.recurringPattern ?? null,
     note: input.note?.trim() || null,
+    wageAmount: input.wageAmount ?? null,
+    wagePeriod: input.wagePeriod ?? null,
   };
 
   // Unique index on seekerId makes this a true upsert: re-posting while a
@@ -118,7 +130,75 @@ export async function publish(input: PublishInput): Promise<PublicAvailability> 
     .returning();
 
   if (!doc) throw errors.internal();
-  return toPublicJSON(doc);
+  const published = toPublicJSON(doc);
+
+  // A named wage turns this into a full posted open shift — fan out to
+  // nearby employers, same pattern as job.service's notifySeekersOfNewJob
+  // but reversed (employers, not seekers). Fire-and-forget: never block
+  // the publish response on push delivery.
+  if (published.wage) {
+    void notifyEmployersOfOpenShift(published).catch((err) =>
+      logger.warn({ err, seekerId: input.seekerId }, 'open-shift employer fan-out failed'),
+    );
+  }
+
+  return published;
+}
+
+// ─── Open shift (#40) — nearby-employer push fan-out ────────────────────────
+
+/** Same distance math job.service.ts's fan-out already uses (jsonb location, no PostGIS on users yet). */
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6_371_000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+/** Notify employers within this radius of a freshly-posted open shift. */
+const OPEN_SHIFT_NOTIFY_RADIUS_M = 25_000;
+/** Hard cap so a single publish can't blast every employer on the platform. */
+const OPEN_SHIFT_NOTIFY_MAX_RECIPIENTS = 500;
+/** Safety cap on the candidate pool pulled before the in-app distance filter. */
+const OPEN_SHIFT_NOTIFY_CANDIDATE_POOL = 5000;
+
+async function notifyEmployersOfOpenShift(shift: PublicAvailability): Promise<void> {
+  const [lng, lat] = shift.location.coordinates;
+  if (typeof lng !== 'number' || typeof lat !== 'number') return;
+
+  const db = getDb();
+  const candidates = await db.query.users.findMany({
+    where: and(eq(users.role, 'employer'), eq(users.isActive, true), sql`array_length(${users.expoPushTokens}, 1) > 0`),
+    columns: { id: true, employerLocation: true },
+    limit: OPEN_SHIFT_NOTIFY_CANDIDATE_POOL,
+  });
+
+  const recipients = candidates
+    .filter((e) => {
+      const coords = e.employerLocation?.coordinates;
+      if (!coords) return false;
+      return haversineMeters(lat, lng, coords[1], coords[0]) <= OPEN_SHIFT_NOTIFY_RADIUS_M;
+    })
+    .slice(0, OPEN_SHIFT_NOTIFY_MAX_RECIPIENTS)
+    .map((e) => e.id);
+
+  if (recipients.length === 0 || !shift.wage) return;
+
+  const [seeker] = await db.select({ name: users.name, skills: users.skills }).from(users).where(eq(users.id, shift.seekerId)).limit(1);
+
+  await sendOpenShiftPush({
+    recipientIds: recipients,
+    seekerId: shift.seekerId,
+    seekerFirstName: (seeker?.name ?? 'A worker').split(' ')[0] ?? 'A worker',
+    trade: shift.tradesAvailable[0] ?? seeker?.skills?.[0] ?? null,
+    wageAmount: shift.wage.amount,
+    wagePeriod: shift.wage.period,
+    city: shift.location.city,
+  });
 }
 
 export async function withdraw(seekerId: string): Promise<void> {
@@ -186,6 +266,8 @@ interface NearbyRow extends Record<string, unknown> {
   until: Date;
   recurring_pattern: RecurringPattern | null;
   note: string | null;
+  wage_amount: number | null;
+  wage_period: PayPeriod | null;
   created_at: Date;
   distance_meters: number;
 }
@@ -198,7 +280,8 @@ export async function findNearby(input: NearbyInput): Promise<NearbyAvailability
   const db = getDb();
   const rowsRaw = await db.execute<NearbyRow>(sql`
     SELECT id, seeker_id, trades_available, job_types, city, area,
-      ST_X(geo) AS lng, ST_Y(geo) AS lat, until, recurring_pattern, note, created_at,
+      ST_X(geo) AS lng, ST_Y(geo) AS lat, until, recurring_pattern, note,
+      wage_amount, wage_period, created_at,
       ST_Distance(
         geo::geography,
         ST_SetSRID(ST_MakePoint(${input.lng}, ${input.lat}), 4326)::geography
@@ -266,6 +349,7 @@ export async function findNearby(input: NearbyInput): Promise<NearbyAvailability
       until: r.until.toISOString(),
       recurringPattern: r.recurring_pattern ?? null,
       note: r.note ?? null,
+      wage: r.wage_amount != null && r.wage_period ? { amount: r.wage_amount, period: r.wage_period } : null,
       createdAt: r.created_at.toISOString(),
       distanceMeters: Math.round(r.distance_meters),
       seeker: seekerInfo

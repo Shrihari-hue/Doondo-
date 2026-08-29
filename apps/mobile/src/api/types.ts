@@ -804,6 +804,10 @@ export interface SkillGapResponse {
     durationMinutes: number;
     addressesSkills: string[];
   }>;
+  /** Short, plain-language paragraph explaining the rejection. Empty string when there was no gap. */
+  explanation: string;
+  /** Up to 4 other active jobs hiring now, near the rejected job or the seeker's saved location. */
+  similarJobs: Array<PublicJob & { distanceMeters: number }>;
 }
 
 /**

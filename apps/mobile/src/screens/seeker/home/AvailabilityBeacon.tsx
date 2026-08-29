@@ -285,6 +285,18 @@ function AvailabilityBeaconSheet({
     existing?.recurringPattern?.endTime ?? '10:00',
   );
 
+  // Open shift (#40) — naming a wage turns this beacon into a full
+  // posted open shift and triggers a nearby-employer push on publish.
+  const [wageEnabled, setWageEnabled] = useState<boolean>(existing?.wage != null);
+  const [wageAmount, setWageAmount] = useState<string>(
+    existing?.wage ? String(existing.wage.amount) : '',
+  );
+  const [wagePeriod, setWagePeriod] = useState<'hour' | 'day' | 'week' | 'month'>(
+    existing?.wage?.period === 'hour' || existing?.wage?.period === 'week' || existing?.wage?.period === 'month'
+      ? existing.wage.period
+      : 'day',
+  );
+
   // Re-seed when the sheet re-opens with new data. This is a genuine
   // side effect — it calls setState — so it belongs in useEffect. It
   // previously ran inside useMemo, which mutates state during render and
@@ -297,6 +309,13 @@ function AvailabilityBeaconSheet({
     setRecurringDays(existing?.recurringPattern?.days ?? [1, 2, 3, 4, 5]);
     setRecurringStart(existing?.recurringPattern?.startTime ?? '07:00');
     setRecurringEnd(existing?.recurringPattern?.endTime ?? '10:00');
+    setWageEnabled(existing?.wage != null);
+    setWageAmount(existing?.wage ? String(existing.wage.amount) : '');
+    setWagePeriod(
+      existing?.wage?.period === 'hour' || existing?.wage?.period === 'week' || existing?.wage?.period === 'month'
+        ? existing.wage.period
+        : 'day',
+    );
   }, [visible, existing, user?.skills]);
 
   const publishMutation = useMutation({
@@ -318,6 +337,11 @@ function AvailabilityBeaconSheet({
               endTime: recurringEnd,
             }
           : null;
+      const parsedWage = wageEnabled ? Number(wageAmount) : NaN;
+      const wagePayload =
+        wageEnabled && Number.isFinite(parsedWage) && parsedWage > 0
+          ? { wageAmount: Math.round(parsedWage), wagePeriod: wagePeriod }
+          : { wageAmount: null, wagePeriod: null };
       return availabilityApi.publish({
         durationMinutes: minutes,
         lat: coords.lat,
@@ -327,6 +351,7 @@ function AvailabilityBeaconSheet({
         tradesAvailable: tradeSlugs,
         note: note.trim() || null,
         recurringPattern: recurringPayload,
+        ...wagePayload,
       });
     },
     onSuccess: () => {
@@ -366,7 +391,8 @@ function AvailabilityBeaconSheet({
   const scheduleValid =
     !recurring || (recurringDays.length > 0 && timeRangeValid);
   const hasTrade = tradeSlugs.length > 0;
-  const canPublish = hasTrade && scheduleValid;
+  const wageValid = !wageEnabled || (Number.isFinite(Number(wageAmount)) && Number(wageAmount) > 0);
+  const canPublish = hasTrade && scheduleValid && wageValid;
 
   // Per-field error flags for the time inputs.
   const startFieldBad = recurring && !startTimeValid;
@@ -375,13 +401,15 @@ function AvailabilityBeaconSheet({
     (!endTimeValid || (startTimeValid && endTimeValid && !timeRangeValid));
 
   // First blocking reason, in priority order — drives the status line.
-  const blockReason: 'trade' | 'day' | 'time' | null = !hasTrade
+  const blockReason: 'trade' | 'day' | 'time' | 'wage' | null = !hasTrade
     ? 'trade'
     : recurring && recurringDays.length === 0
       ? 'day'
       : recurring && !timeRangeValid
         ? 'time'
-        : null;
+        : !wageValid
+          ? 'wage'
+          : null;
 
   const todayIndex = new Date().getDay();
 
@@ -657,6 +685,122 @@ function AvailabilityBeaconSheet({
               />
             </View>
 
+            {/* Open shift (#40) — naming a wage turns this into a full
+               posted open shift and pings nearby employers. */}
+            <View style={{ gap: spacing.sm }}>
+              <SectionLabel theme={theme}>{t('home.beacon.sheet.wage_title')}</SectionLabel>
+              <Pressable
+                onPress={() => {
+                  haptic('selection');
+                  setWageEnabled((v) => !v);
+                }}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: wageEnabled }}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: spacing.sm,
+                  padding: spacing.md,
+                  borderRadius: radii.lg,
+                  borderWidth: 0.5,
+                  borderColor: wageEnabled ? '#2563EB' : theme.border.default,
+                  backgroundColor: wageEnabled ? '#EFF6FF' : theme.bg.surface,
+                  opacity: pressed ? 0.85 : 1,
+                })}
+              >
+                <View
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 6,
+                    borderWidth: 1.5,
+                    borderColor: wageEnabled ? '#2563EB' : theme.border.strong,
+                    backgroundColor: wageEnabled ? '#2563EB' : 'transparent',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {wageEnabled ? (
+                    <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>✓</Text>
+                  ) : null}
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text
+                    style={{ fontSize: 14, fontWeight: '700', color: wageEnabled ? '#1E3A8A' : theme.text.primary }}
+                  >
+                    {t('home.beacon.sheet.wage_toggle_title')}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: wageEnabled ? '#475569' : theme.text.secondary }}>
+                    {t('home.beacon.sheet.wage_toggle_hint')}
+                  </Text>
+                </View>
+              </Pressable>
+
+              {wageEnabled ? (
+                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: theme.text.tertiary }}>
+                      {t('home.beacon.sheet.wage_amount_label')}
+                    </Text>
+                    <TextInput
+                      value={wageAmount}
+                      onChangeText={(v) => setWageAmount(v.replace(/[^0-9]/g, ''))}
+                      placeholder="500"
+                      placeholderTextColor={theme.text.tertiary}
+                      keyboardType="number-pad"
+                      style={{
+                        backgroundColor: theme.bg.surface,
+                        borderWidth: 1,
+                        borderColor: theme.border.default,
+                        borderRadius: radii.md,
+                        paddingHorizontal: spacing.md,
+                        paddingVertical: spacing.sm + 2,
+                        fontSize: 15,
+                        color: theme.text.primary,
+                      }}
+                      maxLength={7}
+                    />
+                  </View>
+                  <View style={{ flex: 1.4, gap: 4 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: theme.text.tertiary }}>
+                      {t('home.beacon.sheet.wage_period_label')}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      {(['hour', 'day', 'week'] as const).map((p) => {
+                        const active = wagePeriod === p;
+                        return (
+                          <Pressable
+                            key={p}
+                            onPress={() => {
+                              haptic('selection');
+                              setWagePeriod(p);
+                            }}
+                            style={({ pressed }) => ({
+                              flex: 1,
+                              paddingVertical: spacing.sm + 2,
+                              borderRadius: radii.md,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: active ? '#1D4ED8' : theme.bg.surface,
+                              borderWidth: 1,
+                              borderColor: active ? '#1E3A8A' : theme.border.default,
+                              opacity: pressed ? 0.85 : 1,
+                            })}
+                          >
+                            <Text
+                              style={{ fontSize: 12, fontWeight: '700', color: active ? '#FFFFFF' : theme.text.primary }}
+                            >
+                              {t(`home.beacon.sheet.wage_period_${p}`)}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+
             {/* Recurring weekly schedule */}
             <View style={{ gap: spacing.sm }}>
               <SectionLabel theme={theme}>{t('home.beacon.sheet.schedule_title')}</SectionLabel>
@@ -901,7 +1045,9 @@ function AvailabilityBeaconSheet({
                   ? t('home.beacon.sheet.hint_need_day')
                   : blockReason === 'time'
                     ? t('home.beacon.sheet.time_error')
-                    : t('home.beacon.sheet.hint_need_trade')}
+                    : blockReason === 'wage'
+                      ? t('home.beacon.sheet.hint_need_wage')
+                      : t('home.beacon.sheet.hint_need_trade')}
             </Text>
           </View>
 

@@ -74,13 +74,17 @@ function publicMessage(row: MessageRow): PublicMessage {
 function preview(body: string): string {
   return body.replace(/\s+/g, ' ').trim().slice(0, 140);
 }
+/**
+ * True for a Postgres unique-violation (23505). drizzle-orm >=0.44 wraps
+ * the driver's PostgresError in a DrizzleQueryError, moving the real
+ * `.code` to `.cause.code` — checking only the outer error's `.code` (the
+ * pre-wrap shape) silently missed every unique violation here too, which
+ * meant the getOrCreateForApplication race-recovery path never fired.
+ */
 function isUnique(err: unknown): boolean {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    'code' in err &&
-    (err as { code?: string }).code === '23505'
-  );
+  const code = (err as { code?: string; cause?: { code?: string } } | null)?.code;
+  const causeCode = (err as { cause?: { code?: string } } | null)?.cause?.code;
+  return code === '23505' || causeCode === '23505';
 }
 async function assertParticipant(userId: string, conversationId: string): Promise<ConversationRow> {
   const [row] = await getDb()

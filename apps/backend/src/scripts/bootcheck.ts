@@ -105,6 +105,11 @@ async function main(): Promise<void> {
       import('@/lib/paymentAggregator'),
       import('@/lib/qrMatrix'),
       import('@/lib/transactionalSms'),
+      import('@/modules/cohorts/cohort.service'),
+      import('@/modules/wageFlags/wageFlag.service'),
+      import('@/modules/scheduler/pushReceiptSweep.service'),
+      import('@/lib/pushCopy'),
+      import('@/lib/notificationQuietHours'),
     ]);
   });
   await check('all new models register', async () => {
@@ -133,6 +138,7 @@ async function main(): Promise<void> {
       ['SHIFT_CONFIRM_CRON', env.SHIFT_CONFIRM_CRON],
       ['OFFER_EXPIRY_CRON', env.OFFER_EXPIRY_CRON],
       ['ESCALATION_CRON', env.ESCALATION_CRON],
+      ['PUSH_RECEIPT_SWEEP_CRON', env.PUSH_RECEIPT_SWEEP_CRON],
     ] as const) {
       assert(cron.validate(expr), `${name} is not a valid cron expression: "${expr}"`);
     }
@@ -433,6 +439,26 @@ async function main(): Promise<void> {
       stored.provider === 'mock' && stored.videoUrl.includes('seeker123'),
       `expected a mock provider URL, got ${JSON.stringify(stored)}`,
     );
+  });
+
+  await check('notificationQuietHours.isInQuietHours handles midnight wrap + locale copy resolves', async () => {
+    const { isInQuietHours } = await import('@/lib/notificationQuietHours');
+    const { pushText } = await import('@/lib/pushCopy');
+
+    // 22:00 IST wrapping to 07:00 IST — 23:00 IST should be inside, 12:00 IST outside.
+    const quietHours = { start: 22, end: 7 };
+    const insideIst = new Date(Date.UTC(2026, 0, 1, 17, 30)); // 23:00 IST = 17:30 UTC
+    const outsideIst = new Date(Date.UTC(2026, 0, 1, 6, 30)); // 12:00 IST = 06:30 UTC
+    assert(isInQuietHours(quietHours, insideIst), 'expected 23:00 IST to be inside a 22-7 quiet window');
+    assert(!isInQuietHours(quietHours, outsideIst), 'expected 12:00 IST to be outside a 22-7 quiet window');
+    assert(!isInQuietHours(null, insideIst), 'null quietHours should never gate a push');
+
+    const hi = pushText('app_status.title.hired', 'hi');
+    assert(hi.length > 0 && hi !== pushText('app_status.title.hired', 'en'), `expected a distinct Hindi string, got "${hi}"`);
+    const kn = pushText('app_status.title.hired', 'kn');
+    assert(kn.length > 0, 'expected pushText to resolve a Kannada string');
+    const missing = pushText('not_a_real_key', 'en');
+    assert(missing === '', 'expected an unknown key to resolve to an empty string, not throw');
   });
 
   // ─── Result ──────────────────────────────────────────────────────────

@@ -47,6 +47,8 @@ export interface ApplicantEntry extends PublicApplication {
     skillDocuments: SkillDocument[];
     /** The seeker's Doondo Constitution — their stated work boundaries. */
     constitution: SeekerConstitution;
+    /** Whether this worker has recorded a Hire Reels intro video. */
+    hasReel: boolean;
   };
 }
 

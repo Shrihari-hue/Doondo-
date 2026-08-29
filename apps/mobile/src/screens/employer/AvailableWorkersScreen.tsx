@@ -720,6 +720,33 @@ function AvailabilityRow({
         </View>
       ) : null}
 
+      {/* Open shift (#40) — a named wage means this worker posted a full
+         open shift, not just a plain availability beacon. */}
+      {item.wage ? (
+        <View
+          style={{
+            alignSelf: 'flex-start',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+            paddingHorizontal: spacing.sm,
+            paddingVertical: 3,
+            borderRadius: radii.pill,
+            backgroundColor: isLight ? '#ECFDF5' : '#064E3B',
+            borderWidth: 0.5,
+            borderColor: isLight ? '#86EFAC' : '#065F46',
+          }}
+        >
+          <Text style={{ fontSize: 12 }}>💰</Text>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: isLight ? '#047857' : '#6EE7B7' }}>
+            {t('employer.available_workers.wants_wage', {
+              amount: item.wage.amount,
+              period: t(`employer.available_workers.period_${item.wage.period}`),
+            })}
+          </Text>
+        </View>
+      ) : null}
+
       {/* Note */}
       {item.note ? (
         <Text

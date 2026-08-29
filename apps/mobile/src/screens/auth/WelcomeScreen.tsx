@@ -1,4 +1,4 @@
-import { Pressable, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,6 +7,7 @@ import { spacing, radii, blue } from '@doondo/tokens';
 import { Screen, Text, Button, DoondoMark } from '@/components';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
+import { resolveMediaUrl } from '@/api/client';
 import type { AuthStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Welcome'>;
@@ -117,9 +118,17 @@ export function WelcomeScreen() {
             variant="ghost"
             onPress={() => navigation.navigate('Login')}
           />
-          <Text variant="caption" tone="tertiary" style={{ textAlign: 'center', marginTop: spacing.sm }}>
-            {t('auth.welcome.terms')}
-          </Text>
+          <Pressable
+            onPress={() => {
+              void Linking.openURL(resolveMediaUrl('/legal/') ?? 'https://doondo.app/legal/').catch(
+                () => undefined,
+              );
+            }}
+          >
+            <Text variant="caption" tone="tertiary" style={{ textAlign: 'center', marginTop: spacing.sm }}>
+              {t('auth.welcome.terms')}
+            </Text>
+          </Pressable>
         </View>
       </View>
     </Screen>

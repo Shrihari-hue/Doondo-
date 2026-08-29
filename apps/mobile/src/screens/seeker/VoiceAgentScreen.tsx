@@ -145,6 +145,30 @@ function composeReply(turns: VoiceConversationTurn[], idx: number, t: TFn): stri
       return t('voice_agent.reply.need_search_first');
     case 'help':
       return t('voice_agent.reply.help');
+    case 'interview_upcoming': {
+      const iv = result.upcomingInterview;
+      if (!iv) return t('voice_agent.reply.interview_none');
+      return t('voice_agent.reply.interview_upcoming', {
+        job: iv.jobTitle,
+        employer: iv.employerName,
+        when: formatSpokenDateTime(iv.scheduledFor),
+      });
+    }
+    case 'interview_none':
+      return t('voice_agent.reply.interview_none');
+    case 'messages_found': {
+      const first = result.latestMessages[0];
+      if (!first) return t('voice_agent.reply.no_messages');
+      return result.latestMessages.length === 1
+        ? t('voice_agent.reply.messages_one', { sender: first.senderName, body: first.body })
+        : t('voice_agent.reply.messages_many', {
+            count: result.latestMessages.length,
+            sender: first.senderName,
+            body: first.body,
+          });
+    }
+    case 'no_messages':
+      return t('voice_agent.reply.no_messages');
     case 'not_understood':
       return t('voice_agent.reply.not_understood');
     case 'repeat': {
@@ -160,6 +184,20 @@ function composeReply(turns: VoiceConversationTurn[], idx: number, t: TFn): stri
 }
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
+
+/** "Tomorrow at 2:00 PM" style — short enough to read aloud in one breath. */
+function formatSpokenDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const now = new Date();
+  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const dayDiff = Math.round((startOfDay(d) - startOfDay(now)) / 86_400_000);
+  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  if (dayDiff === 0) return time;
+  if (dayDiff === 1) return `tomorrow at ${time}`;
+  const day = d.toLocaleDateString(undefined, { weekday: 'long' });
+  return `${day} at ${time}`;
+}
 
 function distanceLabel(job: PublicJob, t: TFn): string | null {
   if (job.distanceMeters == null) return null;
@@ -549,6 +587,8 @@ function VoiceAgentScreenInner() {
   const EXAMPLES: ReadonlyArray<string> = [
     t('voice_agent.example_search'),
     t('voice_agent.example_apply'),
+    t('voice_agent.example_interview'),
+    t('voice_agent.example_messages'),
     t('voice_agent.example_help'),
   ];
 

@@ -205,6 +205,26 @@ function Inner() {
               {t('find_friends.subtitle')}
             </Text>
           </View>
+          <Pressable
+            onPress={() => {
+              haptic('selection');
+              navigation.navigate('Cohorts', {});
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={t('find_friends.cohorts_a11y')}
+            hitSlop={10}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              borderWidth: 0.5,
+              borderColor: theme.border.default,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Feather name="users" size={18} color={theme.text.primary} />
+          </Pressable>
         </View>
 
         {state.kind === 'loading' && (
@@ -257,6 +277,36 @@ function Inner() {
 
         {state.kind === 'ready' && (
           <>
+            {state.matched.some((f) => f.role === 'seeker') && (
+              <View style={{ paddingHorizontal: spacing.xl }}>
+                <Pressable
+                  onPress={() => {
+                    haptic('selection');
+                    navigation.navigate('StartCohort', {
+                      preselect: state.matched
+                        .filter((f) => f.role === 'seeker')
+                        .map((f) => ({ id: f.id, name: f.name, photoUrl: f.photoUrl })),
+                    });
+                  }}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: spacing.sm,
+                    padding: spacing.md,
+                    borderRadius: radii.lg,
+                    backgroundColor: theme.brand.heroSubtle,
+                    opacity: pressed ? 0.8 : 1,
+                  })}
+                >
+                  <Feather name="users" size={16} color={theme.brand.hero} />
+                  <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: theme.brand.hero }}>
+                    {t('find_friends.start_cohort_cta')}
+                  </Text>
+                  <Feather name="chevron-right" size={16} color={theme.brand.hero} />
+                </Pressable>
+              </View>
+            )}
+
             <Section title={t('find_friends.on_doondo_section', { n: state.matched.length })}>
               {state.matched.length === 0 ? (
                 <Text

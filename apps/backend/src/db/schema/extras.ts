@@ -27,8 +27,9 @@ import {
 import { sql } from 'drizzle-orm';
 import { geometry } from 'drizzle-orm/pg-core';
 import { applications } from './applications';
-import { jobs, jobTypeEnum } from './jobs';
+import { jobs, jobTypeEnum, payPeriodEnum } from './jobs';
 import { users } from './users';
+import { messageKindEnum } from './marketplace';
 
 // ─── Shared enums ───────────────────────────────────────────────────────────
 
@@ -101,6 +102,12 @@ export const availabilities = pgTable('availabilities', {
   until: timestamp('until', { withTimezone: true }).notNull(),
   recurringPattern: jsonb('recurring_pattern').$type<RecurringPatternJson | null>(),
   note: varchar('note', { length: 240 }),
+  // ─── Open shift (#40) — set once a seeker names a wage, becoming a full
+  // posted open shift rather than a plain "I'm free" beacon. Null on a
+  // plain beacon. Presence of wageAmount is what triggers the nearby-
+  // employer push fan-out on publish (see availability.service.ts).
+  wageAmount: integer('wage_amount'),
+  wagePeriod: payPeriodEnum('wage_period'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [
@@ -404,6 +411,40 @@ export const mentorshipRequests = pgTable('mentorship_requests', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [index('mentorship_requests_mentee_mentor_status_idx').on(t.menteeId, t.mentorId, t.status)]);
 
+// ─── mentors/sessions — bookable 1:1 calendar slots ─────────────────────────
+// On top of the request/accept relationship above: once accepted, the
+// mentor opens time slots (a row each, status='open', no mentee yet) and
+// the mentee books one (status='booked'). No payment integration — mentor
+// sessions are a free benefit of an accepted mentorship, and no payment
+// aggregator is wired up anywhere in this codebase yet (PAYMENT_AGGREGATOR
+// defaults to 'none' / fully simulated, see lib/paymentAggregator.ts).
+
+export const mentorSessionModeEnum = pgEnum('mentor_session_mode', ['video', 'phone', 'in_person']);
+export type MentorSessionMode = (typeof mentorSessionModeEnum.enumValues)[number];
+export const mentorSessionStatusEnum = pgEnum('mentor_session_status', ['open', 'booked', 'cancelled', 'completed']);
+export type MentorSessionStatus = (typeof mentorSessionStatusEnum.enumValues)[number];
+
+export const mentorSessions = pgTable('mentor_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  mentorId: uuid('mentor_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+  /** Null until a mentee books this slot. */
+  menteeId: uuid('mentee_id').references(() => users.id, { onDelete: 'restrict' }),
+  trade: varchar('trade', { length: 60 }).notNull(),
+  scheduledFor: timestamp('scheduled_for', { withTimezone: true }).notNull(),
+  durationMinutes: integer('duration_minutes').notNull().default(30),
+  mode: mentorSessionModeEnum('mode').notNull().default('video'),
+  meetingLink: text('meeting_link'),
+  location: varchar('location', { length: 240 }),
+  notes: varchar('notes', { length: 400 }),
+  status: mentorSessionStatusEnum('status').notNull().default('open'),
+  cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (t) => [
+  index('mentor_sessions_mentor_status_scheduled_idx').on(t.mentorId, t.status, t.scheduledFor),
+  index('mentor_sessions_mentee_status_scheduled_idx').on(t.menteeId, t.status, t.scheduledFor),
+]);
+
 // ─── me/profileView ─────────────────────────────────────────────────────────
 
 export const profileViews = pgTable('profile_views', {
@@ -589,6 +630,45 @@ export const scoreCredentials = pgTable('score_credentials', {
   uniqueIndex('score_credentials_code_unique').on(t.code),
 ]);
 
+// ─── me/passportCredential ──────────────────────────────────────────────────
+// Same shape/rationale as scoreCredentials just above — one credential per
+// worker, HMAC-signed, re-issue keeps the code stable so a shared QR keeps
+// resolving. Signs the gameable facts (score, verified-skill count, jobs
+// completed); name/skills list are display-only, same precedent as
+// scoreCredentials leaving `name` out of its own signature.
+
+export const passportCredentials = pgTable('passport_credentials', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+  /** Short, URL-safe lookup code embedded in the QR. */
+  code: varchar('code', { length: 32 }).notNull(),
+  /** Worker's display name at issue time. */
+  name: varchar('name', { length: 120 }).notNull(),
+  /** Doondo Score snapshot (0-100). */
+  score: integer('score').notNull(),
+  /** ISO account-creation date, snapshotted for the "member since" line. */
+  memberSince: timestamp('member_since', { withTimezone: true }).notNull(),
+  /** Full skills-with-verification-status snapshot, for the verify page. */
+  skills: jsonb('skills').$type<Array<{ slug: string; verified: boolean }>>().notNull().default([]),
+  /** Count of skills verified (endorsed or tested) at issue time — signed. */
+  verifiedSkillCount: integer('verified_skill_count').notNull(),
+  /** Passed trade tests, for the verify page. */
+  skillTests: jsonb('skill_tests').$type<Array<{ id: string; title: string; emoji: string }>>().notNull().default([]),
+  /** Jobs completed (hired applications) at issue time — signed. */
+  jobsCompleted: integer('jobs_completed').notNull(),
+  ratingsAvg: real('ratings_avg'),
+  ratingsCount: integer('ratings_count').notNull().default(0),
+  /** HMAC over the credential fields — integrity check on verify. */
+  signature: text('signature').notNull(),
+  issuedAt: timestamp('issued_at', { withTimezone: true }).notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (t) => [
+  uniqueIndex('passport_credentials_user_unique').on(t.userId),
+  uniqueIndex('passport_credentials_code_unique').on(t.code),
+]);
+
 // ─── laborBudget ──────────────────────────────────────────────────────────
 
 export const budgetPeriodEnum = pgEnum('budget_period', ['week', 'month']);
@@ -678,3 +758,90 @@ export const squads = pgTable('squads', {
 }, (t) => [
   uniqueIndex('squads_employer_name_unique').on(t.employerId, t.name),
 ]);
+
+// ─── cohorts — peer groups via Find Friends (#7) ─────────────────────────────
+// A 5-person (creator + up to 4 invited) group tied to one course, with a
+// shared group chat. `cohortMessages` reuses `messageKindEnum` from the 1:1
+// chat module (marketplace.ts) but the mobile UI only sends text/image/system
+// — voice/video/translation are 1:1-chat-only features, not extended here.
+
+export const cohortMemberStatusEnum = pgEnum('cohort_member_status', ['invited', 'joined', 'declined']);
+export type CohortMemberStatus = (typeof cohortMemberStatusEnum.enumValues)[number];
+
+export const cohorts = pgTable('cohorts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  courseId: varchar('course_id', { length: 80 }).notNull(),
+  name: varchar('name', { length: 80 }).notNull(),
+  creatorId: uuid('creator_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (t) => [index('cohorts_course_idx').on(t.courseId)]);
+
+export const cohortMembers = pgTable('cohort_members', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  cohortId: uuid('cohort_id').notNull().references(() => cohorts.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  status: cohortMemberStatusEnum('status').notNull().default('invited'),
+  invitedBy: uuid('invited_by').references(() => users.id, { onDelete: 'set null' }),
+  lastReadAt: timestamp('last_read_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('cohort_members_cohort_user_unique').on(t.cohortId, t.userId),
+  index('cohort_members_user_idx').on(t.userId, t.status),
+]);
+
+export const cohortMessages = pgTable('cohort_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  cohortId: uuid('cohort_id').notNull().references(() => cohorts.id, { onDelete: 'cascade' }),
+  senderId: uuid('sender_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+  kind: messageKindEnum('kind').notNull().default('text'),
+  body: varchar('body', { length: 4000 }).notNull().default(''),
+  attachment: jsonb('attachment'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index('cohort_messages_cohort_created_idx').on(t.cohortId, t.createdAt)]);
+
+// ─── wage flags — Wage Strike Alerts (#46) ───────────────────────────────────
+// Deliberately NOT a public per-employer accusation feed — that's the
+// defamation/legal risk the roadmap flagged. Mirrors the anonymous-review
+// pattern instead: individual flags are always private (reporter AND the
+// raw flag list are never exposed to the employer or other seekers); only
+// an aggregate signal is surfaced, and only once volume clears a threshold
+// (see wageFlags.service.ts MIN_SIGNAL_FLAGS), the same honesty bar the
+// ratings module's TagSummaryPanel already uses (hidden under 3 reviews).
+
+export const wageFlagReasonEnum = pgEnum('wage_flag_reason', [
+  'below_promised_wage', 'late_payment', 'unpaid_overtime', 'wage_theft', 'other',
+]);
+export type WageFlagReason = (typeof wageFlagReasonEnum.enumValues)[number];
+
+export const wageFlags = pgTable('wage_flags', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  reporterId: uuid('reporter_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+  employerId: uuid('employer_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+  jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'restrict' }),
+  reason: wageFlagReasonEnum('reason').notNull(),
+  promisedWageAmount: integer('promised_wage_amount'),
+  actualWageAmount: integer('actual_wage_amount'),
+  wagePeriod: payPeriodEnum('wage_period'),
+  note: varchar('note', { length: 500 }).notNull().default(''),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('wage_flags_reporter_job_unique').on(t.reporterId, t.jobId),
+  index('wage_flags_employer_created_idx').on(t.employerId, t.createdAt),
+]);
+
+// ─── push receipts — dead-token pruning (push notification "Known Gaps") ────
+// One row per Expo push ticket ID whose SEND-time ticket came back 'ok'
+// (i.e. Expo accepted it for delivery). The weekly sweep
+// (scheduler/pushReceiptSweep.service.ts) looks these up via Expo's
+// getReceipts endpoint — the only way to learn about a DeviceNotRegistered
+// failure that surfaces at actual delivery time, as opposed to the
+// synchronous ticket errors lib/push.ts's sendRaw already prunes inline.
+// Rows are deleted once processed, so this table stays small — it is a
+// short-lived queue, not a delivery log.
+
+export const pushReceipts = pgTable('push_receipts', {
+  ticketId: varchar('ticket_id', { length: 64 }).primaryKey(),
+  token: varchar('token', { length: 255 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index('push_receipts_created_idx').on(t.createdAt)]);

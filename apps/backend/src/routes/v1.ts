@@ -30,6 +30,7 @@ import * as profileViewService from '@/modules/me/profileView.service';
 import { sendProfileViewPush } from '@/lib/push';
 import * as doondoScoreService from '@/modules/users/doondoScore.service';
 import * as scoreCredentialController from '@/modules/users/scoreCredential.controller';
+import * as passportCredentialController from '@/modules/me/passportCredential.controller';
 import * as resumeRewriteService from '@/modules/resumeRewrite/resumeRewrite.service';
 import * as festivalService from '@/modules/festivals/festival.service';
 import * as skillDocumentService from '@/modules/me/skillDocument.service';
@@ -56,6 +57,9 @@ import statementRouter from '@/modules/statement/statement.routes';
 import needsYouNowRouter from '@/modules/needsYouNow/needsYouNow.routes';
 import disputesRouter from '@/modules/disputes/dispute.routes';
 import squadsRouter from '@/modules/squads/squad.routes';
+import cohortsRouter from '@/modules/cohorts/cohort.routes';
+import wageFlagsRouter from '@/modules/wageFlags/wageFlag.routes';
+import * as wageFlagService from '@/modules/wageFlags/wageFlag.service';
 import homeSafeRouter from '@/modules/homeSafe/homeSafe.routes';
 import maskedCallRouter from '@/modules/maskedCall/maskedCall.routes';
 import workerJobRouter from '@/modules/workerJob/workerJob.routes';
@@ -133,6 +137,10 @@ v1.use('/needs-you-now', needsYouNowRouter);
 v1.use('/disputes', disputesRouter);
 // Squad hire — reusable worker groups + one-tap deploy to a job.
 v1.use('/squads', squadsRouter);
+// Peer cohorts — 5-person course groups formed via Find Friends, + group chat.
+v1.use('/cohorts', cohortsRouter);
+// Wage Strike Alerts — anonymous per-job wage-issue flags, aggregate-only surface.
+v1.use('/wage-flags', wageFlagsRouter);
 // "Reached home safe" — post-shift safety check-out loop (seeker).
 v1.use('/home-safe', homeSafeRouter);
 // Masked calling — privacy-preserving call between hire parties (proxy or reveal fallback).
@@ -396,6 +404,14 @@ v1.get(
 v1.post('/me/score-credential', requireAuth, scoreCredentialController.issue);
 v1.get('/score/verify/:code', scoreCredentialController.verify);
 
+// ─── Skill Passport — shareable signed credential ───────────────────────────
+// Same pattern as the Doondo Score credential just above: `POST
+// /me/passport-credential` mints (or refreshes) a QR-encodable credential
+// covering the worker's full Skill Passport (skills, verification status,
+// jobs completed, ratings). `GET /passport/verify/:code` is PUBLIC.
+v1.post('/me/passport-credential', requireAuth, passportCredentialController.issue);
+v1.get('/passport/verify/:code', passportCredentialController.verify);
+
 // ─── Festival Mode ──────────────────────────────────────────────────────────
 // The festival calendar lives server-side (festival.config) so lunar
 // dates are a config edit, not an app release. This returns the festival
@@ -623,6 +639,22 @@ v1.get(
     }),
   ),
   ratingsController.tagSummary,
+);
+
+// Wage Strike Alerts (#46) — aggregate-only signal on an employer. Public,
+// same trust-and-safety posture as tag-summary above; the service itself
+// withholds any signal below the volume threshold (see wageFlag.service.ts).
+v1.get(
+  '/users/:id/wage-flags-summary',
+  validate(z.object({ params: z.object({ id: z.string().uuid('Invalid id') }) })),
+  async (req, res, next) => {
+    try {
+      const summary = await wageFlagService.summarizeForEmployer(req.params.id!);
+      res.json({ ok: true, data: { summary }, requestId: req.id });
+    } catch (err) {
+      next(err);
+    }
+  },
 );
 
 // Apply lives URL-wise under /jobs/:id/apply (the natural place a client

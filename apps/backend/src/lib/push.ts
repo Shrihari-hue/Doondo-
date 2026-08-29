@@ -1,22 +1,36 @@
 /**
- * push — minimal Expo push notification helper.
+ * push — Expo push notification helper, on the official `expo-server-sdk`.
  *
- * Posts to https://exp.host/--/api/v2/push/send. We avoid the official
- * `expo-server-sdk` for now so we don't add a dep — the API is tiny and
- * stable, and we don't yet need batching/receipts. Phase 5 swaps to the
- * official SDK when receipts + topic-rules become useful.
+ * Phase 5 (see DOONDO_PUSH_NOTIFICATIONS_STATUS.md's "Known Gaps"):
+ * swapped the raw fetch() calls for the SDK so we get its chunking,
+ * validation, and — the actual point — a `receiptId` per ticket so a
+ * later sweep can call `getPushNotificationReceiptsAsync` and learn
+ * about `DeviceNotRegistered` failures that only surface at delivery
+ * time (minutes after the initial send), not just the synchronous
+ * ticket errors the previous raw-fetch version could already catch.
+ * See `push_receipts` (db/schema/extras.ts) and
+ * `pruneDeadTokensFromReceipts` (scheduler/pushReceiptSweep.service.ts)
+ * for the weekly cron half of this.
  *
  * Errors are caught and logged here. Callers should always `void` these
  * helpers so a failed push never blocks the request that triggered it.
+ *
+ * Every push here (except SOS, which bypasses it) also respects the
+ * recipient's `notificationPrefs.quietHours` window — see
+ * lib/notificationQuietHours.ts — and, for the push kinds push.ts owns
+ * the copy for, renders in the recipient's `locale` via pushCopy.ts.
  */
 
+import { Expo, type ExpoPushMessage, type ExpoPushTicket } from 'expo-server-sdk';
 import { logger } from './logger';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
-import { users } from '@/db/schema';
+import { pushReceipts, users, type NotificationPrefsJson } from '@/db/schema';
 import * as notifications from '@/modules/notifications/notification.service';
+import { isInQuietHours } from './notificationQuietHours';
+import { isPushLocale, pushText, PUSH_LOCALE_BCP47, type PushLocale } from './pushCopy';
 
-const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+const expo = new Expo();
 
 interface PushPayload {
   to: string | string[];
@@ -31,32 +45,121 @@ interface PushPayload {
 
 async function sendRaw(payloads: PushPayload[]): Promise<void> {
   if (payloads.length === 0) return;
-  try {
-    const res = await fetch(EXPO_PUSH_URL, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Accept-encoding': 'gzip, deflate',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payloads),
-    });
-    if (!res.ok) {
-      logger.warn(
-        { status: res.status, count: payloads.length },
-        'expo push: non-2xx response',
-      );
-      return;
+
+  const messages: ExpoPushMessage[] = payloads.filter(
+    (p) => typeof p.to !== 'string' || Expo.isExpoPushToken(p.to),
+  ) as ExpoPushMessage[];
+  if (messages.length === 0) return;
+
+  const chunks = expo.chunkPushNotifications(messages);
+  const tickets: ExpoPushTicket[] = [];
+  for (const chunk of chunks) {
+    try {
+      tickets.push(...(await expo.sendPushNotificationsAsync(chunk)));
+    } catch (err) {
+      logger.warn({ err, count: chunk.length }, 'expo push: chunk send failed');
     }
-    // We don't read the response body — receipts are a Phase 5 concern.
-  } catch (err) {
-    logger.warn({ err, count: payloads.length }, 'expo push: send failed');
+  }
+
+  // Two outcomes worth acting on, both about dead tokens:
+  //   1. A ticket errors with DeviceNotRegistered synchronously — prune
+  //      right away, same as before the SDK swap.
+  //   2. A ticket comes back 'ok' — Expo *accepted* it, but that says
+  //      nothing about actual delivery. Its receipt (fetched later, async,
+  //      by the weekly sweep) is the only way to learn if delivery itself
+  //      failed with DeviceNotRegistered. Persist the ticket id so that
+  //      sweep has something to look up.
+  const toPrune: string[] = [];
+  const ticketRows: { ticketId: string; token: string }[] = [];
+  for (let i = 0; i < tickets.length; i++) {
+    const ticket = tickets[i];
+    const token = messages[i]?.to;
+    if (!ticket || typeof token !== 'string') continue;
+    if (ticket.status === 'error') {
+      if (ticket.details?.error === 'DeviceNotRegistered') toPrune.push(token);
+    } else if (ticket.status === 'ok' && ticket.id) {
+      ticketRows.push({ ticketId: ticket.id, token });
+    }
+  }
+
+  for (const token of toPrune) {
+    pruneDeadToken(token).catch((err) =>
+      logger.warn({ err, token }, 'expo push: dead-token prune failed'),
+    );
+  }
+  if (ticketRows.length > 0) {
+    getDb()
+      .insert(pushReceipts)
+      .values(ticketRows)
+      .onConflictDoNothing()
+      .catch((err) =>
+        logger.warn({ err, count: ticketRows.length }, 'expo push: could not queue tickets for receipt sweep'),
+      );
   }
 }
 
+/** Remove a dead (DeviceNotRegistered) Expo push token from whichever user has it. */
+async function pruneDeadToken(token: string): Promise<void> {
+  const db = getDb();
+  const [user] = await db
+    .select({ id: users.id, expoPushTokens: users.expoPushTokens })
+    .from(users)
+    .where(sql`${token} = ANY(${users.expoPushTokens})`)
+    .limit(1);
+  if (!user) return;
+  await db
+    .update(users)
+    .set({ expoPushTokens: user.expoPushTokens.filter((t) => t !== token) })
+    .where(eq(users.id, user.id));
+  logger.info({ userId: user.id }, 'expo push: pruned dead token');
+}
+
+/**
+ * Tokens for a push that should respect quiet hours (everything except
+ * SOS). Returns `[]` during the recipient's configured quiet-hours
+ * window so the caller's `if (tokens.length === 0) return;` guard does
+ * the right thing with zero changes at any call site.
+ */
 async function tokensFor(userId: string): Promise<string[]> {
+  const [u] = await getDb()
+    .select({ expoPushTokens: users.expoPushTokens, notificationPrefs: users.notificationPrefs })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!u) return [];
+  const prefs = u.notificationPrefs as NotificationPrefsJson | null;
+  if (isInQuietHours(prefs?.quietHours, new Date())) return [];
+  return u.expoPushTokens ?? [];
+}
+
+/** SOS is the one category that must land even inside quiet hours. */
+async function tokensForBypassingQuietHours(userId: string): Promise<string[]> {
   const [u] = await getDb().select({ expoPushTokens: users.expoPushTokens }).from(users).where(eq(users.id, userId)).limit(1);
   return u?.expoPushTokens ?? [];
+}
+
+/** The recipient's locale for the push kinds pushCopy.ts covers. Defaults to English. */
+async function localeFor(userId: string): Promise<PushLocale> {
+  const [u] = await getDb().select({ locale: users.locale }).from(users).where(eq(users.id, userId)).limit(1);
+  return isPushLocale(u?.locale) ? u!.locale : 'en';
+}
+
+/**
+ * Bulk sibling of `tokensFor` for the fan-out helpers that load many
+ * recipients' tokens in one query rather than per-recipient — filters
+ * out any user currently in their quiet-hours window.
+ */
+async function filterRowsRespectingQuietHours<T extends { notificationPrefs: unknown; expoPushTokens: string[] }>(
+  rows: T[],
+): Promise<string[]> {
+  const now = new Date();
+  const tokens: string[] = [];
+  for (const row of rows) {
+    const prefs = row.notificationPrefs as NotificationPrefsJson | null;
+    if (isInQuietHours(prefs?.quietHours, now)) continue;
+    if (Array.isArray(row.expoPushTokens)) tokens.push(...row.expoPushTokens);
+  }
+  return tokens;
 }
 
 // ─── Public helpers ─────────────────────────────────────────────────────────
@@ -67,16 +170,12 @@ export async function sendApplicationStatusPush(input: {
   jobTitle?: string;
   applicationId: string;
 }): Promise<void> {
-  const titleMap: Record<string, string> = {
-    viewed: 'Your application was viewed',
-    shortlisted: 'You were shortlisted',
-    hired: 'You got the job',
-    rejected: 'Application update',
-  };
-  const title = titleMap[input.status] ?? 'Application update';
+  const locale = await localeFor(input.recipientId);
+  const titleKey = `app_status.title.${input.status}`;
+  const title = pushText(titleKey, locale) || pushText('app_status.title.rejected', locale);
   const body = input.jobTitle
-    ? `Update on "${input.jobTitle}" — status: ${input.status}.`
-    : `Your application status changed to ${input.status}.`;
+    ? pushText('app_status.body.with_job', locale, { job: input.jobTitle })
+    : pushText('app_status.body.without_job', locale);
 
   // In-app feed row — independent of push delivery.
   void notifications.record({
@@ -122,14 +221,10 @@ export async function sendInterviewPush(input: {
   whenIso?: string;
   applicationId: string;
 }): Promise<void> {
-  const titleMap = {
-    scheduled: 'Interview scheduled',
-    rescheduled: 'Interview rescheduled',
-    cancelled: 'Interview cancelled',
-  };
-  const title = titleMap[input.kind];
+  const locale = await localeFor(input.recipientId);
+  const title = pushText(`interview.title.${input.kind}`, locale);
   const when = input.whenIso
-    ? new Date(input.whenIso).toLocaleString(undefined, {
+    ? new Date(input.whenIso).toLocaleString(PUSH_LOCALE_BCP47[locale], {
         weekday: 'short',
         day: 'numeric',
         month: 'short',
@@ -140,13 +235,13 @@ export async function sendInterviewPush(input: {
   const body =
     input.kind === 'cancelled'
       ? input.jobTitle
-        ? `Your interview for "${input.jobTitle}" was cancelled.`
-        : 'Your interview was cancelled.'
+        ? pushText('interview.body.cancelled_with_job', locale, { job: input.jobTitle })
+        : pushText('interview.body.cancelled_without_job', locale)
       : when
         ? input.jobTitle
-          ? `${input.jobTitle} — ${when}`
-          : `Interview ${when}`
-        : 'Open Doondo for details.';
+          ? pushText('interview.body.when_with_job', locale, { job: input.jobTitle, when })
+          : pushText('interview.body.when_without_job', locale, { when })
+        : pushText('interview.body.no_when', locale);
 
   const kindToRecordKind = {
     scheduled: 'interview_scheduled',
@@ -199,31 +294,34 @@ export async function sendNewJobPush(input: {
 }): Promise<void> {
   if (input.recipientIds.length === 0) return;
 
-  const matchedUsers = await getDb().select({ expoPushTokens: users.expoPushTokens }).from(users).where(inArray(users.id, input.recipientIds));
+  const matchedUsers = await getDb()
+    .select({ expoPushTokens: users.expoPushTokens, notificationPrefs: users.notificationPrefs, locale: users.locale })
+    .from(users)
+    .where(inArray(users.id, input.recipientIds));
 
-  const tokens: string[] = [];
+  const now = new Date();
+  const payloads: PushPayload[] = [];
   for (const u of matchedUsers) {
-    if (Array.isArray(u.expoPushTokens)) tokens.push(...u.expoPushTokens);
+    const prefs = u.notificationPrefs as NotificationPrefsJson | null;
+    if (isInQuietHours(prefs?.quietHours, now) || !Array.isArray(u.expoPushTokens)) continue;
+    const locale = isPushLocale(u.locale) ? u.locale : 'en';
+    const title = pushText('new_job.title', locale);
+    const body = input.city ? `${input.jobTitle} — ${input.city}` : input.jobTitle;
+    for (const to of u.expoPushTokens)
+      payloads.push({
+        to,
+        title,
+        body,
+        sound: 'default',
+        channelId: 'jobs',
+        data: {
+          type: 'job:new',
+          deeplink: { screen: 'JobDetail', params: { jobId: input.jobId } },
+          jobId: input.jobId,
+        },
+      });
   }
-  if (tokens.length === 0) return;
-
-  const title = 'New job near you';
-  const body = input.city
-    ? `${input.jobTitle} — ${input.city}`
-    : input.jobTitle;
-
-  const payloads: PushPayload[] = tokens.map((to) => ({
-    to,
-    title,
-    body,
-    sound: 'default',
-    channelId: 'jobs',
-    data: {
-      type: 'job:new',
-      deeplink: { screen: 'JobDetail', params: { jobId: input.jobId } },
-      jobId: input.jobId,
-    },
-  }));
+  if (payloads.length === 0) return;
 
   // Expo accepts up to 100 messages per request.
   for (let i = 0; i < payloads.length; i += 100) {
@@ -274,6 +372,79 @@ export async function sendChatMessagePush(input: {
       },
     })),
   );
+}
+
+/** Invite to a peer cohort (#7) — targets one invitee at a time. */
+export async function sendCohortInvitePush(input: {
+  recipientId: string;
+  cohortId: string;
+  inviterName: string;
+  courseTitle: string;
+}): Promise<void> {
+  const locale = await localeFor(input.recipientId);
+  const title = pushText('cohort_invite.title', locale);
+  const body = pushText('cohort_invite.body', locale, { name: input.inviterName, course: input.courseTitle });
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'cohort_invite',
+    title,
+    body,
+    deeplink: { screen: 'Cohorts', params: { cohortId: input.cohortId } },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      data: { type: 'cohort:invite', deeplink: { screen: 'Cohorts', params: { cohortId: input.cohortId } }, cohortId: input.cohortId },
+    })),
+  );
+}
+
+/** New message in a cohort group chat — fans out to every other joined member. */
+export async function sendCohortMessagePush(input: {
+  recipientIds: string[];
+  cohortId: string;
+  senderName: string;
+  body: string;
+  cohortName: string;
+}): Promise<void> {
+  if (input.recipientIds.length === 0) return;
+  const title = input.cohortName;
+  const truncatedBody =
+    input.body.length > 140 ? input.body.slice(0, 140) + '…' : input.body;
+  const body = `${input.senderName}: ${truncatedBody}`;
+
+  for (const recipientId of input.recipientIds)
+    void notifications.record({
+      recipientId,
+      kind: 'cohort_message',
+      title,
+      body,
+      deeplink: { screen: 'CohortChat', params: { cohortId: input.cohortId } },
+    });
+
+  const matchedUsers = await getDb()
+    .select({ expoPushTokens: users.expoPushTokens, notificationPrefs: users.notificationPrefs })
+    .from(users)
+    .where(inArray(users.id, input.recipientIds));
+  const tokens = await filterRowsRespectingQuietHours(matchedUsers);
+  if (tokens.length === 0) return;
+
+  const payloads: PushPayload[] = tokens.map((to) => ({
+    to,
+    title,
+    body,
+    sound: 'default',
+    channelId: 'chat',
+    data: { type: 'cohort:message_received', deeplink: { screen: 'CohortChat', params: { cohortId: input.cohortId } }, cohortId: input.cohortId },
+  }));
+  for (let i = 0; i < payloads.length; i += 100) await sendRaw(payloads.slice(i, i + 100));
 }
 
 /**
@@ -695,10 +866,15 @@ export async function sendSkillGapPush(input: {
   durationMinutes: number;
   applicationId: string;
 }): Promise<void> {
+  const locale = await localeFor(input.recipientId);
   const title = input.jobTitle
-    ? `Update on "${input.jobTitle}"`
-    : 'Application update';
-  const body = `Missing: ${input.missingSkill}. ${input.courseTitle} (${input.durationMinutes} min) can close the gap.`;
+    ? pushText('skill_gap.title.with_job', locale, { job: input.jobTitle })
+    : pushText('skill_gap.title.without_job', locale);
+  const body = pushText('skill_gap.body', locale, {
+    skill: input.missingSkill,
+    course: input.courseTitle,
+    minutes: input.durationMinutes,
+  });
 
   void notifications.record({
     recipientId: input.recipientId,
@@ -742,10 +918,12 @@ export async function sendGhostedPush(input: {
   hours: number;
   applicationId: string;
 }): Promise<void> {
-  const title = 'No reply yet';
+  const locale = await localeFor(input.recipientId);
+  const employer = input.employerName ?? pushText('ghosted.default_employer', locale);
+  const title = pushText('ghosted.title', locale);
   const body = input.jobTitle
-    ? `${input.employerName ?? 'The employer'} hasn't replied to your "${input.jobTitle}" application in ${input.hours} hours.`
-    : `${input.employerName ?? 'The employer'} hasn't replied in ${input.hours} hours.`;
+    ? pushText('ghosted.body.with_job', locale, { employer, job: input.jobTitle, hours: input.hours })
+    : pushText('ghosted.body.without_job', locale, { employer, hours: input.hours });
 
   void notifications.record({
     recipientId: input.recipientId,
@@ -870,14 +1048,11 @@ export async function sendStreakMilestonePush(input: {
   kind: 'apply' | 'course' | 'shift';
   days: number;
 }): Promise<void> {
-  const verb =
-    input.kind === 'apply'
-      ? 'applying'
-      : input.kind === 'course'
-        ? 'learning'
-        : 'showing up';
-  const title = `${input.days}-day ${input.kind} streak 🔥`;
-  const body = `Nice work — ${input.days} days of ${verb} in a row.`;
+  const locale = await localeFor(input.recipientId);
+  const kindWord = pushText(`streak.kind.${input.kind}`, locale);
+  const verb = pushText(`streak.verb.${input.kind}`, locale);
+  const title = pushText('streak.title', locale, { days: input.days, kind: kindWord });
+  const body = pushText('streak.body', locale, { days: input.days, verb });
 
   void notifications.record({
     recipientId: input.recipientId,
@@ -917,9 +1092,10 @@ export async function sendReferralBonusPush(input: {
   refereeName: string;
   bonusPaise: number;
 }): Promise<void> {
+  const locale = await localeFor(input.recipientId);
   const rupees = Math.round(input.bonusPaise / 100);
-  const title = `+₹${rupees} referral bonus`;
-  const body = `${input.refereeName} got hired through your share. Bonus credited to your wallet.`;
+  const title = pushText('referral.title', locale, { amount: rupees });
+  const body = pushText('referral.body', locale, { name: input.refereeName });
 
   void notifications.record({
     recipientId: input.recipientId,
@@ -960,9 +1136,11 @@ export async function sendHiredNearbyPush(input: {
   jobTitle: string;
   area: string | null;
 }): Promise<void> {
-  const where = input.area ? ` in ${input.area}` : ' nearby';
-  const title = 'Hired near you';
-  const body = `${input.hiredFirstName} was just hired as ${input.jobTitle}${where}.`;
+  const locale = await localeFor(input.recipientId);
+  const title = pushText('hired_nearby.title', locale);
+  const body = input.area
+    ? pushText('hired_nearby.body.with_area', locale, { name: input.hiredFirstName, job: input.jobTitle, area: input.area })
+    : pushText('hired_nearby.body.without_area', locale, { name: input.hiredFirstName, job: input.jobTitle });
 
   void notifications.record({
     recipientId: input.recipientId,
@@ -1008,10 +1186,13 @@ export async function sendSosAlertPush(input: {
   alertId: string;
   locationLink: string | null;
 }): Promise<void> {
-  const title = '🚨 SOS — needs help';
+  const locale = await localeFor(input.recipientId);
+  const relationshipKey = `sos.relationship.${input.relationship}`;
+  const relationship = pushText(relationshipKey, locale) || input.relationship;
+  const title = pushText('sos.title', locale);
   const body = input.locationLink
-    ? `${input.fromName} (${input.relationship}) triggered SOS. Location: ${input.locationLink}`
-    : `${input.fromName} (${input.relationship}) triggered SOS. Location unavailable — please call.`;
+    ? pushText('sos.body.with_location', locale, { name: input.fromName, relationship, link: input.locationLink })
+    : pushText('sos.body.without_location', locale, { name: input.fromName, relationship });
 
   void notifications.record({
     recipientId: input.recipientId,
@@ -1021,7 +1202,9 @@ export async function sendSosAlertPush(input: {
     deeplink: { screen: 'Sos', params: { alertId: input.alertId } },
   });
 
-  const tokens = await tokensFor(input.recipientId);
+  // SOS is the one category that must land even inside the recipient's
+  // configured quiet hours — see notificationQuietHours.ts.
+  const tokens = await tokensForBypassingQuietHours(input.recipientId);
   if (tokens.length === 0) return;
 
   await sendRaw(
@@ -1185,10 +1368,11 @@ export async function sendRatingReceivedPush(input: {
   score: number;
   jobTitle?: string;
 }): Promise<void> {
-  const title = 'You got a new rating';
+  const locale = await localeFor(input.recipientId);
+  const title = pushText('rating.title', locale);
   const body = input.jobTitle
-    ? `${input.reviewerName} rated you ${input.score}/5 for "${input.jobTitle}"`
-    : `${input.reviewerName} rated you ${input.score}/5`;
+    ? pushText('rating.body.with_job', locale, { name: input.reviewerName, score: input.score, job: input.jobTitle })
+    : pushText('rating.body.without_job', locale, { name: input.reviewerName, score: input.score });
 
   void notifications.record({
     recipientId: input.recipientId,
@@ -1224,10 +1408,13 @@ export async function sendHireCelebrationPush(input: {
   jobTitle?: string;
   employerName?: string | null;
 }): Promise<void> {
-  const title = input.jobTitle ? `You got hired as ${input.jobTitle}` : 'You got hired';
+  const locale = await localeFor(input.recipientId);
+  const title = input.jobTitle
+    ? pushText('hire_celebration.title.with_job', locale, { job: input.jobTitle })
+    : pushText('hire_celebration.title.without_job', locale);
   const body = input.employerName
-    ? `${input.employerName} picked you. Open Doondo for the next steps.`
-    : 'Open Doondo for the next steps.';
+    ? pushText('hire_celebration.body.with_employer', locale, { employer: input.employerName })
+    : pushText('hire_celebration.body.without_employer', locale);
 
   void notifications.record({
     recipientId: input.recipientId,
@@ -1338,6 +1525,99 @@ export async function sendTrustCircleHirePush(input: {
       data: {
         type: 'trust_circle:hire',
         deeplink: { screen: 'Home' },
+      },
+    })),
+  );
+}
+
+/**
+ * Fan-out push when a seeker posts a full open shift (a named-wage
+ * availability beacon — see availability.service.ts). `recipientIds` is
+ * the list of employer user ids near the shift; the caller decides who's
+ * eligible. Mirrors sendNewJobPush's shape exactly, reversed direction.
+ */
+export async function sendOpenShiftPush(input: {
+  recipientIds: string[];
+  seekerId: string;
+  seekerFirstName: string;
+  trade: string | null;
+  wageAmount: number;
+  wagePeriod: string;
+  city?: string | null;
+}): Promise<void> {
+  if (input.recipientIds.length === 0) return;
+
+  const matchedUsers = await getDb()
+    .select({ expoPushTokens: users.expoPushTokens, notificationPrefs: users.notificationPrefs })
+    .from(users)
+    .where(inArray(users.id, input.recipientIds));
+  const tokens = await filterRowsRespectingQuietHours(matchedUsers);
+  if (tokens.length === 0) return;
+
+  const periodShort: Record<string, string> = { hour: '/hr', day: '/day', week: '/wk', month: '/mo', fixed: '' };
+  const wage = `₹${input.wageAmount}${periodShort[input.wagePeriod] ?? ''}`;
+  const title = input.trade ? `${input.trade} worker available now` : 'A worker is available now';
+  const body = input.city
+    ? `${input.seekerFirstName} wants ${wage} — ${input.city}`
+    : `${input.seekerFirstName} wants ${wage}`;
+
+  const payloads: PushPayload[] = tokens.map((to) => ({
+    to,
+    title,
+    body,
+    sound: 'default',
+    channelId: 'jobs',
+    data: {
+      type: 'open_shift:posted',
+      deeplink: { screen: 'AvailableWorkers' },
+      seekerId: input.seekerId,
+    },
+  }));
+
+  for (let i = 0; i < payloads.length; i += 100) {
+    await sendRaw(payloads.slice(i, i + 100));
+  }
+}
+
+/** A mentee booked, or either side cancelled, a bookable mentor session slot. */
+export async function sendMentorSessionPush(input: {
+  recipientId: string;
+  kind: 'booked' | 'cancelled';
+  counterpartName: string;
+  scheduledForIso: string;
+}): Promise<void> {
+  const locale = await localeFor(input.recipientId);
+  const when = new Date(input.scheduledForIso).toLocaleString(PUSH_LOCALE_BCP47[locale], {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  const title = pushText(`mentor_session.title.${input.kind}`, locale);
+  const body = pushText(`mentor_session.body.${input.kind}`, locale, { name: input.counterpartName, when });
+
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: input.kind === 'booked' ? 'mentor_session_booked' : 'mentor_session_cancelled',
+    title,
+    body,
+    deeplink: { screen: 'MentorSessions' },
+  });
+
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'default',
+      data: {
+        type: `mentor_session:${input.kind}`,
+        deeplink: { screen: 'MentorSessions' },
       },
     })),
   );

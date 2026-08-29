@@ -141,6 +141,43 @@ export function getCachedPushToken(): string | null {
   return cachedToken;
 }
 
+/**
+ * Re-verify the Expo push token when the app returns to the foreground.
+ *
+ * `registerForPushNotifications()` trusts its in-memory cache once set, so
+ * within a single long-lived session (app backgrounded for days, never
+ * fully relaunched) it would never notice if the underlying token rotated.
+ * Expo's own docs call this out: "a push token may be changed by the push
+ * notification service while the app is running." This always re-fetches
+ * (bypassing the cache) and re-uploads only when the value actually
+ * changed — cheap, and safe to call on every foreground transition.
+ */
+export async function refreshPushTokenOnForeground(): Promise<void> {
+  if (IS_EXPO_GO) return;
+  const [Notifications, Device] = await Promise.all([
+    import('expo-notifications'),
+    import('expo-device'),
+  ]);
+  if (!Device.isDevice) return;
+
+  const settings = await Notifications.getPermissionsAsync();
+  if (!settings.granted) return;
+
+  try {
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+    const tokenResponse = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined,
+    );
+    const fresh = tokenResponse.data;
+    if (fresh === cachedToken) return;
+    cachedToken = fresh;
+    void meApi.registerPushToken(fresh).catch(() => undefined);
+  } catch {
+    // No project configured (Expo Go without dev client) — skip.
+  }
+}
+
 export async function clearPushToken(): Promise<void> {
   if (!cachedToken) return;
   const token = cachedToken;

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="14400000"
+    android:initialLayout="@layout/widget_pulse"
+    android:previewImage="@drawable/pulse_widget_background"
+    android:widgetCategory="home_screen"
+    android:resizeMode="horizontal|vertical"
+    android:description="@string/pulse_widget_description" />

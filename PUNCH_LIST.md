@@ -66,7 +66,7 @@ Phase 3 — Polish:
 ## 3. Roadmap — not started (Later, Q2)
 
 - [ ] **#19 "Why was I rejected?" AI explainer** — skill-gap diff (#3) is done; the generative one-paragraph explanation is not. Effort M / Risk Med.
-- [ ] **#27 Peer cohorts via Find Friends (5-person course groups)** — Effort M / Risk Low.
+- [x] **#27 Peer cohorts via Find Friends (5-person course groups)** — Shipped. See FEATURE_STATUS_REPORT.md #7.
 - [ ] **#33 Doondo for Women** — needs verifier model + location masking; mockup only. Effort L / Risk High.
 - [ ] **#34 Predictive availability** — needs usage data first. Effort L / Risk Med.
 - [ ] **#35 Hire Reels (30-sec video resume)** — mockup only. Effort L / Risk High.
@@ -85,7 +85,7 @@ Untouched by design — validate before building.
 - [ ] #41 Live Job Auction
 - [ ] #42 Doondo Diaspora
 - [ ] #43 Voice biometric identity
-- [ ] #44 Wage Strike Alerts
+- [x] #44 Wage Strike Alerts — Shipped (conservative v1: structured, anonymous, aggregate-only, gated on volume). See FEATURE_STATUS_REPORT.md #46.
 
 ---
 

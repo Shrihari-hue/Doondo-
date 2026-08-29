@@ -1,0 +1,9 @@
+{
+  "platforms": ["ios", "android"],
+  "ios": {
+    "modules": ["DoondoPulseWidgetModule"]
+  },
+  "android": {
+    "modules": ["app.doondo.pulsewidget.DoondoPulseWidgetModule"]
+  }
+}

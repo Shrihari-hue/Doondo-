@@ -7,6 +7,13 @@
  *   POST   /mentors/:userId/request — mentee → mentor request
  *   PATCH  /mentors/requests/:id    — mentor accepts/declines/ends
  *   GET    /mentors/requests/mine   — both sides of the current user
+ *
+ *   Bookable 1:1 sessions — on top of an accepted request above:
+ *   POST   /mentors/sessions              — mentor opens a bookable slot
+ *   GET    /mentors/:userId/sessions/open — mentee views a mentor's open slots
+ *   POST   /mentors/sessions/:id/book     — mentee books an open slot
+ *   POST   /mentors/sessions/:id/cancel   — either side cancels
+ *   GET    /mentors/sessions/mine         — both sides of my calendar
  */
 import { Router } from 'express';
 import { requireAuth, requireRole } from '@/middleware/auth';
@@ -100,6 +107,76 @@ router.get('/requests/mine', requireAuth, async (req, res, next) => {
   try {
     const both = await service.listMyRequests(req.user!.id);
     res.json(both);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Bookable 1:1 sessions ───────────────────────────────────────────────────
+
+router.post('/sessions', requireAuth, requireRole('seeker'), async (req, res, next) => {
+  try {
+    const body = (req.body ?? {}) as {
+      scheduledFor?: string;
+      durationMinutes?: number;
+      mode?: 'video' | 'phone' | 'in_person';
+      meetingLink?: string;
+      location?: string;
+      notes?: string;
+    };
+    if (!body.scheduledFor) {
+      res.status(400).json({ error: 'scheduledFor is required' });
+      return;
+    }
+    const session = await service.openSessionSlot({
+      mentorUserId: req.user!.id,
+      scheduledFor: body.scheduledFor,
+      durationMinutes: body.durationMinutes,
+      mode: body.mode,
+      meetingLink: body.meetingLink,
+      location: body.location,
+      notes: body.notes,
+    });
+    res.json({ session });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/sessions/mine', requireAuth, async (req, res, next) => {
+  try {
+    const both = await service.listMySessions(req.user!.id);
+    res.json(both);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/:userId/sessions/open', requireAuth, requireRole('seeker'), async (req, res, next) => {
+  try {
+    const slots = await service.listOpenSlots({
+      menteeId: req.user!.id,
+      mentorUserId: req.params.userId!,
+    });
+    res.json({ slots });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/sessions/:id/book', requireAuth, requireRole('seeker'), async (req, res, next) => {
+  try {
+    const session = await service.bookSlot({ menteeId: req.user!.id, slotId: req.params.id! });
+    res.json({ session });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/sessions/:id/cancel', requireAuth, async (req, res, next) => {
+  try {
+    const session = await service.cancelSession({ userId: req.user!.id, sessionId: req.params.id! });
+    res.json({ session });
   } catch (err) {
     next(err);
   }

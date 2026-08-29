@@ -25,4 +25,15 @@ config.resolver.nodeModulesPaths = [
 ];
 config.resolver.disableHierarchicalLookup = true;
 
+// Local Expo modules (apps/mobile/modules/*) aren't inside node_modules,
+// so they're invisible to the two hardcoded lookup paths above — Expo's
+// own default config would normally add them automatically, but that
+// default is overridden by disableHierarchicalLookup + the explicit
+// nodeModulesPaths list. Map each local module's package name straight
+// to its folder instead, same effect, scoped to just these packages.
+config.resolver.extraNodeModules = {
+  ...config.resolver.extraNodeModules,
+  'doondo-pulse-widget': path.resolve(projectRoot, 'modules/doondo-pulse-widget'),
+};
+
 module.exports = withNativeWind(config, { input: './global.css' });

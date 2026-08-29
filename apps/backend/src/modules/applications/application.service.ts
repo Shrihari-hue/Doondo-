@@ -16,6 +16,7 @@ import { getDb } from '@/db/client';
 import {
   applications,
   jobs,
+  reels,
   users,
   type ApplicationStatus,
   type InterviewMode,
@@ -739,9 +740,11 @@ interface ApplicantListEntry extends PublicApplication {
       requiresPpe: boolean;
       requiresContract: boolean;
     };
+    /** Whether this worker has recorded a Hire Reels intro video (#24 follow-up). */
+    hasReel: boolean;
   };
 }
-function seekerView(s: typeof users.$inferSelect): NonNullable<ApplicantListEntry['seeker']> {
+function seekerView(s: typeof users.$inferSelect, hasReel: boolean): NonNullable<ApplicantListEntry['seeker']> {
   return {
     id: s.id,
     name: s.name,
@@ -758,6 +761,7 @@ function seekerView(s: typeof users.$inferSelect): NonNullable<ApplicantListEntr
     workPhotos: [],
     skillDocuments: [],
     constitution: s.constitution,
+    hasReel,
   };
 }
 async function applicantRows(
@@ -770,13 +774,20 @@ async function applicantRows(
     .where(where)
     .orderBy(desc(applications.createdAt))
     .limit(limit);
-  const seekers = rows.length
-    ? await getDb()
-        .select()
-        .from(users)
-        .where(inArray(users.id, [...new Set(rows.map((r) => r.seekerId))]))
+  const seekerIds = [...new Set(rows.map((r) => r.seekerId))];
+  const seekers = seekerIds.length
+    ? await getDb().select().from(users).where(inArray(users.id, seekerIds))
     : [];
-  const map = new Map(seekers.map((s) => [s.id, seekerView(s)]));
+  // Cheap batch lookup — just which seekers have an active reel, not the
+  // reel itself. Avoids an N+1 per applicant card on the employer side.
+  const reelRows = seekerIds.length
+    ? await getDb()
+        .select({ seekerId: reels.seekerId })
+        .from(reels)
+        .where(and(inArray(reels.seekerId, seekerIds), eq(reels.status, 'active')))
+    : [];
+  const seekersWithReel = new Set(reelRows.map((r) => r.seekerId));
+  const map = new Map(seekers.map((s) => [s.id, seekerView(s, seekersWithReel.has(s.id))]));
   return rows.map((a) => ({ ...publicApp(a), seeker: map.get(a.seekerId) }));
 }
 export async function listApplicantsForEmployer(
@@ -886,13 +897,17 @@ export async function cancelInterview(
   return publicApp(updated);
 }
 
+/**
+ * True for a Postgres unique-violation (23505). drizzle-orm >=0.44 wraps
+ * the driver's PostgresError in a DrizzleQueryError, moving the real
+ * `.code` to `.cause.code` — checking only the outer error's `.code` (the
+ * pre-wrap shape) silently missed every unique violation, which meant a
+ * double-apply 500'd instead of surfacing APPLICATION_ALREADY_EXISTS.
+ */
 function isUnique(err: unknown): boolean {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    'code' in err &&
-    (err as { code?: string }).code === '23505'
-  );
+  const code = (err as { code?: string; cause?: { code?: string } } | null)?.code;
+  const causeCode = (err as { cause?: { code?: string } } | null)?.cause?.code;
+  return code === '23505' || causeCode === '23505';
 }
 function errorStatus(err: unknown): 'already' | 'missing' | 'closed' | 'other' {
   const message = err instanceof Error ? err.message.toLowerCase() : '';

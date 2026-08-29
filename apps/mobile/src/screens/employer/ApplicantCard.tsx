@@ -113,10 +113,38 @@ export function ApplicantCard({ applicant, showJobTitle = false, blind = false, 
               .join(' • ') || (applicant.seeker?.skills?.[0] ?? '')}
           </Text>
 
-          {/* Location */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
-            <Feather name="map-pin" size={11} color={textSecondary} />
-            <Text style={{ fontSize: 12, color: textSecondary }}>{location}</Text>
+          {/* Location + reel indicator */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              <Feather name="map-pin" size={11} color={textSecondary} />
+              <Text style={{ fontSize: 12, color: textSecondary }}>{location}</Text>
+            </View>
+            {!masked && applicant.seeker?.hasReel && (
+              <Pressable
+                onPress={() => {
+                  haptic('selection');
+                  navigation.navigate('SeekerReel', {
+                    seekerId: applicant.seeker!.id,
+                    seekerName: applicant.seeker!.name,
+                  });
+                }}
+                hitSlop={6}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 3,
+                  paddingHorizontal: 7,
+                  paddingVertical: 2,
+                  borderRadius: radii.pill,
+                  backgroundColor: BLUE + '1A',
+                }}
+              >
+                <Feather name="play-circle" size={11} color={BLUE} />
+                <Text style={{ fontSize: 11, fontWeight: '700', color: BLUE }}>
+                  {t('employer.applicant_card.reel_pill')}
+                </Text>
+              </Pressable>
+            )}
           </View>
         </View>
 

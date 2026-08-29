@@ -1,5 +1,5 @@
 /**
- * mentor.service — discovery + request lifecycle.
+ * mentor.service — discovery + request lifecycle + bookable sessions.
  *
  * Surface:
  *   listForTrade(trade, city)     — mentees browse open mentors near them
@@ -8,13 +8,29 @@
  *   requestMentorship(...)        — mentee → mentor
  *   respondToRequest(...)         — mentor accepts / declines / ends
  *   listMyRequests(userId)        — both sides of the mentorship list
+ *   openSessionSlot(...)          — mentor opens a bookable 1:1 time slot
+ *   listOpenSlots(...)            — mentee views a mentor's open slots
+ *   bookSlot(...)                 — mentee claims an open slot
+ *   cancelSession(...)            — either side cancels a slot/booking
+ *   listMySessions(userId)        — both sides of the session calendar
  */
 
-import { and, desc, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
-import { mentors, mentorshipRequests, users, type MentorshipStatus } from '@/db/schema';
+import {
+  mentors,
+  mentorshipRequests,
+  mentorSessions,
+  users,
+  type MentorshipStatus,
+  type MentorSessionMode,
+  type MentorSessionStatus,
+} from '@/db/schema';
+import { sendMentorSessionPush } from '@/lib/push';
 
 const MAX_PENDING_PER_MENTEE = 5;
+/** How far ahead a mentor can open a slot — keeps the calendar realistic. */
+const MAX_SLOT_LEAD_DAYS = 60;
 
 export interface PublicMentor {
   id: string;
@@ -204,4 +220,239 @@ export async function listMyRequests(
     asMentee: asMentee.map(toPublic),
     asMentor: asMentor.map(toPublic),
   };
+}
+
+// ─── Bookable 1:1 sessions ───────────────────────────────────────────────────
+
+export interface PublicSession {
+  id: string;
+  mentorId: string;
+  mentorName?: string;
+  menteeId: string | null;
+  menteeName?: string;
+  trade: string;
+  scheduledFor: string;
+  durationMinutes: number;
+  mode: MentorSessionMode;
+  meetingLink: string | null;
+  location: string | null;
+  notes: string | null;
+  status: MentorSessionStatus;
+}
+
+type SessionRow = typeof mentorSessions.$inferSelect;
+
+function toPublicSession(s: SessionRow): PublicSession {
+  return {
+    id: s.id,
+    mentorId: s.mentorId,
+    menteeId: s.menteeId,
+    trade: s.trade,
+    scheduledFor: s.scheduledFor.toISOString(),
+    durationMinutes: s.durationMinutes,
+    mode: s.mode,
+    meetingLink: s.meetingLink,
+    location: s.location,
+    notes: s.notes,
+    status: s.status,
+  };
+}
+
+/** True when `menteeId` has an accepted, ongoing mentorship with `mentorUserId`. */
+async function hasAcceptedMentorship(menteeId: string, mentorUserId: string): Promise<boolean> {
+  const [row] = await getDb()
+    .select({ id: mentorshipRequests.id })
+    .from(mentorshipRequests)
+    .where(
+      and(
+        eq(mentorshipRequests.menteeId, menteeId),
+        eq(mentorshipRequests.mentorId, mentorUserId),
+        eq(mentorshipRequests.status, 'accepted'),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
+/**
+ * Mentor opens a bookable time slot. Requires an active `mentors` row
+ * (i.e. they've turned mentoring on at least once) — the trade on the
+ * slot is snapshotted from it so a mentee sees what the session covers
+ * even if the mentor later changes trade.
+ */
+export async function openSessionSlot(input: {
+  mentorUserId: string;
+  scheduledFor: string;
+  durationMinutes?: number;
+  mode?: MentorSessionMode;
+  meetingLink?: string;
+  location?: string;
+  notes?: string;
+}): Promise<PublicSession> {
+  const [mentor] = await getDb().select().from(mentors).where(eq(mentors.userId, input.mentorUserId)).limit(1);
+  if (!mentor) throw new Error('Become a mentor before opening session slots.');
+
+  const when = new Date(input.scheduledFor);
+  const now = Date.now();
+  if (Number.isNaN(when.getTime()) || when.getTime() < now) {
+    throw new Error('Slot time must be a valid, future date.');
+  }
+  if (when.getTime() > now + MAX_SLOT_LEAD_DAYS * 86_400_000) {
+    throw new Error(`Slots can only be opened up to ${MAX_SLOT_LEAD_DAYS} days ahead.`);
+  }
+
+  const [created] = await getDb()
+    .insert(mentorSessions)
+    .values({
+      mentorId: input.mentorUserId,
+      trade: mentor.trade,
+      scheduledFor: when,
+      durationMinutes: input.durationMinutes ?? 30,
+      mode: input.mode ?? 'video',
+      meetingLink: input.meetingLink ?? null,
+      location: input.location ?? null,
+      notes: input.notes?.slice(0, 400) ?? null,
+      status: 'open',
+    })
+    .returning();
+  return toPublicSession(created!);
+}
+
+/**
+ * A mentor's own slots (open + booked + past), newest-first by time.
+ * Used by the mentor's own "my session calendar" view.
+ */
+/** Attach mentorName/menteeName by looking up whichever ids are present. */
+async function hydrateNames(rows: SessionRow[]): Promise<PublicSession[]> {
+  const ids = [...new Set(rows.flatMap((r) => [r.mentorId, r.menteeId]).filter((id): id is string => Boolean(id)))];
+  const people = ids.length
+    ? await getDb().select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, ids))
+    : [];
+  const names = new Map(people.map((p) => [p.id, p.name]));
+  return rows.map((r) => ({
+    ...toPublicSession(r),
+    mentorName: names.get(r.mentorId),
+    menteeName: r.menteeId ? names.get(r.menteeId) : undefined,
+  }));
+}
+
+export async function listMySlots(mentorUserId: string): Promise<PublicSession[]> {
+  const rows = await getDb()
+    .select()
+    .from(mentorSessions)
+    .where(eq(mentorSessions.mentorId, mentorUserId))
+    .orderBy(desc(mentorSessions.scheduledFor))
+    .limit(100);
+  return hydrateNames(rows);
+}
+
+/**
+ * The open (unbooked), future slots for one mentor — what a mentee sees
+ * to pick a time. Gated on an accepted mentorship so only someone the
+ * mentor has already agreed to mentor can book their calendar.
+ */
+export async function listOpenSlots(input: {
+  menteeId: string;
+  mentorUserId: string;
+}): Promise<PublicSession[]> {
+  if (!(await hasAcceptedMentorship(input.menteeId, input.mentorUserId))) {
+    throw new Error('You need an accepted mentorship with this mentor first.');
+  }
+  const rows = await getDb()
+    .select()
+    .from(mentorSessions)
+    .where(
+      and(
+        eq(mentorSessions.mentorId, input.mentorUserId),
+        eq(mentorSessions.status, 'open'),
+        gte(mentorSessions.scheduledFor, new Date()),
+      ),
+    )
+    .orderBy(mentorSessions.scheduledFor)
+    .limit(40);
+  return rows.map(toPublicSession);
+}
+
+/**
+ * Mentee books an open slot. The WHERE clause includes `status = 'open'`
+ * so two mentees racing for the same slot can't both succeed — whoever's
+ * UPDATE lands first flips it to 'booked' and the loser's affected-rows
+ * comes back empty.
+ */
+export async function bookSlot(input: { menteeId: string; slotId: string }): Promise<PublicSession> {
+  const [slot] = await getDb().select().from(mentorSessions).where(eq(mentorSessions.id, input.slotId)).limit(1);
+  if (!slot) throw new Error('Session slot not found.');
+  if (!(await hasAcceptedMentorship(input.menteeId, slot.mentorId))) {
+    throw new Error('You need an accepted mentorship with this mentor first.');
+  }
+
+  const [booked] = await getDb()
+    .update(mentorSessions)
+    .set({ menteeId: input.menteeId, status: 'booked' })
+    .where(and(eq(mentorSessions.id, input.slotId), eq(mentorSessions.status, 'open')))
+    .returning();
+  if (!booked) throw new Error('This slot was just booked by someone else. Pick another.');
+
+  const [mentee] = await getDb().select({ name: users.name }).from(users).where(eq(users.id, input.menteeId)).limit(1);
+  void sendMentorSessionPush({
+    recipientId: booked.mentorId,
+    kind: 'booked',
+    counterpartName: mentee?.name ?? 'A mentee',
+    scheduledForIso: booked.scheduledFor.toISOString(),
+  });
+
+  return toPublicSession(booked);
+}
+
+/**
+ * Either the mentor or the booked mentee cancels. Cancelling an *open*
+ * (unbooked) slot is just the mentor removing an offer they made — no
+ * notification needed since no one booked it yet.
+ */
+export async function cancelSession(input: { userId: string; sessionId: string }): Promise<PublicSession> {
+  const [session] = await getDb().select().from(mentorSessions).where(eq(mentorSessions.id, input.sessionId)).limit(1);
+  if (!session) throw new Error('Session not found.');
+  if (session.mentorId !== input.userId && session.menteeId !== input.userId) {
+    throw new Error('Only the mentor or mentee on this session can cancel it.');
+  }
+  if (session.status !== 'open' && session.status !== 'booked') {
+    throw new Error('This session is already cancelled or completed.');
+  }
+
+  const [updated] = await getDb()
+    .update(mentorSessions)
+    .set({ status: 'cancelled', cancelledAt: new Date() })
+    .where(eq(mentorSessions.id, session.id))
+    .returning();
+
+  if (session.status === 'booked' && session.menteeId) {
+    const counterpartId = input.userId === session.mentorId ? session.menteeId : session.mentorId;
+    const [canceller] = await getDb().select({ name: users.name }).from(users).where(eq(users.id, input.userId)).limit(1);
+    void sendMentorSessionPush({
+      recipientId: counterpartId,
+      kind: 'cancelled',
+      counterpartName: canceller?.name ?? 'The other side',
+      scheduledForIso: session.scheduledFor.toISOString(),
+    });
+  }
+
+  return toPublicSession(updated!);
+}
+
+/** Both sides of the session calendar for one user — as mentor and as mentee. */
+export async function listMySessions(
+  userId: string,
+): Promise<{ asMentor: PublicSession[]; asMentee: PublicSession[] }> {
+  const db = getDb();
+  const [asMentorRows, asMenteeRows] = await Promise.all([
+    db.select().from(mentorSessions).where(eq(mentorSessions.mentorId, userId)).orderBy(desc(mentorSessions.scheduledFor)).limit(100),
+    db
+      .select()
+      .from(mentorSessions)
+      .where(eq(mentorSessions.menteeId, userId))
+      .orderBy(desc(mentorSessions.scheduledFor))
+      .limit(100),
+  ]);
+  const [asMentor, asMentee] = await Promise.all([hydrateNames(asMentorRows), hydrateNames(asMenteeRows)]);
+  return { asMentor, asMentee };
 }

@@ -3,6 +3,7 @@ import {
   Animated,
   Easing,
   LayoutAnimation,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -23,6 +24,7 @@ import {
   getNotificationPermissionStatus,
   requestPushPermissionFromLanding,
 } from '@/lib/push';
+import { resolveMediaUrl } from '@/api/client';
 import type { UserRole } from '@/api/types';
 import type { AuthStackParamList } from '@/navigation/types';
 import { useTheme } from '@/theme/useTheme';
@@ -1258,9 +1260,23 @@ function BrandFooter({ compact, t }: { compact: boolean; t: TFn }) {
           marginTop: spacing.xs,
         }}
       >
-        <FooterLink label={t('role_picker.footer_terms')} />
+        <FooterLink
+          label={t('role_picker.footer_terms')}
+          onPress={() => {
+            void Linking.openURL(
+              resolveMediaUrl('/legal/terms-of-service.html') ?? 'https://doondo.app/legal/terms-of-service.html',
+            ).catch(() => undefined);
+          }}
+        />
         <FooterDot />
-        <FooterLink label={t('role_picker.footer_privacy')} />
+        <FooterLink
+          label={t('role_picker.footer_privacy')}
+          onPress={() => {
+            void Linking.openURL(
+              resolveMediaUrl('/legal/privacy-policy.html') ?? 'https://doondo.app/legal/privacy-policy.html',
+            ).catch(() => undefined);
+          }}
+        />
         <FooterDot />
         <FooterLink label={t('role_picker.footer_support')} />
       </View>

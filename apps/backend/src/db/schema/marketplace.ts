@@ -36,6 +36,8 @@ export const notificationKindEnum = pgEnum('notification_kind', [
   'reengagement', 'hire_celebration', 'hiring_request', 'hiring_request_responded',
   'employer_interest', 'dispute_raised', 'dispute_update', 'job_escalated',
   'reached_home_safe', 'profile_viewed', 'system',
+  'mentor_session_booked', 'mentor_session_cancelled',
+  'cohort_invite', 'cohort_message',
 ]);
 
 export const conversations = pgTable('conversations', {

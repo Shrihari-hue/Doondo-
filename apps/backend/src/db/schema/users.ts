@@ -90,6 +90,15 @@ export interface NotificationPrefsJson {
   messages: boolean;
   ratings: boolean;
   referrals: boolean;
+  /**
+   * Local (IST) hour window during which only SOS pings should land —
+   * every other push category is held back until `end`. `start`/`end`
+   * are 0-23; `start === end` or the whole field being null both mean
+   * "disabled". Wraps past midnight the same way the employer-side
+   * response-quiet-hours setting does (see
+   * employerResponse.service.ts's isWithinQuietHours).
+   */
+  quietHours: { start: number; end: number } | null;
 }
 
 export interface ExpectedSalaryJson {
@@ -183,6 +192,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefsJson = {
   messages: true,
   ratings: true,
   referrals: true,
+  quietHours: null,
 };
 
 export const DEFAULT_CONSTITUTION: SeekerConstitutionJson = {

@@ -22,7 +22,16 @@ import { and, eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { applications, jobs, users } from '@/db/schema';
 import { errors } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 import { COURSES, type Course } from '@/modules/courses/courses.catalogue';
+import { findSimilarActiveJobs } from '@/modules/jobs/job.service';
+import type { PublicJob } from '@/modules/jobs/job.model';
+import { explainRejection } from './rejectionExplainer.service';
+
+/** Jobs within 15km of the search center — same "worth a bus ride" band as ThisWeek. */
+const SIMILAR_JOBS_RADIUS_M = 15_000;
+/** Capped at 4 to match the roadmap's "4 similar jobs hiring right now" framing. */
+const SIMILAR_JOBS_LIMIT = 4;
 
 export interface SkillGapResult {
   /** Skills the job demanded that the seeker did not have at rejection time. */
@@ -52,6 +61,18 @@ export interface SkillGapResult {
     durationMinutes: number;
     addressesSkills: string[];
   }>;
+  /**
+   * A short, plain-language paragraph explaining the rejection and
+   * reframing the missing skill as a next step. Empty string when there
+   * was no gap to explain (the seeker had everything the job asked for).
+   */
+  explanation: string;
+  /**
+   * Up to 4 other active jobs hiring right now, near the rejected job
+   * (or the seeker's own location when set), sharing at least one skill
+   * with it — the positive reframe alongside the explanation.
+   */
+  similarJobs: Array<PublicJob & { distanceMeters: number }>;
 }
 
 /**
@@ -145,43 +166,48 @@ export async function computeForApplication(input: {
     .limit(1);
   if (!app) throw errors.applicationNotFound();
 
+  const EMPTY: SkillGapResult = {
+    missingSkills: [],
+    recommendedCourse: null,
+    alternatives: [],
+    explanation: '',
+    similarJobs: [],
+  };
+
+  // Job + seeker are needed either way now — job for its title/geo (the
+  // explainer paragraph and the "similar jobs" search center), seeker
+  // for a recompute fallback and its own location (preferred search
+  // center when set, since it's more current than a rejected job's spot).
+  const [jobRows, seekerRows] = await Promise.all([
+    getDb()
+      .select({ skills: jobs.skills, title: jobs.title, geo: jobs.geo })
+      .from(jobs)
+      .where(eq(jobs.id, app.jobId))
+      .limit(1),
+    getDb()
+      .select({ skills: users.skills, location: users.location })
+      .from(users)
+      .where(eq(users.id, input.seekerId))
+      .limit(1),
+  ]);
+  const job = jobRows[0];
+  if (!job) return EMPTY;
+  const seeker = seekerRows[0];
+
   // Prefer the persisted snapshot from the moment of rejection (set by
   // application.service.transitionByEmployer). If absent — e.g. older
   // rejections from before this feature shipped — we recompute from
   // the current seeker + job state, which is still useful but may
   // diverge if the seeker added the missing skill afterward.
-  let missingSkills: string[] | null = Array.isArray(app.rejectionReasons)
+  const missingSkills: string[] = Array.isArray(app.rejectionReasons)
     ? app.rejectionReasons.filter(Boolean)
-    : null;
+    : diffSkills(job.skills ?? [], seeker?.skills ?? []);
+  // Use the job title as a coarse trade hint for fallback ranking — a
+  // string contains comparison handles "Delivery rider" hitting the
+  // 'delivery' relevantTrades entry without a strict trade slug.
+  const trade = job.title.toLowerCase();
 
-  let trade: string | null = null;
-
-  if (!missingSkills) {
-    const [job, seeker] = await Promise.all([
-      getDb()
-        .select({ skills: jobs.skills, title: jobs.title })
-        .from(jobs)
-        .where(eq(jobs.id, app.jobId))
-        .limit(1),
-      getDb()
-        .select({ skills: users.skills })
-        .from(users)
-        .where(eq(users.id, input.seekerId))
-        .limit(1),
-    ]);
-    if (!job[0]) {
-      return { missingSkills: [], recommendedCourse: null, alternatives: [] };
-    }
-    missingSkills = diffSkills(job[0].skills ?? [], seeker[0]?.skills ?? []);
-    // Use the job title as a coarse trade hint for fallback ranking —
-    // a string contains comparison handles "Delivery rider" hitting
-    // the 'delivery' relevantTrades entry without a strict trade slug.
-    trade = job[0].title.toLowerCase();
-  }
-
-  if (missingSkills.length === 0) {
-    return { missingSkills: [], recommendedCourse: null, alternatives: [] };
-  }
+  if (missingSkills.length === 0) return EMPTY;
 
   const ranked = rankCoursesForGap(missingSkills, trade);
 
@@ -203,5 +229,40 @@ export async function computeForApplication(input: {
     addressesSkills: row.addressesSkills,
   }));
 
-  return { missingSkills, recommendedCourse, alternatives };
+  // Search center: the seeker's own saved location when set (more
+  // current, and closer to where they'd actually want the next job),
+  // else the rejected job's own spot.
+  const center = seeker?.location?.coordinates ?? (job.geo ? [job.geo.x, job.geo.y] : null);
+
+  const [explainerResult, similarJobs] = await Promise.all([
+    explainRejection({
+      jobTitle: job.title,
+      missingSkills,
+      recommendedCourseTitle: recommendedCourse?.title ?? null,
+    }).catch((err) => {
+      logger.warn({ err, applicationId: input.applicationId }, 'rejection explainer failed');
+      return null;
+    }),
+    center
+      ? findSimilarActiveJobs({
+          lat: center[1],
+          lng: center[0],
+          radius: SIMILAR_JOBS_RADIUS_M,
+          excludeJobId: app.jobId,
+          skills: job.skills ?? [],
+          limit: SIMILAR_JOBS_LIMIT,
+        }).catch((err) => {
+          logger.warn({ err, applicationId: input.applicationId }, 'similar-jobs query failed');
+          return [];
+        })
+      : Promise.resolve([]),
+  ]);
+
+  return {
+    missingSkills,
+    recommendedCourse,
+    alternatives,
+    explanation: explainerResult?.paragraph ?? '',
+    similarJobs,
+  };
 }

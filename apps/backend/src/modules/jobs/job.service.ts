@@ -150,6 +150,36 @@ export async function findNearby(query: NearbyQuery): Promise<{
 }
 
 /**
+ * "Similar jobs hiring now" — the positive reframe on a rejection (see
+ * applications/skillGap + rejectionExplainer). Other ACTIVE jobs near a
+ * point, sharing at least one skill with the job the seeker was
+ * rejected from, excluding that job itself. Reuses the same geo-feed
+ * query as findNearby — same ranking, same shape, nothing new to learn
+ * on the client.
+ */
+export async function findSimilarActiveJobs(input: {
+  lat: number;
+  lng: number;
+  radius: number;
+  excludeJobId: string;
+  skills: string[];
+  limit: number;
+}): Promise<NearbyHit[]> {
+  const extra: SQL[] = [sql`j.id != ${input.excludeJobId}`];
+  if (input.skills.length > 0) {
+    extra.push(sql`EXISTS (SELECT 1 FROM unnest(j.skills) js WHERE js = ANY(${input.skills}))`);
+  }
+  const { jobs } = await runGeoFeedQuery({
+    lat: input.lat,
+    lng: input.lng,
+    radius: input.radius,
+    limit: input.limit,
+    extra,
+  });
+  return jobs;
+}
+
+/**
  * "60-second first match" — public, lightweight, returns 3 jobs the
  * pre-signup seeker would plausibly take. See job.service's original
  * Mongo-era docstring for the ranking rationale (trade bias, verified

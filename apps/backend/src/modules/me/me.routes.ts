@@ -241,9 +241,24 @@ router.post('/notification-prefs', requireAuth, async (req, res, next) => {
   try {
     const body = (req.body ?? {}) as Record<string, unknown>;
     const allowed = ['jobs', 'applications', 'messages', 'ratings', 'referrals'] as const;
-    const update: Partial<Record<(typeof allowed)[number], boolean>> = {};
+    const update: Partial<Record<(typeof allowed)[number], boolean>> & {
+      quietHours?: { start: number; end: number } | null;
+    } = {};
     for (const k of allowed) {
       if (typeof body[k] === 'boolean') update[k] = body[k] as boolean;
+    }
+    // Quiet hours (0-23 local/IST hour window) — only SOS pings land inside
+    // it, everything else is held back. `null` disables it.
+    if (body.quietHours === null) {
+      update.quietHours = null;
+    } else if (
+      typeof body.quietHours === 'object' &&
+      body.quietHours !== null &&
+      Number.isInteger((body.quietHours as { start?: unknown }).start) &&
+      Number.isInteger((body.quietHours as { end?: unknown }).end)
+    ) {
+      const { start, end } = body.quietHours as { start: number; end: number };
+      if (start >= 0 && start <= 23 && end >= 0 && end <= 23) update.quietHours = { start, end };
     }
     if (Object.keys(update).length === 0) {
       sendErr(res, 400, 'VALIDATION_FAILED', 'No valid prefs supplied.');
@@ -252,7 +267,7 @@ router.post('/notification-prefs', requireAuth, async (req, res, next) => {
     const [u] = await getDb().select({ notificationPrefs: users.notificationPrefs }).from(users).where(eq(users.id, req.user!.id)).limit(1);
     const merged = { ...(u?.notificationPrefs ?? DEFAULT_NOTIFICATION_PREFS), ...update };
     await getDb().update(users).set({ notificationPrefs: merged }).where(eq(users.id, req.user!.id));
-    sendOk(res, { ok: true });
+    sendOk(res, { ok: true, notificationPrefs: merged });
   } catch (err) {
     next(err);
   }

@@ -27,6 +27,26 @@ export interface PublicMentorshipRequest {
   createdAt: string;
 }
 
+export type MentorSessionMode = 'video' | 'phone' | 'in_person';
+export type MentorSessionStatus = 'open' | 'booked' | 'cancelled' | 'completed';
+
+/** A bookable 1:1 mentor-session slot — open (unbooked) or booked. */
+export interface PublicMentorSession {
+  id: string;
+  mentorId: string;
+  mentorName?: string;
+  menteeId: string | null;
+  menteeName?: string;
+  trade: string;
+  scheduledFor: string;
+  durationMinutes: number;
+  mode: MentorSessionMode;
+  meetingLink: string | null;
+  location: string | null;
+  notes: string | null;
+  status: MentorSessionStatus;
+}
+
 export const mentorsApi = {
   list: (trade: string, city: string) =>
     apiRequest<{ mentors: PublicMentor[] }>(
@@ -51,4 +71,22 @@ export const mentorsApi = {
       asMentee: PublicMentorshipRequest[];
       asMentor: PublicMentorshipRequest[];
     }>('/mentors/requests/mine'),
+
+  // ─── Bookable 1:1 sessions ─────────────────────────────────────────────
+  openSlot: (input: {
+    scheduledFor: string;
+    durationMinutes?: number;
+    mode?: MentorSessionMode;
+    meetingLink?: string;
+    location?: string;
+    notes?: string;
+  }) => apiRequest<{ session: PublicMentorSession }>('/mentors/sessions', { method: 'POST', body: input }),
+  openSlotsForMentor: (mentorUserId: string) =>
+    apiRequest<{ slots: PublicMentorSession[] }>(`/mentors/${mentorUserId}/sessions/open`),
+  bookSlot: (slotId: string) =>
+    apiRequest<{ session: PublicMentorSession }>(`/mentors/sessions/${slotId}/book`, { method: 'POST' }),
+  cancelSession: (sessionId: string) =>
+    apiRequest<{ session: PublicMentorSession }>(`/mentors/sessions/${sessionId}/cancel`, { method: 'POST' }),
+  mySessions: () =>
+    apiRequest<{ asMentor: PublicMentorSession[]; asMentee: PublicMentorSession[] }>('/mentors/sessions/mine'),
 };

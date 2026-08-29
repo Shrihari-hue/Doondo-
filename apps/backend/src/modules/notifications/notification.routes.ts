@@ -26,7 +26,7 @@ const listQuery = z.object({
 
 const idParam = z.object({
   params: z.object({
-    id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id'),
+    id: z.string().uuid('Invalid id'),
   }),
 });
 

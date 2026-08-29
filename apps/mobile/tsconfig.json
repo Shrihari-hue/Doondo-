@@ -6,6 +6,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "doondo-pulse-widget": [
+        "./modules/doondo-pulse-widget"
       ]
     }
   },

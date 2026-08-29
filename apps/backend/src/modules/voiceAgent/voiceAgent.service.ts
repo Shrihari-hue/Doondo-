@@ -23,10 +23,14 @@
  * memory rides on the request.
  */
 
+import { and, asc, eq, gt } from 'drizzle-orm';
 import { AppError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { getDb } from '@/db/client';
+import { applications, jobs, users } from '@/db/schema';
 import * as jobService from '@/modules/jobs/job.service';
 import * as applicationService from '@/modules/applications/application.service';
+import * as chatService from '@/modules/chat/chat.service';
 import type { PublicJob } from '@/modules/jobs/job.model';
 import type { NearbyQuery } from '@/modules/jobs/job.schemas';
 import { parseVoiceIntent, type VoiceIntent } from './intent';
@@ -52,8 +56,33 @@ export type VoiceOutcome =
   | 'repeat'
   /** The worker asked what the agent can do. */
   | 'help'
+  /** The worker asked about an interview and one is scheduled (`upcomingInterview` populated). */
+  | 'interview_upcoming'
+  /** The worker asked about an interview and none are scheduled. */
+  | 'interview_none'
+  /** The worker asked the agent to read messages and there's at least one (`latestMessages` populated). */
+  | 'messages_found'
+  /** The worker asked the agent to read messages and there are none from an employer. */
+  | 'no_messages'
   /** Nothing intelligible was heard. */
   | 'not_understood';
+
+/** The next scheduled interview, read back to the worker. */
+export interface UpcomingInterview {
+  applicationId: string;
+  jobTitle: string;
+  employerName: string;
+  scheduledFor: string;
+  mode: 'in_person' | 'video' | 'phone';
+  location: string | null;
+}
+
+/** One conversation's latest employer message, read back to the worker. */
+export interface SpokenMessage {
+  conversationId: string;
+  senderName: string;
+  body: string;
+}
 
 export interface VoiceTurnInput {
   /** The authenticated seeker driving the conversation. */
@@ -76,6 +105,10 @@ export interface VoiceTurnResult {
   jobs: PublicJob[];
   /** The job an apply landed on, when `outcome` is applied/already_applied. */
   appliedJob: { id: string; title: string } | null;
+  /** Populated when `outcome === 'interview_upcoming'`. */
+  upcomingInterview: UpcomingInterview | null;
+  /** Populated when `outcome === 'messages_found'` — newest first, capped small since it's spoken. */
+  latestMessages: SpokenMessage[];
   /** Result ids the client should send back on the next turn. */
   contextJobIds: string[];
 }
@@ -101,6 +134,68 @@ async function jobTitleOrFallback(jobId: string): Promise<string> {
 }
 
 /**
+ * The seeker's next scheduled interview across every application, soonest
+ * first. Interviews are employer-scheduled (see application.service's
+ * scheduleInterview) — the coach's job here is read-only: tell the worker
+ * when it is, not mutate anything.
+ */
+async function findUpcomingInterview(seekerId: string): Promise<UpcomingInterview | null> {
+  const [row] = await getDb()
+    .select({
+      applicationId: applications.id,
+      scheduledFor: applications.interviewAt,
+      mode: applications.interviewMode,
+      details: applications.interviewDetails,
+      jobTitle: jobs.title,
+      employerName: users.name,
+      employerCompany: users.companyName,
+    })
+    .from(applications)
+    .innerJoin(jobs, eq(applications.jobId, jobs.id))
+    .innerJoin(users, eq(applications.employerId, users.id))
+    .where(
+      and(
+        eq(applications.seekerId, seekerId),
+        eq(applications.interviewStatus, 'scheduled'),
+        gt(applications.interviewAt, new Date()),
+      ),
+    )
+    .orderBy(asc(applications.interviewAt))
+    .limit(1);
+  if (!row || !row.scheduledFor) return null;
+
+  return {
+    applicationId: row.applicationId,
+    jobTitle: row.jobTitle,
+    employerName: row.employerCompany || row.employerName,
+    scheduledFor: row.scheduledFor.toISOString(),
+    mode: row.mode ?? 'in_person',
+    location: row.details?.location ?? row.details?.meetingLink ?? null,
+  };
+}
+
+/** How many of the worker's most-recently-messaged-by-an-employer conversations to read back. Kept small — it's spoken aloud. */
+const SPOKEN_MESSAGE_LIMIT = 3;
+
+/**
+ * The latest message in each of the worker's conversations where an
+ * employer sent the last word — "read my messages" reads these back.
+ * Reuses conversations.lastMessagePreview (already computed on send), so
+ * this is a single cheap query, not a per-conversation message fetch.
+ */
+async function findLatestEmployerMessages(seekerId: string): Promise<SpokenMessage[]> {
+  const conversations = await chatService.listMine(seekerId, { limit: 20 });
+  return conversations
+    .filter((c) => c.lastSenderId && c.lastSenderId !== seekerId && c.lastMessagePreview)
+    .slice(0, SPOKEN_MESSAGE_LIMIT)
+    .map((c) => ({
+      conversationId: c.id,
+      senderName: c.counterpart?.companyName || c.counterpart?.name || 'An employer',
+      body: c.lastMessagePreview!,
+    }));
+}
+
+/**
  * Run one turn of the voice agent. Pure-ish orchestration: it parses the
  * transcript, then either searches, applies, or returns a conversational
  * outcome. Errors from the apply path are caught and folded into an
@@ -117,12 +212,34 @@ export async function runVoiceTurn(
     transcript: input.transcript,
     jobs: [] as PublicJob[],
     appliedJob: null as VoiceTurnResult['appliedJob'],
+    upcomingInterview: null as VoiceTurnResult['upcomingInterview'],
+    latestMessages: [] as SpokenMessage[],
     contextJobIds: input.contextJobIds,
   };
 
   if (intent.kind === 'unknown') return { ...base, outcome: 'not_understood' };
   if (intent.kind === 'help') return { ...base, outcome: 'help' };
   if (intent.kind === 'repeat') return { ...base, outcome: 'repeat' };
+
+  // ─── interviews ─────────────────────────────────────────────────────
+  if (intent.kind === 'interviews') {
+    const upcoming = await findUpcomingInterview(input.seekerId);
+    return {
+      ...base,
+      outcome: upcoming ? 'interview_upcoming' : 'interview_none',
+      upcomingInterview: upcoming,
+    };
+  }
+
+  // ─── messages ───────────────────────────────────────────────────────
+  if (intent.kind === 'messages') {
+    const latest = await findLatestEmployerMessages(input.seekerId);
+    return {
+      ...base,
+      outcome: latest.length > 0 ? 'messages_found' : 'no_messages',
+      latestMessages: latest,
+    };
+  }
 
   // ─── search ───────────────────────────────────────────────────────────
   if (intent.kind === 'search') {

@@ -149,12 +149,52 @@ Once a dev build is installed on a real phone, walk through these in order. Each
 
 ## Known Gaps / Future Work
 
-These are nice-to-haves, not blockers:
+_Update 29 Aug 2026 — 4 of these are closed; see the note under each._
 
-- **Expo receipts not yet read** — the backend fires-and-forgets. A future Phase 5 should swap to the official `expo-server-sdk` to read receipts (handles `DeviceNotRegistered` cleanly so we can prune dead tokens).
-- **Dead-token pruning** — when a user uninstalls Doondo, their token becomes invalid. Without receipt reading, we keep trying to push to it. Low priority since the Expo Push API just silently drops invalid sends, but it bloats `User.expoPushTokens` arrays over time. A weekly cron that calls Expo's `/getReceipts` endpoint and removes any token that came back `DeviceNotRegistered` would clean this up.
-- **Quiet hours / Do Not Disturb** — the only category that should ping at 3am is SOS. A `quietHours: { start, end }` field on `User.notificationPrefs` would let users suppress non-urgent pushes (digest, hired-nearby, streak, re-engagement) overnight. The push fan-out service is the natural place to gate this.
-- **Localized push copy** — the user already carries a `locale` field. Push titles/bodies are still English-only. Wrapping the title/body strings in the existing i18n catalogue would close this.
+- **~~Expo receipts not yet read~~ — Closed.** `lib/push.ts` now sends through the
+  official `expo-server-sdk` (`Expo.sendPushNotificationsAsync`, chunked). Every
+  `'ok'` ticket's id is persisted to a new `push_receipts` table so a later sweep
+  can fetch its real delivery receipt — the synchronous ticket status alone still
+  can't see a `DeviceNotRegistered` failure that only surfaces at actual delivery
+  time.
+- **~~Dead-token pruning~~ — Closed.** A weekly cron
+  (`PUSH_RECEIPT_SWEEP_CRON`, default Sunday 03:30 UTC —
+  `scheduler/pushReceiptSweep.service.ts`) calls
+  `expo.getPushNotificationReceiptsAsync` on every queued ticket, prunes any
+  token whose receipt comes back `DeviceNotRegistered`, and deletes the
+  processed (or too-stale-to-still-have-a-receipt) rows so the queue table
+  stays small. The synchronous ticket-error prune `sendRaw` already had is
+  unchanged — this catches what that one structurally can't.
+- **~~Quiet hours / Do Not Disturb~~ — Closed.** `User.notificationPrefs` gained
+  `quietHours: { start, end } | null` (0-23, IST, wraps past midnight — same
+  math as the employer-side response quiet-hours setting). `lib/push.ts`'s
+  `tokensFor` (and its bulk-fan-out sibling
+  `filterRowsRespectingQuietHours`) return no tokens for a recipient
+  currently inside their window; every push helper routes through one of
+  those two except `sendSosAlertPush`, which deliberately calls
+  `tokensForBypassingQuietHours` instead — SOS is the one category that must
+  still land overnight, per this gap's own framing. Mobile: a "Quiet hours"
+  toggle + start/end hour chips on `SettingsScreen`, `POST
+  /me/notification-prefs` accepts the new field.
+- **Localized push copy — partially closed.** New `lib/pushCopy.ts` is a
+  backend-side sibling of the mobile i18n catalogue (no shared package exists
+  between the two apps — see its file header) covering the push kinds
+  `lib/push.ts` fully owns the copy for: application status, interview
+  scheduling, skill gap, ghosted, streak milestones, referral bonus, hired
+  nearby, ratings received, hire celebration, SOS, mentor sessions, cohort
+  invites, and the new-job fan-out title — rendered in the recipient's
+  `User.locale` via `{{var}}`-interpolated templates, all 5 app languages.
+  Deliberately **NOT** covered, and still English-only: chat message preview
+  text (it's the sender's freeform content — already handled by the separate
+  in-chat auto-translate feature, not something a static push dictionary
+  should touch), the morning digest and re-engagement bodies (composed
+  upstream by their own services as already-assembled strings, not templates
+  `push.ts` owns — threading locale into those composers is a natural
+  follow-up), and the lower-traffic employer-operational pushes (offers,
+  crew shifts, shift check-ins, trust circle, home-safe, profile-viewed, open
+  shift). Hindi is a careful best-effort; Tamil / Telugu / Kannada are
+  best-effort machine translations queued for the same native-speaker QA
+  pass as the rest of the app's regional copy.
 - **Rich pushes with images** — chat pushes carry the sender's `photoUrl` to the in-app row but not to the OS banner. iOS / Android both support image attachments via `mutableContent` and a Notification Service Extension. Worth picking up once core volumes are healthy.
 - **Web push (PWA)** — not in scope today; the app is mobile-only.
 

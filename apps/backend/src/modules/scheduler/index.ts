@@ -38,6 +38,7 @@ import { runShiftConfirmationSweep } from '@/modules/applications/shiftConfirmat
 import { runOfferExpirySweep } from '@/modules/applications/offerExpiry.service';
 import { runEscalationSweep } from '@/modules/jobs/escalation.service';
 import { runReengagementSweep } from '@/modules/notifications/reengagement.service';
+import { runPushReceiptSweep } from './pushReceiptSweep.service';
 
 let registered: ScheduledTask[] = [];
 
@@ -73,6 +74,7 @@ export function bootScheduler(): void {
   const offerExpiryValid = cron.validate(env.OFFER_EXPIRY_CRON);
   const escalationValid = cron.validate(env.ESCALATION_CRON);
   const reengagementValid = cron.validate(env.REENGAGEMENT_CRON);
+  const pushReceiptSweepValid = cron.validate(env.PUSH_RECEIPT_SWEEP_CRON);
   if (!digestValid) {
     logger.error(
       { cron: env.DIGEST_CRON },
@@ -113,6 +115,12 @@ export function bootScheduler(): void {
     logger.error(
       { cron: env.REENGAGEMENT_CRON },
       'REENGAGEMENT_CRON is not a valid cron expression — re-engagement disabled',
+    );
+  }
+  if (!pushReceiptSweepValid) {
+    logger.error(
+      { cron: env.PUSH_RECEIPT_SWEEP_CRON },
+      'PUSH_RECEIPT_SWEEP_CRON is not a valid cron expression — dead-token sweep disabled',
     );
   }
 
@@ -271,6 +279,23 @@ export function bootScheduler(): void {
       },
       'scheduler: re-engagement sweep registered',
     );
+  }
+
+  // ─── Weekly push-receipt sweep (dead-token pruning) ────────────────────
+  if (pushReceiptSweepValid) {
+    const pushReceiptSweepTask = cron.schedule(
+      env.PUSH_RECEIPT_SWEEP_CRON,
+      () => {
+        runPushReceiptSweep().catch((err) => {
+          logger.error({ err }, 'push receipt sweep run failed');
+        });
+      },
+      {
+        timezone: 'UTC',
+      },
+    );
+    registered.push(pushReceiptSweepTask);
+    logger.info({ cron: env.PUSH_RECEIPT_SWEEP_CRON }, 'scheduler: push receipt sweep registered');
   }
 
   logger.info({ tasks: registered.length }, 'scheduler booted');

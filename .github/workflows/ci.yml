@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same PR so a rapid string of pushes doesn't
+# queue up redundant jobs.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend — typecheck, lint, bootcheck, test
+    runs-on: ubuntu-latest
+    # postgis/postgis, not plain postgres — the jobs/applications/shift
+    # check-in tables use a real PostGIS geometry column
+    # (see apps/backend/src/scripts/enable-postgis.ts), which the vanilla
+    # postgres image doesn't ship.
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: doondo
+          POSTGRES_PASSWORD: doondo
+          POSTGRES_DB: doondo_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U doondo"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://doondo:doondo@localhost:5432/doondo_test
+      # Test-only secrets — never used outside this ephemeral CI Postgres.
+      JWT_ACCESS_SECRET: ci-test-access-secret-please-rotate-in-prod-0000
+      JWT_REFRESH_SECRET: ci-test-refresh-secret-please-rotate-in-prod-0000
+      SCHEDULER_ENABLED: 'false'
+      AUTH_RATE_LIMIT_MAX: '5000'
+      RATE_LIMIT_MAX: '5000'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Enable PostGIS on the test database
+        run: pnpm --filter @doondo/backend db:enable-postgis
+
+      - name: Run migrations against the test database
+        run: pnpm --filter @doondo/backend db:migrate
+
+      - name: Typecheck
+        run: pnpm --filter @doondo/backend typecheck
+
+      - name: Lint
+        run: pnpm --filter @doondo/backend lint
+
+      - name: Bootcheck (offline smoke test)
+        run: pnpm --filter @doondo/backend bootcheck
+
+      - name: Test (Vitest — auth, applications, chat)
+        run: pnpm --filter @doondo/backend test
+
+  mobile:
+    name: Mobile — typecheck, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter @doondo/mobile typecheck
+
+      - name: Test (Vitest — src/lib pure-logic modules only)
+        run: pnpm --filter @doondo/mobile test

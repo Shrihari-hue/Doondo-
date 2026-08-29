@@ -259,6 +259,8 @@ export type AppStackParamList = {
    * invite a specific worker (the outbound half of two-way discovery).
    */
   SendHiringRequest: { seekerId: string; seekerName: string };
+  /** Modal: one worker's Hire Reels intro video, with a Contact action. */
+  SeekerReel: { seekerId: string; seekerName: string };
   /** Modal: the worker's inbox of hiring requests from employers. */
   HiringRequests: undefined;
   /** Modal: the employer's list of hiring requests they've sent out. */
@@ -269,6 +271,12 @@ export type AppStackParamList = {
   Courses: undefined;
   /** Modal: a single course with its lessons + progress + enroll CTA. */
   CourseDetail: { courseId: string };
+  /**
+   * Modal: "Why was I rejected?" — the AI paragraph explaining a
+   * rejection plus similar jobs hiring now. Opened from the inline
+   * skill-gap card on My Applications.
+   */
+  WhyRejected: { applicationId: string };
   /** Modal: skill assessments — catalogue + take-test flow. */
   SkillTests: undefined;
   /** Modal: the worker's portable, verified Skill Passport. */
@@ -278,6 +286,24 @@ export type AppStackParamList = {
    * scannable proof of the worker's employability score.
    */
   ScoreCredential: undefined;
+  /**
+   * Modal: the shareable Skill Passport QR credential — a signed,
+   * scannable proof of the worker's verified skills, jobs completed,
+   * and rating. Same pattern as ScoreCredential, richer payload.
+   */
+  PassportCredential: undefined;
+  /** Modal: my mentor-session calendar — open slots (as mentor) + booked sessions (either side). */
+  MentorSessions: undefined;
+  /** Modal: pick one of a mentor's open bookable slots. */
+  BookMentorSession: { mentorUserId: string; mentorName?: string; trade: string };
+  /** Modal: my peer cohorts — joined groups + pending invites. */
+  Cohorts: { cohortId?: string };
+  /** Modal: start a new cohort from a course + matched Find Friends contacts. */
+  StartCohort: { courseId?: string; preselect?: { id: string; name: string; photoUrl: string | null }[] };
+  /** Modal: one cohort's group chat. */
+  CohortChat: { cohortId: string };
+  /** Modal: Wage Strike Alerts — flag one job's wage practices. Anonymous. */
+  ReportWageIssue: { jobId: string; jobTitle: string };
   /** Modal: the worker's Doondo Constitution — personal work rules. */
   Constitution: undefined;
   /** Modal: the career-path ladder for a trade. */

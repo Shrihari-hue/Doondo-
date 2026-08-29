@@ -629,6 +629,22 @@ function JobDetailScreenInner() {
             {applyError}
           </Text>
         )}
+
+        {/* Wage Strike Alerts (#46) — a quiet, always-available link. Flags
+           are anonymous and never shown individually; only an aggregate
+           signal surfaces once enough workers report the same job. */}
+        <Pressable
+          onPress={() => {
+            haptic('selection');
+            navigation.navigate('ReportWageIssue', { jobId: route.params.jobId, jobTitle: job.title });
+          }}
+          hitSlop={8}
+          style={{ alignSelf: 'center', paddingVertical: spacing.sm }}
+        >
+          <Text variant="footnote" tone="tertiary">
+            {t('job_detail.report_wage_issue_cta')}
+          </Text>
+        </Pressable>
       </ScrollView>
 
       {/* Sticky Apply Now + Save heart */}

@@ -201,8 +201,17 @@
         "day_a11y": "Day {{n}}",
         "hint_need_trade": "Pick at least one type of work to broadcast.",
         "hint_need_day": "Pick at least one day for the weekly schedule.",
+        "hint_need_wage": "Enter a wage amount, or turn off \"Name your wage\".",
         "time_error": "Enter a valid window — HH:MM (24h), end after start.",
-        "summary_ready": "Ready — nearby employers will see you the moment you broadcast."
+        "summary_ready": "Ready — nearby employers will see you the moment you broadcast.",
+        "wage_title": "OPEN SHIFT",
+        "wage_toggle_title": "Name your wage",
+        "wage_toggle_hint": "Turns this into a full open shift — nearby employers get notified.",
+        "wage_amount_label": "Amount (₹)",
+        "wage_period_label": "Per",
+        "wage_period_hour": "Hour",
+        "wage_period_day": "Day",
+        "wage_period_week": "Week"
       }
     },
     "wage": {
@@ -408,6 +417,7 @@
     }
   },
   "job_detail": {
+    "report_wage_issue_cta": "Report a wage issue",
     "apply_now": "Apply Now",
     "applied": "Applied ✓",
     "im_interested": "✋ I'm interested",
@@ -887,7 +897,9 @@
     "invite_blurb": "Share Doondo with the rest of your contacts. Earn ₹100 each time a worker you refer is hired.",
     "invite_arrow": "Invite →",
     "seeker_alert_body": "{{name}} is already on Doondo. Worker-to-worker chat is coming soon.",
-    "whatsapp_text": "Join me on Doondo — find work near you. {{link}}"
+    "whatsapp_text": "Join me on Doondo — find work near you. {{link}}",
+    "cohorts_a11y": "My cohorts",
+    "start_cohort_cta": "Start a course cohort with your friends"
   },
   "employer_detail": {
     "favorite": "Favourite this employer",
@@ -932,6 +944,8 @@
     "status_accepted": "Accepted — they will reach out to you.",
     "status_declined": "Declined.",
     "status_ended": "Ended.",
+    "book_session_cta": "Book a session →",
+    "my_sessions": "My sessions",
     "modal_title": "Request {{name}}",
     "modal_hint": "Write a short message — what would you like to learn?",
     "modal_placeholder": "I'd love to learn how you handle…",
@@ -946,6 +960,110 @@
     "become_error_title": "Could not enable",
     "become_saving": "Saving…",
     "become_cta": "Make me a mentor"
+  },
+  "mentor_sessions": {
+    "title": "My sessions",
+    "booked_section": "Booked sessions",
+    "booked_empty": "No sessions booked yet.",
+    "mentor_section": "As a mentor",
+    "mentor_hint": "Open a time slot — mentees you've accepted can book it.",
+    "status_open": "Open — not booked yet",
+    "date_label": "Date",
+    "time_label": "Time",
+    "mode_label": "Mode",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "in_2_days": "In 2 days",
+    "in_3_days": "In 3 days",
+    "in_1_week": "In 1 week",
+    "mode_video": "Video",
+    "mode_phone": "Phone",
+    "mode_in_person": "In person",
+    "duration": "{{minutes}} min",
+    "add_slot_cta": "Add a time slot",
+    "adding": "Adding…",
+    "cancel_cta": "Cancel",
+    "cancelling": "Cancelling…",
+    "error_title": "Something went wrong",
+    "error_default": "Try again in a moment."
+  },
+  "book_mentor_session": {
+    "title": "Book a session",
+    "empty": "No open slots right now — check back soon.",
+    "duration": "{{minutes}} min",
+    "mode_video": "Video",
+    "mode_phone": "Phone",
+    "mode_in_person": "In person",
+    "book_cta": "Book",
+    "booking": "Booking…",
+    "booked_title": "Session booked",
+    "booked_body": "Your mentor has been notified.",
+    "error_title": "Could not book",
+    "error_default": "Try again in a moment.",
+    "retry": "Try again"
+  },
+  "cohorts": {
+    "title": "My cohorts",
+    "new_a11y": "Start a new cohort",
+    "invites_section": "PENDING INVITES",
+    "invite_body": "Join to study {{course}} together.",
+    "accept_cta": "Join",
+    "decline_cta": "Decline",
+    "joined_section": "MY COHORTS",
+    "empty_title": "No cohorts yet",
+    "empty_message": "Start one from Find Friends — pick a course and up to 4 friends.",
+    "error_title": "Something went wrong",
+    "error_default": "Try again in a moment."
+  },
+  "start_cohort": {
+    "title": "Start a cohort",
+    "course_section": "COURSE",
+    "no_courses_title": "Enroll in a course first",
+    "no_courses_message": "Cohorts are built around a course you're taking together.",
+    "friends_section": "FRIENDS · {{n}}/{{max}}",
+    "no_friends_title": "No friends selected",
+    "no_friends_message": "Go back to Find Friends and pick contacts already on Doondo.",
+    "creating": "Creating…",
+    "create_cta": "Start cohort",
+    "error_title": "Could not create cohort",
+    "error_default": "Try again in a moment.",
+    "error_no_course": "Pick a course first."
+  },
+  "cohort_chat": {
+    "fallback_name": "Cohort",
+    "members_line": "{{n}} members · {{course}}",
+    "composer_placeholder": "Message the cohort…",
+    "photo_error_title": "Couldn't send photo",
+    "error_title": "Something went wrong",
+    "error_default": "Try again in a moment."
+  },
+  "report_wage_issue": {
+    "title": "Report a wage issue",
+    "anonymous_title": "This is anonymous",
+    "anonymous_body": "The employer never sees your report. Only an aggregate is shown, and only once several workers report the same job.",
+    "reason_section": "WHAT HAPPENED",
+    "reason_below_promised_wage": "Paid less than promised",
+    "reason_late_payment": "Paid late",
+    "reason_unpaid_overtime": "Unpaid overtime",
+    "reason_wage_theft": "Not paid at all",
+    "reason_other": "Other",
+    "wage_details_section": "Add wage details (optional)",
+    "promised_label": "Promised",
+    "actual_label": "Actually paid",
+    "period_hour": "per hour",
+    "period_day": "per day",
+    "period_week": "per week",
+    "period_month": "per month",
+    "period_fixed": "fixed",
+    "note_section": "NOTES (OPTIONAL)",
+    "note_placeholder": "Anything else useful to know…",
+    "sending": "Sending…",
+    "submit_cta": "Submit report",
+    "sent_title": "Report received",
+    "sent_body": "Thank you — this helps other workers stay informed.",
+    "done": "Done",
+    "error_title": "Could not submit",
+    "error_default": "Try again in a moment."
   },
   "resume_builder": {
     "header_title": "Resume builder",
@@ -2008,6 +2126,7 @@
       "coming_soon_body": "Phase 4 brings active hires, attendance, and recurring worker management to this tab."
     },
     "applicant_card": {
+      "reel_pill": "Reel",
       "for_job": "for {{title}}",
       "anon": "Anonymous",
       "verified": "Verified",
@@ -2130,6 +2249,12 @@
       "drive_est": "🚗 ~{{n}} min",
       "minutes_left": "{{n}}m left",
       "expiring": "expiring",
+      "wants_wage": "Wants ₹{{amount}}/{{period}}",
+      "period_hour": "hr",
+      "period_day": "day",
+      "period_week": "wk",
+      "period_month": "mo",
+      "period_fixed": "fixed",
       "call_a11y": "Call {{name}}",
       "call_now": "📞 Call now",
       "opening_dialer": "Opening dialer…",
@@ -2453,7 +2578,13 @@
     "workers_say": "WORKERS SAY",
     "reviews_one": "{{count}} review",
     "reviews_other": "{{count}} reviews",
-    "heads_up": "HEADS UP"
+    "heads_up": "HEADS UP",
+    "wage_flag_title": "{{n}} workers have reported wage issues here",
+    "wage_flag_reason_below_promised_wage": "{{pct}}% report being paid less than promised",
+    "wage_flag_reason_late_payment": "{{pct}}% report late payment",
+    "wage_flag_reason_unpaid_overtime": "{{pct}}% report unpaid overtime",
+    "wage_flag_reason_wage_theft": "{{pct}}% report not being paid at all",
+    "wage_flag_reason_other": "{{pct}}% report another wage issue"
   },
   "work_proof": {
     "title": "Proof of work",
@@ -2528,6 +2659,18 @@
     "open": "Open",
     "error": "We couldn't open the course. Try again.",
     "ghosted": "No reply yet — the employer hasn't responded."
+  },
+  "why_rejected": {
+    "back": "Back",
+    "title": "Why was I rejected?",
+    "error": "We couldn't load this. Try again.",
+    "retry": "Retry",
+    "explanation_label": "What happened",
+    "missing_label": "Skills this job asked for",
+    "course_label": "Recommended course",
+    "course_cta": "Start this course",
+    "similar_label": "Similar jobs hiring now",
+    "done": "Done"
   },
   "trust_circle": {
     "a11y_back": "Back",
@@ -2833,6 +2976,8 @@
     "a11y_mic": "Voice assistant microphone",
     "example_search": "Cook jobs near me",
     "example_apply": "Apply to the first one",
+    "example_interview": "When is my interview?",
+    "example_messages": "Read my messages",
     "example_help": "What can I say?",
     "reply": {
       "results_one": "I found 1 job nearby — {{job}}. Say 'apply to the first one' to apply, or ask for other work.",
@@ -2842,10 +2987,15 @@
       "already_applied": "You had already applied to {{job}}. Try another job.",
       "apply_failed": "Sorry, I couldn't send that application. Please open the job and apply from there.",
       "need_search_first": "Search for a job first, then say 'apply to the first one'.",
-      "help": "You can say things like 'driver jobs near me', or 'apply to the first one'. What work are you looking for?",
+      "help": "You can say things like 'driver jobs near me', 'apply to the first one', 'when is my interview', or 'read my messages'.",
       "not_understood": "Sorry, I didn't catch that. Please say it again.",
       "nothing_to_repeat": "There's nothing to repeat yet. Tell me what work you're looking for.",
-      "error": "Sorry, something went wrong. Check your connection and try again."
+      "error": "Sorry, something went wrong. Check your connection and try again.",
+      "interview_upcoming": "You have an interview for {{job}} with {{employer}}, {{when}}.",
+      "interview_none": "You don't have any interviews scheduled right now.",
+      "messages_one": "{{sender}} said: {{body}}",
+      "messages_many": "You have {{count}} recent messages. {{sender}} said: {{body}}",
+      "no_messages": "You don't have any new messages from employers."
     }
   },
   "hire_share": {
@@ -3009,6 +3159,7 @@
   },
   "reels": {
     "back": "Back",
+    "contact_cta": "Contact",
     "record_title": "My intro reel",
     "intro_title": "Record a 30-second intro",
     "intro_body": "A short video lets employers see the real you — far more than a profile can. Speak naturally, like you would in person.",
@@ -3109,6 +3260,28 @@
     "refresh": "Refresh score",
     "save_permission": "Allow photo access to save your score card.",
     "action_error": "Something went wrong. Please try again."
+  },
+  "passport_qr": {
+    "back": "Back",
+    "title": "Skill Passport QR",
+    "subtitle": "Your verified Skill Passport, ready to share.",
+    "error": "Could not create your Skill Passport QR right now. Please try again.",
+    "retry": "Try again",
+    "score_label": "DOONDO SCORE / 100",
+    "jobs_label": "Jobs done",
+    "skills_label": "Verified skills",
+    "rating_label": "Rating",
+    "scan_hint": "Anyone can scan this with a phone camera to verify your skills, jobs, and rating — no Doondo app needed.",
+    "valid_until": "Valid until {{date}}",
+    "share": "Share",
+    "share_cta": "Share Skill Passport as QR",
+    "verified": "VERIFIED",
+    "save": "Save to photos",
+    "saved_photo": "Saved to your photos",
+    "refresh": "Refresh",
+    "save_permission": "Allow photo access to save your passport card.",
+    "action_error": "Something went wrong. Please try again.",
+    "authentic_note": "The QR links to a Doondo page that confirms this Skill Passport is genuine and unmodified."
   },
   "skill_proof": {
     "section_title": "Proof of your skills",
