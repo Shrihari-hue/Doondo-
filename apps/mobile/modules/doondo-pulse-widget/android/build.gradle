@@ -8,10 +8,17 @@ def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.ab
 apply from: expoModulesCorePlugin
 applyKotlinExpoModulesCorePlugin()
 useCoreDependencies()
-useExpoPublishing()
 
+// android {} MUST run before useExpoPublishing() — useExpoPublishing() runs
+// `android { publishing { singleVariant("release") {...} } }` synchronously
+// the moment it's called, which needs compileSdk already set on the android
+// extension to register the "release" variant/component. Calling it before
+// this block (as the old ordering did) is exactly what produced:
+//   "project ':doondo-pulse-widget' does not specify compileSdk"
+//   "Could not get unknown property 'release' for SoftwareComponent container"
 android {
   namespace "app.doondo.pulsewidget"
+  compileSdk 36
   defaultConfig {
     versionCode 1
     versionName "1.0.0"
@@ -20,3 +27,5 @@ android {
     abortOnError false
   }
 }
+
+useExpoPublishing()
