@@ -134,7 +134,7 @@ function DownloadCenterInner() {
                     width: 40,
                     height: 40,
                     borderRadius: 10,
-                    backgroundColor: theme.brand.heroSubtle,
+                    backgroundColor: theme.brand.accentSubtle,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}

@@ -94,7 +94,7 @@ function Inner() {
 
       {query.isLoading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={theme.brand.hero} />
+          <ActivityIndicator color={theme.brand.accent} />
         </View>
       ) : query.isError || !result ? (
         <View
@@ -129,13 +129,13 @@ function Inner() {
           {result.explanation ? (
             <View
               style={{
-                backgroundColor: theme.brand.heroSubtle,
+                backgroundColor: theme.brand.accentSubtle,
                 borderRadius: 14,
                 padding: spacing.lg,
                 gap: 4,
               }}
             >
-              <Text style={{ fontSize: 12, fontWeight: '700', color: theme.brand.hero }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: theme.brand.accent }}>
                 {t('why_rejected.explanation_label')}
               </Text>
               <Text style={{ fontSize: 14, lineHeight: 21, color: theme.text.primary }}>
@@ -240,7 +240,7 @@ function Inner() {
                       {job.title}
                     </Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: theme.brand.hero }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: theme.brand.accent }}>
                         {formatPay(job.pay)}
                       </Text>
                       <Text style={{ fontSize: 12, color: theme.text.tertiary }}>

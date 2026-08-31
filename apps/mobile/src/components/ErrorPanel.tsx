@@ -107,18 +107,18 @@ export function ErrorPanel({ error, onRetry, compact = false, title }: Props) {
           padding: spacing.md,
           borderRadius: radii.md,
           borderWidth: 0.5,
-          borderColor: '#FCA5A5',
-          backgroundColor: '#FEF2F2',
+          borderColor: theme.status.dangerBorder,
+          backgroundColor: theme.status.dangerSubtle,
         }}
       >
         <Text style={{ fontSize: 16 }}>{copy.glyph}</Text>
-        <Text style={{ flex: 1, fontSize: 13, color: '#7F1D1D' }}>{finalTitle}</Text>
+        <Text style={{ flex: 1, fontSize: 13, color: theme.status.danger }}>{finalTitle}</Text>
         {onRetry && (
           <Pressable
             onPress={onRetry}
             style={{ paddingHorizontal: spacing.sm, paddingVertical: 4 }}
           >
-            <Text style={{ color: '#B91C1C', fontSize: 13, fontWeight: '700' }}>
+            <Text style={{ color: theme.status.danger, fontSize: 13, fontWeight: '700' }}>
               {copy.cta}
             </Text>
           </Pressable>
@@ -169,9 +169,9 @@ export function ErrorPanel({ error, onRetry, compact = false, title }: Props) {
             paddingHorizontal: spacing.xl,
             paddingVertical: spacing.sm + 2,
             borderRadius: radii.pill,
-            backgroundColor: '#2563EB',
+            backgroundColor: theme.brand.primary,
             opacity: pressed ? 0.85 : 1,
-            shadowColor: '#1E40AF',
+            shadowColor: theme.brand.primaryPressed,
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.25,
             shadowRadius: 6,

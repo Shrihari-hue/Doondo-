@@ -93,7 +93,10 @@ function matchIntent(transcript: string, nav: Nav): AgentReply {
   if (/applicant|application|candidate|pipeline/.test(t)) {
     return {
       text: "Opening your applicants.",
-      action: () => nav.navigate('Applicants' as any),
+      // EmployerVoiceAgent is a root-stack screen, not nested inside
+      // EmployerTabs — navigate into the nested tab explicitly rather
+      // than by bare name, which only resolves within the same navigator.
+      action: () => nav.navigate('EmployerTabs', { screen: 'Applicants' } as never),
     };
   }
   // post job
@@ -162,7 +165,7 @@ export function EmployerVoiceAgentScreen() {
   const isLight = scheme !== 'dark';
   const navigation = useNavigation<Nav>();
 
-  const BLUE = '#2563EB';
+  const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named constant, not reachable from theme here
   const ORANGE = '#F97316';
 
   const [recognizer, setRecognizer] = useState<Recognizer | null>(null);

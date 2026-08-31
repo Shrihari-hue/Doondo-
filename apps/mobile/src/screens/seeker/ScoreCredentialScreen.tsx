@@ -36,6 +36,7 @@ import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
+// Fixed brand color for the embedded QR logo mark — see QrCode.tsx.
 const DOONDO_BLUE = '#2563EB';
 
 /** Collapse a row of modules into runs of same-colour cells. */

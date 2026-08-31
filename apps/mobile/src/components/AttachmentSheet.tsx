@@ -9,7 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { radii, spacing, spring } from '@doondo/tokens';
+import { radii, spacing, spring, blue, amber } from '@doondo/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { Text } from './Text';
@@ -154,7 +154,7 @@ export function AttachmentSheet({
       key: 'photo',
       label: 'Photo',
       caption: 'From gallery',
-      accent: '#60A5FA',
+      accent: blue[400],
       tintBg: 'rgba(61, 122, 199, 0.14)',
       borderColor: theme.border.default,
       Icon: PhotoIcon,
@@ -164,11 +164,11 @@ export function AttachmentSheet({
       key: 'camera',
       label: 'Camera',
       caption: 'Take a photo',
-      accent: theme.brand.hero,
-      tintBg: theme.brand.heroSubtle,
+      accent: theme.brand.primary,
+      tintBg: theme.brand.primarySubtle,
       // Brand hairline on the most-likely action — subtle highlight without
       // a loud "default" button treatment.
-      borderColor: theme.brand.heroBorder,
+      borderColor: theme.brand.primaryBorder,
       Icon: CameraIcon,
       onPress: pickAnd(onOpenCamera),
     },
@@ -176,7 +176,7 @@ export function AttachmentSheet({
       key: 'video',
       label: 'Video',
       caption: 'Record or pick',
-      accent: '#E0A744',
+      accent: amber[400],
       tintBg: 'rgba(224, 167, 68, 0.14)',
       borderColor: theme.border.default,
       Icon: VideoIcon,

@@ -122,15 +122,15 @@ function Inner() {
                       padding: spacing.md,
                       borderRadius: radii.lg,
                       borderWidth: active ? 1.5 : 0.5,
-                      borderColor: active ? theme.brand.hero : theme.border.subtle,
-                      backgroundColor: active ? theme.brand.heroSubtle : theme.bg.surface,
+                      borderColor: active ? theme.brand.primary : theme.border.subtle,
+                      backgroundColor: active ? theme.brand.primarySubtle : theme.bg.surface,
                     }}
                   >
                     <Text style={{ fontSize: 20 }}>{c.emoji}</Text>
                     <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: theme.text.primary }}>
                       {c.title}
                     </Text>
-                    {active && <Feather name="check" size={16} color={theme.brand.hero} />}
+                    {active && <Feather name="check" size={16} color={theme.brand.accent} />}
                   </Pressable>
                 );
               })}
@@ -163,15 +163,15 @@ function Inner() {
                       padding: spacing.md,
                       borderRadius: radii.lg,
                       borderWidth: active ? 1.5 : 0.5,
-                      borderColor: active ? theme.brand.hero : theme.border.subtle,
-                      backgroundColor: active ? theme.brand.heroSubtle : theme.bg.surface,
+                      borderColor: active ? theme.brand.primary : theme.border.subtle,
+                      backgroundColor: active ? theme.brand.primarySubtle : theme.bg.surface,
                     }}
                   >
                     <Avatar size={32} photoUrl={f.photoUrl} name={f.name} />
                     <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: theme.text.primary }}>
                       {f.name}
                     </Text>
-                    {active && <Feather name="check-circle" size={18} color={theme.brand.hero} />}
+                    {active && <Feather name="check-circle" size={18} color={theme.brand.accent} />}
                   </Pressable>
                 );
               })}

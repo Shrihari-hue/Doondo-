@@ -23,7 +23,7 @@
 
 import './env-loader';
 import { eq } from 'drizzle-orm';
-import { getDb } from '@/db/client';
+import { connectPg, disconnectPg, getDb } from '@/db/client';
 import { users, workPhotos } from '@/db/schema';
 import { logger } from '@/lib/logger';
 import type { CraftPhoto } from '@/modules/users/user.model';
@@ -36,6 +36,7 @@ async function run(): Promise<void> {
     process.exit(1);
   }
 
+  connectPg();
   const db = getDb();
   const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
   if (!user) {
@@ -75,7 +76,10 @@ async function run(): Promise<void> {
   );
 }
 
-run().then(() => process.exit(0)).catch((err) => {
-  logger.error({ err }, 'seed-craft-showcase failed');
-  process.exit(1);
-});
+run()
+  .then(() => disconnectPg())
+  .then(() => process.exit(0))
+  .catch((err) => {
+    logger.error({ err }, 'seed-craft-showcase failed');
+    process.exit(1);
+  });

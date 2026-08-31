@@ -12,10 +12,11 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import { spacing, radii, blue } from '@doondo/tokens';
+import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Button, TextField, FormError, DoondoMark } from '@/components';
 import { authApi } from '@/api/auth.api';
 import { ApiError } from '@/api/errors';
+import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
 import type { AuthStackParamList } from '@/navigation/types';
@@ -37,6 +38,7 @@ type CodeRoute = RouteProp<AuthStackParamList, 'ForgotPasswordCode'>;
 export function ForgotPasswordCodeScreen() {
   const navigation = useNavigation<Nav>();
   const { phone } = useRoute<CodeRoute>().params;
+  const { theme } = useTheme();
   const t = useTranslate();
 
   const [code, setCode] = useState('');
@@ -128,7 +130,7 @@ export function ForgotPasswordCodeScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <LinearGradient
-            colors={['#060B16', '#0D1B33', blue[900]]}
+            colors={theme.brand.primaryBannerGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
@@ -153,14 +155,14 @@ export function ForgotPasswordCodeScreen() {
                 borderColor: 'rgba(96,165,250,0.5)',
               }}
             >
-              <DoondoMark size={30} color={blue[300]} />
+              <DoondoMark size={30} color={theme.brand.primaryOnDark} />
             </View>
 
             <View style={{ flex: 1, gap: 4 }}>
               <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF' }}>
                 {t('auth.forgot_code.title')}
               </Text>
-              <Text variant="caption" style={{ letterSpacing: 1.2, color: blue[300] }}>
+              <Text variant="caption" style={{ letterSpacing: 1.2, color: theme.brand.primaryOnDark }}>
                 {t('auth.forgot_code.eyebrow')}
               </Text>
               <Text
@@ -199,7 +201,7 @@ export function ForgotPasswordCodeScreen() {
               style={{ opacity: submitting ? 0.7 : 1 }}
             >
               <LinearGradient
-                colors={[blue[500], blue[400]]}
+                colors={theme.brand.primaryGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={{
@@ -249,12 +251,12 @@ export function ForgotPasswordCodeScreen() {
               paddingVertical: spacing.xl,
               paddingHorizontal: spacing['2xl'],
               borderRadius: radii.xl,
-              backgroundColor: '#0D1B33',
+              backgroundColor: theme.brand.primaryCard,
               borderWidth: 1,
               borderColor: 'rgba(96,165,250,0.3)',
             }}
           >
-            <ActivityIndicator size="large" color={blue[400]} />
+            <ActivityIndicator size="large" color={theme.brand.primaryVivid} />
             <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
               {t('auth.forgot_code.cta_verifying')}
             </Text>

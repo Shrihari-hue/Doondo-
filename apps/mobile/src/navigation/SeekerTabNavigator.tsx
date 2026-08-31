@@ -38,18 +38,22 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 const Tab = createBottomTabNavigator<SeekerTabParamList>();
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
-// Established Doondo voice-interaction accent — matches VoicePostButton,
-// EmployerVoiceAgentScreen, and the employer tab bar's mic FAB.
-const ORANGE = '#F97316';
-
-/** Glyphs only — labels resolve to translations via useTranslate(). */
-const TAB_META: Record<keyof SeekerTabParamList, { i18nKey: string; glyph: string }> = {
-  Home: { i18nKey: 'tabs.home', glyph: '⌂' },
-  Jobs: { i18nKey: 'tabs.jobs', glyph: '◇' },
-  Community: { i18nKey: 'tabs.community', glyph: '❖' },
-  Chat: { i18nKey: 'tabs.chat', glyph: '✦' },
-  Earnings: { i18nKey: 'tabs.earnings', glyph: '₹' },
-  Profile: { i18nKey: 'tabs.profile', glyph: '◉' },
+/**
+ * Feather icons, size 22 — matches the employer tab bar exactly (see
+ * EmployerTabNavigator's TAB_META) so the two navigators read as the same
+ * component with different destinations, not two different icon systems.
+ * Labels resolve to translations via useTranslate().
+ */
+const TAB_META: Record<
+  keyof SeekerTabParamList,
+  { i18nKey: string; icon: React.ComponentProps<typeof Feather>['name'] }
+> = {
+  Home: { i18nKey: 'tabs.home', icon: 'home' },
+  Jobs: { i18nKey: 'tabs.jobs', icon: 'briefcase' },
+  Community: { i18nKey: 'tabs.community', icon: 'users' },
+  Chat: { i18nKey: 'tabs.chat', icon: 'message-circle' },
+  Earnings: { i18nKey: 'tabs.earnings', icon: 'credit-card' },
+  Profile: { i18nKey: 'tabs.profile', icon: 'user' },
 };
 
 export function SeekerTabNavigator() {
@@ -119,22 +123,18 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           gap: 2,
         }}
       >
-        <Text
-          style={{
-            color: isFocused ? theme.brand.hero : theme.text.tertiary,
-            fontSize: 20,
-            lineHeight: 22,
-          }}
-        >
-          {meta.glyph}
-        </Text>
+        <Feather
+          name={meta.icon}
+          size={22}
+          color={isFocused ? theme.brand.primary : theme.text.tertiary}
+        />
         <Text
           variant="caption"
           weight={isFocused ? 'medium' : 'regular'}
           numberOfLines={1}
           style={{
             fontSize: 10,
-            color: isFocused ? theme.brand.hero : theme.text.tertiary,
+            color: isFocused ? theme.brand.primary : theme.text.tertiary,
           }}
         >
           {t(meta.i18nKey)}
@@ -166,10 +166,10 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             width: 42,
             height: 42,
             borderRadius: 21,
-            backgroundColor: ORANGE,
+            backgroundColor: theme.accent.voice,
             alignItems: 'center',
             justifyContent: 'center',
-            shadowColor: ORANGE,
+            shadowColor: theme.accent.voice,
             shadowOffset: { width: 0, height: 6 },
             shadowOpacity: 0.24,
             shadowRadius: 10,
@@ -184,7 +184,7 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           numberOfLines={1}
           style={{
             fontSize: 10,
-            color: ORANGE,
+            color: theme.accent.voice,
           }}
         >
           {t('tabs.voice')}

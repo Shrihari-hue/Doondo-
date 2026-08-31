@@ -44,7 +44,7 @@ export function ApplicationsScreen() {
           <RefreshControl
             refreshing={query.isFetching && !query.isLoading}
             onRefresh={() => void query.refetch()}
-            tintColor={theme.brand.hero}
+            tintColor={theme.brand.accent}
           />
         }
       >

@@ -62,12 +62,12 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
         paddingVertical: 8,
         borderRadius: 999,
         borderWidth: active ? 1.5 : 1,
-        borderColor: active ? theme.brand.hero : theme.border.subtle,
-        backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+        borderColor: active ? theme.brand.primary : theme.border.subtle,
+        backgroundColor: active ? theme.brand.primarySubtle : 'transparent',
       }}
     >
       <Text
-        style={{ fontSize: 13, fontWeight: active ? '700' : '500', color: active ? theme.brand.hero : theme.text.secondary }}
+        style={{ fontSize: 13, fontWeight: active ? '700' : '500', color: active ? theme.brand.primary : theme.text.secondary }}
       >
         {label}
       </Text>

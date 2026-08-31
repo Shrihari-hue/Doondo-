@@ -107,7 +107,7 @@ function Inner() {
             }}
             hitSlop={8}
           >
-            <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.hero }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.accent }}>
               {t('mentors.my_sessions')}
             </Text>
           </Pressable>
@@ -177,7 +177,7 @@ function Inner() {
                     </Text>
                   ) : null}
                 </View>
-                <Text style={{ color: theme.brand.hero, fontSize: 12, fontWeight: '700' }}>
+                <Text style={{ color: theme.brand.accent, fontSize: 12, fontWeight: '700' }}>
                   {t('mentors.request_arrow')}
                 </Text>
               </Pressable>
@@ -220,7 +220,7 @@ function Inner() {
                     }}
                     style={{ marginTop: spacing.xs }}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: theme.brand.hero }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: theme.brand.accent }}>
                       {t('mentors.book_session_cta')}
                     </Text>
                   </Pressable>
@@ -309,7 +309,7 @@ function Inner() {
                   flex: 1,
                   paddingVertical: spacing.md,
                   borderRadius: radii.pill,
-                  backgroundColor: '#2563EB',
+                  backgroundColor: theme.brand.primary,
                   alignItems: 'center',
                   shadowColor: '#1E40AF',
                   shadowOffset: { width: 0, height: 4 },
@@ -387,14 +387,14 @@ function BecomeMentorPanel({
         numberOfLines={3}
         style={{
           borderWidth: 0.5,
-          borderColor: '#BFDBFE',
+          borderColor: theme.border.default,
           borderRadius: radii.md,
           padding: spacing.sm,
           fontSize: 13,
           color: theme.text.primary,
           minHeight: 64,
           textAlignVertical: 'top',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: theme.bg.surface,
         }}
       />
       <Pressable
@@ -403,7 +403,7 @@ function BecomeMentorPanel({
         style={{
           paddingVertical: spacing.sm + 2,
           borderRadius: radii.pill,
-          backgroundColor: '#2563EB',
+          backgroundColor: theme.brand.primary,
           alignItems: 'center',
         }}
       >

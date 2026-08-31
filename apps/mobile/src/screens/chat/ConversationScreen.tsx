@@ -78,7 +78,7 @@ type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 // Doondo design language — see ChatListScreen.tsx (direct sibling reference)
 // for the same values.
-const BLUE = '#2563EB';
+const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named constant, not reachable from theme here
 const RED = '#EF4444';
 
 /** How the reader wants foreign-language messages shown. */

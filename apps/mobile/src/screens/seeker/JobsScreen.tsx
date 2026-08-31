@@ -644,9 +644,9 @@ function Header({
                   flexDirection: 'row',
                   alignItems: 'center',
                   borderRadius: radii.pill,
-                  backgroundColor: theme.brand.heroSubtle,
+                  backgroundColor: theme.brand.accentSubtle,
                   borderWidth: 0.5,
-                  borderColor: theme.brand.hero,
+                  borderColor: theme.brand.accent,
                 }}
               >
                 <Pressable
@@ -662,12 +662,12 @@ function Header({
                     paddingVertical: 5,
                   }}
                 >
-                  <Feather name="map-pin" size={12} color={theme.brand.hero} />
+                  <Feather name="map-pin" size={12} color={theme.brand.accent} />
                   <Text
                     variant="footnote"
                     weight="medium"
                     numberOfLines={1}
-                    style={{ color: theme.brand.hero, maxWidth: 180 }}
+                    style={{ color: theme.brand.accent, maxWidth: 180 }}
                   >
                     {searchPlaceLabel}
                   </Text>
@@ -679,7 +679,7 @@ function Header({
                   accessibilityLabel={t('jobs.clear_location')}
                   style={{ paddingRight: 9, paddingLeft: 2, paddingVertical: 5 }}
                 >
-                  <Feather name="x" size={13} color={theme.brand.hero} />
+                  <Feather name="x" size={13} color={theme.brand.accent} />
                 </Pressable>
               </View>
               <Text variant="footnote" tone="tertiary">
@@ -706,7 +706,7 @@ function Header({
               <Text
                 variant="footnote"
                 weight="medium"
-                style={{ color: theme.brand.hero, marginLeft: 6 }}
+                style={{ color: theme.brand.accent, marginLeft: 6 }}
               >
                 {t('jobs.change_location')}
               </Text>
@@ -735,13 +735,13 @@ function Header({
                   paddingHorizontal: spacing.sm,
                   paddingVertical: 4,
                   borderRadius: radii.pill,
-                  backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                  backgroundColor: active ? theme.brand.primarySubtle : 'transparent',
                 }}
               >
                 <Text
                   variant="footnote"
                   weight={active ? 'medium' : 'regular'}
-                  style={{ color: active ? theme.brand.hero : theme.text.tertiary }}
+                  style={{ color: active ? theme.brand.primary : theme.text.tertiary }}
                 >
                   {v === 'list' ? t('jobs.view.list') : t('jobs.view.map')}
                 </Text>
@@ -809,14 +809,14 @@ function Header({
                   paddingVertical: spacing.xs,
                   borderRadius: radii.pill,
                   borderWidth: 0.5,
-                  borderColor: active ? theme.brand.hero : theme.border.default,
-                  backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                  borderColor: active ? theme.brand.primary : theme.border.default,
+                  backgroundColor: active ? theme.brand.primarySubtle : 'transparent',
                 }}
               >
                 <Text
                   variant="footnote"
                   weight={active ? 'medium' : 'regular'}
-                  style={{ color: active ? theme.brand.hero : theme.text.secondary }}
+                  style={{ color: active ? theme.brand.primary : theme.text.secondary }}
                 >
                   {t('jobs.km_chip', { km })}
                 </Text>
@@ -839,14 +839,14 @@ function Header({
                 paddingVertical: spacing.xs,
                 borderRadius: radii.pill,
                 borderWidth: 0.5,
-                borderColor: active ? theme.brand.hero : theme.border.default,
-                backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                borderColor: active ? theme.brand.primary : theme.border.default,
+                backgroundColor: active ? theme.brand.primarySubtle : 'transparent',
               }}
             >
               <Text
                 variant="footnote"
                 weight={active ? 'medium' : 'regular'}
-                style={{ color: active ? theme.brand.hero : theme.text.secondary }}
+                style={{ color: active ? theme.brand.primary : theme.text.secondary }}
               >
                 {t(f.labelKey)}
               </Text>
@@ -899,8 +899,8 @@ function Header({
           padding: spacing.md,
           borderRadius: radii.lg,
           borderWidth: 0.5,
-          borderColor: theme.brand.heroBorder,
-          backgroundColor: theme.brand.heroSubtle,
+          borderColor: theme.brand.accentBorder,
+          backgroundColor: theme.brand.accentSubtle,
           opacity: pressed ? 0.85 : 1,
         })}
       >
@@ -911,22 +911,22 @@ function Header({
             borderRadius: 12,
             backgroundColor: theme.bg.surface,
             borderWidth: 0.5,
-            borderColor: theme.brand.heroBorder,
+            borderColor: theme.brand.accentBorder,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Feather name="layers" size={19} color={theme.brand.hero} />
+          <Feather name="layers" size={19} color={theme.brand.accent} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
+          <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
             {t('jobs.swipe.entry_title')}
           </Text>
           <Text variant="caption" tone="tertiary">
             {t('jobs.swipe.entry_subtitle')}
           </Text>
         </View>
-        <Feather name="chevron-right" size={18} color={theme.brand.hero} />
+        <Feather name="chevron-right" size={18} color={theme.brand.accent} />
       </Pressable>
 
       {/* Recommended for you — section header for the job cards. Only shown
@@ -985,9 +985,9 @@ function HiringRequestsBanner({
         gap: spacing.md,
         padding: spacing.md,
         borderRadius: radii.lg,
-        backgroundColor: theme.brand.hero,
+        backgroundColor: theme.brand.accent,
         opacity: pressed ? 0.9 : 1,
-        shadowColor: theme.brand.hero,
+        shadowColor: theme.brand.accent,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.28,
         shadowRadius: 14,
@@ -1080,7 +1080,7 @@ function JobCard({
         // border — visible without changing the Card component's contract.
         borderRadius: radii.lg,
         ...(selected
-          ? { borderWidth: 2, borderColor: theme.brand.hero }
+          ? { borderWidth: 2, borderColor: theme.brand.accent }
           : { borderWidth: 0, borderColor: 'transparent' }),
       }}
     >
@@ -1120,8 +1120,8 @@ function JobCard({
                     height: 22,
                     borderRadius: 11,
                     borderWidth: 1.5,
-                    borderColor: selected ? theme.brand.hero : theme.border.strong,
-                    backgroundColor: selected ? theme.brand.hero : 'transparent',
+                    borderColor: selected ? theme.brand.primary : theme.border.strong,
+                    backgroundColor: selected ? theme.brand.primary : 'transparent',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
@@ -1273,7 +1273,7 @@ function SelectionBar({ t, count, submitting, onCancel, onApply }: SelectionBarP
           paddingVertical: spacing.sm,
           paddingHorizontal: spacing.lg,
           borderRadius: radii.md,
-          backgroundColor: pressed ? theme.brand.heroPressed : theme.brand.hero,
+          backgroundColor: pressed ? theme.brand.primaryPressed : theme.brand.accent,
           opacity: count === 0 ? 0.5 : 1,
         })}
       >

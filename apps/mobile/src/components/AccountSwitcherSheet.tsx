@@ -230,7 +230,7 @@ export function AccountSwitcherSheet({ visible, onClose, onAddEmployer }: Props)
                           width: 22,
                           height: 22,
                           borderRadius: 11,
-                          backgroundColor: theme.brand.hero,
+                          backgroundColor: theme.brand.primary,
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}
@@ -253,7 +253,7 @@ export function AccountSwitcherSheet({ visible, onClose, onAddEmployer }: Props)
                           height: 22,
                           borderRadius: 11,
                           paddingHorizontal: 6,
-                          backgroundColor: '#EF4444',
+                          backgroundColor: theme.status.danger,
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}
@@ -333,7 +333,7 @@ export function AccountSwitcherSheet({ visible, onClose, onAddEmployer }: Props)
                   style={{
                     fontSize: 15,
                     fontWeight: '600',
-                    color: theme.brand.hero,
+                    color: theme.brand.primary,
                   }}
                 >
                   {hasEmployerAccount

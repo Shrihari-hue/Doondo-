@@ -25,7 +25,7 @@ import type { AppStackParamList } from '@/navigation/types';
 type Nav = NativeStackNavigationProp<AppStackParamList, 'CohortChat'>;
 type Route = RouteProp<AppStackParamList, 'CohortChat'>;
 
-const BLUE = '#2563EB';
+const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named constant, not reachable from theme here
 
 function Bubble({ message, isMine, senderName }: { message: PublicCohortMessage; isMine: boolean; senderName: string }) {
   const { scheme } = useTheme();

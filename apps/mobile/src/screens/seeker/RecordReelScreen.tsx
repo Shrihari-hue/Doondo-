@@ -269,7 +269,7 @@ function RecordReelScreenInner() {
       >
         {mode === 'loading' ? (
           <View style={{ paddingVertical: spacing['3xl'], alignItems: 'center' }}>
-            <ActivityIndicator color={theme.brand.hero} />
+            <ActivityIndicator color={theme.brand.accent} />
           </View>
         ) : null}
 
@@ -277,7 +277,7 @@ function RecordReelScreenInner() {
         {mode === 'empty' || mode === 'preview' ? (
           <View
             style={{
-              backgroundColor: theme.brand.heroSubtle,
+              backgroundColor: theme.brand.accentSubtle,
               borderRadius: radii.lg,
               padding: spacing.lg,
               gap: spacing.xs,
@@ -286,7 +286,7 @@ function RecordReelScreenInner() {
             <Text
               variant="bodyLarge"
               weight="semibold"
-              style={{ color: theme.brand.hero }}
+              style={{ color: theme.brand.accent }}
             >
               {t('reels.intro_title')}
             </Text>

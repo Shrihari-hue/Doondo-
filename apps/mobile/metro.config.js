@@ -18,12 +18,15 @@ const workspaceRoot = path.resolve(projectRoot, '../..');
 
 const config = getDefaultConfig(projectRoot);
 
-config.watchFolders = [workspaceRoot];
+config.watchFolders = [
+  ...(config.watchFolders || []),
+  workspaceRoot,
+];
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
 ];
-config.resolver.disableHierarchicalLookup = true;
+config.resolver.disableHierarchicalLookup = false;
 
 // Local Expo modules (apps/mobile/modules/*) aren't inside node_modules,
 // so they're invisible to the two hardcoded lookup paths above — Expo's

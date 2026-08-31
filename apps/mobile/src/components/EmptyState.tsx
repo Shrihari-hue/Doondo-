@@ -51,14 +51,13 @@ interface Props {
   /** Stretch vertically to fill available space. */
   tall?: boolean;
   /**
-   * Tone of the glyph badge. 'neutral' (default), 'hero' (theme's coral —
-   * this is the ORIGINAL warm-dark brand, still correct on screens that
-   * haven't been moved to the Doondo-blue redesign), 'blue' (explicit
-   * Doondo-blue accent — use this on employer screens that HAVE been
-   * redesigned to blue, since `theme.brand.hero` stays coral by design),
-   * 'premium', 'warning'.
+   * Tone of the glyph badge. 'neutral' (default), 'hero'/'accent' (the
+   * small-affordance coral accent), 'blue'/'primary' (the brand-primary
+   * blue — now the norm since the theme unification, both names kept as
+   * aliases so existing call sites don't need touching), 'premium',
+   * 'warning'.
    */
-  tone?: 'neutral' | 'hero' | 'blue' | 'premium' | 'warning';
+  tone?: 'neutral' | 'hero' | 'accent' | 'blue' | 'primary' | 'premium' | 'warning';
 }
 
 export function EmptyState({
@@ -72,17 +71,14 @@ export function EmptyState({
   tall = false,
   tone = 'neutral',
 }: Props) {
-  const { theme, scheme } = useTheme();
-  const isLight = scheme !== 'dark';
+  const { theme } = useTheme();
 
   const toneMap = {
     neutral: { bg: theme.bg.muted, border: theme.border.default, color: theme.text.tertiary },
-    hero: { bg: theme.brand.heroSubtle, border: theme.brand.heroBorder, color: theme.brand.hero },
-    blue: {
-      bg: isLight ? '#EFF6FF' : 'rgba(37,99,235,0.14)',
-      border: isLight ? '#DBEAFE' : 'rgba(96,165,250,0.35)',
-      color: '#2563EB',
-    },
+    hero: { bg: theme.brand.accentSubtle, border: theme.brand.accentBorder, color: theme.brand.accent },
+    accent: { bg: theme.brand.accentSubtle, border: theme.brand.accentBorder, color: theme.brand.accent },
+    blue: { bg: theme.brand.primarySubtle, border: theme.brand.primaryBorder, color: theme.brand.primary },
+    primary: { bg: theme.brand.primarySubtle, border: theme.brand.primaryBorder, color: theme.brand.primary },
     premium: { bg: theme.premium.goldSubtle, border: theme.premium.goldBorder, color: theme.premium.gold },
     warning: { bg: theme.status.warningSubtle, border: theme.status.warningBorder, color: theme.status.warning },
   };

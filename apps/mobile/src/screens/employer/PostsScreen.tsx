@@ -32,7 +32,7 @@ import type { JobStatus, PublicJob } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
 import { JobIcon } from './JobIcon';
 
-const BLUE   = '#2563EB';
+const BLUE = '#2563EB'; // = theme.brand.primary; module-scope constant, theme unreachable here
 const ORANGE = '#F97316';
 const GREEN  = '#16A34A';
 const AMBER  = '#F59E0B';
@@ -112,7 +112,7 @@ export function PostsScreen() {
           <RefreshControl
             refreshing={query.isRefetching}
             onRefresh={() => void query.refetch()}
-            tintColor={theme.brand.hero}
+            tintColor={theme.brand.accent}
           />
         }
       >
@@ -373,7 +373,7 @@ function Section({ title, jobs, t, perJobStats }: { title: string; jobs: PublicJ
               width: 8,
               height: 8,
               borderRadius: 4,
-              backgroundColor: theme.brand.hero,
+              backgroundColor: theme.brand.accent,
             }}
           />
           <Text
@@ -723,10 +723,10 @@ function TipCard({ t }: { t: TFn }) {
         alignItems: 'center',
         gap: spacing.md,
         padding: spacing.lg,
-        backgroundColor: theme.brand.heroSubtle,
+        backgroundColor: theme.brand.accentSubtle,
         borderRadius: radii.lg,
         borderWidth: 0.5,
-        borderColor: theme.brand.heroBorder,
+        borderColor: theme.brand.accentBorder,
       }}
     >
       <View
@@ -734,14 +734,14 @@ function TipCard({ t }: { t: TFn }) {
           width: 44,
           height: 44,
           borderRadius: radii.md,
-          backgroundColor: theme.brand.heroSubtle,
+          backgroundColor: theme.brand.accentSubtle,
           borderWidth: 0.5,
-          borderColor: theme.brand.heroBorder,
+          borderColor: theme.brand.accentBorder,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Feather name="info" size={20} color={theme.brand.hero} />
+        <Feather name="info" size={20} color={theme.brand.accent} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text variant="footnote" weight="medium" tone="hero">

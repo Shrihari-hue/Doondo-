@@ -467,12 +467,12 @@ function ResumePreviewInner() {
             alignItems: 'center',
             justifyContent: 'center',
             borderWidth: 1,
-            borderColor: '#B91C1C',
-            backgroundColor: '#FFFFFF',
+            borderColor: theme.status.danger,
+            backgroundColor: theme.bg.surface,
             opacity: pressed ? 0.7 : 1,
           })}
         >
-          <Text style={{ fontSize: 14, fontWeight: '600', color: '#B91C1C' }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: theme.status.danger }}>
             {t('resume_preview.cta_delete')}
           </Text>
         </Pressable>
@@ -484,9 +484,9 @@ function ResumePreviewInner() {
             borderRadius: radii.pill,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#2563EB',
+            backgroundColor: theme.brand.primary,
             opacity: pressed ? 0.85 : 1,
-            shadowColor: '#2563EB',
+            shadowColor: theme.brand.primary,
             shadowOpacity: 0.25,
             shadowRadius: 10,
             shadowOffset: { width: 0, height: 4 },

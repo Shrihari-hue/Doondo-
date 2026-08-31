@@ -449,7 +449,7 @@ function VoiceAgentScreenInner() {
         </Text>
         <View
           style={{
-            backgroundColor: mine ? theme.brand.hero : theme.bg.surface,
+            backgroundColor: mine ? theme.brand.primary : theme.bg.surface,
             borderWidth: mine ? 0 : 1,
             borderColor: theme.border.default,
             borderRadius: radii.lg,
@@ -489,12 +489,12 @@ function VoiceAgentScreenInner() {
               width: 26,
               height: 26,
               borderRadius: 13,
-              backgroundColor: theme.brand.heroSubtle,
+              backgroundColor: theme.brand.accentSubtle,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Text variant="footnote" weight="semibold" style={{ color: theme.brand.hero }}>
+            <Text variant="footnote" weight="semibold" style={{ color: theme.brand.accent }}>
               {position}
             </Text>
           </View>
@@ -515,7 +515,7 @@ function VoiceAgentScreenInner() {
                 marginTop: 4,
               }}
             >
-              <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
+              <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
                 {payLabel(job.pay, t)}
               </Text>
               {distance ? (
@@ -533,7 +533,7 @@ function VoiceAgentScreenInner() {
             accessibilityRole="button"
             style={{
               flex: 1,
-              backgroundColor: applied ? theme.bg.surface : theme.brand.hero,
+              backgroundColor: applied ? theme.bg.surface : theme.brand.accent,
               borderWidth: applied ? 1 : 0,
               borderColor: theme.border.default,
               borderRadius: radii.md,

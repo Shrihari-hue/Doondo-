@@ -85,8 +85,8 @@ function ThemedAppShell() {
       card: theme.bg.surface,
       text: theme.text.primary,
       border: theme.border.default,
-      primary: theme.brand.hero,
-      notification: theme.brand.hero,
+      primary: theme.brand.primary,
+      notification: theme.brand.primary,
     },
   };
 

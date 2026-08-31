@@ -22,7 +22,7 @@
 
 import './env-loader';
 import { eq, inArray } from 'drizzle-orm';
-import { getDb } from '@/db/client';
+import { connectPg, disconnectPg, getDb } from '@/db/client';
 import { applications, jobs, users, type ApplicationStatus, type JobType, type PayPeriod } from '@/db/schema';
 import { logger } from '@/lib/logger';
 import { hashPassword } from '@/lib/password';
@@ -192,6 +192,7 @@ const SEEDS: JobSeed[] = [
 ];
 
 async function main() {
+  connectPg();
   const db = getDb();
   logger.info('seed: connected');
 
@@ -344,6 +345,7 @@ async function main() {
 }
 
 main()
+  .then(() => disconnectPg())
   .then(() => process.exit(0))
   .catch((err) => {
     logger.fatal({ err }, 'seed failed');

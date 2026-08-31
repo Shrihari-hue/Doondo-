@@ -280,7 +280,7 @@ function WhatsAppInboxInner() {
                   backgroundColor:
                     composer.trim().length === 0
                       ? theme.bg.muted
-                      : theme.brand.hero,
+                      : theme.brand.accent,
                   opacity: sendMutation.isPending ? 0.6 : 1,
                 }}
               >
@@ -373,7 +373,7 @@ function WhatsAppInboxInner() {
                         width: 8,
                         height: 8,
                         borderRadius: 4,
-                        backgroundColor: theme.brand.hero,
+                        backgroundColor: theme.brand.accent,
                         marginTop: 6,
                       }}
                     />
@@ -400,7 +400,7 @@ function WhatsAppInboxInner() {
                       <Text
                         variant="caption"
                         weight="medium"
-                        style={{ color: theme.brand.hero }}
+                        style={{ color: theme.brand.accent }}
                       >
                         Awaiting reply
                       </Text>
@@ -437,7 +437,7 @@ function MessageBubble({
       style={{
         alignSelf: isOutbound ? 'flex-end' : 'flex-start',
         maxWidth: '85%',
-        backgroundColor: isOutbound ? theme.brand.hero : theme.bg.muted,
+        backgroundColor: isOutbound ? theme.brand.primary : theme.bg.muted,
         borderRadius: radii.lg,
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.sm,

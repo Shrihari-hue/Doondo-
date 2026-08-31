@@ -22,7 +22,7 @@ import { useTranslate } from '@/i18n/useTranslate';
 import { haptic } from '@/lib/haptics';
 import { paymentsApi, type PaymentIntent } from '@/api/payments.api';
 
-const BLUE  = '#2563EB';
+const BLUE = '#2563EB'; // = theme.brand.primary; module-scope constant, theme unreachable here
 const GREEN = '#16A34A';
 
 interface Props {

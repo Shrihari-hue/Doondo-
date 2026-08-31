@@ -20,7 +20,7 @@ import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
-const BLUE   = '#2563EB';
+const BLUE = '#2563EB'; // = theme.brand.primary; module-scope constant, theme unreachable here
 const GREEN  = '#16A34A';
 const AMBER  = '#F59E0B';
 const RED    = '#EF4444';

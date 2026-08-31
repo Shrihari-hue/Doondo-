@@ -134,8 +134,8 @@ export function AvailabilityBeaconChip({
           borderRadius: radii.lg,
           backgroundColor: isLive ? '#ECFDF5' : '#EFF6FF',
           borderWidth: 1,
-          borderColor: isLive ? '#86EFAC' : '#2563EB',
-          shadowColor: isLive ? '#10B981' : '#2563EB',
+          borderColor: isLive ? '#86EFAC' : theme.brand.primary,
+          shadowColor: isLive ? '#10B981' : theme.brand.primary,
           shadowOffset: { width: 0, height: 3 },
           shadowOpacity: 0.12,
           shadowRadius: 8,
@@ -170,7 +170,7 @@ export function AvailabilityBeaconChip({
               width: 36,
               height: 36,
               borderRadius: 18,
-              backgroundColor: isLive ? '#10B981' : '#2563EB',
+              backgroundColor: isLive ? '#10B981' : theme.brand.primary,
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -182,7 +182,7 @@ export function AvailabilityBeaconChip({
               style={{
                 fontSize: 14,
                 fontWeight: '700',
-                color: isLive ? '#065F46' : '#1E40AF',
+                color: isLive ? theme.status.success : theme.brand.primary,
               }}
             >
               {isLive
@@ -217,10 +217,10 @@ export function AvailabilityBeaconChip({
                   borderRadius: radii.pill,
                   backgroundColor: '#FFFFFF',
                   borderWidth: 0.5,
-                  borderColor: '#A7F3D0',
+                  borderColor: theme.status.successBorder,
                 }}
               >
-                <Text style={{ fontSize: 11, fontWeight: '700', color: '#065F46' }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: theme.status.success }}>
                   {t('home.beacon.stop')}
                 </Text>
               </View>
@@ -535,7 +535,7 @@ function AvailabilityBeaconSheet({
                         borderWidth: 1,
                         borderColor: active ? '#1E3A8A' : theme.border.default,
                         opacity: pressed ? 0.85 : 1,
-                        shadowColor: active ? '#2563EB' : '#0F172A',
+                        shadowColor: active ? theme.brand.primary : '#0F172A',
                         shadowOffset: { width: 0, height: active ? 4 : 1 },
                         shadowOpacity: active ? 0.28 : 0.04,
                         shadowRadius: active ? 10 : 3,
@@ -592,7 +592,7 @@ function AvailabilityBeaconSheet({
                     }}
                   >
                     <Text
-                      style={{ fontSize: 11, fontWeight: '700', color: '#1E40AF' }}
+                      style={{ fontSize: 11, fontWeight: '700', color: theme.brand.primary }}
                     >
                       {t('home.beacon.sheet.selected_count', { count: tradeSlugs.length })}
                     </Text>
@@ -635,7 +635,7 @@ function AvailabilityBeaconSheet({
                         borderWidth: 1,
                         borderColor: active ? '#1E3A8A' : theme.border.default,
                         opacity: pressed ? 0.75 : 1,
-                        shadowColor: active ? '#2563EB' : '#0F172A',
+                        shadowColor: active ? theme.brand.primary : '#0F172A',
                         shadowOffset: { width: 0, height: 2 },
                         shadowOpacity: active ? 0.22 : 0.04,
                         shadowRadius: active ? 6 : 3,
@@ -703,7 +703,7 @@ function AvailabilityBeaconSheet({
                   padding: spacing.md,
                   borderRadius: radii.lg,
                   borderWidth: 0.5,
-                  borderColor: wageEnabled ? '#2563EB' : theme.border.default,
+                  borderColor: wageEnabled ? theme.brand.primary : theme.border.default,
                   backgroundColor: wageEnabled ? '#EFF6FF' : theme.bg.surface,
                   opacity: pressed ? 0.85 : 1,
                 })}
@@ -714,8 +714,8 @@ function AvailabilityBeaconSheet({
                     height: 22,
                     borderRadius: 6,
                     borderWidth: 1.5,
-                    borderColor: wageEnabled ? '#2563EB' : theme.border.strong,
-                    backgroundColor: wageEnabled ? '#2563EB' : 'transparent',
+                    borderColor: wageEnabled ? theme.brand.primary : theme.border.strong,
+                    backgroundColor: wageEnabled ? theme.brand.primary : 'transparent',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
@@ -818,7 +818,7 @@ function AvailabilityBeaconSheet({
                   padding: spacing.md,
                   borderRadius: radii.lg,
                   borderWidth: 0.5,
-                  borderColor: recurring ? '#2563EB' : theme.border.default,
+                  borderColor: recurring ? theme.brand.primary : theme.border.default,
                   backgroundColor: recurring ? '#EFF6FF' : theme.bg.surface,
                   opacity: pressed ? 0.85 : 1,
                 })}
@@ -829,8 +829,8 @@ function AvailabilityBeaconSheet({
                     height: 22,
                     borderRadius: 6,
                     borderWidth: 1.5,
-                    borderColor: recurring ? '#2563EB' : theme.border.strong,
-                    backgroundColor: recurring ? '#2563EB' : 'transparent',
+                    borderColor: recurring ? theme.brand.primary : theme.border.strong,
+                    backgroundColor: recurring ? theme.brand.primary : 'transparent',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
@@ -1036,7 +1036,7 @@ function AvailabilityBeaconSheet({
                 fontSize: 12,
                 lineHeight: 17,
                 fontWeight: '600',
-                color: canPublish ? '#065F46' : '#9A3412',
+                color: canPublish ? theme.status.success : '#9A3412',
               }}
             >
               {canPublish

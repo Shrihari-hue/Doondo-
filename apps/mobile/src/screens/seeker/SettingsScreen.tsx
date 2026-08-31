@@ -246,7 +246,7 @@ function SettingsInner() {
                       <Feather
                         name="check"
                         size={18}
-                        color={theme.brand.hero}
+                        color={theme.brand.accent}
                       />
                     )}
                   </Pressable>
@@ -485,7 +485,7 @@ function SettingsInner() {
                         haptic('selection');
                         void setLockEnabled(!lockEnabled);
                       }}
-                      trackColor={{ false: theme.bg.muted, true: theme.brand.hero }}
+                      trackColor={{ false: theme.bg.muted, true: theme.brand.accent }}
                     />
                   </View>
                   <Text
@@ -537,8 +537,8 @@ function SettingsInner() {
                         paddingVertical: spacing.xs + 2,
                         borderRadius: radii.pill,
                         borderWidth: active ? 1 : 0.5,
-                        borderColor: active ? theme.brand.hero : theme.border.default,
-                        backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                        borderColor: active ? theme.brand.primary : theme.border.default,
+                        backgroundColor: active ? theme.brand.primarySubtle : 'transparent',
                         minWidth: 56,
                         alignItems: 'center',
                       }}
@@ -547,7 +547,7 @@ function SettingsInner() {
                         style={{
                           fontSize: 13,
                           fontWeight: active ? '600' : '500',
-                          color: active ? theme.brand.hero : theme.text.secondary,
+                          color: active ? theme.brand.primary : theme.text.secondary,
                         }}
                       >
                         Aa{s !== 1 ? ` ${s.toFixed(2).replace(/0$/, '')}×` : ''}
@@ -593,7 +593,7 @@ function SettingsInner() {
                   void access.setTtsEnabled(v);
                   if (v) access.speak('Voice mode on');
                 }}
-                trackColor={{ false: theme.bg.muted, true: theme.brand.hero }}
+                trackColor={{ false: theme.bg.muted, true: theme.brand.accent }}
               />
             </View>
           </View>
@@ -757,7 +757,7 @@ function ThemeRow({
         alignItems: 'center',
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.md + 2,
-        backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+        backgroundColor: active ? theme.brand.primarySubtle : 'transparent',
         opacity: pressed ? 0.6 : 1,
         gap: spacing.md,
       })}
@@ -765,14 +765,14 @@ function ThemeRow({
       <Feather
         name={icon}
         size={16}
-        color={active ? theme.brand.hero : theme.text.secondary}
+        color={active ? theme.brand.primary : theme.text.secondary}
       />
       <Text
         style={{
           flex: 1,
           fontSize: 15,
           fontWeight: active ? '600' : '500',
-          color: active ? theme.brand.hero : theme.text.primary,
+          color: active ? theme.brand.primary : theme.text.primary,
         }}
       >
         {label}
@@ -785,7 +785,7 @@ function ThemeRow({
           height: 18,
           borderRadius: 9,
           borderWidth: 1.5,
-          borderColor: active ? theme.brand.hero : theme.border.default,
+          borderColor: active ? theme.brand.primary : theme.border.default,
           alignItems: 'center',
           justifyContent: 'center',
         }}
@@ -796,7 +796,7 @@ function ThemeRow({
               width: 9,
               height: 9,
               borderRadius: 5,
-              backgroundColor: theme.brand.hero,
+              backgroundColor: theme.brand.accent,
             }}
           />
         )}
@@ -826,7 +826,7 @@ function RowAction({
     tone === 'danger'
       ? theme.status.danger
       : tone === 'primary'
-        ? theme.brand.hero
+        ? theme.brand.primary
         : theme.text.primary;
   return (
     <Pressable
@@ -894,11 +894,11 @@ function HourChip({ hour, active, onPress }: { hour: number; active: boolean; on
         paddingVertical: 6,
         borderRadius: 999,
         borderWidth: active ? 1.5 : 1,
-        borderColor: active ? theme.brand.hero : theme.border.subtle,
-        backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+        borderColor: active ? theme.brand.primary : theme.border.subtle,
+        backgroundColor: active ? theme.brand.primarySubtle : 'transparent',
       }}
     >
-      <Text style={{ fontSize: 12, fontWeight: active ? '700' : '500', color: active ? theme.brand.hero : theme.text.secondary }}>
+      <Text style={{ fontSize: 12, fontWeight: active ? '700' : '500', color: active ? theme.brand.primary : theme.text.secondary }}>
         {formatHour(hour)}
       </Text>
     </Pressable>
@@ -934,12 +934,12 @@ function PrefRow({
           width: 32,
           height: 32,
           borderRadius: radii.sm,
-          backgroundColor: theme.brand.heroSubtle,
+          backgroundColor: theme.brand.accentSubtle,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Feather name={icon} size={16} color={theme.brand.hero} />
+        <Feather name={icon} size={16} color={theme.brand.accent} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={{ fontSize: 14, fontWeight: '600', color: theme.text.primary }}>
@@ -950,7 +950,7 @@ function PrefRow({
       <Switch
         value={value}
         onValueChange={onChange}
-        trackColor={{ false: theme.bg.muted, true: theme.brand.hero }}
+        trackColor={{ false: theme.bg.muted, true: theme.brand.accent }}
       />
     </View>
   );

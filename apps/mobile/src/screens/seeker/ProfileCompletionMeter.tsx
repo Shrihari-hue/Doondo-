@@ -121,7 +121,7 @@ export function ProfileCompletionMeter({ user }: Props) {
             {next.subtitle}
           </Text>
         </View>
-        <Text style={{ color: theme.brand.hero, fontWeight: '700', fontSize: 12 }}>
+        <Text style={{ color: theme.brand.accent, fontWeight: '700', fontSize: 12 }}>
           +{next.weight}% →
         </Text>
       </View>

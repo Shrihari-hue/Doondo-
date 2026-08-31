@@ -602,9 +602,9 @@ function SkillsForm({ user }: { user: PublicUser }) {
                 paddingHorizontal: 12,
                 paddingVertical: 8,
                 borderRadius: 999,
-                backgroundColor: active ? '#2563EB' : '#1F2937',
+                backgroundColor: active ? theme.brand.primary : '#1F2937',
                 borderWidth: active ? 0 : 1,
-                borderColor: active ? '#2563EB' : '#374151',
+                borderColor: active ? theme.brand.primary : '#374151',
                 opacity: pressed ? 0.7 : 1,
                 flexShrink: 0,
               })}
@@ -653,7 +653,7 @@ function SkillsForm({ user }: { user: PublicUser }) {
             opacity: draft.trim() ? 1 : 0.4,
           }}
         >
-          <Text variant="footnote" weight="medium" style={{ color: '#2563EB' }}>
+          <Text variant="footnote" weight="medium" style={{ color: theme.brand.primary }}>
             {t('edit_profile.skills.add_btn')}
           </Text>
         </Pressable>
@@ -692,9 +692,9 @@ function SkillsForm({ user }: { user: PublicUser }) {
           borderRadius: radii.lg,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: '#2563EB',
+          backgroundColor: theme.brand.primary,
           opacity: mutation.isPending ? 0.5 : pressed ? 0.85 : 1,
-          shadowColor: '#2563EB',
+          shadowColor: theme.brand.primary,
           shadowOpacity: 0.25,
           shadowRadius: 10,
           shadowOffset: { width: 0, height: 4 },
@@ -851,11 +851,11 @@ function SkillProofSection({
                   paddingHorizontal: 10,
                   borderRadius: radii.pill,
                   borderWidth: 0.5,
-                  borderColor: '#2563EB',
+                  borderColor: theme.brand.primary,
                   opacity: uploadMutation.isPending ? 0.5 : 1,
                 }}
               >
-                <Text variant="caption" weight="medium" style={{ color: '#2563EB' }}>
+                <Text variant="caption" weight="medium" style={{ color: theme.brand.primary }}>
                   + {t('skill_proof.add')}
                 </Text>
               </Pressable>
@@ -1005,15 +1005,15 @@ function PreferencesForm({ user }: { user: PublicUser }) {
                   padding: spacing.md,
                   borderRadius: radii.md,
                   borderWidth: 0.5,
-                  borderColor: active ? theme.brand.hero : theme.border.default,
-                  backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                  borderColor: active ? theme.brand.primary : theme.border.default,
+                  backgroundColor: active ? theme.brand.primarySubtle : 'transparent',
                   gap: spacing.xs,
                 }}
               >
                 <Text
                   variant="bodyLarge"
                   weight="medium"
-                  style={{ color: active ? theme.brand.hero : theme.text.primary }}
+                  style={{ color: active ? theme.brand.primary : theme.text.primary }}
                 >
                   {t(o.labelKey)}
                 </Text>
@@ -1055,14 +1055,14 @@ function PreferencesForm({ user }: { user: PublicUser }) {
                   paddingVertical: spacing.xs,
                   borderRadius: radii.pill,
                   borderWidth: 0.5,
-                  borderColor: active ? theme.brand.hero : theme.border.default,
-                  backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                  borderColor: active ? theme.brand.primary : theme.border.default,
+                  backgroundColor: active ? theme.brand.primarySubtle : 'transparent',
                 }}
               >
                 <Text
                   variant="footnote"
                   weight={active ? 'medium' : 'regular'}
-                  style={{ color: active ? theme.brand.hero : theme.text.secondary }}
+                  style={{ color: active ? theme.brand.primary : theme.text.secondary }}
                 >
                   {t(o.labelKey)}
                 </Text>
@@ -1088,14 +1088,14 @@ function PreferencesForm({ user }: { user: PublicUser }) {
                   paddingVertical: spacing.xs,
                   borderRadius: radii.pill,
                   borderWidth: 0.5,
-                  borderColor: active ? theme.brand.hero : theme.border.default,
-                  backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                  borderColor: active ? theme.brand.primary : theme.border.default,
+                  backgroundColor: active ? theme.brand.primarySubtle : 'transparent',
                 }}
               >
                 <Text
                   variant="footnote"
                   weight={active ? 'medium' : 'regular'}
-                  style={{ color: active ? theme.brand.hero : theme.text.secondary }}
+                  style={{ color: active ? theme.brand.primary : theme.text.secondary }}
                 >
                   {t(o.labelKey)}
                 </Text>
@@ -1196,14 +1196,14 @@ function BusinessBasicsForm({ user }: { user: PublicUser }) {
                   paddingVertical: spacing.xs,
                   borderRadius: radii.pill,
                   borderWidth: 0.5,
-                  borderColor: active ? theme.brand.hero : theme.border.default,
-                  backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                  borderColor: active ? theme.brand.primary : theme.border.default,
+                  backgroundColor: active ? theme.brand.primarySubtle : 'transparent',
                 }}
               >
                 <Text
                   variant="footnote"
                   weight={active ? 'medium' : 'regular'}
-                  style={{ color: active ? theme.brand.hero : theme.text.secondary }}
+                  style={{ color: active ? theme.brand.primary : theme.text.secondary }}
                 >
                   {t(o.labelKey)}
                 </Text>

@@ -32,9 +32,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { ScrollView } from 'react-native-gesture-handler';
 
-import { spacing, radii, blue } from '@doondo/tokens';
+import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, DoondoMark } from '@/components';
 import { setSecure } from '@/lib/secureStore';
+import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
 import type { AuthStackParamList } from '@/navigation/types';
@@ -78,6 +79,7 @@ const ONBOARDING_SEEN_KEY = 'onboardingSeen';
 export function OnboardingScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
   const t = useTranslate();
   const [index, setIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
@@ -119,7 +121,7 @@ export function OnboardingScreen() {
   return (
     <Screen edges={[]}>
       <LinearGradient
-        colors={[blue[700], blue[600], blue[500]]}
+        colors={theme.brand.primaryImmersiveGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -210,7 +212,7 @@ export function OnboardingScreen() {
               style={{
                 fontSize: 16,
                 fontWeight: '700',
-                color: blue[700],
+                color: theme.brand.primaryHover,
               }}
             >
               {index === SLIDES.length - 1 ? t('auth.onboarding.get_started') : t('auth.onboarding.next')}

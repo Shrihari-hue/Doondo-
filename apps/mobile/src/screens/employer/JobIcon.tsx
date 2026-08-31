@@ -200,9 +200,9 @@ function palette(theme: Theme): Record<
       fg: theme.status.success,
     },
     rose: {
-      bg: theme.brand.heroSubtle,
-      border: theme.brand.heroBorder,
-      fg: theme.brand.hero,
+      bg: theme.brand.accentSubtle,
+      border: theme.brand.accentBorder,
+      fg: theme.brand.accent,
     },
     slate: { bg: theme.bg.muted, border: theme.border.default, fg: theme.text.secondary },
   };

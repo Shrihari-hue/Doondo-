@@ -407,7 +407,7 @@ function Inner() {
               }}
               hitSlop={8}
             >
-              <Text style={{ fontSize: 12, fontWeight: '600', color: theme.brand.hero }}>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: theme.brand.accent }}>
                 See more
               </Text>
             </Pressable>
@@ -424,12 +424,12 @@ function Inner() {
                   paddingHorizontal: 12,
                   paddingVertical: 8,
                   borderRadius: radii.pill,
-                  backgroundColor: theme.brand.heroSubtle,
+                  backgroundColor: theme.brand.accentSubtle,
                   borderWidth: 0.5,
-                  borderColor: theme.brand.heroBorder,
+                  borderColor: theme.brand.accentBorder,
                 }}
               >
-                <Text style={{ fontSize: 12, fontWeight: '600', color: theme.brand.hero }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: theme.brand.accent }}>
                   {s.label}
                 </Text>
               </Pressable>
@@ -547,13 +547,14 @@ function Card({
 }
 
 function VerifiedBadge() {
+  const { theme } = useTheme();
   return (
     <View
       style={{
         width: 16,
         height: 16,
         borderRadius: 8,
-        backgroundColor: '#2563EB',
+        backgroundColor: theme.brand.primary,
         alignItems: 'center',
         justifyContent: 'center',
       }}
@@ -586,8 +587,8 @@ function TypeCard({
         paddingVertical: 8,
         borderRadius: radii.lg,
         borderWidth: 1.5,
-        borderColor: selected ? theme.brand.hero : 'transparent',
-        backgroundColor: selected ? theme.brand.heroSubtle : 'transparent',
+        borderColor: selected ? theme.brand.primary : 'transparent',
+        backgroundColor: selected ? theme.brand.primarySubtle : 'transparent',
       }}
     >
       <View
@@ -607,7 +608,7 @@ function TypeCard({
         style={{
           fontSize: 10,
           fontWeight: selected ? '700' : '500',
-          color: selected ? theme.brand.hero : theme.text.secondary,
+          color: selected ? theme.brand.primary : theme.text.secondary,
         }}
       >
         {cfg.label}
@@ -742,8 +743,8 @@ function MediaArea({
               borderRadius: radii.lg,
               borderWidth: 1,
               borderStyle: 'dashed',
-              borderColor: theme.brand.heroBorder,
-              backgroundColor: theme.brand.heroSubtle,
+              borderColor: theme.brand.accentBorder,
+              backgroundColor: theme.brand.accentSubtle,
               alignItems: 'center',
               justifyContent: 'center',
               opacity: picking || mediaUris.length >= 6 ? 0.5 : 1,
@@ -754,7 +755,7 @@ function MediaArea({
               style={{
                 fontSize: 11,
                 fontWeight: '600',
-                color: theme.brand.hero,
+                color: theme.brand.accent,
                 marginTop: 4,
               }}
             >
@@ -838,8 +839,8 @@ function UploadZone({
         borderRadius: radii.lg,
         borderWidth: 1,
         borderStyle: 'dashed',
-        borderColor: theme.brand.heroBorder,
-        backgroundColor: theme.brand.heroSubtle,
+        borderColor: theme.brand.accentBorder,
+        backgroundColor: theme.brand.accentSubtle,
         opacity: picking ? 0.6 : 1,
         gap: 6,
       }}

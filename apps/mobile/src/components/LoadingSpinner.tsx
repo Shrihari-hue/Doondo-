@@ -6,13 +6,13 @@ interface Props {
   fullScreen?: boolean;
   /** 'small' | 'large' from RN. Default 'small'. */
   size?: 'small' | 'large';
-  /** Override the color (default: brand hero coral). */
+  /** Override the color (default: brand primary blue). */
   color?: string;
 }
 
 export function LoadingSpinner({ fullScreen = false, size = 'small', color }: Props) {
   const { theme } = useTheme();
-  const tint = color ?? theme.brand.hero;
+  const tint = color ?? theme.brand.primary;
   if (fullScreen) {
     return (
       <View

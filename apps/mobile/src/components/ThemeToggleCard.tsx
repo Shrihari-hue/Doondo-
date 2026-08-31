@@ -29,13 +29,7 @@ export function ThemeToggleCard() {
   const { theme, scheme, isManual, setScheme, followSystem } = useTheme();
 
   // Resolve current selection: 'system' if not manual, else the active scheme.
-  // The seekerLight variant collapses to 'light' for the toggle — it's not a
-  // user-facing pick yet, it's an internal "seeker tint" the app applies.
-  const active: OptionKey = !isManual
-    ? 'system'
-    : scheme === 'seekerLight'
-      ? 'light'
-      : scheme;
+  const active: OptionKey = !isManual ? 'system' : scheme;
 
   function onSelect(next: OptionKey) {
     if (next === 'system') followSystem();
@@ -91,14 +85,14 @@ export function ThemeToggleCard() {
                   justifyContent: 'center',
                   flexDirection: 'row',
                   gap: 6,
-                  backgroundColor: isActive ? theme.brand.heroSubtle : 'transparent',
+                  backgroundColor: isActive ? theme.brand.primarySubtle : 'transparent',
                   borderWidth: isActive ? 0.5 : 0,
                   borderColor: theme.premium.hairline,
                 }}
               >
                 <Text
                   style={{
-                    color: isActive ? theme.brand.hero : theme.text.tertiary,
+                    color: isActive ? theme.brand.primary : theme.text.tertiary,
                     fontSize: 14,
                   }}
                 >
@@ -108,7 +102,7 @@ export function ThemeToggleCard() {
                   variant="footnote"
                   weight={isActive ? 'medium' : 'regular'}
                   style={{
-                    color: isActive ? theme.brand.hero : theme.text.secondary,
+                    color: isActive ? theme.brand.primary : theme.text.secondary,
                   }}
                 >
                   {o.label}

@@ -127,7 +127,7 @@ function NotificationsScreenInner() {
           </Text>
           {data && data.notifications.some((n) => !n.read) && (
             <Pressable onPress={onMarkAllRead} hitSlop={6}>
-              <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
+              <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
                 {t('notifications.mark_all_read')}
               </Text>
             </Pressable>
@@ -175,7 +175,7 @@ function NotificationsScreenInner() {
                         width: 8,
                         height: 8,
                         borderRadius: 4,
-                        backgroundColor: theme.brand.hero,
+                        backgroundColor: theme.brand.accent,
                         marginTop: 6,
                       }}
                     />

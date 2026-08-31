@@ -58,7 +58,11 @@ export function Text({
     disabled: theme.text.disabled,
     onBrand: theme.text.onBrand,
     inverse: theme.text.inverse,
-    hero: theme.brand.hero,
+    // 'hero' is the small-affordance accent color (links, inline CTAs) —
+    // coral, per the unified theme. Kept as the prop name since 300+ call
+    // sites use tone="hero" for exactly that; only the underlying token
+    // changed (brand.hero → brand.accent, same coral value).
+    hero: theme.brand.accent,
     gold: theme.premium.gold,
     success: theme.status.success,
     warning: theme.status.warning,

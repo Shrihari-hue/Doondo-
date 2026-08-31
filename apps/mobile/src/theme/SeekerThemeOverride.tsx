@@ -1,72 +1,28 @@
 /**
- * SeekerThemeOverride — locks the theme to `seekerLight` for the seeker
- * navigation subtree.
+ * SeekerThemeOverride — historically forced the seeker navigation subtree
+ * onto the separate `seekerLight` (white/blue) palette while the employer
+ * side stayed on the warm-dark palette.
  *
- * Why a separate provider instead of switching the root ThemeProvider:
- *   - The employer side stays on warm-dark luxe. We only want the
- *     seeker tabs + seeker modal screens (JobDetail, VoiceAgent, etc.)
- *     to switch palette.
- *   - The root ThemeProvider stays untouched so existing screens that
- *     use useTheme() inside the employer tree still get the dark palette.
- *   - We re-publish a fresh ThemeContext value with `theme: seekerLight`
- *     so any `useTheme()` call inside this subtree picks it up.
+ * Post theme-unification (see THEME_UNIFICATION_PROMPT.md Step 0): both
+ * roles now render the SAME theme — the root `ThemeProvider`'s `dark`
+ * (or the user's manually-chosen `light`) — so there is no more
+ * role-based branching to do here. This component is kept as a
+ * pass-through (rather than deleted) so the ~57 seeker screens that still
+ * wrap themselves in `<SeekerThemeOverride>` don't all need an import
+ * edit; it now does nothing but render its children under whatever
+ * theme the root provider already supplies.
  *
- * Pass-through behavior: setScheme / followSystem still mutate the
- * root provider's state, so a future settings screen can toggle the
- * underlying preference without us swallowing the calls.
+ * Safe to remove entirely in a follow-up cleanup pass once nothing new
+ * is written against it — kept minimal here to avoid touching 57 call
+ * sites in the same pass as the palette change itself.
  */
 
-import { useContext, useMemo, type ReactNode } from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { themes } from '@doondo/tokens';
-import { ThemeContext } from './ThemeProvider';
-import type { ThemeContextValue } from './types';
+import type { ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
 }
 
 export function SeekerThemeOverride({ children }: Props) {
-  const parent = useContext(ThemeContext);
-
-  // Fall back to the seekerLight palette directly if the root provider
-  // somehow isn't there (e.g. an isolated test render).
-  //
-  // We pin `theme` to the seekerLight tokens so the seeker subtree keeps
-  // its blue palette, but we pass `scheme` through from the root provider.
-  // That way SettingsScreen — which lives inside this override — can read
-  // the user's true light/dark preference and reflect it in the appearance
-  // toggle. Without this passthrough, `scheme` would always be
-  // 'seekerLight' here, and the Light / Dark rows could never show as
-  // active no matter what the user picked.
-  const value = useMemo<ThemeContextValue>(
-    () => ({
-      theme: themes.seekerLight,
-      scheme: parent?.scheme ?? 'seekerLight',
-      setScheme: parent?.setScheme ?? (() => undefined),
-      followSystem: parent?.followSystem ?? (() => undefined),
-      isManual: parent?.isManual ?? false,
-    }),
-    [parent?.scheme, parent?.setScheme, parent?.followSystem, parent?.isManual],
-  );
-
-  return (
-    <ThemeContext.Provider value={value}>
-      {/*
-        Force the status bar (time / signal / battery glyphs) to render
-        dark-on-light. Without this they'd inherit the root provider's
-        'light' style and disappear against our F5F8FC background.
-
-        translucent + backgroundColor handles Android's painted status
-        bar so it tints to match the seeker canvas instead of staying
-        warm-black from the dark theme below.
-      */}
-      <StatusBar
-        style="dark"
-        translucent={false}
-        backgroundColor={themes.seekerLight.bg.canvas}
-      />
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <>{children}</>;
 }

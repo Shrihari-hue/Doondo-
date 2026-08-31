@@ -38,7 +38,7 @@ import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
-const BLUE = '#2563EB';
+const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named constant, not reachable from theme here
 const BLUE_DARK = '#1D4ED8';
 const BLUE_LIGHT = '#EFF6FF';
 const GREEN_DARK = '#16A34A';
@@ -61,7 +61,7 @@ const WHY_EMPLOYERS_FEATURES: ReadonlyArray<{
 ];
 
 export function EmployerHomeScreen() {
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight = scheme !== 'dark';
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
@@ -391,13 +391,13 @@ export function EmployerHomeScreen() {
 
           {/* ── Hero Gradient Summary Card ── */}
           <LinearGradient
-            colors={['#1D4ED8', '#2563EB', '#3B82F6']}
+            colors={['#1D4ED8', theme.brand.primary, '#3B82F6']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
               marginHorizontal: spacing.xl, marginBottom: spacing.md,
               borderRadius: 20, padding: spacing.lg,
-              shadowColor: '#2563EB', shadowOpacity: 0.35,
+              shadowColor: theme.brand.primary, shadowOpacity: 0.35,
               shadowRadius: 16, shadowOffset: { width: 0, height: 6 },
               elevation: 10,
             }}
@@ -621,7 +621,7 @@ export function EmployerHomeScreen() {
               </View>
               <Pressable
                 style={{
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: theme.bg.inverse,
                   borderRadius: 8,
                   paddingHorizontal: spacing.md,
                   paddingVertical: spacing.sm,
@@ -631,7 +631,7 @@ export function EmployerHomeScreen() {
                   navigation.navigate('WalletTopUp');
                 }}
               >
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.text.inverse }}>
                   Add Money
                 </Text>
               </Pressable>
@@ -1186,13 +1186,14 @@ function QuickAccessCard({
 // ── Profile completeness ring ─────────────────────────────────────────────────
 // Segmented dot-arc: 20 dots arranged in a circle, filled proportionally to pct.
 function ProfileRing({ pct }: { pct: number }) {
+  const { theme } = useTheme();
   const DOTS = 20;
   const SIZE = 48;
   const RADIUS = 20;
   const DOT_R = 2.5;
   const filled = Math.round((pct / 100) * DOTS);
   const isGreen = pct >= 80;
-  const activeColor = isGreen ? '#16A34A' : '#2563EB';
+  const activeColor = isGreen ? '#16A34A' : theme.brand.primary;
 
   const dots = Array.from({ length: DOTS }, (_, i) => {
     const angle = (i / DOTS) * 2 * Math.PI - Math.PI / 2; // start at top

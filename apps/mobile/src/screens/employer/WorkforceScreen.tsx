@@ -447,7 +447,7 @@ export function WorkforceScreen() {
                       paddingHorizontal: spacing.md,
                       paddingVertical: 6,
                       borderRadius: radii.pill,
-                      backgroundColor: theme.brand.hero,
+                      backgroundColor: theme.brand.accent,
                     }}
                   >
                     <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>
@@ -472,7 +472,7 @@ export function WorkforceScreen() {
                 {t('employer.crew.timesheet_title')}
               </Text>
               <Pressable onPress={exportTimesheet} hitSlop={8}>
-                <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
+                <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
                   {t('employer.crew.timesheet_export')}
                 </Text>
               </Pressable>
@@ -522,7 +522,7 @@ export function WorkforceScreen() {
                 hitSlop={8}
                 accessibilityRole="button"
               >
-                <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
+                <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
                   {t('employer.squad.new')}
                 </Text>
               </Pressable>
@@ -549,7 +549,7 @@ export function WorkforceScreen() {
                   </Text>
                   <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xs }}>
                     <Pressable onPress={() => setDeployFor(sq)} hitSlop={6} accessibilityRole="button">
-                      <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
+                      <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
                         {t('employer.squad.deploy')}
                       </Text>
                     </Pressable>
@@ -578,11 +578,11 @@ export function WorkforceScreen() {
             borderRadius: radii.pill,
             alignItems: 'center',
             borderWidth: 0.5,
-            borderColor: theme.brand.hero,
+            borderColor: theme.brand.accent,
             opacity: statementBusy ? 0.6 : 1,
           }}
         >
-          <Text variant="body" weight="medium" style={{ color: theme.brand.hero }}>
+          <Text variant="body" weight="medium" style={{ color: theme.brand.accent }}>
             {statementBusy
               ? t('employer.statement.generating')
               : t('employer.statement.cta')}
@@ -596,7 +596,7 @@ export function WorkforceScreen() {
             paddingVertical: 14,
             borderRadius: radii.pill,
             alignItems: 'center',
-            backgroundColor: theme.brand.hero,
+            backgroundColor: theme.brand.accent,
             opacity: importing ? 0.6 : 1,
           }}
         >
@@ -638,7 +638,7 @@ export function WorkforceScreen() {
                       paddingHorizontal: spacing.md,
                       paddingVertical: 6,
                       borderRadius: radii.pill,
-                      backgroundColor: theme.brand.hero,
+                      backgroundColor: theme.brand.accent,
                     }}
                   >
                     <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>
@@ -826,8 +826,8 @@ export function WorkforceScreen() {
                         padding: spacing.sm,
                         borderRadius: radii.lg,
                         borderWidth: 0.5,
-                        borderColor: picked ? theme.brand.hero : theme.border.default,
-                        backgroundColor: picked ? `${theme.brand.hero}14` : 'transparent',
+                        borderColor: picked ? theme.brand.primary : theme.border.default,
+                        backgroundColor: picked ? `${theme.brand.accent}14` : 'transparent',
                       }}
                     >
                       <Avatar name={w.name} photoUrl={w.photoUrl} size={32} />
@@ -837,7 +837,7 @@ export function WorkforceScreen() {
                       <Feather
                         name={picked ? 'check-circle' : 'circle'}
                         size={18}
-                        color={picked ? theme.brand.hero : theme.text.tertiary}
+                        color={picked ? theme.brand.primary : theme.text.tertiary}
                       />
                     </Pressable>
                   );

@@ -89,7 +89,7 @@ function Inner() {
           accessibilityLabel={t('cohorts.new_a11y')}
           hitSlop={10}
         >
-          <Feather name="plus-circle" size={22} color={theme.brand.hero} />
+          <Feather name="plus-circle" size={22} color={theme.brand.accent} />
         </Pressable>
       </View>
 
@@ -108,10 +108,10 @@ function Inner() {
                 <View
                   key={c.id}
                   style={{
-                    backgroundColor: theme.brand.heroSubtle,
+                    backgroundColor: theme.brand.accentSubtle,
                     borderRadius: radii.lg,
                     borderWidth: 1,
-                    borderColor: theme.brand.hero + '33',
+                    borderColor: theme.brand.accent + '33',
                     padding: spacing.lg,
                     gap: spacing.sm,
                   }}
@@ -179,7 +179,7 @@ function Inner() {
                           height: 20,
                           borderRadius: 10,
                           paddingHorizontal: 6,
-                          backgroundColor: theme.brand.hero,
+                          backgroundColor: theme.brand.accent,
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}

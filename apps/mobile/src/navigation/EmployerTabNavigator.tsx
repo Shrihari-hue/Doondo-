@@ -30,12 +30,10 @@ import { PostsScreen } from '@/screens/employer/PostsScreen';
 import { WorkersScreen } from '@/screens/employer/WorkersScreen';
 import { EmployerProfileScreen } from '@/screens/employer/EmployerProfileScreen';
 import { ChatListScreen } from '@/screens/chat/ChatListScreen';
+import { ApplicantsScreen } from '@/screens/employer/ApplicantsScreen';
 import type { EmployerTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<EmployerTabParamList>();
-
-const BLUE = '#2563EB';
-const ORANGE = '#F97316';
 
 // Map route → Feather icon name + label
 const TAB_META: Record<
@@ -47,6 +45,9 @@ const TAB_META: Record<
   Workers: { label: 'My Workers', icon: 'users' },
   Chat: { label: 'Chat', icon: 'message-circle' },
   EmployerProfile: { label: 'You', icon: 'user' },
+  // Never rendered — DoondoEmployerTabBar filters this route out of the
+  // visible row (see below). Entry exists only to satisfy the Record type.
+  Applicants: { label: 'Applicants', icon: 'users' },
 };
 
 export function EmployerTabNavigator() {
@@ -65,13 +66,23 @@ export function EmployerTabNavigator() {
         component={EmployerProfileScreen}
         options={{ tabBarAccessibilityLabel: 'Profile' }}
       />
+      {/*
+        Applicants has no bottom-bar icon of its own — DoondoEmployerTabBar
+        filters it out of the rendered row below and hides the bar entirely
+        while it's focused. Registered here (last, so it doesn't shift the
+        index-based FAB/pill math for the 5 visible tabs) purely so
+        navigate('Applicants') / navigate('EmployerTabs', { screen: 'Applicants' })
+        resolves — see EmployerHomeScreen's "Recent Activity → View all",
+        the notification tray, ChatListScreen, seeker NotificationsScreen,
+        and the voice agent's "show my applicants" intent.
+      */}
+      <Tab.Screen name="Applicants" component={ApplicantsScreen} />
     </Tab.Navigator>
   );
 }
 
 function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-  const { scheme } = useTheme();
-  const isLight = scheme !== 'dark';
+  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const rootNav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
 
@@ -98,10 +109,10 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
     outputRange: [0, 1, 2, 3, 4].map((i) => i * TAB_W),
   });
 
-  const activeColor = BLUE;
-  const inactiveColor = isLight ? '#9CA3AF' : '#6B7280';
-  const barBg = isLight ? '#FFFFFF' : '#111111';
-  const barBorder = isLight ? '#E5E7EB' : '#1F1F1F';
+  const activeColor = theme.brand.primary;
+  const inactiveColor = theme.text.tertiary;
+  const barBg = theme.bg.surface;
+  const barBorder = theme.border.default;
 
   // Mic FAB discovery bubble — shown until the user dismisses it or tries voice search once
   const [showMicBubble, setShowMicBubble] = useState(false);
@@ -179,6 +190,12 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
     return { jobs, workers, applicants };
   }, [searchQ, jobsQuery.data, applicantsQuery.data]);
 
+  // Applicants is a real tab (so `navigate('Applicants')` resolves from
+  // anywhere) but has no icon of its own and isn't one of the 5 visible
+  // slots the FAB/pill math below assumes — hide the whole bar chrome
+  // while it's open, same as any full-screen list would.
+  if (state.routes[state.index]!.name === 'Applicants') return null;
+
   return (
     <View
       style={{
@@ -199,13 +216,13 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
             width: PILL_W,
             height: 3,
             borderRadius: 2,
-            backgroundColor: BLUE,
+            backgroundColor: theme.brand.primary,
             transform: [{ translateX: pillTranslateX }],
           }}
         />
       </View>
       <View style={{ flexDirection: 'row', paddingTop: spacing.sm, alignItems: 'flex-end' }}>
-      {state.routes.map((route, index) => {
+      {state.routes.filter((route) => route.name !== 'Applicants').map((route, index) => {
         const isFocused = state.index === index;
         const meta = TAB_META[route.name as keyof EmployerTabParamList];
         const { options } = descriptors[route.key]!;
@@ -237,7 +254,7 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
                 >
                   <View
                     style={{
-                      backgroundColor: ORANGE,
+                      backgroundColor: theme.accent.voice,
                       paddingHorizontal: 10,
                       paddingVertical: 6,
                       borderRadius: 12,
@@ -261,7 +278,7 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
                       borderTopWidth: 5,
                       borderLeftColor: 'transparent',
                       borderRightColor: 'transparent',
-                      borderTopColor: ORANGE,
+                      borderTopColor: theme.accent.voice,
                     }}
                   />
                 </Pressable>
@@ -275,7 +292,7 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
                   width: 56,
                   height: 56,
                   borderRadius: 28,
-                  backgroundColor: ORANGE,
+                  backgroundColor: theme.accent.voice,
                   alignItems: 'center',
                   justifyContent: 'center',
                   // White ring separates the FAB from the white tab bar in light mode
@@ -326,7 +343,7 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
                   top: -4, right: -6,
                   minWidth: 16, height: 16,
                   borderRadius: 8,
-                  backgroundColor: '#EF4444',
+                  backgroundColor: theme.status.danger,
                   alignItems: 'center', justifyContent: 'center',
                   paddingHorizontal: 3,
                   borderWidth: 1.5,
@@ -359,27 +376,27 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
             <Pressable onPress={(e) => e.stopPropagation?.()}>
               <View style={{
                 marginTop: insets.top + 16, marginHorizontal: 16,
-                backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+                backgroundColor: theme.bg.elevated,
                 borderRadius: 20, overflow: 'hidden',
                 shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 20, shadowOffset: { width: 0, height: 8 },
                 elevation: 20,
               }}>
                 {/* Search input */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 10, borderBottomWidth: 0.5, borderBottomColor: isLight ? '#E5E7EB' : '#1E1E1E' }}>
-                  <Feather name="search" size={18} color={isLight ? '#9CA3AF' : '#6B7280'} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 10, borderBottomWidth: 0.5, borderBottomColor: theme.border.subtle }}>
+                  <Feather name="search" size={18} color={theme.text.tertiary} />
                   <TextInput
                     autoFocus
                     placeholder="Search jobs, workers, applicants…"
-                    placeholderTextColor={isLight ? '#9CA3AF' : '#6B7280'}
+                    placeholderTextColor={theme.text.tertiary}
                     value={searchQ}
                     onChangeText={setSearchQ}
                     onSubmitEditing={() => { if (searchQ.trim()) void saveSearch(searchQ.trim()); }}
                     returnKeyType="search"
-                    style={{ flex: 1, fontSize: 16, color: isLight ? '#111827' : '#F9FAFB', paddingVertical: 2 }}
+                    style={{ flex: 1, fontSize: 16, color: theme.text.primary, paddingVertical: 2 }}
                   />
                   {searchQ.length > 0 && (
                     <Pressable onPress={() => setSearchQ('')} hitSlop={8}>
-                      <Feather name="x-circle" size={16} color={isLight ? '#9CA3AF' : '#6B7280'} />
+                      <Feather name="x-circle" size={16} color={theme.text.tertiary} />
                     </Pressable>
                   )}
                 </View>
@@ -390,20 +407,20 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
                     <View style={{ padding: 16, gap: 12 }}>
                       {recentSearches.length > 0 && (
                         <>
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: isLight ? '#9CA3AF' : '#6B7280', letterSpacing: 0.5 }}>RECENT</Text>
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.text.tertiary, letterSpacing: 0.5 }}>RECENT</Text>
                           {recentSearches.map((s) => (
                             <Pressable key={s} onPress={() => setSearchQ(s)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                              <Feather name="clock" size={14} color={isLight ? '#D1D5DB' : '#374151'} />
-                              <Text style={{ fontSize: 14, color: isLight ? '#374151' : '#D1D5DB' }}>{s}</Text>
+                              <Feather name="clock" size={14} color={theme.text.tertiary} />
+                              <Text style={{ fontSize: 14, color: theme.text.secondary }}>{s}</Text>
                             </Pressable>
                           ))}
                         </>
                       )}
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: isLight ? '#9CA3AF' : '#6B7280', letterSpacing: 0.5, marginTop: 4 }}>TRY SEARCHING</Text>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: theme.text.tertiary, letterSpacing: 0.5, marginTop: 4 }}>TRY SEARCHING</Text>
                       {['chef', 'delivery', 'bengaluru'].map((hint) => (
                         <Pressable key={hint} onPress={() => setSearchQ(hint)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                          <Feather name="trending-up" size={14} color={BLUE} />
-                          <Text style={{ fontSize: 14, color: BLUE }}>{hint}</Text>
+                          <Feather name="trending-up" size={14} color={theme.brand.primary} />
+                          <Text style={{ fontSize: 14, color: theme.brand.primary }}>{hint}</Text>
                         </Pressable>
                       ))}
                     </View>
@@ -411,48 +428,48 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
                     <View style={{ padding: 16, gap: 12 }}>
                       {searchResults.jobs.length > 0 && (
                         <>
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: isLight ? '#9CA3AF' : '#6B7280', letterSpacing: 0.5 }}>JOBS</Text>
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.text.tertiary, letterSpacing: 0.5 }}>JOBS</Text>
                           {searchResults.jobs.map((j) => (
                             <Pressable key={j.id} onPress={() => { void saveSearch(searchQ.trim()); setShowSearch(false); setSearchQ(''); rootNav.navigate('PostJob', { editJobId: j.id }); }}
                               style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                              <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: BLUE + '18', alignItems: 'center', justifyContent: 'center' }}>
-                                <Feather name="briefcase" size={13} color={BLUE} />
+                              <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: theme.brand.primarySubtle, alignItems: 'center', justifyContent: 'center' }}>
+                                <Feather name="briefcase" size={13} color={theme.brand.primary} />
                               </View>
-                              <Text style={{ fontSize: 14, color: isLight ? '#111827' : '#F9FAFB' }}>{j.title}</Text>
+                              <Text style={{ fontSize: 14, color: theme.text.primary }}>{j.title}</Text>
                             </Pressable>
                           ))}
                         </>
                       )}
                       {searchResults.workers.length > 0 && (
                         <>
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: isLight ? '#9CA3AF' : '#6B7280', letterSpacing: 0.5, marginTop: 4 }}>WORKERS</Text>
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.text.tertiary, letterSpacing: 0.5, marginTop: 4 }}>WORKERS</Text>
                           {searchResults.workers.map((a) => (
                             <Pressable key={a.id} onPress={() => { void saveSearch(searchQ.trim()); setShowSearch(false); setSearchQ(''); rootNav.navigate('WorkerDetail', { applicationId: a.id }); }}
                               style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                              <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#16A34A18', alignItems: 'center', justifyContent: 'center' }}>
-                                <Feather name="user-check" size={13} color="#16A34A" />
+                              <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: theme.status.successSubtle, alignItems: 'center', justifyContent: 'center' }}>
+                                <Feather name="user-check" size={13} color={theme.status.success} />
                               </View>
-                              <Text style={{ fontSize: 14, color: isLight ? '#111827' : '#F9FAFB' }}>{a.seeker?.name ?? 'Worker'}</Text>
+                              <Text style={{ fontSize: 14, color: theme.text.primary }}>{a.seeker?.name ?? 'Worker'}</Text>
                             </Pressable>
                           ))}
                         </>
                       )}
                       {searchResults.applicants.length > 0 && (
                         <>
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: isLight ? '#9CA3AF' : '#6B7280', letterSpacing: 0.5, marginTop: 4 }}>APPLICANTS</Text>
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.text.tertiary, letterSpacing: 0.5, marginTop: 4 }}>APPLICANTS</Text>
                           {searchResults.applicants.map((a) => (
                             <Pressable key={a.id} onPress={() => { void saveSearch(searchQ.trim()); setShowSearch(false); setSearchQ(''); rootNav.navigate('ApplicantDetail', { applicationId: a.id }); }}
                               style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                              <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: BLUE + '18', alignItems: 'center', justifyContent: 'center' }}>
-                                <Feather name="users" size={13} color={BLUE} />
+                              <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: theme.brand.primarySubtle, alignItems: 'center', justifyContent: 'center' }}>
+                                <Feather name="users" size={13} color={theme.brand.primary} />
                               </View>
-                              <Text style={{ fontSize: 14, color: isLight ? '#111827' : '#F9FAFB' }}>{a.seeker?.name ?? 'Applicant'}</Text>
+                              <Text style={{ fontSize: 14, color: theme.text.primary }}>{a.seeker?.name ?? 'Applicant'}</Text>
                             </Pressable>
                           ))}
                         </>
                       )}
                       {searchResults.jobs.length === 0 && searchResults.workers.length === 0 && searchResults.applicants.length === 0 && (
-                        <Text style={{ fontSize: 14, color: isLight ? '#9CA3AF' : '#6B7280', textAlign: 'center', paddingVertical: 20 }}>No results for "{searchQ}"</Text>
+                        <Text style={{ fontSize: 14, color: theme.text.tertiary, textAlign: 'center', paddingVertical: 20 }}>No results for "{searchQ}"</Text>
                       )}
                     </View>
                   )}

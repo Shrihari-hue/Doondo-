@@ -75,7 +75,7 @@ function Inner() {
     ? (query.data?.jobs ?? []).filter((j) => isFestivalJob(j.skills, festival))
     : [];
 
-  const accent = festival?.accent ?? theme.brand.hero;
+  const accent = festival?.accent ?? theme.brand.primary;
 
   return (
     <Screen edges={[]}>
@@ -199,7 +199,7 @@ function Inner() {
                 </Text>
               ) : null}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: theme.brand.hero }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: theme.brand.accent }}>
                   {formatPay(job.pay)}
                 </Text>
                 <Text style={{ fontSize: 12, color: theme.text.tertiary }}>

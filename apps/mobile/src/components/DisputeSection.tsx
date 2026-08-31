@@ -134,7 +134,7 @@ export function DisputeSection({ applicationId }: { applicationId: string }) {
           {t('dispute.section_title')}
         </Text>
         <Pressable onPress={() => setRaiseOpen(true)} hitSlop={8} accessibilityRole="button">
-          <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
+          <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
             {t('dispute.raise_cta')}
           </Text>
         </Pressable>
@@ -201,7 +201,7 @@ export function DisputeSection({ applicationId }: { applicationId: string }) {
                 {!closed && (
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs }}>
                     <Pressable onPress={() => setReplyFor(d.id)} hitSlop={6} accessibilityRole="button">
-                      <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
+                      <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
                         {t('dispute.reply')}
                       </Text>
                     </Pressable>
@@ -275,8 +275,8 @@ export function DisputeSection({ applicationId }: { applicationId: string }) {
                         paddingVertical: 8,
                         borderRadius: radii.pill,
                         borderWidth: 0.5,
-                        borderColor: category === c ? theme.brand.hero : theme.border.default,
-                        backgroundColor: category === c ? theme.brand.hero : 'transparent',
+                        borderColor: category === c ? theme.brand.primary : theme.border.default,
+                        backgroundColor: category === c ? theme.brand.primary : 'transparent',
                       }}
                     >
                       <Text

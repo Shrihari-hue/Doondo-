@@ -55,9 +55,9 @@ export function Pill({ label, tone = 'neutral', leading, style, ...rest }: Props
       color: theme.status.info,
     },
     hero: {
-      bg: theme.brand.heroSubtle,
-      border: theme.brand.heroBorder,
-      color: theme.brand.hero,
+      bg: theme.brand.accentSubtle,
+      border: theme.brand.accentBorder,
+      color: theme.brand.accent,
     },
     premium: {
       bg: theme.premium.goldSubtle,

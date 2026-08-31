@@ -70,6 +70,15 @@ export type EmployerTabParamList = {
   Chat: undefined;
   /** Business profile, verification, reviews, payouts, settings. */
   EmployerProfile: undefined;
+  /**
+   * Cross-job applicant list (all applicants across every posted job).
+   * Not shown as its own bottom-bar icon — reached from "View all" on
+   * Recent Activity, the notification tray, chat/notification deep links,
+   * and the voice agent. Registered here so `navigate('Applicants')` /
+   * `navigate('EmployerTabs', { screen: 'Applicants' })` resolves instead
+   * of failing at runtime.
+   */
+  Applicants: undefined;
 };
 
 export type AppStackParamList = {

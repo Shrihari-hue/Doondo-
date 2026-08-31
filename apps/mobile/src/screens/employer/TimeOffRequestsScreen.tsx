@@ -25,7 +25,7 @@ import { haptic } from '@/lib/haptics';
 const AMBER  = '#F59E0B';
 const GREEN  = '#16A34A';
 const RED    = '#EF4444';
-const BLUE   = '#2563EB';
+const BLUE = '#2563EB'; // = theme.brand.primary; module-scope constant, theme unreachable here
 
 type RequestStatus = 'pending' | 'approved' | 'denied';
 

@@ -252,7 +252,7 @@ function Inner() {
                 paddingHorizontal: spacing.lg,
                 paddingVertical: spacing.sm,
                 borderRadius: radii.pill,
-                backgroundColor: theme.brand.hero,
+                backgroundColor: theme.brand.accent,
                 opacity: pressed ? 0.85 : 1,
               })}
             >
@@ -294,15 +294,15 @@ function Inner() {
                     gap: spacing.sm,
                     padding: spacing.md,
                     borderRadius: radii.lg,
-                    backgroundColor: theme.brand.heroSubtle,
+                    backgroundColor: theme.brand.accentSubtle,
                     opacity: pressed ? 0.8 : 1,
                   })}
                 >
-                  <Feather name="users" size={16} color={theme.brand.hero} />
-                  <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: theme.brand.hero }}>
+                  <Feather name="users" size={16} color={theme.brand.accent} />
+                  <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: theme.brand.accent }}>
                     {t('find_friends.start_cohort_cta')}
                   </Text>
-                  <Feather name="chevron-right" size={16} color={theme.brand.hero} />
+                  <Feather name="chevron-right" size={16} color={theme.brand.accent} />
                 </Pressable>
               </View>
             )}
@@ -343,7 +343,7 @@ function Inner() {
                         {f.role === 'employer' ? t('find_friends.role_employer') : t('find_friends.role_seeker')}
                       </Text>
                     </View>
-                    <Feather name="chevron-right" size={16} color={theme.brand.hero} />
+                    <Feather name="chevron-right" size={16} color={theme.brand.accent} />
                   </Pressable>
                 ))
               )}

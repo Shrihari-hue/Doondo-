@@ -331,7 +331,7 @@ export function ApplicantDetailScreen() {
 
   const { width: screenWidth } = Dimensions.get('window');
   const HERO_HEIGHT = 320;
-  const BLUE = '#2563EB';
+  const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named constant, not reachable from theme here
   const GREEN = '#22C55E';
 
   const seeker = applicant.seeker;
@@ -480,12 +480,12 @@ export function ApplicantDetailScreen() {
                         flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
                         paddingVertical: 10, borderRadius: 10,
                         borderWidth: 1.5,
-                        borderColor: feedbackShowedUp === val ? '#2563EB' : (isLight ? '#E5E7EB' : '#374151'),
+                        borderColor: feedbackShowedUp === val ? theme.brand.primary : (isLight ? '#E5E7EB' : '#374151'),
                         backgroundColor: feedbackShowedUp === val ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent',
                         opacity: pressed ? 0.75 : 1,
                       })}>
-                      <Feather name={icon} size={14} color={feedbackShowedUp === val ? '#2563EB' : (isLight ? '#6B7280' : '#9CA3AF')} />
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: feedbackShowedUp === val ? '#2563EB' : (isLight ? '#6B7280' : '#9CA3AF') }}>{label}</Text>
+                      <Feather name={icon} size={14} color={feedbackShowedUp === val ? theme.brand.primary : (isLight ? '#6B7280' : '#9CA3AF')} />
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: feedbackShowedUp === val ? theme.brand.primary : (isLight ? '#6B7280' : '#9CA3AF') }}>{label}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -517,12 +517,12 @@ export function ApplicantDetailScreen() {
                         flexDirection: 'row', alignItems: 'center', gap: 6,
                         paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
                         borderWidth: 1.5,
-                        borderColor: feedbackNextStep === val ? '#2563EB' : (isLight ? '#E5E7EB' : '#374151'),
+                        borderColor: feedbackNextStep === val ? theme.brand.primary : (isLight ? '#E5E7EB' : '#374151'),
                         backgroundColor: feedbackNextStep === val ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent',
                         opacity: pressed ? 0.75 : 1,
                       })}>
-                      <Feather name={icon} size={14} color={feedbackNextStep === val ? '#2563EB' : (isLight ? '#6B7280' : '#9CA3AF')} />
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: feedbackNextStep === val ? '#2563EB' : (isLight ? '#6B7280' : '#9CA3AF') }}>{label}</Text>
+                      <Feather name={icon} size={14} color={feedbackNextStep === val ? theme.brand.primary : (isLight ? '#6B7280' : '#9CA3AF')} />
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: feedbackNextStep === val ? theme.brand.primary : (isLight ? '#6B7280' : '#9CA3AF') }}>{label}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -538,7 +538,7 @@ export function ApplicantDetailScreen() {
                 }}
                 disabled={feedbackShowedUp === null || feedbackImpression === 0 || feedbackNextStep === ''}
                 style={({ pressed }) => ({
-                  backgroundColor: '#2563EB', borderRadius: 12, paddingVertical: 14,
+                  backgroundColor: theme.brand.primary, borderRadius: 12, paddingVertical: 14,
                   alignItems: 'center', opacity: pressed || (feedbackShowedUp === null || feedbackImpression === 0 || feedbackNextStep === '') ? 0.5 : 1,
                 })}
               >
@@ -774,7 +774,7 @@ export function ApplicantDetailScreen() {
               flexDirection: 'row', alignItems: 'center', gap: spacing.md,
               marginHorizontal: spacing.xl, marginTop: spacing.md,
               padding: spacing.md, borderRadius: 12,
-              backgroundColor: theme.brand.heroSubtle, borderWidth: 0.5, borderColor: theme.brand.heroBorder,
+              backgroundColor: theme.brand.accentSubtle, borderWidth: 0.5, borderColor: theme.brand.accentBorder,
               opacity: pressed ? 0.7 : 1,
             })}
           >
@@ -783,7 +783,7 @@ export function ApplicantDetailScreen() {
               <Text variant="bodyLarge" weight="medium" tone="hero">{t('employer.applicant_detail.rate_worker')}</Text>
               <Text variant="footnote" tone="secondary" numberOfLines={1}>{t('employer.applicant_detail.rate_worker_hint')}</Text>
             </View>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.brand.hero }}>{t('employer.applicant_detail.rate_cta') + ' \u203A'}</Text>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.brand.accent }}>{t('employer.applicant_detail.rate_cta') + ' \u203A'}</Text>
           </Pressable>
         )}
 
@@ -899,9 +899,9 @@ export function ApplicantDetailScreen() {
                   return (
                     <View key={slot} style={{ flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12,
                       backgroundColor: hasSlot ? (isLight ? '#EFF6FF' : '#1E3A5F') : subtleBg,
-                      borderWidth: 1.5, borderColor: hasSlot ? '#2563EB' : borderColor, gap: 4 }}>
-                      <Feather name={icons[slot]} size={18} color={hasSlot ? '#2563EB' : '#9CA3AF'} />
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: hasSlot ? '#2563EB' : '#9CA3AF' }}>
+                      borderWidth: 1.5, borderColor: hasSlot ? theme.brand.primary : borderColor, gap: 4 }}>
+                      <Feather name={icons[slot]} size={18} color={hasSlot ? theme.brand.primary : '#9CA3AF'} />
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: hasSlot ? theme.brand.primary : '#9CA3AF' }}>
                         {slot}
                       </Text>
                     </View>
@@ -1388,6 +1388,7 @@ function VideoPitchCard({
   textPrimary: string;
   textSecondary: string;
 }) {
+  const { theme } = useTheme();
   const dur = reel.durationSeconds;
   const durLabel = dur >= 60 ? `${Math.floor(dur / 60)}m ${dur % 60}s` : `${dur}s`;
   const surface = isLight ? '#FFFFFF' : '#0D0D0D';
@@ -1412,7 +1413,7 @@ function VideoPitchCard({
         </View>
         <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
           backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F', borderWidth: 0.5, borderColor: isLight ? '#BFDBFE' : '#1E3A5F' }}>
-          <Text style={{ fontSize: 12, fontWeight: '600', color: '#2563EB' }}>{durLabel}</Text>
+          <Text style={{ fontSize: 12, fontWeight: '600', color: theme.brand.primary }}>{durLabel}</Text>
         </View>
       </View>
 
@@ -2177,11 +2178,11 @@ function CallViaDoondoButton({ applicationId }: { applicationId: string }) {
         paddingVertical: 12,
         borderRadius: radii.pill,
         borderWidth: 0.5,
-        borderColor: theme.brand.hero,
+        borderColor: theme.brand.accent,
         opacity: busy ? 0.6 : 1,
       }}
     >
-      <Text variant="body" weight="medium" style={{ color: theme.brand.hero }}>
+      <Text variant="body" weight="medium" style={{ color: theme.brand.accent }}>
         {busy ? t('masked_call.connecting') : t('masked_call.cta')}
       </Text>
     </Pressable>
@@ -2608,7 +2609,7 @@ function ConstitutionPanel({
               key={i}
               style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' }}
             >
-              <Text style={{ color: theme.brand.hero, lineHeight: 20 }}>•</Text>
+              <Text style={{ color: theme.brand.accent, lineHeight: 20 }}>•</Text>
               <Text variant="footnote" style={{ flex: 1 }}>
                 {item}
               </Text>
@@ -3124,14 +3125,14 @@ function ScheduleForm({ initial, submitting, onCancel, onSubmit }: ScheduleFormP
                     paddingVertical: spacing.xs,
                     borderRadius: radii.pill,
                     borderWidth: 0.5,
-                    borderColor: active ? theme.brand.hero : theme.border.default,
-                    backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                    borderColor: active ? theme.brand.primary : theme.border.default,
+                    backgroundColor: active ? theme.brand.primarySubtle : 'transparent',
                   }}
                 >
                   <Text
                     variant="footnote"
                     weight={active ? 'medium' : 'regular'}
-                    style={{ color: active ? theme.brand.hero : theme.text.secondary }}
+                    style={{ color: active ? theme.brand.primary : theme.text.secondary }}
                   >
                     {t(o.labelKey)}
                   </Text>

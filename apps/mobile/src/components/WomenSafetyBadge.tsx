@@ -33,9 +33,9 @@ export function WomenSafetyBadge({ tier, compact = false }: Props) {
   // Green for a strong record, brand-blue for medium, neutral for basic.
   const palette =
     tier === 'high'
-      ? { bg: '#D1FAE5', fg: '#065F46' }
+      ? { bg: theme.status.successSubtle, fg: theme.status.success }
       : tier === 'medium'
-        ? { bg: theme.brand.heroSubtle, fg: theme.brand.hero }
+        ? { bg: theme.brand.primarySubtle, fg: theme.brand.primary }
         : { bg: theme.bg.surface, fg: theme.text.secondary };
 
   return (

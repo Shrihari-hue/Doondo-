@@ -8,8 +8,8 @@
  */
 
 import { Image, View } from 'react-native';
-import { champagne } from '@doondo/tokens';
 import { Text } from './Text';
+import { useTheme } from '@/theme/useTheme';
 
 interface Props {
   name: string;
@@ -43,6 +43,7 @@ function nameToColor(name: string): string {
 }
 
 export function Avatar({ name, photoUrl, size = 88, premium = false }: Props) {
+  const { theme } = useTheme();
   const initials = getInitials(name);
   const bgColor = nameToColor(name);
 
@@ -53,7 +54,7 @@ export function Avatar({ name, photoUrl, size = 88, premium = false }: Props) {
         height: size,
         borderRadius: size / 2,
         borderWidth: premium ? 1.5 : 0,
-        borderColor: premium ? '#FDE68A' : 'transparent',
+        borderColor: premium ? theme.premium.hairline : 'transparent',
         overflow: 'hidden',
         backgroundColor: bgColor,
         alignItems: 'center',

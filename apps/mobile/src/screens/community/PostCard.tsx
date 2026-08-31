@@ -30,7 +30,7 @@ interface MediaShape {
   certificateTitle?: string;
 }
 
-const BLUE = '#2563EB';
+const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named constant, not reachable from theme here
 const GREEN = '#16A34A';
 
 /** Bar heights for the voice-note waveform. */
@@ -207,8 +207,8 @@ export function PostMedia({ media }: { media: MediaShape }) {
           padding: spacing.md,
           borderRadius: radii.lg,
           borderWidth: 0.5,
-          borderColor: theme.brand.heroBorder,
-          backgroundColor: theme.brand.heroSubtle,
+          borderColor: theme.brand.accentBorder,
+          backgroundColor: theme.brand.accentSubtle,
         }}
       >
         <View
@@ -216,7 +216,7 @@ export function PostMedia({ media }: { media: MediaShape }) {
             width: 44,
             height: 44,
             borderRadius: 22,
-            backgroundColor: theme.brand.hero,
+            backgroundColor: theme.brand.accent,
             alignItems: 'center',
             justifyContent: 'center',
           }}
@@ -233,7 +233,7 @@ export function PostMedia({ media }: { media: MediaShape }) {
                 width: 3,
                 height: h,
                 borderRadius: 2,
-                backgroundColor: theme.brand.hero,
+                backgroundColor: theme.brand.accent,
                 opacity: 0.55,
               }}
             />
@@ -375,7 +375,7 @@ export function PostMedia({ media }: { media: MediaShape }) {
           height: 200,
           borderRadius: radii.lg,
           overflow: 'hidden',
-          backgroundColor: theme.brand.heroSubtle,
+          backgroundColor: theme.brand.accentSubtle,
           alignItems: 'center',
           justifyContent: 'center',
         }}
@@ -601,7 +601,7 @@ function ActionButton({
         style={{
           fontSize: 13,
           fontWeight: active ? '700' : '500',
-          color: active ? theme.brand.hero : theme.text.secondary,
+          color: active ? theme.brand.primary : theme.text.secondary,
         }}
       >
         {label}

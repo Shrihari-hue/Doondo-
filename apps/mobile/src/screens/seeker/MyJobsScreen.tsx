@@ -135,7 +135,7 @@ function MyJobsInner() {
                   variant="footnote"
                   weight={active ? 'medium' : 'regular'}
                   style={{
-                    color: active ? theme.brand.hero : theme.text.secondary,
+                    color: active ? theme.brand.primary : theme.text.secondary,
                   }}
                 >
                   {tabKey === 'saved' ? t('my_jobs.tabs.saved') : t('my_jobs.tabs.applied')}
@@ -181,7 +181,7 @@ function MyJobsInner() {
             <RefreshControl
               refreshing={activeQuery.isRefetching}
               onRefresh={() => void activeQuery.refetch()}
-              tintColor={theme.brand.hero}
+              tintColor={theme.brand.accent}
             />
           }
           renderItem={({ item }) => <JobRow t={t} job={item} onPress={() => openJob(item)} />}

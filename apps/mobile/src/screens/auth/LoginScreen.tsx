@@ -12,7 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import { spacing, radii, blue } from '@doondo/tokens';
+import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Button, TextField, FormError, DoondoMark } from '@/components';
 import { authApi, isLoginRoleChoice } from '@/api/auth.api';
 import { ApiError } from '@/api/errors';
@@ -152,7 +152,7 @@ export function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <LinearGradient
-            colors={['#060B16', '#0D1B33', blue[900]]}
+            colors={theme.brand.primaryBannerGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
@@ -177,7 +177,7 @@ export function LoginScreen() {
                 borderColor: 'rgba(96,165,250,0.5)',
               }}
             >
-              <DoondoMark size={30} color={blue[300]} />
+              <DoondoMark size={30} color={theme.brand.primaryOnDark} />
             </View>
 
             <View style={{ flex: 1, gap: 4 }}>
@@ -192,7 +192,7 @@ export function LoginScreen() {
               </Text>
               <Text
                 variant="caption"
-                style={{ letterSpacing: 1.2, color: blue[300] }}
+                style={{ letterSpacing: 1.2, color: theme.brand.primaryOnDark }}
               >
                 {roleChoices
                   ? t('auth.login.role_picker_eyebrow')
@@ -248,7 +248,7 @@ export function LoginScreen() {
                     borderWidth: 0.5,
                     borderColor: theme.border.default,
                     backgroundColor: pressed
-                      ? theme.brand.heroSubtle
+                      ? theme.brand.accentSubtle
                       : theme.bg.surface,
                     opacity: submitting ? 0.6 : 1,
                   })}
@@ -347,8 +347,8 @@ export function LoginScreen() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       borderWidth: 1.5,
-                      borderColor: rememberMe ? theme.brand.hero : theme.border.default,
-                      backgroundColor: rememberMe ? theme.brand.hero : 'transparent',
+                      borderColor: rememberMe ? theme.brand.accent : theme.border.default,
+                      backgroundColor: rememberMe ? theme.brand.accent : 'transparent',
                     }}
                   >
                     {rememberMe && <Feather name="check" size={14} color="#FFFFFF" />}
@@ -369,7 +369,7 @@ export function LoginScreen() {
 
               <Pressable onPress={onSubmit} disabled={submitting} style={{ opacity: submitting ? 0.7 : 1 }}>
                 <LinearGradient
-                  colors={[blue[500], blue[400]]}
+                  colors={theme.brand.primaryGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={{
@@ -458,12 +458,12 @@ export function LoginScreen() {
               paddingVertical: spacing.xl,
               paddingHorizontal: spacing['2xl'],
               borderRadius: radii.xl,
-              backgroundColor: '#0D1B33',
+              backgroundColor: theme.brand.primaryCard,
               borderWidth: 1,
               borderColor: 'rgba(96,165,250,0.3)',
             }}
           >
-            <ActivityIndicator size="large" color={blue[400]} />
+            <ActivityIndicator size="large" color={theme.brand.primaryVivid} />
             <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
               {t('auth.login.cta_signing_in')}
             </Text>
@@ -557,24 +557,41 @@ function RolePill({ label, icon, active, onPress }: RolePillProps) {
       style={{ flex: 1 }}
     >
       {active ? (
-        <LinearGradient
-          colors={[blue[500], blue[400]]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        // The glow lives on this OUTER plain View, not on the
+        // LinearGradient itself — LinearGradient clips its own bounds to
+        // paint the gradient inside the border radius, which silently
+        // clips any shadow* style applied directly to it too (this is
+        // why the "glow" the comments described was never actually
+        // visible). A 1.5px lighter-blue ring on the gradient is the
+        // second, shadow-independent cue that makes "selected" read
+        // unmistakably even on Android builds where colored elevation
+        // shadows don't render with much contrast.
+        <View
           style={{
             borderRadius: radii.pill,
-            paddingVertical: spacing.lg,
-            alignItems: 'center',
-            justifyContent: 'center',
-            shadowColor: blue[400],
+            shadowColor: theme.brand.primaryVivid,
             shadowOpacity: 0.5,
             shadowRadius: 12,
             shadowOffset: { width: 0, height: 4 },
             elevation: 6,
           }}
         >
-          {content}
-        </LinearGradient>
+          <LinearGradient
+            colors={theme.brand.primaryGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              borderRadius: radii.pill,
+              paddingVertical: spacing.lg,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1.5,
+              borderColor: theme.brand.primaryOnDark,
+            }}
+          >
+            {content}
+          </LinearGradient>
+        </View>
       ) : (
         <View
           style={{

@@ -15,7 +15,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import { radii, spacing, blue } from '@doondo/tokens';
+import { radii, spacing } from '@doondo/tokens';
 import { Screen, Text, TextField, FormError, DoondoMark } from '@/components';
 import { authApi } from '@/api/auth.api';
 import { ApiError } from '@/api/errors';
@@ -48,6 +48,7 @@ export function SignupScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<SignupRoute>();
   const { setSession } = useAuth();
+  const { theme } = useTheme();
   const t = useTranslate();
 
   const initialRole: UserRole = route.params?.role ?? 'seeker';
@@ -164,7 +165,7 @@ export function SignupScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <LinearGradient
-            colors={['#060B16', '#0D1B33', blue[900]]}
+            colors={theme.brand.primaryBannerGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
@@ -189,14 +190,14 @@ export function SignupScreen() {
                 borderColor: 'rgba(96,165,250,0.5)',
               }}
             >
-              <DoondoMark size={30} color={blue[300]} />
+              <DoondoMark size={30} color={theme.brand.primaryOnDark} />
             </View>
 
             <View style={{ flex: 1, gap: 4 }}>
               <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF' }}>
                 {t('auth.signup.title')}
               </Text>
-              <Text variant="caption" style={{ letterSpacing: 1.2, color: blue[300] }}>
+              <Text variant="caption" style={{ letterSpacing: 1.2, color: theme.brand.primaryOnDark }}>
                 {t('auth.signup.eyebrow')}
               </Text>
             </View>
@@ -327,7 +328,7 @@ export function SignupScreen() {
               style={{ opacity: submitting ? 0.7 : 1 }}
             >
               <LinearGradient
-                colors={[blue[500], blue[400]]}
+                colors={theme.brand.primaryGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={{
@@ -375,12 +376,12 @@ export function SignupScreen() {
               paddingVertical: spacing.xl,
               paddingHorizontal: spacing['2xl'],
               borderRadius: radii.xl,
-              backgroundColor: '#0D1B33',
+              backgroundColor: theme.brand.primaryCard,
               borderWidth: 1,
               borderColor: 'rgba(96,165,250,0.3)',
             }}
           >
-            <ActivityIndicator size="large" color={blue[400]} />
+            <ActivityIndicator size="large" color={theme.brand.primaryVivid} />
             <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
               {t('auth.signup.cta_creating')}
             </Text>
@@ -437,7 +438,7 @@ function AssistedSetupToggle({
           onValueChange={onChange}
           trackColor={{
             false: theme.border.default,
-            true: blue[500],
+            true: theme.brand.primary,
           }}
           thumbColor="#FFFFFF"
           ios_backgroundColor={theme.border.default}
@@ -628,22 +629,32 @@ function RolePill({
       style={{ flex: 1 }}
     >
       {active ? (
-        <LinearGradient
-          colors={[blue[500], blue[400]]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        // See LoginScreen's RolePill for why the shadow lives on this
+        // outer View rather than the LinearGradient itself.
+        <View
           style={{
             borderRadius: radii.lg,
-            padding: spacing.md,
-            shadowColor: blue[400],
+            shadowColor: theme.brand.primaryVivid,
             shadowOpacity: 0.5,
             shadowRadius: 12,
             shadowOffset: { width: 0, height: 4 },
             elevation: 6,
           }}
         >
-          {content}
-        </LinearGradient>
+          <LinearGradient
+            colors={theme.brand.primaryGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              borderRadius: radii.lg,
+              padding: spacing.md,
+              borderWidth: 1.5,
+              borderColor: theme.brand.primaryOnDark,
+            }}
+          >
+            {content}
+          </LinearGradient>
+        </View>
       ) : (
         <View
           style={{

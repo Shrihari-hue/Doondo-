@@ -318,7 +318,7 @@ function Row({
           style={{
             fontSize: 15,
             fontWeight: '600',
-            color: accent ? theme.brand.hero : theme.text.primary,
+            color: accent ? theme.brand.primary : theme.text.primary,
           }}
         >
           {title}

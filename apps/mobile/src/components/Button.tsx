@@ -21,7 +21,7 @@ interface Props extends Omit<PressableProps, 'children' | 'style'> {
  * Button — the only way to render a tappable CTA in Doondo.
  *
  * Variants:
- *   - primary  → coral hero CTA. The "do the thing" button.
+ *   - primary  → blue primary CTA. The "do the thing" button.
  *   - secondary → surface-colored card-like button. Save, cancel, secondary actions.
  *   - ghost    → minimal, used for tertiary actions ("Skip", "Learn more").
  *   - premium  → champagne-tinted, used to highlight upgrade or premium-tier CTAs.
@@ -43,8 +43,8 @@ export function Button({
 
   const variantMap = {
     primary: {
-      bg: theme.brand.hero,
-      bgPressed: theme.brand.heroPressed,
+      bg: theme.brand.primary,
+      bgPressed: theme.brand.primaryPressed,
       borderColor: 'transparent',
       tone: 'onBrand' as const,
     },

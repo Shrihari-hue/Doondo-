@@ -24,7 +24,7 @@ import { haptic } from '@/lib/haptics';
 import { ApplicantCard } from './ApplicantCard';
 import type { AppStackParamList } from '@/navigation/types';
 
-const BLUE = '#2563EB';
+const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named constant, not reachable from theme here
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'JobApplicants'>;
 type Route = RouteProp<AppStackParamList, 'JobApplicants'>;

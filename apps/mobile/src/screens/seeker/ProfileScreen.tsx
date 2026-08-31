@@ -296,7 +296,7 @@ export function ProfileScreen() {
                   shadowRadius: 4,
                 }}
               >
-                <Feather name="camera" size={16} color={theme.brand.hero} />
+                <Feather name="camera" size={16} color={theme.brand.accent} />
               </View>
             </View>
           </Pressable>
@@ -465,9 +465,9 @@ export function ProfileScreen() {
                 gap: spacing.md,
                 padding: spacing.lg,
                 borderRadius: radii.lg,
-                backgroundColor: theme.brand.hero,
+                backgroundColor: theme.brand.accent,
                 opacity: pressed ? 0.9 : 1,
-                shadowColor: theme.brand.hero,
+                shadowColor: theme.brand.accent,
                 shadowOpacity: 0.25,
                 shadowRadius: 16,
                 shadowOffset: { width: 0, height: 8 },
@@ -537,7 +537,7 @@ export function ProfileScreen() {
                 borderRadius: radii.lg,
                 backgroundColor: theme.bg.surface,
                 borderWidth: 0.5,
-                borderColor: theme.brand.heroBorder,
+                borderColor: theme.brand.accentBorder,
                 shadowColor: '#0F172A',
                 shadowOffset: { width: 0, height: 6 },
                 shadowOpacity: 0.08,
@@ -551,12 +551,12 @@ export function ProfileScreen() {
                   width: 36,
                   height: 36,
                   borderRadius: 10,
-                  backgroundColor: theme.brand.heroSubtle,
+                  backgroundColor: theme.brand.accentSubtle,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Feather name="star" size={18} color={theme.brand.hero} />
+                <Feather name="star" size={18} color={theme.brand.accent} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text
@@ -590,7 +590,7 @@ export function ProfileScreen() {
                 style={{
                   fontSize: 13,
                   fontWeight: '600',
-                  color: theme.brand.hero,
+                  color: theme.brand.accent,
                 }}
               >
                 {t('profile_screen.ratings_banner.cta')}
@@ -709,8 +709,8 @@ export function ProfileScreen() {
             style={{
               ...cardBase(theme),
               padding: spacing.lg,
-              backgroundColor: theme.brand.heroSubtle,
-              borderColor: theme.brand.heroBorder,
+              backgroundColor: theme.brand.accentSubtle,
+              borderColor: theme.brand.accentBorder,
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -732,7 +732,7 @@ export function ProfileScreen() {
                         fontSize: 34,
                         lineHeight: 38,
                         fontWeight: '700',
-                        color: theme.brand.hero,
+                        color: theme.brand.accent,
                         letterSpacing: -0.5,
                       }}
                     >
@@ -787,7 +787,7 @@ export function ProfileScreen() {
                     paddingHorizontal: 18,
                     paddingVertical: 10,
                     borderRadius: radii.pill,
-                    backgroundColor: '#2563EB',
+                    backgroundColor: theme.brand.primary,
                   }}
                 >
                   <Text
@@ -833,16 +833,16 @@ export function ProfileScreen() {
                         paddingHorizontal: 14,
                         paddingVertical: 8,
                         borderRadius: radii.pill,
-                        backgroundColor: theme.brand.heroSubtle,
+                        backgroundColor: theme.brand.accentSubtle,
                         borderWidth: 0.5,
-                        borderColor: theme.brand.heroBorder,
+                        borderColor: theme.brand.accentBorder,
                       }}
                     >
                       <Text
                         style={{
                           fontSize: 13,
                           fontWeight: '600',
-                          color: theme.brand.hero,
+                          color: theme.brand.accent,
                         }}
                       >
                         {capitalize(s)}
@@ -859,7 +859,7 @@ export function ProfileScreen() {
                     style={{
                       fontSize: 13,
                       fontWeight: '600',
-                      color: theme.brand.hero,
+                      color: theme.brand.accent,
                     }}
                   >
                     {t('profile_screen.skills_card.add_or_edit')}
@@ -985,7 +985,7 @@ export function ProfileScreen() {
           >
             <MenuRow
               icon="user-plus"
-              iconColor="#2563EB"
+              iconColor={theme.brand.primary}
               tint="#DBEAFE"
               label={t('profile_screen.menu_extra.find_friends')}
               subtitle={t('profile_screen.menu_extra.find_friends_subtitle')}
@@ -1059,7 +1059,7 @@ export function ProfileScreen() {
           >
             <MenuRow
               icon="star"
-              iconColor="#2563EB"
+              iconColor={theme.brand.primary}
               tint="#DBEAFE"
               label={t('tabs.my_job')}
               subtitle={t('profile.menu.my_job_subtitle')}
@@ -1214,7 +1214,7 @@ function ProfileViewsBanner() {
           justifyContent: 'center',
         }}
       >
-        <Feather name="eye" size={20} color="#2563EB" />
+        <Feather name="eye" size={20} color={theme.brand.primary} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 15, fontWeight: '700', color: '#1E3A8A' }}>
@@ -1292,7 +1292,7 @@ function SkillSuggestionsRail({ onEdit }: { onEdit: () => void }) {
                 { count: s.jobsNeedingIt },
               )}
             </Text>
-            <Text style={{ fontSize: 11, fontWeight: '600', color: theme.brand.hero, marginTop: 4 }}>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: theme.brand.accent, marginTop: 4 }}>
               {t('profile_screen.suggestions.add_to_skills')}
             </Text>
           </Pressable>
@@ -1356,7 +1356,7 @@ function HiringRequestsRow() {
             marginRight: spacing.md,
           }}
         >
-          <Feather name="mail" size={22} color="#2563EB" />
+          <Feather name="mail" size={22} color={theme.brand.primary} />
         </View>
         <View style={{ flex: 1, paddingRight: spacing.sm }}>
           <Text
@@ -1379,7 +1379,7 @@ function HiringRequestsRow() {
               height: 22,
               borderRadius: 11,
               paddingHorizontal: 7,
-              backgroundColor: theme.brand.hero,
+              backgroundColor: theme.brand.accent,
               alignItems: 'center',
               justifyContent: 'center',
               marginRight: spacing.sm,
@@ -1435,20 +1435,20 @@ function StreakChip({
         padding: spacing.md,
         borderRadius: radii.lg,
         borderWidth: 0.5,
-        borderColor: active ? theme.brand.heroBorder : theme.border.default,
-        backgroundColor: active ? theme.brand.heroSubtle : theme.bg.surface,
+        borderColor: active ? theme.brand.primaryBorder : theme.border.default,
+        backgroundColor: active ? theme.brand.primarySubtle : theme.bg.surface,
         opacity: pressed ? 0.85 : 1,
         gap: 4,
         alignItems: 'flex-start',
       })}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-        {active && <Feather name="zap" size={14} color={theme.brand.hero} />}
+        {active && <Feather name="zap" size={14} color={theme.brand.accent} />}
         <Text
           style={{
             fontSize: 18,
             fontWeight: '700',
-            color: active ? theme.brand.hero : theme.text.primary,
+            color: active ? theme.brand.primary : theme.text.primary,
           }}
         >
           {active ? current : longest > 0 ? longest : 0}
@@ -1613,7 +1613,7 @@ function StatTile({
           fontSize: 20,
           lineHeight: 24,
           fontWeight: '700',
-          color: theme.brand.hero,
+          color: theme.brand.accent,
           letterSpacing: -0.3,
         }}
       >

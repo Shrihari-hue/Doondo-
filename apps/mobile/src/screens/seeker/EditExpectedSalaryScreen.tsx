@@ -221,8 +221,8 @@ function EditExpectedSalaryInner() {
                     padding: spacing.md,
                     borderRadius: radii.lg,
                     borderWidth: active ? 1.5 : 0.5,
-                    borderColor: active ? theme.brand.hero : theme.border.default,
-                    backgroundColor: active ? theme.brand.heroSubtle : theme.bg.surface,
+                    borderColor: active ? theme.brand.primary : theme.border.default,
+                    backgroundColor: active ? theme.brand.primarySubtle : theme.bg.surface,
                     opacity: pressed ? 0.7 : 1,
                   })}
                 >
@@ -239,8 +239,8 @@ function EditExpectedSalaryInner() {
                         height: 18,
                         borderRadius: 9,
                         borderWidth: 2,
-                        borderColor: active ? theme.brand.hero : theme.border.strong,
-                        backgroundColor: active ? theme.brand.hero : 'transparent',
+                        borderColor: active ? theme.brand.primary : theme.border.strong,
+                        backgroundColor: active ? theme.brand.primary : 'transparent',
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}
@@ -261,7 +261,7 @@ function EditExpectedSalaryInner() {
                         flex: 1,
                         fontSize: 15,
                         fontWeight: '600',
-                        color: active ? theme.brand.hero : theme.text.primary,
+                        color: active ? theme.brand.primary : theme.text.primary,
                       }}
                     >
                       {t(p.labelKey)}
@@ -334,9 +334,9 @@ function EditExpectedSalaryInner() {
             style={{
               padding: spacing.md,
               borderRadius: radii.md,
-              backgroundColor: theme.brand.heroSubtle,
+              backgroundColor: theme.brand.accentSubtle,
               borderWidth: 0.5,
-              borderColor: theme.brand.heroBorder,
+              borderColor: theme.brand.accentBorder,
             }}
           >
             <Text
@@ -344,7 +344,7 @@ function EditExpectedSalaryInner() {
                 fontSize: 11,
                 fontWeight: '600',
                 letterSpacing: 1.2,
-                color: theme.brand.hero,
+                color: theme.brand.accent,
               }}
             >
               {t('edit_salary.preview_eyebrow')}
@@ -379,14 +379,14 @@ function EditExpectedSalaryInner() {
               borderRadius: radii.lg,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: '#2563EB',
+              backgroundColor: theme.brand.primary,
               opacity:
                 save.isPending || amount.trim().length === 0
                   ? 0.5
                   : pressed
                     ? 0.85
                     : 1,
-              shadowColor: '#2563EB',
+              shadowColor: theme.brand.primary,
               shadowOpacity: 0.25,
               shadowRadius: 10,
               shadowOffset: { width: 0, height: 4 },
@@ -413,7 +413,7 @@ function EditExpectedSalaryInner() {
                 borderRadius: radii.lg,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: '#FFFFFF',
+                backgroundColor: theme.bg.surface,
                 borderWidth: 1,
                 borderColor: theme.border.default,
                 opacity: pressed ? 0.7 : 1,

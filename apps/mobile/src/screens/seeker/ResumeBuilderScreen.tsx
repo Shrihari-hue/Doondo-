@@ -484,9 +484,9 @@ function ResumeBuilderInner() {
             borderRadius: radii.pill,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#2563EB',
+            backgroundColor: theme.brand.primary,
             opacity: save.isPending ? 0.5 : pressed ? 0.85 : 1,
-            shadowColor: '#2563EB',
+            shadowColor: theme.brand.primary,
             shadowOpacity: 0.25,
             shadowRadius: 10,
             shadowOffset: { width: 0, height: 4 },
@@ -825,8 +825,8 @@ function EducationSection({
                 height: 18,
                 borderRadius: 4,
                 borderWidth: 1.5,
-                borderColor: e.current ? '#2563EB' : theme.border.strong,
-                backgroundColor: e.current ? '#2563EB' : 'transparent',
+                borderColor: e.current ? theme.brand.primary : theme.border.strong,
+                backgroundColor: e.current ? theme.brand.primary : 'transparent',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
@@ -862,7 +862,7 @@ function EducationSection({
             opacity: pressed ? 0.65 : 1,
           })}
         >
-          <Text style={{ fontSize: 14, fontWeight: '600', color: '#2563EB' }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: theme.brand.primary }}>
             {t('resume_builder.education_add_btn')}
           </Text>
         </Pressable>
@@ -1050,12 +1050,12 @@ function WorkPhotosSection({
               gap: 4,
             })}
           >
-            <Text style={{ fontSize: 24, color: '#2563EB' }}>+</Text>
+            <Text style={{ fontSize: 24, color: theme.brand.primary }}>+</Text>
             <Text
               style={{
                 fontSize: 11,
                 fontWeight: '600',
-                color: '#2563EB',
+                color: theme.brand.primary,
               }}
             >
               {picking ? t('resume_builder.photos_loading') : t('resume_builder.photos_add_btn')}

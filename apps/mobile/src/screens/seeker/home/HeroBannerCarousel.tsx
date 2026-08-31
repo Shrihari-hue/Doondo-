@@ -33,6 +33,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { spacing, radii } from '@doondo/tokens';
 import { Text } from '@/components';
+import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import type { AppStackParamList } from '@/navigation/types';
 import type { TFn } from './heroBanner.types';
@@ -319,6 +320,7 @@ function ExploreJobsSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
 // ─── Slide 1: Same-day Swipe ──────────────────────────────────────────────────
 
 function SameDaySwipeSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
+  const { theme } = useTheme();
   return (
     <LinearGradient
       colors={['#1E3A8A', '#1D4ED8', '#1E40AF']}
@@ -385,8 +387,8 @@ function SameDaySwipeSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
             alignSelf: 'flex-start',
             marginTop: spacing.xs,
             borderRadius: radii.pill,
-            backgroundColor: '#2563EB',
-            shadowColor: '#2563EB',
+            backgroundColor: theme.brand.primary,
+            shadowColor: theme.brand.primary,
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.45,
             shadowRadius: 12,

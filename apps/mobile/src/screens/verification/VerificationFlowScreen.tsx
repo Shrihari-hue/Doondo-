@@ -282,7 +282,7 @@ function ProgressDots({ step }: { step: Step }) {
             height: 6,
             borderRadius: 3,
             backgroundColor:
-              i <= idx ? theme.brand.hero : theme.border.subtle,
+              i <= idx ? theme.brand.primary : theme.border.subtle,
           }}
         />
       ))}

@@ -144,14 +144,14 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
               }}
               hitSlop={6}
             >
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563EB' }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.primary }}>
                 {t('home.feed.view_all_arrow')}
               </Text>
             </Pressable>
           </View>
           {tradeFilters.length > 0 ? (
             <Pressable onPress={clearFilters} hitSlop={6} style={{ alignSelf: 'flex-start' }}>
-              <Text style={{ fontSize: 12, color: '#2563EB', fontWeight: '600' }}>
+              <Text style={{ fontSize: 12, color: theme.brand.primary, fontWeight: '600' }}>
                 {/* i18next picks _one vs _other based on the active locale's plural rule. */}
                 {t(
                   tradeFilters.length === 1
@@ -187,11 +187,11 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: 6,
-                    backgroundColor: active ? '#2563EB' : theme.bg.surface,
+                    backgroundColor: active ? theme.brand.primary : theme.bg.surface,
                     borderWidth: active ? 0 : 1,
                     borderColor: theme.border.default,
                     opacity: pressed ? 0.75 : 1,
-                    shadowColor: active ? '#2563EB' : '#0F172A',
+                    shadowColor: active ? theme.brand.primary : '#0F172A',
                     shadowOffset: { width: 0, height: 3 },
                     shadowOpacity: active ? 0.25 : 0.06,
                     shadowRadius: active ? 8 : 6,
@@ -225,7 +225,7 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
   if (!coords) {
     return (
       <View style={{ paddingVertical: spacing['2xl'], alignItems: 'center' }}>
-        <ActivityIndicator color={'#2563EB'} />
+        <ActivityIndicator color={theme.brand.primary} />
         <Text
           style={{ fontSize: 12, color: theme.text.tertiary, marginTop: 8 }}
         >
@@ -248,7 +248,7 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
         <RefreshControl
           refreshing={query.isRefetching}
           onRefresh={() => void query.refetch()}
-          tintColor={'#2563EB'}
+          tintColor={theme.brand.primary}
         />
       }
       renderItem={({ item }) => (
@@ -263,7 +263,7 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
       ListEmptyComponent={
         query.isLoading ? (
           <View style={{ paddingVertical: spacing['2xl'], alignItems: 'center' }}>
-            <ActivityIndicator color={'#2563EB'} />
+            <ActivityIndicator color={theme.brand.primary} />
           </View>
         ) : (
           <View
@@ -395,7 +395,7 @@ function PremiumJobCard({
               ) : null}
               {distance ? (
                 <Text
-                  style={{ fontSize: 12, fontWeight: '700', color: '#2563EB' }}
+                  style={{ fontSize: 12, fontWeight: '700', color: theme.brand.primary }}
                 >
                   {t('home.job_card.distance_away', { distance })}
                 </Text>

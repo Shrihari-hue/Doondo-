@@ -196,7 +196,7 @@ function Inner() {
         />
         <MoneyCard
           glyph="💰"
-          tint={theme.brand.heroSubtle}
+          tint={theme.brand.accentSubtle}
           label={t('earnings_hub.ledger')}
           hint={t('earnings_hub.ledger_hint')}
           topValue={earningsTop}
@@ -218,7 +218,7 @@ function Inner() {
         />
         <MoneyCard
           glyph="🛡️"
-          tint={theme.brand.heroSubtle}
+          tint={theme.brand.accentSubtle}
           label={t('earnings_hub.insurance')}
           hint={t('earnings_hub.insurance_hint')}
           topValue={insuranceTop}
@@ -272,7 +272,7 @@ function MoneyCard({
     primary: theme.text.primary,
     success: theme.status.success,
     tertiary: theme.text.tertiary,
-    hero: theme.brand.hero,
+    hero: theme.brand.accent,
   };
 
   return (
@@ -438,11 +438,11 @@ function PromoCard({ title, body, cta, onPress }: PromoCardProps) {
             }}
           >
             <Text
-              style={{ fontSize: 13, fontWeight: '700', color: theme.brand.hero }}
+              style={{ fontSize: 13, fontWeight: '700', color: theme.brand.accent }}
             >
               {cta}
             </Text>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.hero }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.accent }}>
               →
             </Text>
           </View>

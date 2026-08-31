@@ -15,6 +15,9 @@ export interface QrMatrix {
   modules: boolean[][];
 }
 
+// Deliberately fixed, not theme-driven — this tints the small embedded
+// logo mark inside the QR code, which must stay a stable, printable,
+// scannable brand color regardless of the viewer's theme.
 const DOONDO_BLUE = '#2563EB';
 
 function mergeRuns(row: boolean[]): Array<{ dark: boolean; len: number }> {

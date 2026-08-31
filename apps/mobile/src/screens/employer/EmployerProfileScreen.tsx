@@ -43,9 +43,10 @@ import type { AppStackParamList } from '@/navigation/types';
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
-const BLUE = '#2563EB';
+const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named constant, not reachable from theme here
 
 export function EmployerProfileScreen() {
+  const { theme } = useTheme();
   const { user, logout, savedAccounts } = useAuth();
   const setStore = useAuthStore.setState;
   const navigation = useNavigation<Nav>();
@@ -119,7 +120,7 @@ export function EmployerProfileScreen() {
       >
         {/* ─── Gradient hero banner ──────────────────────────────────── */}
         <LinearGradient
-          colors={['#1D4ED8', '#2563EB', '#3B82F6']}
+          colors={['#1D4ED8', theme.brand.primary, '#3B82F6']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ paddingTop: spacing.lg, paddingBottom: spacing['2xl'], paddingHorizontal: spacing.xl, gap: spacing.lg }}

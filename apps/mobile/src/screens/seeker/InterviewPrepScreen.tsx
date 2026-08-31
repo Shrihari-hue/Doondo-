@@ -105,8 +105,8 @@ function Inner() {
                   paddingVertical: spacing.xs,
                   borderRadius: radii.pill,
                   borderWidth: 0.5,
-                  borderColor: on ? theme.brand.hero : theme.border.default,
-                  backgroundColor: on ? theme.brand.heroSubtle : 'transparent',
+                  borderColor: on ? theme.brand.primary : theme.border.default,
+                  backgroundColor: on ? theme.brand.primarySubtle : 'transparent',
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: 4,
@@ -117,7 +117,7 @@ function Inner() {
                   style={{
                     fontSize: 12,
                     fontWeight: on ? '600' : '400',
-                    color: on ? theme.brand.hero : theme.text.secondary,
+                    color: on ? theme.brand.primary : theme.text.secondary,
                   }}
                 >
                   {g.label}
@@ -223,12 +223,12 @@ function Section({
                 width: 26,
                 height: 26,
                 borderRadius: 13,
-                backgroundColor: theme.brand.heroSubtle,
+                backgroundColor: theme.brand.accentSubtle,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.hero }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.accent }}>
                 {i + 1}
               </Text>
             </View>

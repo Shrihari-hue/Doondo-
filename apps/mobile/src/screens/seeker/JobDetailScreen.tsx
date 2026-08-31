@@ -486,7 +486,7 @@ function JobDetailScreenInner() {
                 start: job.project.startDate,
                 end: job.project.endDate,
               })}
-              tone={theme.brand.hero}
+              tone={theme.brand.accent}
             />
           ) : null}
         </View>
@@ -792,7 +792,7 @@ function Header({
             <Feather
               name="download"
               size={18}
-              color={downloaded ? theme.brand.hero : theme.text.primary}
+              color={downloaded ? theme.brand.primary : theme.text.primary}
             />
           </Pressable>
         )}
@@ -810,11 +810,11 @@ function Header({
               justifyContent: 'center',
               backgroundColor: '#EFF6FF', // blue-50
               borderWidth: 0.5,
-              borderColor: '#BFDBFE', // blue-200
+              borderColor: theme.border.default, // blue-200
               opacity: pressed ? 0.7 : 1,
             })}
           >
-            <Feather name="share" size={15} color="#2563EB" />
+            <Feather name="share" size={15} color={theme.brand.primary} />
           </Pressable>
         )}
       </View>
@@ -846,6 +846,7 @@ function PrimaryStickyCTA({
   disabled: boolean;
   onPress: () => void;
 }) {
+  const { theme } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -866,11 +867,11 @@ function PrimaryStickyCTA({
         // to render (rare, but it has happened on older Android builds),
         // the button is still vivid blue with white text instead of the
         // previous white-on-white state.
-        backgroundColor: '#2563EB',
+        backgroundColor: theme.brand.primary,
       })}
     >
       <LinearGradient
-        colors={['#3B82F6', '#2563EB', '#1D4ED8']}
+        colors={['#3B82F6', theme.brand.primary, '#1D4ED8']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -938,7 +939,7 @@ function TeamMembersField({
         borderRadius: radii.md,
         backgroundColor: '#EFF6FF',
         borderWidth: 0.5,
-        borderColor: '#BFDBFE',
+        borderColor: theme.border.default,
         gap: spacing.sm,
       }}
     >
@@ -971,9 +972,9 @@ function TeamMembersField({
               placeholderTextColor={theme.text.tertiary}
               autoCapitalize="words"
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: theme.bg.surface,
                 borderWidth: 0.5,
-                borderColor: '#BFDBFE',
+                borderColor: theme.border.default,
                 borderRadius: radii.md,
                 paddingHorizontal: spacing.sm,
                 paddingVertical: spacing.sm - 2,
@@ -988,9 +989,9 @@ function TeamMembersField({
               placeholderTextColor={theme.text.tertiary}
               keyboardType="phone-pad"
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: theme.bg.surface,
                 borderWidth: 0.5,
-                borderColor: '#BFDBFE',
+                borderColor: theme.border.default,
                 borderRadius: radii.md,
                 paddingHorizontal: spacing.sm,
                 paddingVertical: spacing.sm - 2,
@@ -1000,7 +1001,7 @@ function TeamMembersField({
             />
           </View>
           <Pressable onPress={() => remove(i)} hitSlop={6}>
-            <Text style={{ fontSize: 16, color: '#B91C1C' }}>×</Text>
+            <Text style={{ fontSize: 16, color: theme.status.danger }}>×</Text>
           </Pressable>
         </View>
       ))}
@@ -1013,18 +1014,18 @@ function TeamMembersField({
             paddingHorizontal: spacing.md,
             paddingVertical: 6,
             borderRadius: radii.pill,
-            backgroundColor: '#FFFFFF',
+            backgroundColor: theme.bg.surface,
             borderWidth: 0.5,
-            borderColor: '#BFDBFE',
+            borderColor: theme.border.default,
             opacity: pressed ? 0.7 : 1,
           })}
         >
-          <Text style={{ fontSize: 12, fontWeight: '700', color: '#1E40AF' }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: theme.brand.primary }}>
             {t('job_detail.team.add_teammate_btn')}
           </Text>
         </Pressable>
       ) : (
-        <Text style={{ fontSize: 11, color: '#1E3A8A' }}>
+        <Text style={{ fontSize: 11, color: theme.text.secondary }}>
           {t('job_detail.team.max_teammates_msg', { cap, team: teamSize })}
         </Text>
       )}
@@ -1276,7 +1277,7 @@ function AudioDescriptionPill({
           borderRadius: radii.md,
           backgroundColor: '#EFF6FF',
           borderWidth: 0.5,
-          borderColor: '#BFDBFE',
+          borderColor: theme.border.default,
         }}
       >
         <Text style={{ fontSize: 14 }}>🎙</Text>
@@ -1301,7 +1302,7 @@ function AudioDescriptionPill({
         borderRadius: radii.md,
         backgroundColor: '#EFF6FF',
         borderWidth: 0.5,
-        borderColor: '#BFDBFE',
+        borderColor: theme.border.default,
         opacity: pressed ? 0.8 : 1,
       })}
     >
@@ -1310,7 +1311,7 @@ function AudioDescriptionPill({
           width: 32,
           height: 32,
           borderRadius: 16,
-          backgroundColor: '#2563EB',
+          backgroundColor: theme.brand.primary,
           alignItems: 'center',
           justifyContent: 'center',
         }}

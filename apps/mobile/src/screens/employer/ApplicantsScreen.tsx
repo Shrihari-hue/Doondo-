@@ -45,7 +45,7 @@ import { ApplicantCard } from './ApplicantCard';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
-const BLUE       = '#2563EB';
+const BLUE = '#2563EB'; // = theme.brand.primary; module-scope constant, theme unreachable here
 const BLUE_LIGHT = '#EFF6FF';
 const GREEN      = '#16A34A';
 const RED        = '#EF4444';

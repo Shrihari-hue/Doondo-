@@ -121,15 +121,15 @@ function CareerPathInner() {
                   paddingVertical: spacing.xs,
                   borderRadius: radii.pill,
                   borderWidth: 0.5,
-                  borderColor: active ? theme.brand.hero : theme.border.default,
-                  backgroundColor: active ? theme.brand.heroSubtle : theme.bg.surface,
+                  borderColor: active ? theme.brand.primary : theme.border.default,
+                  backgroundColor: active ? theme.brand.primarySubtle : theme.bg.surface,
                 }}
               >
                 <Text style={{ fontSize: 15 }}>{p.emoji}</Text>
                 <Text
                   variant="footnote"
                   weight={active ? 'medium' : 'regular'}
-                  style={{ color: active ? theme.brand.hero : theme.text.secondary }}
+                  style={{ color: active ? theme.brand.primary : theme.text.secondary }}
                 >
                   {t(p.nameKey)}
                 </Text>
@@ -189,8 +189,8 @@ function StepCard({
         gap: spacing.md,
         borderRadius: radii.lg,
         borderWidth: isCurrent ? 1 : 0.5,
-        borderColor: isCurrent ? theme.brand.hero : theme.border.default,
-        backgroundColor: isCurrent ? theme.brand.heroSubtle : theme.bg.surface,
+        borderColor: isCurrent ? theme.brand.primary : theme.border.default,
+        backgroundColor: isCurrent ? theme.brand.primarySubtle : theme.bg.surface,
         padding: spacing.md,
       }}
     >
@@ -202,7 +202,7 @@ function StepCard({
           borderRadius: 14,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: reached ? theme.brand.hero : theme.bg.muted,
+          backgroundColor: reached ? theme.brand.primary : theme.bg.muted,
           borderWidth: reached ? 0 : 0.5,
           borderColor: theme.border.default,
         }}
@@ -287,7 +287,7 @@ function StepBadge({ label, tone }: { label: string; tone: 'current' | 'next' })
         paddingHorizontal: spacing.sm,
         paddingVertical: 3,
         borderRadius: radii.pill,
-        backgroundColor: isCurrent ? theme.brand.hero : theme.status.successSubtle,
+        backgroundColor: isCurrent ? theme.brand.primary : theme.status.successSubtle,
       }}
     >
       <Text

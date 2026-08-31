@@ -26,7 +26,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { spacing, radii, blue } from '@doondo/tokens';
+import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, LoadingSpinner, EmptyState } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
@@ -73,7 +73,7 @@ function SkillTestsInner() {
   return (
     <Screen edges={[]}>
       <LinearGradient
-        colors={[blue[700], blue[600], blue[500]]}
+        colors={theme.brand.primaryImmersiveGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -133,7 +133,7 @@ function SkillTestsInner() {
                 void tests.refetch();
                 void attempts.refetch();
               }}
-              tintColor={theme.brand.hero}
+              tintColor={theme.brand.primary}
             />
           }
         >
@@ -201,7 +201,7 @@ function TestCard({
           width: 52,
           height: 52,
           borderRadius: radii.lg,
-          backgroundColor: '#EFF6FF',
+          backgroundColor: theme.brand.primarySubtle,
           alignItems: 'center',
           justifyContent: 'center',
         }}
@@ -235,12 +235,12 @@ function TestCard({
             paddingHorizontal: spacing.md,
             paddingVertical: spacing.sm,
             borderRadius: radii.pill,
-            backgroundColor: '#D1FAE5',
+            backgroundColor: theme.status.successSubtle,
             borderWidth: 0.5,
-            borderColor: '#86EFAC',
+            borderColor: theme.status.successBorder,
           }}
         >
-          <Text style={{ fontSize: 12, fontWeight: '700', color: '#065F46' }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: theme.status.success }}>
             {t('skill_tests.status_passed')}
           </Text>
         </View>
@@ -266,7 +266,7 @@ function TestCard({
             paddingHorizontal: spacing.md,
             paddingVertical: spacing.sm,
             borderRadius: radii.pill,
-            backgroundColor: '#2563EB',
+            backgroundColor: theme.brand.primary,
             opacity: pressed ? 0.85 : 1,
           })}
         >
@@ -403,8 +403,8 @@ function TakeTestModal({
                           padding: spacing.md,
                           borderRadius: radii.md,
                           borderWidth: 1,
-                          borderColor: active ? '#2563EB' : theme.border.default,
-                          backgroundColor: active ? '#EFF6FF' : theme.bg.surface,
+                          borderColor: active ? theme.brand.primary : theme.border.default,
+                          backgroundColor: active ? theme.brand.primarySubtle : theme.bg.surface,
                           opacity: pressed ? 0.7 : 1,
                           flexDirection: 'row',
                           alignItems: 'flex-start',
@@ -417,8 +417,8 @@ function TakeTestModal({
                             height: 20,
                             borderRadius: 10,
                             borderWidth: 1.5,
-                            borderColor: active ? '#2563EB' : theme.border.strong,
-                            backgroundColor: active ? '#2563EB' : 'transparent',
+                            borderColor: active ? theme.brand.primary : theme.border.strong,
+                            backgroundColor: active ? theme.brand.primary : 'transparent',
                             alignItems: 'center',
                             justifyContent: 'center',
                             marginTop: 2,
@@ -471,7 +471,7 @@ function TakeTestModal({
                 borderRadius: radii.pill,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: '#2563EB',
+                backgroundColor: theme.brand.primary,
                 opacity: pressed ? 0.85 : 1,
               })}
             >
@@ -488,7 +488,7 @@ function TakeTestModal({
                 borderRadius: radii.pill,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: '#2563EB',
+                backgroundColor: theme.brand.primary,
                 opacity: !answeredAll || submit.isPending ? 0.5 : pressed ? 0.85 : 1,
               })}
             >
@@ -521,10 +521,10 @@ function ResultPanel({
     return (
       <View
         style={{
-          backgroundColor: '#D1FAE5',
+          backgroundColor: theme.status.successSubtle,
           borderRadius: radii.lg,
           borderWidth: 0.5,
-          borderColor: '#86EFAC',
+          borderColor: theme.status.successBorder,
           padding: spacing.xl,
           gap: spacing.sm,
           alignItems: 'center',
@@ -532,11 +532,11 @@ function ResultPanel({
       >
         <Text style={{ fontSize: 56 }}>🏅</Text>
         <Text
-          style={{ fontSize: 22, fontWeight: '800', color: '#065F46', letterSpacing: -0.3 }}
+          style={{ fontSize: 22, fontWeight: '800', color: theme.status.success, letterSpacing: -0.3 }}
         >
           {t('skill_tests.result_passed_title')}
         </Text>
-        <Text style={{ fontSize: 14, color: '#047857', textAlign: 'center' }}>
+        <Text style={{ fontSize: 14, color: theme.status.success, textAlign: 'center' }}>
           {t('skill_tests.result_passed_body', {
             score: attempt.score,
             total: test.questions.length,

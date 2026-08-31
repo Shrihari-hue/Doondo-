@@ -36,7 +36,7 @@ export const TextField = forwardRef<TextInput, Props>(function TextField(
   const borderColor = hasError
     ? theme.status.danger
     : focused
-      ? theme.brand.hero
+      ? theme.border.focus
       : theme.border.default;
 
   return (

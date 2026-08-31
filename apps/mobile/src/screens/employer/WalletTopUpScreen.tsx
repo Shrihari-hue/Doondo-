@@ -41,7 +41,7 @@ import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
-const BLUE   = '#2563EB';
+const BLUE = '#2563EB'; // = theme.brand.primary; module-scope constant, theme unreachable here
 const GREEN  = '#16A34A';
 const AMBER  = '#F59E0B';
 
@@ -64,7 +64,7 @@ function paise(p: number) {
 export function WalletTopUpScreen() {
   const navigation  = useNavigation<Nav>();
   const insets      = useSafeAreaInsets();
-  const { scheme }  = useTheme();
+  const { theme, scheme }  = useTheme();
   const isLight     = scheme !== 'dark';
   const queryClient = useQueryClient();
 
@@ -214,7 +214,7 @@ export function WalletTopUpScreen() {
         {step === 'amount' && (
           <>
             {/* Balance indicator */}
-            <LinearGradient colors={['#2563EB', '#1D4ED8']}
+            <LinearGradient colors={[theme.brand.primary, '#1D4ED8']}
               style={{ borderRadius: radii.xl, padding: spacing.lg, gap: 4 }}>
               <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: '500' }}>
                 Doondo Wallet

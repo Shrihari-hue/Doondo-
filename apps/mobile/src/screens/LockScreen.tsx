@@ -34,7 +34,7 @@ import { haptic } from '@/lib/haptics';
 import { useAppLockStore } from '@/stores/appLock.store';
 import { useAuth } from '@/hooks/useAuth';
 
-const BLUE = '#2563EB';
+const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named constant, not reachable from theme here
 
 export function LockScreen() {
   const { theme } = useTheme();

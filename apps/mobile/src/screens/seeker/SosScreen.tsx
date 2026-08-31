@@ -318,7 +318,7 @@ function SosInner() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: theme.brand.heroSubtle,
+              backgroundColor: theme.brand.accentSubtle,
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -335,7 +335,7 @@ function SosInner() {
                 : 'Up to 3 contacts get pushed when you SOS'}
             </Text>
           </View>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: theme.brand.hero }}>
+          <Text style={{ fontSize: 13, fontWeight: '600', color: theme.brand.accent }}>
             Manage ›
           </Text>
         </Pressable>
@@ -409,7 +409,7 @@ function SosInner() {
                   style={{
                     fontSize: 13,
                     fontWeight: '600',
-                    color: theme.brand.hero,
+                    color: theme.brand.accent,
                   }}
                 >
                   {t('sos.edit')}
@@ -522,7 +522,7 @@ function SosInner() {
                   paddingVertical: spacing.md,
                   borderRadius: radii.pill,
                   alignItems: 'center',
-                  backgroundColor: theme.brand.hero,
+                  backgroundColor: theme.brand.accent,
                   opacity: saving ? 0.5 : pressed ? 0.85 : 1,
                 })}
               >

@@ -31,7 +31,7 @@ import type { AppStackParamList } from '@/navigation/types';
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
-const BLUE = '#2563EB';
+const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named constant, not reachable from theme here
 const RED = '#EF4444';
 
 function NewChatInner() {

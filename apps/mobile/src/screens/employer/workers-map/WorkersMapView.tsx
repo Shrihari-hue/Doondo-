@@ -266,7 +266,7 @@ export function WorkersMapView({
                   accessibilityLabel={`Send a hiring request to ${selected.seeker.name}`}
                   style={({ pressed }) => ({
                     flex: 1,
-                    backgroundColor: theme.brand.hero,
+                    backgroundColor: theme.brand.accent,
                     paddingVertical: 12,
                     borderRadius: radii.pill,
                     alignItems: 'center',

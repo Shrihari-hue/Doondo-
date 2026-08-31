@@ -43,6 +43,7 @@ import { AccountSwitcherSheet } from './AccountSwitcherSheet';
 import { useAuth } from '@/hooks/useAuth';
 import { useOtherAccountsActivity } from '@/hooks/useOtherAccountsActivity';
 import { haptic } from '@/lib/haptics';
+import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import type { SavedAccount } from '@/stores/auth.store';
 import type { UserRole } from '@/api/types';
@@ -232,6 +233,7 @@ function QuickSwitchContent({
   textColor,
   subtleColor,
 }: QuickSwitchContentProps): ReactNode {
+  const { theme } = useTheme();
   return (
     <>
       <View>
@@ -250,7 +252,7 @@ function QuickSwitchContent({
               height: 14,
               borderRadius: 7,
               paddingHorizontal: 3,
-              backgroundColor: '#EF4444',
+              backgroundColor: theme.status.danger,
               borderWidth: 1.5,
               borderColor: '#FFFFFF',
               alignItems: 'center',
@@ -312,6 +314,7 @@ function DefaultContent({
   otherActivity,
   textColor,
 }: DefaultContentProps): ReactNode {
+  const { theme } = useTheme();
   return (
     <>
       <View>
@@ -325,7 +328,7 @@ function DefaultContent({
               width: 10,
               height: 10,
               borderRadius: 5,
-              backgroundColor: '#EF4444',
+              backgroundColor: theme.status.danger,
               borderWidth: 1.5,
               borderColor: '#FFFFFF',
             }}

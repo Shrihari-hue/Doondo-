@@ -219,7 +219,7 @@ export function HireCelebration({
                 opacity: pressed ? 0.7 : 1,
               })}
             >
-              <Text style={{ fontSize: 14, fontWeight: '700', color: theme.brand.hero }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: theme.brand.accent }}>
                 {secondaryLabel}
               </Text>
             </Pressable>

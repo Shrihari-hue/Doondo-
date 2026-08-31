@@ -25,11 +25,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 
-import { radii, spacing, blue } from '@doondo/tokens';
+import { radii, spacing } from '@doondo/tokens';
 import { Screen, Text, Button, TextField, FormError, DoondoMark } from '@/components';
 import { authApi, isLoginRoleChoice } from '@/api/auth.api';
 import { ApiError } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
 import type { AppStackParamList } from '@/navigation/types';
@@ -60,6 +61,7 @@ export function AddAccountSignupScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { user, addAccount } = useAuth();
+  const { theme } = useTheme();
   const t = useTranslate();
 
   const role: UserRole = route.params?.role ?? 'employer';
@@ -290,7 +292,7 @@ export function AddAccountSignupScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <LinearGradient
-            colors={['#060B16', '#0D1B33', blue[900]]}
+            colors={theme.brand.primaryBannerGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
@@ -315,14 +317,14 @@ export function AddAccountSignupScreen() {
                 borderColor: 'rgba(96,165,250,0.5)',
               }}
             >
-              <DoondoMark size={30} color={blue[300]} />
+              <DoondoMark size={30} color={theme.brand.primaryOnDark} />
             </View>
 
             <View style={{ flex: 1, gap: 4 }}>
               <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF' }}>
                 {heroTitle}
               </Text>
-              <Text variant="caption" style={{ letterSpacing: 1.2, color: blue[300] }}>
+              <Text variant="caption" style={{ letterSpacing: 1.2, color: theme.brand.primaryOnDark }}>
                 {heroEyebrow}
               </Text>
               <Text
@@ -350,8 +352,8 @@ export function AddAccountSignupScreen() {
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                <Feather name="info" size={16} color={blue[300]} />
-                <Text style={{ fontSize: 14, fontWeight: '700', color: blue[300], flex: 1 }}>
+                <Feather name="info" size={16} color={theme.brand.primaryOnDark} />
+                <Text style={{ fontSize: 14, fontWeight: '700', color: theme.brand.primaryOnDark, flex: 1 }}>
                   {t('auth.add_account_signup.recovery_card_title')}
                 </Text>
               </View>
@@ -361,7 +363,7 @@ export function AddAccountSignupScreen() {
 
               <Pressable onPress={recoverViaSignIn} style={{ opacity: 1 }}>
                 <LinearGradient
-                  colors={[blue[500], blue[400]]}
+                  colors={theme.brand.primaryGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={{
@@ -405,7 +407,7 @@ export function AddAccountSignupScreen() {
                 gap: 2,
               }}
             >
-              <Text style={{ fontSize: 13, fontWeight: '700', color: blue[300] }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.primaryOnDark }}>
                 {t('auth.add_account_signup.banner_title')}
               </Text>
               <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>
@@ -496,7 +498,7 @@ export function AddAccountSignupScreen() {
             <View style={{ gap: spacing.md }}>
               <Pressable onPress={onSubmit} disabled={submitting} style={{ opacity: submitting ? 0.7 : 1 }}>
                 <LinearGradient
-                  colors={[blue[500], blue[400]]}
+                  colors={theme.brand.primaryGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={{
@@ -583,12 +585,12 @@ export function AddAccountSignupScreen() {
               paddingVertical: spacing.xl,
               paddingHorizontal: spacing['2xl'],
               borderRadius: radii.xl,
-              backgroundColor: '#0D1B33',
+              backgroundColor: theme.brand.primaryCard,
               borderWidth: 1,
               borderColor: 'rgba(96,165,250,0.3)',
             }}
           >
-            <ActivityIndicator size="large" color={blue[400]} />
+            <ActivityIndicator size="large" color={theme.brand.primaryVivid} />
             <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
               {isLogin
                 ? t('auth.add_account_signup.cta_signing_in')

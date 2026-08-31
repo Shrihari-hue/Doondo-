@@ -106,9 +106,9 @@ export function PaymentConfirmationPanel({
         style={{
           padding: spacing.md,
           borderRadius: radii.md,
-          backgroundColor: '#D1FAE5',
+          backgroundColor: theme.status.successSubtle,
           borderWidth: 0.5,
-          borderColor: '#86EFAC',
+          borderColor: theme.status.successBorder,
           flexDirection: 'row',
           alignItems: 'center',
           gap: spacing.sm,
@@ -116,10 +116,10 @@ export function PaymentConfirmationPanel({
       >
         <Text style={{ fontSize: 18 }}>✓</Text>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 13, fontWeight: '700', color: '#065F46' }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: theme.status.success }}>
             Paid in full
           </Text>
-          <Text style={{ fontSize: 11, color: '#047857' }}>
+          <Text style={{ fontSize: 11, color: theme.status.success }}>
             Both sides confirmed
           </Text>
         </View>
@@ -134,9 +134,9 @@ export function PaymentConfirmationPanel({
         style={{
           padding: spacing.md,
           borderRadius: radii.md,
-          backgroundColor: '#FEE2E2',
+          backgroundColor: theme.status.dangerSubtle,
           borderWidth: 0.5,
-          borderColor: '#FECACA',
+          borderColor: theme.status.dangerBorder,
           gap: spacing.sm,
         }}
       >
@@ -149,14 +149,14 @@ export function PaymentConfirmationPanel({
         >
           <Text style={{ fontSize: 18 }}>⚠️</Text>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: '#7F1D1D' }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: theme.status.danger }}>
               {role === 'seeker' ? 'You marked this unpaid' : 'Worker marked this unpaid'}
             </Text>
             {pc?.disputeNote ? (
               <Text
                 style={{
                   fontSize: 12,
-                  color: '#991B1B',
+                  color: theme.status.danger,
                   marginTop: 2,
                   fontStyle: 'italic',
                 }}
@@ -175,13 +175,13 @@ export function PaymentConfirmationPanel({
               paddingHorizontal: spacing.md,
               paddingVertical: 8,
               borderRadius: radii.pill,
-              backgroundColor: '#FFFFFF',
+              backgroundColor: theme.bg.surface,
               borderWidth: 0.5,
-              borderColor: '#86EFAC',
+              borderColor: theme.status.successBorder,
               opacity: mutation.isPending ? 0.5 : pressed ? 0.7 : 1,
             })}
           >
-            <Text style={{ fontSize: 12, fontWeight: '700', color: '#065F46' }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: theme.status.success }}>
               Got paid? Confirm
             </Text>
           </Pressable>
@@ -201,13 +201,13 @@ export function PaymentConfirmationPanel({
         style={{
           padding: spacing.md,
           borderRadius: radii.md,
-          backgroundColor: '#FEF3C7',
+          backgroundColor: theme.status.warningSubtle,
           borderWidth: 0.5,
-          borderColor: '#FDE68A',
+          borderColor: theme.status.warningBorder,
           gap: spacing.sm,
         }}
       >
-        <Text style={{ fontSize: 13, fontWeight: '700', color: '#78350F' }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: theme.status.warning }}>
           {seekerConfirmed && role === 'employer'
             ? 'Worker says they were paid'
             : employerConfirmed && role === 'seeker'
@@ -216,7 +216,7 @@ export function PaymentConfirmationPanel({
                 ? 'You confirmed payment'
                 : 'You confirmed payment'}
         </Text>
-        <Text style={{ fontSize: 12, color: '#92400E' }}>
+        <Text style={{ fontSize: 12, color: theme.status.warning }}>
           {otherSideIsMe
             ? role === 'seeker'
               ? "Confirm you were actually paid, or dispute if you weren't."
@@ -234,7 +234,7 @@ export function PaymentConfirmationPanel({
                 borderRadius: radii.pill,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: '#10B981',
+                backgroundColor: theme.status.success,
                 opacity: mutation.isPending ? 0.5 : pressed ? 0.85 : 1,
               })}
             >
@@ -253,12 +253,12 @@ export function PaymentConfirmationPanel({
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderWidth: 1,
-                  borderColor: '#B91C1C',
-                  backgroundColor: '#FFFFFF',
+                  borderColor: theme.status.danger,
+                  backgroundColor: theme.bg.surface,
                   opacity: mutation.isPending ? 0.5 : pressed ? 0.7 : 1,
                 })}
               >
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#B91C1C' }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.status.danger }}>
                   Dispute
                 </Text>
               </Pressable>
@@ -299,7 +299,7 @@ export function PaymentConfirmationPanel({
             borderRadius: radii.pill,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#10B981',
+            backgroundColor: theme.status.success,
             opacity: mutation.isPending ? 0.5 : pressed ? 0.85 : 1,
           })}
         >
@@ -318,12 +318,12 @@ export function PaymentConfirmationPanel({
               alignItems: 'center',
               justifyContent: 'center',
               borderWidth: 1,
-              borderColor: '#B91C1C',
-              backgroundColor: '#FFFFFF',
+              borderColor: theme.status.danger,
+              backgroundColor: theme.bg.surface,
               opacity: mutation.isPending ? 0.5 : pressed ? 0.7 : 1,
             })}
           >
-            <Text style={{ fontSize: 13, fontWeight: '700', color: '#B91C1C' }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: theme.status.danger }}>
               Not paid
             </Text>
           </Pressable>

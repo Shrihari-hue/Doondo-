@@ -12,10 +12,8 @@ import { AppState, Animated, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 import { Text } from '@/components/Text';
+import { useTheme } from '@/theme/useTheme';
 
-const AMBER      = '#F59E0B';
-const AMBER_DARK = '#78350F';
-const AMBER_BG   = '#FFFBEB';
 const CHECK_URL  = 'https://clients3.google.com/generate_204'; // 204 response, tiny
 const INTERVAL   = 8_000; // ms
 
@@ -29,6 +27,7 @@ async function isOnline(): Promise<boolean> {
 }
 
 export function OfflineBanner() {
+  const { theme } = useTheme();
   const [offline, setOffline] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current; // 0 = hidden, 1 = shown
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -66,9 +65,9 @@ export function OfflineBanner() {
   return (
     <Animated.View
       style={{
-        backgroundColor: AMBER_BG,
+        backgroundColor: theme.status.warningSubtle,
         borderBottomWidth: 1,
-        borderBottomColor: AMBER,
+        borderBottomColor: theme.status.warningBorder,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -85,8 +84,8 @@ export function OfflineBanner() {
         ],
       }}
     >
-      <Feather name="wifi-off" size={13} color={AMBER} />
-      <Text style={{ fontSize: 12, fontWeight: '600', color: AMBER_DARK }}>
+      <Feather name="wifi-off" size={13} color={theme.status.warning} />
+      <Text style={{ fontSize: 12, fontWeight: '600', color: theme.status.warning }}>
         You're offline — some data may be outdated.
       </Text>
     </Animated.View>

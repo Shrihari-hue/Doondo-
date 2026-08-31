@@ -373,7 +373,7 @@ function TrustCircleInner() {
               accessibilityLabel={t('trust_circle.peer_a11y')}
               trackColor={{
                 false: theme.border.default,
-                true: theme.brand.hero,
+                true: theme.brand.accent,
               }}
               thumbColor="#FFFDF7"
             />
@@ -411,7 +411,7 @@ function TrustCircleInner() {
               accessibilityLabel={t('trust_circle.shifts_a11y')}
               trackColor={{
                 false: theme.border.default,
-                true: theme.brand.hero,
+                true: theme.brand.accent,
               }}
               thumbColor="#FFFDF7"
             />
@@ -510,12 +510,12 @@ function ContactSlot({
             width: 36,
             height: 36,
             borderRadius: 18,
-            backgroundColor: hasContact ? theme.brand.heroSubtle : theme.bg.muted,
+            backgroundColor: hasContact ? theme.brand.primarySubtle : theme.bg.muted,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Text style={{ fontSize: 14, color: hasContact ? theme.brand.hero : theme.text.tertiary }}>
+          <Text style={{ fontSize: 14, color: hasContact ? theme.brand.primary : theme.text.tertiary }}>
             {index + 1}
           </Text>
         </View>
@@ -623,14 +623,14 @@ function ContactSlot({
                       paddingVertical: spacing.xs,
                       borderRadius: radii.pill,
                       borderWidth: 0.5,
-                      borderColor: active ? theme.brand.heroBorder : theme.border.default,
-                      backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                      borderColor: active ? theme.brand.primaryBorder : theme.border.default,
+                      backgroundColor: active ? theme.brand.primarySubtle : 'transparent',
                     }}
                   >
                     <Text
                       variant="footnote"
                       weight={active ? 'medium' : 'regular'}
-                      style={{ color: active ? theme.brand.hero : theme.text.secondary }}
+                      style={{ color: active ? theme.brand.primary : theme.text.secondary }}
                     >
                       {prettyRelationship(preset, t)}
                     </Text>
@@ -686,7 +686,7 @@ function ContactSlot({
                 flex: 2,
                 paddingVertical: spacing.md,
                 borderRadius: radii.pill,
-                backgroundColor: theme.brand.hero,
+                backgroundColor: theme.brand.accent,
                 alignItems: 'center',
                 opacity: saving ? 0.5 : pressed ? 0.85 : 1,
               })}

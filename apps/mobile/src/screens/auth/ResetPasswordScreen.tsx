@@ -12,7 +12,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import { spacing, radii, blue } from '@doondo/tokens';
+import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Button, TextField, FormError, DoondoMark } from '@/components';
 import { authApi } from '@/api/auth.api';
 import { ApiError } from '@/api/errors';
@@ -126,7 +126,7 @@ export function ResetPasswordScreen() {
           }}
         >
           <LinearGradient
-            colors={['#060B16', '#0D1B33', blue[900]]}
+            colors={theme.brand.primaryBannerGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
@@ -155,7 +155,7 @@ export function ResetPasswordScreen() {
             <Text
               variant="caption"
               weight="medium"
-              style={{ letterSpacing: 1.2, color: blue[300], textAlign: 'center' }}
+              style={{ letterSpacing: 1.2, color: theme.brand.primaryOnDark, textAlign: 'center' }}
             >
               {t('auth.reset.done_eyebrow')}
             </Text>
@@ -172,7 +172,7 @@ export function ResetPasswordScreen() {
 
           <Pressable onPress={() => navigation.popToTop()}>
             <LinearGradient
-              colors={[blue[500], blue[400]]}
+              colors={theme.brand.primaryGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={{
@@ -211,7 +211,7 @@ export function ResetPasswordScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <LinearGradient
-            colors={['#060B16', '#0D1B33', blue[900]]}
+            colors={theme.brand.primaryBannerGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
@@ -236,14 +236,14 @@ export function ResetPasswordScreen() {
                 borderColor: 'rgba(96,165,250,0.5)',
               }}
             >
-              <DoondoMark size={30} color={blue[300]} />
+              <DoondoMark size={30} color={theme.brand.primaryOnDark} />
             </View>
 
             <View style={{ flex: 1, gap: 4 }}>
               <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF' }}>
                 {t('auth.reset.title')}
               </Text>
-              <Text variant="caption" style={{ letterSpacing: 1.2, color: blue[300] }}>
+              <Text variant="caption" style={{ letterSpacing: 1.2, color: theme.brand.primaryOnDark }}>
                 {t('auth.reset.eyebrow')}
               </Text>
               <Text
@@ -293,7 +293,7 @@ export function ResetPasswordScreen() {
           <View style={{ gap: spacing.md }}>
             <Pressable onPress={onSubmit} disabled={submitting} style={{ opacity: submitting ? 0.7 : 1 }}>
               <LinearGradient
-                colors={[blue[500], blue[400]]}
+                colors={theme.brand.primaryGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={{
@@ -337,12 +337,12 @@ export function ResetPasswordScreen() {
               paddingVertical: spacing.xl,
               paddingHorizontal: spacing['2xl'],
               borderRadius: radii.xl,
-              backgroundColor: '#0D1B33',
+              backgroundColor: theme.brand.primaryCard,
               borderWidth: 1,
               borderColor: 'rgba(96,165,250,0.3)',
             }}
           >
-            <ActivityIndicator size="large" color={blue[400]} />
+            <ActivityIndicator size="large" color={theme.brand.primaryVivid} />
             <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
               {t('auth.reset.cta_saving')}
             </Text>

@@ -142,7 +142,7 @@ function CoursesInner() {
             <RefreshControl
               refreshing={catalogue.isRefetching}
               onRefresh={() => void catalogue.refetch()}
-              tintColor={theme.brand.hero}
+              tintColor={theme.brand.accent}
             />
           }
           ListHeaderComponent={
@@ -394,7 +394,7 @@ function CourseCard({
               style={{
                 width: `${Math.round(progress * 100)}%`,
                 height: '100%',
-                backgroundColor: '#2563EB',
+                backgroundColor: theme.brand.primary,
               }}
             />
           </View>

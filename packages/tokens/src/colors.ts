@@ -156,11 +156,51 @@ export const dark = {
     onPremium: '#221A0C', // text on champagne (use rarely, mostly fills are subtle)
   },
   brand: {
-    hero: coral[500],
-    heroHover: coral[600],
-    heroPressed: coral[700],
-    heroSubtle: 'rgba(200, 83, 58, 0.12)',
-    heroBorder: 'rgba(200, 83, 58, 0.42)',
+    /**
+     * Unified theme (post theme-unification pass). Two distinct roles —
+     * see THEME_UNIFICATION_PROMPT.md Step 0 for the full rationale:
+     *
+     *   - `primary` (blue): the ONE big action on a screen — banner/hero
+     *     card fills, primary CTA buttons, the logo mark, active/selected
+     *     states (active tab, selected toggle pill, selected chip).
+     *   - `accent` (coral, same values as the old `hero`): small inline
+     *     affordances — links, checkboxes/toggles/switches, focus rings,
+     *     small badges and tags. This is the exact treatment the Login
+     *     screen already used via the shared `tone="hero"` text component;
+     *     that pattern is unchanged, just renamed for clarity.
+     *
+     * `hero*` is kept as a deprecated alias of `accent*` during the
+     * migration so partially-converted screens still compile; it is
+     * removed once the audit is complete (see the final-audit stage).
+     */
+    primary: blue[600],
+    primaryHover: blue[700],
+    primaryPressed: blue[800],
+    primarySubtle: 'rgba(37, 99, 235, 0.14)',
+    primaryBorder: 'rgba(37, 99, 235, 0.42)',
+    /** The exact 2-stop CTA-button gradient used on the Login screen. */
+    primaryGradient: [blue[500], blue[400]] as readonly [string, string],
+    /** The exact deep-navy 3-stop hero-banner-card gradient from Login. */
+    primaryBannerGradient: ['#060B16', '#0D1B33', blue[900]] as readonly [string, string, string],
+    /** Full-bleed immersive blue gradient — onboarding slide backgrounds. */
+    primaryImmersiveGradient: [blue[700], blue[600], blue[500]] as readonly [string, string, string],
+    /** Deep-navy card/modal surface that sits inside the banner family
+     *  (the "signing in…" overlay card, info callouts on the banner). */
+    primaryCard: '#0D1B33',
+    /** Lighter blue for text/icon/logo readability ON the deep-navy
+     *  banner or card surfaces above — the banner's own bg is too dark
+     *  for the solid `primary` blue to read clearly. */
+    primaryOnDark: blue[300],
+    /** More saturated than `primaryOnDark` — spinner tints, shadow glows. */
+    primaryVivid: blue[400],
+    /** Accent counterpart to `primaryVivid` — coral on a dark/vivid context. */
+    accentVivid: coral[400],
+
+    accent: coral[500],
+    accentHover: coral[600],
+    accentPressed: coral[700],
+    accentSubtle: 'rgba(200, 83, 58, 0.12)',
+    accentBorder: 'rgba(200, 83, 58, 0.42)',
   },
   /**
    * Premium — RARE accent. Use for moments that deserve to feel special:
@@ -205,6 +245,11 @@ export const dark = {
     jade: jade[400],
     amber: amber[400],
     champagne: champagne[300],
+    /** Established Doondo voice-interaction accent — mic FABs on both
+     *  the seeker and employer tab bars, VoicePostButton, voice-agent
+     *  screens. Not derived from a raw scale (no dedicated orange scale
+     *  exists); kept identical across both roles by design. */
+    voice: '#F97316',
   },
   /** Glass/overlay tints — used for sheets, modals, blurred surfaces. */
   overlay: {
@@ -241,11 +286,25 @@ export const light = {
     onPremium: '#221A0C',
   },
   brand: {
-    hero: coral[500],
-    heroHover: coral[600],
-    heroPressed: coral[700],
-    heroSubtle: coral[50],
-    heroBorder: coral[200],
+    primary: blue[600],
+    primaryHover: blue[700],
+    primaryPressed: blue[800],
+    primarySubtle: blue[50],
+    primaryBorder: blue[200],
+    primaryGradient: [blue[500], blue[400]] as readonly [string, string],
+    primaryBannerGradient: ['#060B16', '#0D1B33', blue[900]] as readonly [string, string, string],
+    primaryImmersiveGradient: [blue[700], blue[600], blue[500]] as readonly [string, string, string],
+    primaryCard: '#0D1B33',
+    primaryOnDark: blue[300],
+    primaryVivid: blue[400],
+    /** Accent counterpart to `primaryVivid` — coral on a dark/vivid context. */
+    accentVivid: coral[400],
+
+    accent: coral[500],
+    accentHover: coral[600],
+    accentPressed: coral[700],
+    accentSubtle: coral[50],
+    accentBorder: coral[200],
   },
   premium: {
     gold: champagne[500], // deeper for readability on light
@@ -272,6 +331,7 @@ export const light = {
     jade: jade[600],
     amber: amber[400],
     champagne: champagne[500],
+    voice: '#F97316',
   },
   overlay: {
     scrim: 'rgba(11, 10, 7, 0.45)',
@@ -316,11 +376,25 @@ export const seekerLight = {
     onPremium: '#221A0C',
   },
   brand: {
-    hero: blue[600],          // #2563EB
-    heroHover: blue[700],
-    heroPressed: blue[800],
-    heroSubtle: blue[50],     // for chip/tag backgrounds
-    heroBorder: blue[200],
+    primary: blue[600],          // #2563EB
+    primaryHover: blue[700],
+    primaryPressed: blue[800],
+    primarySubtle: blue[50],     // for chip/tag backgrounds
+    primaryBorder: blue[200],
+    primaryGradient: [blue[500], blue[400]] as readonly [string, string],
+    primaryBannerGradient: ['#060B16', '#0D1B33', blue[900]] as readonly [string, string, string],
+    primaryImmersiveGradient: [blue[700], blue[600], blue[500]] as readonly [string, string, string],
+    primaryCard: '#0D1B33',
+    primaryOnDark: blue[300],
+    primaryVivid: blue[400],
+    /** Accent counterpart to `primaryVivid` — coral on a dark/vivid context. */
+    accentVivid: coral[400],
+
+    accent: coral[500],
+    accentHover: coral[600],
+    accentPressed: coral[700],
+    accentSubtle: 'rgba(200, 83, 58, 0.12)',
+    accentBorder: 'rgba(200, 83, 58, 0.42)',
   },
   premium: {
     gold: champagne[500],
@@ -348,6 +422,7 @@ export const seekerLight = {
     jade: jade[600],
     amber: amber[400],
     champagne: champagne[500],
+    voice: '#F97316',
   },
   overlay: {
     scrim: 'rgba(15, 23, 42, 0.45)',
@@ -356,7 +431,15 @@ export const seekerLight = {
 } as const;
 
 export type Theme = typeof dark;
-export const themes = { dark, light, seekerLight } as const;
+/**
+ * `seekerLight` (defined above) is kept as a standalone export for
+ * reference/history but deliberately excluded from `themes` / `ThemeName`
+ * — the theme-unification pass (THEME_UNIFICATION_PROMPT.md Step 0)
+ * retired the role-based light/dark split. Nothing in the app can
+ * select it anymore; `ThemeProvider` only ever resolves to `dark` or
+ * `light`, and `SeekerThemeOverride` is now a pass-through.
+ */
+export const themes = { dark, light } as const;
 export type ThemeName = keyof typeof themes;
 
 /**

@@ -312,7 +312,7 @@ function MyApplicationsInner() {
                   paddingHorizontal: spacing.md,
                   paddingVertical: spacing.sm - 2,
                   borderRadius: radii.pill,
-                  backgroundColor: active ? '#2563EB' : theme.bg.surface,
+                  backgroundColor: active ? theme.brand.primary : theme.bg.surface,
                   borderWidth: active ? 0 : 1,
                   borderColor: theme.border.default,
                   opacity: pressed ? 0.85 : 1,
@@ -370,7 +370,7 @@ function MyApplicationsInner() {
                       backgroundColor: theme.bg.surface,
                       borderRadius: radii.lg,
                       borderWidth: 1,
-                      borderColor: theme.brand.hero,
+                      borderColor: theme.brand.accent,
                       padding: spacing.lg,
                       gap: spacing.sm,
                     }}
@@ -392,7 +392,7 @@ function MyApplicationsInner() {
                         paddingHorizontal: spacing.lg,
                         paddingVertical: 10,
                         borderRadius: radii.pill,
-                        backgroundColor: theme.brand.hero,
+                        backgroundColor: theme.brand.accent,
                       }}
                     >
                       <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
@@ -411,7 +411,7 @@ function MyApplicationsInner() {
                 void query.refetch();
                 void homeSafeQuery.refetch();
               }}
-              tintColor={theme.brand.hero}
+              tintColor={theme.brand.accent}
             />
           }
           renderItem={({ item }) => {
@@ -487,11 +487,11 @@ function MyApplicationsInner() {
                       paddingVertical: 12,
                       borderRadius: radii.pill,
                       borderWidth: 0.5,
-                      borderColor: theme.brand.hero,
+                      borderColor: theme.brand.accent,
                       alignItems: 'center',
                     }}
                   >
-                    <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
+                    <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
                       {t('applications.open_my_job')}
                     </Text>
                   </Pressable>
@@ -575,9 +575,9 @@ function MyApplicationsInner() {
                       gap: spacing.sm,
                       padding: spacing.sm,
                       borderRadius: radii.md,
-                      backgroundColor: theme.brand.heroSubtle,
+                      backgroundColor: theme.brand.accentSubtle,
                       borderWidth: 0.5,
-                      borderColor: theme.brand.heroBorder,
+                      borderColor: theme.brand.accentBorder,
                       opacity: pressed ? 0.7 : 1,
                     })}
                   >
@@ -587,7 +587,7 @@ function MyApplicationsInner() {
                         flex: 1,
                         fontSize: 13,
                         fontWeight: '600',
-                        color: theme.brand.hero,
+                        color: theme.brand.accent,
                       }}
                     >
                       {t('applications.rate_now_title', { name: unrated.otherPartyName })}
@@ -595,7 +595,7 @@ function MyApplicationsInner() {
                     <Text
                       style={{
                         fontSize: 12,
-                        color: theme.brand.hero,
+                        color: theme.brand.accent,
                         fontWeight: '600',
                       }}
                     >
@@ -1365,8 +1365,8 @@ function OfferResponseCard({ application }: { application: PublicApplication }) 
         padding: spacing.md,
         borderRadius: radii.lg,
         borderWidth: 0.5,
-        borderColor: theme.brand.hero,
-        backgroundColor: theme.brand.heroSubtle,
+        borderColor: theme.brand.accent,
+        backgroundColor: theme.brand.accentSubtle,
         gap: spacing.sm,
       }}
     >
@@ -1397,7 +1397,7 @@ function OfferResponseCard({ application }: { application: PublicApplication }) 
                 flex: 1,
                 paddingVertical: 10,
                 borderRadius: radii.pill,
-                backgroundColor: theme.brand.hero,
+                backgroundColor: theme.brand.accent,
                 alignItems: 'center',
                 opacity: busy || !counterRupees ? 0.6 : 1,
               }}
@@ -1442,11 +1442,11 @@ function OfferResponseCard({ application }: { application: PublicApplication }) 
               paddingVertical: 10,
               borderRadius: radii.pill,
               borderWidth: 0.5,
-              borderColor: theme.brand.hero,
+              borderColor: theme.brand.accent,
               alignItems: 'center',
             }}
           >
-            <Text style={{ color: theme.brand.hero, fontWeight: '700', fontSize: 13 }}>
+            <Text style={{ color: theme.brand.accent, fontWeight: '700', fontSize: 13 }}>
               {t('offer_response.counter')}
             </Text>
           </Pressable>

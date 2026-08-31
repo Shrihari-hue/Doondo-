@@ -173,7 +173,7 @@ function PrepChecklistCard({ application }: { application: PublicApplication }) 
             style={{
               paddingVertical: 10,
               borderRadius: radii.pill,
-              backgroundColor: theme.brand.hero,
+              backgroundColor: theme.brand.primary,
               alignItems: 'center',
               opacity: busy || !allChecked ? 0.5 : 1,
             }}
@@ -257,7 +257,7 @@ function WorkProofCard({ applicationId }: { applicationId: string }) {
           style={{
             paddingVertical: 10,
             borderRadius: radii.pill,
-            backgroundColor: theme.brand.hero,
+            backgroundColor: theme.brand.primary,
             alignItems: 'center',
             opacity: busy ? 0.6 : 1,
           }}
@@ -397,12 +397,12 @@ function ShiftConfirmCard({ application }: { application: PublicApplication }) {
               paddingVertical: 10,
               borderRadius: radii.pill,
               borderWidth: 0.5,
-              borderColor: theme.brand.hero,
+              borderColor: theme.brand.primary,
               alignItems: 'center',
               opacity: busy ? 0.6 : 1,
             }}
           >
-            <Text style={{ color: theme.brand.hero, fontWeight: '700', fontSize: 13 }}>
+            <Text style={{ color: theme.brand.primary, fontWeight: '700', fontSize: 13 }}>
               {t('shift_confirm.im_on_my_way')}
             </Text>
           </Pressable>
@@ -518,7 +518,7 @@ function ShiftCheckInCard({ applicationId }: { applicationId: string }) {
           paddingVertical: spacing.sm,
           paddingHorizontal: spacing.md,
           borderRadius: radii.pill,
-          backgroundColor: isActive ? theme.brand.hero : theme.status.success,
+          backgroundColor: isActive ? theme.brand.primary : theme.status.success,
           alignItems: 'center',
           opacity: busy ? 0.5 : pressed ? 0.85 : 1,
         })}

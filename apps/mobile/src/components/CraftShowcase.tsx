@@ -106,7 +106,7 @@ export function CraftShowcase({
               paddingHorizontal: spacing.md,
               paddingVertical: spacing.sm,
               borderRadius: radii.pill,
-              backgroundColor: theme.brand.hero,
+              backgroundColor: theme.brand.primary,
               opacity: pressed ? 0.85 : 1,
             })}
           >
@@ -156,9 +156,9 @@ export function CraftShowcase({
                   paddingHorizontal: spacing.md,
                   paddingVertical: 7,
                   borderRadius: radii.pill,
-                  backgroundColor: selected ? theme.brand.hero : theme.bg.surface,
+                  backgroundColor: selected ? theme.brand.primary : theme.bg.surface,
                   borderWidth: 0.5,
-                  borderColor: selected ? theme.brand.hero : theme.border.subtle,
+                  borderColor: selected ? theme.brand.primary : theme.border.subtle,
                   opacity: pressed ? 0.8 : 1,
                 })}
               >

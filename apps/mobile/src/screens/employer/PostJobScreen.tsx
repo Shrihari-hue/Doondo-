@@ -404,7 +404,7 @@ export function PostJobScreen() {
   const canSave = validationReason === null && !mutation.isPending;
 
   const isLight = scheme !== 'dark';
-  const BLUE = '#2563EB';
+  const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named constant, not reachable from theme here
   const BLUE_LIGHT = isLight ? '#EFF6FF' : 'rgba(37,99,235,0.16)';
   const screenBg = isLight ? '#FFFFFF' : '#0C0A0E';
   const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
@@ -1148,7 +1148,7 @@ export function PostJobScreen() {
                       paddingVertical: spacing.sm + 2,
                       borderRadius: radii.pill,
                       alignItems: 'center',
-                      backgroundColor: active ? '#2563EB' : theme.bg.surface,
+                      backgroundColor: active ? theme.brand.primary : theme.bg.surface,
                       borderWidth: active ? 0 : 1,
                       borderColor: theme.border.default,
                       opacity: pressed ? 0.85 : 1,
@@ -1720,8 +1720,8 @@ function WomenSafetyField({
                 height: 22,
                 borderRadius: 6,
                 borderWidth: 1.5,
-                borderColor: on ? '#2563EB' : theme.border.default,
-                backgroundColor: on ? '#2563EB' : 'transparent',
+                borderColor: on ? theme.brand.primary : theme.border.default,
+                backgroundColor: on ? theme.brand.primary : 'transparent',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}

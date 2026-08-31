@@ -28,7 +28,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { radii, spacing, blue } from '@doondo/tokens';
+import { radii, spacing } from '@doondo/tokens';
 import { Screen, Text, Pill } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
@@ -151,7 +151,7 @@ export function FirstMatchPreviewScreen() {
             screen doesn't feel like a bare, unstyled placeholder. Text-only,
             no logo mark — matches the Solo/Team sheet's banner. */}
         <LinearGradient
-          colors={['#060B16', '#0D1B33', blue[900]]}
+          colors={theme.brand.primaryBannerGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
@@ -173,7 +173,7 @@ export function FirstMatchPreviewScreen() {
           </Text>
           <Text
             variant="caption"
-            style={{ letterSpacing: 1.2, color: blue[300], textAlign: 'center' }}
+            style={{ letterSpacing: 1.2, color: theme.brand.primaryOnDark, textAlign: 'center' }}
           >
             {t('first_match.eyebrow')}
           </Text>
@@ -232,7 +232,7 @@ export function FirstMatchPreviewScreen() {
         {/* Primary CTA */}
         <Pressable onPress={goSignup} style={{ marginTop: spacing.xl }}>
           <LinearGradient
-            colors={[blue[500], blue[400]]}
+            colors={theme.brand.primaryGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -340,7 +340,7 @@ function PreviewCard({ job, onPress, t }: PreviewCardProps) {
         padding: spacing.lg,
         borderRadius: radii.lg,
         borderWidth: 0.5,
-        borderColor: job.urgent ? theme.brand.hero : theme.border.default,
+        borderColor: job.urgent ? theme.brand.accent : theme.border.default,
         backgroundColor: theme.bg.surface,
         gap: spacing.sm,
       }}

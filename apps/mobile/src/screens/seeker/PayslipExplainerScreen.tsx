@@ -192,12 +192,12 @@ function StepList({ steps }: { steps: string[] }) {
               width: 20,
               height: 20,
               borderRadius: 10,
-              backgroundColor: theme.brand.heroSubtle,
+              backgroundColor: theme.brand.accentSubtle,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Text variant="caption" weight="medium" style={{ color: theme.brand.hero }}>
+            <Text variant="caption" weight="medium" style={{ color: theme.brand.accent }}>
               {i + 1}
             </Text>
           </View>
@@ -229,15 +229,15 @@ function PortalLink({ label, url }: { label: string; url: string }) {
         paddingVertical: spacing.sm,
         borderRadius: radii.pill,
         borderWidth: 0.5,
-        borderColor: theme.brand.hero,
-        backgroundColor: theme.brand.heroSubtle,
+        borderColor: theme.brand.accent,
+        backgroundColor: theme.brand.accentSubtle,
         opacity: pressed ? 0.6 : 1,
       })}
     >
-      <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
+      <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
         {label}
       </Text>
-      <Text style={{ color: theme.brand.hero, fontSize: 13 }}>↗</Text>
+      <Text style={{ color: theme.brand.accent, fontSize: 13 }}>↗</Text>
     </Pressable>
   );
 }

@@ -57,7 +57,7 @@ type ViewMode = 'list' | 'map';
 
 const SEARCH_RADIUS_M = 15_000;
 
-const BLUE = '#2563EB';
+const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named constant, not reachable from theme here
 const BLUE_LIGHT = '#EFF6FF';
 const GREEN = '#16A34A';
 const AMBER = '#F59E0B';

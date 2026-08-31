@@ -144,15 +144,15 @@ function Inner() {
                     paddingVertical: spacing.sm,
                     borderRadius: radii.pill,
                     borderWidth: 0.5,
-                    borderColor: active ? theme.brand.hero : theme.border.default,
-                    backgroundColor: active ? theme.brand.heroSubtle : 'transparent',
+                    borderColor: active ? theme.brand.primary : theme.border.default,
+                    backgroundColor: active ? theme.brand.primarySubtle : 'transparent',
                   }}
                 >
                   <Text
                     style={{
                       fontSize: 14,
                       fontWeight: active ? '700' : '400',
-                      color: active ? theme.brand.hero : theme.text.primary,
+                      color: active ? theme.brand.primary : theme.text.primary,
                     }}
                   >
                     {formatINR(a)}
@@ -187,7 +187,7 @@ function Inner() {
             style={{
               paddingVertical: spacing.md,
               borderRadius: radii.pill,
-              backgroundColor: '#2563EB',
+              backgroundColor: theme.brand.primary,
               alignItems: 'center',
               opacity: createMut.isPending ? 0.6 : 1,
               shadowColor: '#1E40AF',

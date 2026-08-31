@@ -118,7 +118,7 @@ function EmployerDetailInner() {
           <RefreshControl
             refreshing={query.isRefetching}
             onRefresh={() => void query.refetch()}
-            tintColor={theme.brand.hero}
+            tintColor={theme.brand.accent}
           />
         }
         ListHeaderComponent={
@@ -794,12 +794,12 @@ function FavoriteEmployerButton({ employerId }: { employerId: string }) {
         paddingVertical: 10,
         borderRadius: 999,
         borderWidth: 0.5,
-        borderColor: favorited ? theme.brand.hero : theme.border.default,
-        backgroundColor: favorited ? theme.brand.heroSubtle : 'transparent',
+        borderColor: favorited ? theme.brand.primary : theme.border.default,
+        backgroundColor: favorited ? theme.brand.primarySubtle : 'transparent',
       }}
     >
       <Text style={{ fontSize: 15 }}>{favorited ? '♥' : '♡'}</Text>
-      <Text variant="footnote" weight="medium" style={{ color: favorited ? theme.brand.hero : theme.text.secondary }}>
+      <Text variant="footnote" weight="medium" style={{ color: favorited ? theme.brand.primary : theme.text.secondary }}>
         {favorited ? t('employer_detail.favorited') : t('employer_detail.favorite')}
       </Text>
     </Pressable>
@@ -902,7 +902,7 @@ function InterestButton({
           disabled={busy}
           accessibilityRole="button"
           style={({ pressed }) => ({
-            backgroundColor: theme.brand.hero,
+            backgroundColor: theme.brand.accent,
             paddingVertical: 14,
             borderRadius: radii.pill,
             alignItems: 'center',

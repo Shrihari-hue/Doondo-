@@ -262,7 +262,7 @@ function PickStage({
         <Text
           variant="footnote"
           weight="medium"
-          style={{ letterSpacing: 1.2, color: theme.brand.hero }}
+          style={{ letterSpacing: 1.2, color: theme.brand.accent }}
         >
           {t('profile_from_photo.eyebrow')}
         </Text>
@@ -349,7 +349,7 @@ function PickAction({
         borderRadius: radii.lg,
         borderWidth: primary ? 0 : 0.5,
         borderColor: theme.border.default,
-        backgroundColor: primary ? theme.brand.hero : theme.bg.surface,
+        backgroundColor: primary ? theme.brand.primary : theme.bg.surface,
         flexDirection: 'row',
         alignItems: 'center',
         gap: spacing.md,
@@ -363,10 +363,10 @@ function PickAction({
           borderRadius: 22,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: primary ? 'rgba(255,253,247,0.18)' : theme.brand.heroSubtle,
+          backgroundColor: primary ? 'rgba(255,253,247,0.18)' : theme.brand.accentSubtle,
         }}
       >
-        <Feather name={icon} size={20} color={primary ? '#FFFDF7' : theme.brand.hero} />
+        <Feather name={icon} size={20} color={primary ? '#FFFDF7' : theme.brand.accent} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text
@@ -417,7 +417,7 @@ function ExtractingStage({ imageDataUrl }: { imageDataUrl: string }) {
         />
       </View>
       <View style={{ alignItems: 'center', gap: spacing.sm }}>
-        <ActivityIndicator size="small" color={theme.brand.hero} />
+        <ActivityIndicator size="small" color={theme.brand.accent} />
         <Text variant="bodyLarge" weight="medium">
           {t('profile_from_photo.extracting_title')}
         </Text>
@@ -666,7 +666,7 @@ function ConfirmStage({
             flex: 2,
             paddingVertical: spacing.md,
             borderRadius: radii.pill,
-            backgroundColor: theme.brand.hero,
+            backgroundColor: theme.brand.accent,
             alignItems: 'center',
             opacity: saving ? 0.5 : pressed ? 0.85 : 1,
           })}

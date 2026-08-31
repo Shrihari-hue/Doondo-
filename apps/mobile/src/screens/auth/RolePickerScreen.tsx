@@ -17,7 +17,7 @@ import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { radii, spacing, blue, coral, jade } from '@doondo/tokens';
+import { radii, spacing } from '@doondo/tokens';
 import { Screen, Text, DoondoMark } from '@/components';
 import { haptic } from '@/lib/haptics';
 import {
@@ -217,9 +217,9 @@ export function RolePickerScreen() {
                   paddingVertical: spacing.sm,
                   paddingHorizontal: spacing.md,
                   borderRadius: radii.md,
-                  backgroundColor: theme.brand.heroSubtle,
+                  backgroundColor: theme.brand.accentSubtle,
                   borderWidth: 0.5,
-                  borderColor: theme.brand.heroBorder,
+                  borderColor: theme.brand.accentBorder,
                 }}
               >
                 <Text variant="footnote" weight="medium" tone="hero">
@@ -258,7 +258,7 @@ export function RolePickerScreen() {
                     // so the longer copy fits without feeling stretched.
                     letterSpacing: 0.8,
                     textAlign: 'center',
-                    color: isLight ? blue[700] : blue[300],
+                    color: isLight ? theme.brand.primaryHover : theme.brand.primaryOnDark,
                   }}
                 >
                   {t('role_picker.eyebrow')}
@@ -302,7 +302,7 @@ export function RolePickerScreen() {
               }}
             >
               <JourneyCard
-                accent={isLight ? blue[700] : blue[400]}
+                accent={isLight ? theme.brand.primaryHover : theme.brand.primaryVivid}
                 badgeIcon="briefcase"
                 icon="map-pin"
                 headline={t('role_picker.seeker_headline')}
@@ -313,7 +313,7 @@ export function RolePickerScreen() {
               />
 
               <JourneyCard
-                accent={isLight ? coral[600] : coral[400]}
+                accent={isLight ? theme.brand.accentHover : theme.brand.accentVivid}
                 badgeIcon="user"
                 icon="search"
                 headline={t('role_picker.employer_headline')}
@@ -396,7 +396,7 @@ function SeekerWorkTypeSheet({ onCancel, onPick, t }: SeekerWorkTypeSheetProps &
         />
 
         <LinearGradient
-          colors={['#060B16', '#0D1B33', blue[900]]}
+          colors={theme.brand.primaryBannerGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
@@ -418,7 +418,7 @@ function SeekerWorkTypeSheet({ onCancel, onPick, t }: SeekerWorkTypeSheetProps &
           </Text>
           <Text
             variant="caption"
-            style={{ letterSpacing: 1.2, color: blue[300], textAlign: 'center' }}
+            style={{ letterSpacing: 1.2, color: theme.brand.primaryOnDark, textAlign: 'center' }}
           >
             {t('role_picker.sheet_eyebrow')}
           </Text>
@@ -470,14 +470,14 @@ function SeekerWorkTypeSheet({ onCancel, onPick, t }: SeekerWorkTypeSheetProps &
                       paddingVertical: spacing.xs,
                       borderRadius: radii.pill,
                       borderWidth: 0.5,
-                      borderColor: active ? blue[400] : theme.border.default,
+                      borderColor: active ? theme.brand.primaryVivid : theme.border.default,
                       backgroundColor: active ? 'rgba(59,130,246,0.16)' : 'transparent',
                     }}
                   >
                     <Text
                       variant="footnote"
                       weight={active ? 'medium' : 'regular'}
-                      style={{ color: active ? blue[300] : theme.text.secondary }}
+                      style={{ color: active ? theme.brand.primaryOnDark : theme.text.secondary }}
                     >
                       {n}
                     </Text>
@@ -514,7 +514,7 @@ function SeekerWorkTypeSheet({ onCancel, onPick, t }: SeekerWorkTypeSheetProps &
             style={{ flex: 2 }}
           >
             <LinearGradient
-              colors={[blue[500], blue[400]]}
+              colors={theme.brand.primaryGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={{
@@ -596,20 +596,28 @@ function ChoiceCard({
 
       <Animated.View
         pointerEvents={active ? 'auto' : 'none'}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: progress }}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          opacity: progress,
+          borderRadius: radii.lg,
+          shadowColor: theme.brand.primaryVivid,
+          shadowOpacity: 0.5,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 6,
+        }}
       >
         <LinearGradient
-          colors={[blue[500], blue[400]]}
+          colors={theme.brand.primaryGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
             flex: 1,
             ...cardBoxStyle,
-            shadowColor: blue[400],
-            shadowOpacity: 0.5,
-            shadowRadius: 12,
-            shadowOffset: { width: 0, height: 4 },
-            elevation: 6,
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
@@ -682,7 +690,7 @@ function TopBar({
         >
           <DoondoMark
             size={Math.round(logoSize * 0.78)}
-            color={isLight ? blue[700] : blue[300]}
+            color={isLight ? theme.brand.primaryHover : theme.brand.primaryOnDark}
           />
         </View>
         {!tight && (
@@ -954,7 +962,7 @@ function HowItWorks({ compact, t }: { compact: boolean; t: TFn }) {
           weight="medium"
           style={{
             letterSpacing: 1.4,
-            color: isLight ? blue[700] : blue[300],
+            color: isLight ? theme.brand.primaryHover : theme.brand.primaryOnDark,
           }}
         >
           {t('role_picker.how_eyebrow')}
@@ -1048,7 +1056,7 @@ function ActivityTicker({ compact, t }: { compact: boolean; t: TFn }) {
     return () => loop.stop();
   }, [textWidth, translate]);
 
-  const accent = isLight ? blue[700] : blue[300];
+  const accent = isLight ? theme.brand.primaryHover : theme.brand.primaryOnDark;
 
   // Render one strip. The first copy reports its width via onLayout so
   // we know how far to translate; the second copy renders identically
@@ -1125,7 +1133,7 @@ function ActivityTicker({ compact, t }: { compact: boolean; t: TFn }) {
               width: 6,
               height: 6,
               borderRadius: 3,
-              backgroundColor: jade[300],
+              backgroundColor: theme.status.success,
             }}
           />
           <Text

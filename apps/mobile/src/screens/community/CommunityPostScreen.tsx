@@ -205,7 +205,7 @@ function Inner() {
                 Replying to {replyTo.name}
               </Text>
               <Pressable onPress={() => setReplyTo(null)} hitSlop={8}>
-                <Text style={{ fontSize: 12, color: theme.brand.hero }}>Cancel</Text>
+                <Text style={{ fontSize: 12, color: theme.brand.accent }}>Cancel</Text>
               </Pressable>
             </View>
           ) : null}
@@ -240,7 +240,7 @@ function Inner() {
                 paddingVertical: 10,
                 borderRadius: radii.pill,
                 backgroundColor:
-                  draft.trim().length > 0 ? theme.brand.hero : theme.border.default,
+                  draft.trim().length > 0 ? theme.brand.primary : theme.border.default,
               }}
             >
               <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>
@@ -306,7 +306,7 @@ function CommentItem({
             </Text>
           </View>
           <Pressable onPress={onReply} hitSlop={8} style={{ marginTop: 4 }}>
-            <Text style={{ fontSize: 12, fontWeight: '600', color: theme.brand.hero }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: theme.brand.accent }}>
               Reply
             </Text>
           </Pressable>

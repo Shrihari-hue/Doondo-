@@ -233,7 +233,7 @@ function MyEarningsInner() {
               <RefreshControl
                 refreshing={query.isRefetching}
                 onRefresh={() => void query.refetch()}
-                tintColor={theme.brand.hero}
+                tintColor={theme.brand.accent}
               />
             }
             renderItem={({ item }) => <TransactionRow t={t} tx={item} />}
@@ -446,9 +446,9 @@ function LogCashEarningModal({
                 borderRadius: radii.pill,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: '#2563EB',
+                backgroundColor: theme.brand.primary,
                 opacity: mutation.isPending ? 0.5 : pressed ? 0.85 : 1,
-                shadowColor: '#2563EB',
+                shadowColor: theme.brand.primary,
                 shadowOpacity: 0.25,
                 shadowRadius: 10,
                 shadowOffset: { width: 0, height: 4 },
@@ -599,7 +599,7 @@ function TransactionRow({ t, tx }: { t: TFn; tx: PublicWalletTransaction }) {
             paddingVertical: 6,
             borderRadius: radii.pill,
             borderWidth: 0.5,
-            borderColor: '#2563EB',
+            borderColor: theme.brand.primary,
             backgroundColor: pressed ? '#DBEAFE' : '#EFF6FF',
             marginLeft: 52,
             opacity: issuing ? 0.6 : 1,

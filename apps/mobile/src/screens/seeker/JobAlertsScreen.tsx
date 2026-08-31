@@ -225,7 +225,7 @@ function JobAlertsInner() {
               <RefreshControl
                 refreshing={query.isRefetching}
                 onRefresh={() => void query.refetch()}
-                tintColor={theme.brand.hero}
+                tintColor={theme.brand.accent}
               />
             }
             renderItem={({ item }) => (

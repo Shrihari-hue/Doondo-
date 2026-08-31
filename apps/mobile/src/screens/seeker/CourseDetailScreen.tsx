@@ -149,7 +149,7 @@ function CourseDetailInner() {
           <RefreshControl
             refreshing={detail.isRefetching}
             onRefresh={() => void detail.refetch()}
-            tintColor={theme.brand.hero}
+            tintColor={theme.brand.accent}
           />
         }
       >
@@ -274,7 +274,7 @@ function CourseDetailInner() {
               style={{
                 width: `${Math.round(progress * 100)}%`,
                 height: '100%',
-                backgroundColor: isCompleted ? '#10B981' : '#2563EB',
+                backgroundColor: isCompleted ? '#10B981' : theme.brand.primary,
               }}
             />
           </View>
@@ -290,7 +290,7 @@ function CourseDetailInner() {
                     paddingVertical: 12,
                     borderRadius: radii.pill,
                     alignItems: 'center',
-                    backgroundColor: '#2563EB',
+                    backgroundColor: theme.brand.primary,
                     opacity: enrollMutation.isPending ? 0.5 : pressed ? 0.85 : 1,
                   }}
                 >
@@ -511,7 +511,7 @@ function LessonModal({
                       borderRadius: radii.pill,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      backgroundColor: completed ? '#10B981' : '#2563EB',
+                      backgroundColor: completed ? '#10B981' : theme.brand.primary,
                       opacity: completed
                         ? 0.7
                         : completing
@@ -519,7 +519,7 @@ function LessonModal({
                           : pressed
                             ? 0.85
                             : 1,
-                      shadowColor: completed ? '#10B981' : '#2563EB',
+                      shadowColor: completed ? '#10B981' : theme.brand.primary,
                       shadowOpacity: 0.25,
                       shadowRadius: 10,
                       shadowOffset: { width: 0, height: 4 },

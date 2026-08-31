@@ -253,7 +253,7 @@ export function SeekerHomeScreen() {
           <RefreshControl
             refreshing={jobsQuery.isRefetching}
             onRefresh={() => void jobsQuery.refetch()}
-            tintColor={theme.brand.hero}
+            tintColor={theme.brand.accent}
           />
         }
       >
@@ -273,7 +273,7 @@ export function SeekerHomeScreen() {
               lineHeight: 30,
               fontWeight: '700',
               // Festival Mode gives the wordmark a seasonal tint.
-              color: festival ? festival.accent : theme.brand.hero,
+              color: festival ? festival.accent : theme.brand.accent,
               letterSpacing: -0.5,
             }}
           >
@@ -315,12 +315,12 @@ export function SeekerHomeScreen() {
               width: 32,
               height: 32,
               borderRadius: 16,
-              backgroundColor: theme.brand.heroSubtle,
+              backgroundColor: theme.brand.accentSubtle,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="map-pin" size={16} color={theme.brand.hero} />
+            <Feather name="map-pin" size={16} color={theme.brand.accent} />
           </View>
           <View style={{ flex: 1 }}>
             <Text
@@ -454,7 +454,7 @@ export function SeekerHomeScreen() {
                 style={{
                   fontSize: 13,
                   fontWeight: '600',
-                  color: theme.brand.hero,
+                  color: theme.brand.accent,
                 }}
               >
                 {t('home.view_all')}
@@ -532,7 +532,7 @@ export function SeekerHomeScreen() {
                 style={{
                   fontSize: 13,
                   fontWeight: '600',
-                  color: theme.brand.hero,
+                  color: theme.brand.accent,
                 }}
               >
                 {t('home.see_more')}
@@ -542,7 +542,7 @@ export function SeekerHomeScreen() {
 
           {jobsQuery.isLoading && (
             <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
-              <ActivityIndicator color={theme.brand.hero} />
+              <ActivityIndicator color={theme.brand.accent} />
             </View>
           )}
 
@@ -661,8 +661,8 @@ export function SeekerHomeScreen() {
                       paddingHorizontal: spacing.md,
                       paddingVertical: 8,
                       borderRadius: radii.pill,
-                      backgroundColor: theme.brand.hero,
-                      shadowColor: theme.brand.hero,
+                      backgroundColor: theme.brand.accent,
+                      shadowColor: theme.brand.accent,
                       shadowOffset: { width: 0, height: 4 },
                       shadowOpacity: 0.28,
                       shadowRadius: 8,
@@ -705,6 +705,7 @@ function ModeToggle({
   onChange: (next: HomeMode) => void;
   t: TFn;
 }) {
+  const { theme } = useTheme();
   return (
     <View
       style={{
@@ -729,8 +730,8 @@ function ModeToggle({
             style={{
               flex: 1,
               borderRadius: radii.pill,
-              backgroundColor: active ? '#2563EB' : 'transparent',
-              shadowColor: active ? '#2563EB' : 'transparent',
+              backgroundColor: active ? theme.brand.primary : 'transparent',
+              shadowColor: active ? theme.brand.primary : 'transparent',
               shadowOpacity: active ? 0.3 : 0,
               shadowRadius: active ? 8 : 0,
               shadowOffset: { width: 0, height: 3 },
@@ -808,7 +809,7 @@ function PremiumHomeHeader({
             fontSize: 30,
             lineHeight: 34,
             fontWeight: '700',
-            color: theme.brand.hero,
+            color: theme.brand.accent,
             letterSpacing: -0.8,
           }}
         >

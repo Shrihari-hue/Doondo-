@@ -408,13 +408,13 @@ function Inner() {
                         alignSelf: 'center',
                         opacity: saveOpacity,
                         borderWidth: 3,
-                        borderColor: '#2563EB',
+                        borderColor: theme.brand.primary,
                         paddingHorizontal: 12,
                         paddingVertical: 4,
                         borderRadius: 6,
                       }}
                     >
-                      <Text style={{ color: '#2563EB', fontWeight: '900', fontSize: 22 }}>
+                      <Text style={{ color: theme.brand.primary, fontWeight: '900', fontSize: 22 }}>
                         {t('jobs.swipe.overlay_save')}
                       </Text>
                     </Animated.View>
@@ -451,7 +451,7 @@ function Inner() {
                 setSaved((s) => new Set(s).add(j.id));
               });
             }}
-            color="#2563EB"
+            color={theme.brand.primary}
           />
           <ActionButton
             iconName="check"

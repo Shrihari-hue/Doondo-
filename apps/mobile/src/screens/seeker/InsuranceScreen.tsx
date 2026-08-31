@@ -180,7 +180,7 @@ function Inner() {
               style={{
                 paddingVertical: spacing.md,
                 borderRadius: radii.pill,
-                backgroundColor: '#2563EB',
+                backgroundColor: theme.brand.primary,
                 alignItems: 'center',
               }}
             >

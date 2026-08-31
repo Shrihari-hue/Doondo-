@@ -125,7 +125,7 @@ export function LanguagePickerSheet({ visible, onClose }: Props) {
                       <Text
                         variant="bodyLarge"
                         weight="medium"
-                        style={{ color: theme.brand.hero }}
+                        style={{ color: theme.brand.primary }}
                       >
                         ✓
                       </Text>
