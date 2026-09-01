@@ -79,10 +79,10 @@ function MyEarningsInner() {
           }}
         >
           <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={{ fontSize: 22, color: '#FFFFFF' }}>←</Text>
+            <Text style={{ fontSize: 22, color: theme.text.onBrand }}>←</Text>
           </Pressable>
           <Text
-            style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
+            style={{ fontSize: 17, fontWeight: '600', color: theme.text.onBrand, flex: 1 }}
           >
             {t('earnings.title')}
           </Text>
@@ -98,7 +98,7 @@ function MyEarningsInner() {
             accessibilityLabel={t('earnings.info_a11y')}
             hitSlop={12}
           >
-            <Text style={{ fontSize: 18, color: '#FFFFFF' }}>ⓘ</Text>
+            <Text style={{ fontSize: 18, color: theme.text.onBrand }}>ⓘ</Text>
           </Pressable>
         </View>
 
@@ -117,7 +117,7 @@ function MyEarningsInner() {
             fontSize: 44,
             lineHeight: 48,
             fontWeight: '700',
-            color: '#FFFFFF',
+            color: theme.text.onBrand,
             letterSpacing: -1,
             marginTop: 4,
           }}
@@ -167,7 +167,7 @@ function MyEarningsInner() {
             opacity: pressed ? 0.7 : 1,
           })}
         >
-          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>
+          <Text style={{ color: theme.text.onBrand, fontSize: 13, fontWeight: '700' }}>
             {t('earnings.log_cta')}
           </Text>
         </Pressable>
@@ -233,7 +233,7 @@ function MyEarningsInner() {
               <RefreshControl
                 refreshing={query.isRefetching}
                 onRefresh={() => void query.refetch()}
-                tintColor={theme.brand.accent}
+                tintColor={theme.brand.primary}
               />
             }
             renderItem={({ item }) => <TransactionRow t={t} tx={item} />}
@@ -455,7 +455,7 @@ function LogCashEarningModal({
                 elevation: 4,
               })}
             >
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text.onBrand }}>
                 {mutation.isPending ? t('earnings.log_modal_saving') : t('earnings.log_modal_save')}
               </Text>
             </Pressable>
@@ -469,6 +469,7 @@ function LogCashEarningModal({
 // ─── Pieces ──────────────────────────────────────────────────────────────────
 
 function SummaryBlock({ label, value }: { label: string; value: string }) {
+  const { theme } = useTheme();
   return (
     <View
       style={{
@@ -484,7 +485,7 @@ function SummaryBlock({ label, value }: { label: string; value: string }) {
       <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.78)', fontWeight: '500' }}>
         {label}
       </Text>
-      <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginTop: 2 }}>
+      <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text.onBrand, marginTop: 2 }}>
         {value}
       </Text>
     </View>
@@ -547,7 +548,7 @@ function TransactionRow({ t, tx }: { t: TFn; tx: PublicWalletTransaction }) {
             borderRadius: 12,
             backgroundColor:
               tx.kind === 'cash_log'
-                ? '#FEF3C7'
+                ? theme.status.warningSubtle
                 : credit
                   ? theme.status.successSubtle
                   : theme.status.dangerSubtle,
@@ -600,12 +601,12 @@ function TransactionRow({ t, tx }: { t: TFn; tx: PublicWalletTransaction }) {
             borderRadius: radii.pill,
             borderWidth: 0.5,
             borderColor: theme.brand.primary,
-            backgroundColor: pressed ? '#DBEAFE' : '#EFF6FF',
+            backgroundColor: pressed ? theme.brand.primaryBorder : theme.brand.primarySubtle,
             marginLeft: 52,
             opacity: issuing ? 0.6 : 1,
           })}
         >
-          <Text style={{ fontSize: 12, fontWeight: '600', color: '#1E40AF' }}>
+          <Text style={{ fontSize: 12, fontWeight: '600', color: theme.brand.primary }}>
             {issuing ? t('earnings.preparing_receipt') : t('earnings.generate_receipt')}
           </Text>
         </Pressable>

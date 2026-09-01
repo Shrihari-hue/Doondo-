@@ -486,7 +486,7 @@ function JobDetailScreenInner() {
                 start: job.project.startDate,
                 end: job.project.endDate,
               })}
-              tone={theme.brand.accent}
+              tone={theme.brand.primary}
             />
           ) : null}
         </View>
@@ -808,7 +808,7 @@ function Header({
               borderRadius: 18,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: '#EFF6FF', // blue-50
+              backgroundColor: theme.brand.primarySubtle, // blue-50
               borderWidth: 0.5,
               borderColor: theme.border.default, // blue-200
               opacity: pressed ? 0.7 : 1,
@@ -858,7 +858,7 @@ function PrimaryStickyCTA({
         borderRadius: radii.lg,
         overflow: 'hidden',
         opacity: disabled ? 0.7 : pressed ? 0.92 : 1,
-        shadowColor: '#1D4ED8',
+        shadowColor: theme.brand.primaryDark,
         shadowOpacity: 0.35,
         shadowRadius: 14,
         shadowOffset: { width: 0, height: 6 },
@@ -871,7 +871,7 @@ function PrimaryStickyCTA({
       })}
     >
       <LinearGradient
-        colors={['#3B82F6', theme.brand.primary, '#1D4ED8']}
+        colors={[theme.brand.primaryLight, theme.brand.primary, theme.brand.primaryDark]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -884,7 +884,7 @@ function PrimaryStickyCTA({
         <Text
           numberOfLines={1}
           style={{
-            color: '#FFFFFF',
+            color: theme.text.onBrand,
             fontSize: 16,
             fontWeight: '800',
             letterSpacing: 0.3,
@@ -937,7 +937,7 @@ function TeamMembersField({
       style={{
         padding: spacing.md,
         borderRadius: radii.md,
-        backgroundColor: '#EFF6FF',
+        backgroundColor: theme.brand.primarySubtle,
         borderWidth: 0.5,
         borderColor: theme.border.default,
         gap: spacing.sm,
@@ -946,10 +946,10 @@ function TeamMembersField({
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
         <Text style={{ fontSize: 18 }}>👥</Text>
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E40AF' }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.primary }}>
             {t('job_detail.team.applying_as_team', { count: teamSize })}
           </Text>
-          <Text style={{ fontSize: 12, color: '#1E3A8A', opacity: 0.85 }}>
+          <Text style={{ fontSize: 12, color: theme.brand.primary, opacity: 0.85 }}>
             {t('job_detail.team.add_teammates_hint')}
           </Text>
         </View>
@@ -1093,6 +1093,7 @@ function CoverNoteField({
  * relay number instead — no client change needed.
  */
 function CallEmployerButton({ t, jobId }: { t: TFn; jobId: string }) {
+  const { theme } = useTheme();
   const mutation = useMutation({
     mutationFn: () => contactApi.revealEmployer(jobId),
     onSuccess: (data) => {
@@ -1134,16 +1135,16 @@ function CallEmployerButton({ t, jobId }: { t: TFn; jobId: string }) {
         borderRadius: radii.pill,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#10B981',
+        backgroundColor: theme.status.success,
         opacity: mutation.isPending ? 0.5 : pressed ? 0.85 : 1,
-        shadowColor: '#10B981',
+        shadowColor: theme.status.success,
         shadowOpacity: 0.25,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 3 },
         elevation: 3,
       })}
     >
-      <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
+      <Text style={{ color: theme.text.onBrand, fontSize: 14, fontWeight: '700' }}>
         {mutation.isPending ? t('job_detail.call.opening_dialer') : t('job_detail.call.call_employer')}
       </Text>
     </Pressable>
@@ -1275,13 +1276,13 @@ function AudioDescriptionPill({
           gap: spacing.sm,
           padding: spacing.sm,
           borderRadius: radii.md,
-          backgroundColor: '#EFF6FF',
+          backgroundColor: theme.brand.primarySubtle,
           borderWidth: 0.5,
           borderColor: theme.border.default,
         }}
       >
         <Text style={{ fontSize: 14 }}>🎙</Text>
-        <Text style={{ fontSize: 12, color: '#1E40AF', flex: 1 }}>
+        <Text style={{ fontSize: 12, color: theme.brand.primary, flex: 1 }}>
           {t('job_detail.audio.voice_unsupported', { duration: formatSeconds(durationSeconds) })}
         </Text>
       </View>
@@ -1300,7 +1301,7 @@ function AudioDescriptionPill({
         gap: spacing.sm,
         padding: spacing.sm,
         borderRadius: radii.md,
-        backgroundColor: '#EFF6FF',
+        backgroundColor: theme.brand.primarySubtle,
         borderWidth: 0.5,
         borderColor: theme.border.default,
         opacity: pressed ? 0.8 : 1,
@@ -1316,11 +1317,11 @@ function AudioDescriptionPill({
           justifyContent: 'center',
         }}
       >
-        <Text style={{ color: '#FFFFFF', fontSize: 14 }}>
+        <Text style={{ color: theme.text.onBrand, fontSize: 14 }}>
           {playing ? '❚❚' : '▶'}
         </Text>
       </View>
-      <Text style={{ fontSize: 13, fontWeight: '600', color: '#1E40AF', flex: 1 }}>
+      <Text style={{ fontSize: 13, fontWeight: '600', color: theme.brand.primary, flex: 1 }}>
         {playing
           ? t('job_detail.audio.voice_playing', {
               elapsed: formatSeconds(elapsed),
@@ -1412,7 +1413,7 @@ function PayTransparencyLine({ job, t }: { job: PublicJob; t: TFn }) {
         {trailingNote ? (
           <Text
             style={{
-              color: isLowOffer ? '#B91C1C' : '#047857',
+              color: isLowOffer ? theme.status.danger : theme.status.success,
               fontWeight: '600',
               fontStyle: 'normal',
             }}
@@ -1579,9 +1580,9 @@ function WorkplaceAnswerBadge({
       : value === false
         ? {
             label: `✗ ${t('reverse_interview.no')}`,
-            bg: '#FEE2E2',
-            border: '#FCA5A5',
-            fg: '#991B1B',
+            bg: theme.status.dangerSubtle,
+            border: theme.status.dangerBorder,
+            fg: theme.status.danger,
           }
         : {
             label: t('reverse_interview.not_answered'),

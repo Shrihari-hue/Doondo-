@@ -40,15 +40,15 @@ type WorkerRow = {
 export function RunPayrollScreen() {
   const navigation = useNavigation<Nav>();
   const insets     = useSafeAreaInsets();
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight    = scheme !== 'dark';
   const qc         = useQueryClient();
 
-  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
-  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary   = isLight ? '#111827' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
-  const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
+  const surface       = theme.bg.surface;
+  const border        = theme.border.default;
+  const textPrimary   = theme.text.primary;
+  const textSecondary = theme.text.secondary;
+  const bg            = theme.bg.canvas;
 
   // Load workers from cache
   const query = useQuery({
@@ -129,7 +129,7 @@ export function RunPayrollScreen() {
         <Text style={{ fontSize: 17, fontWeight: '700', color: textPrimary }}>Run Payroll</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6,
           paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
-          backgroundColor: isLight ? '#F0FDF4' : '#14532D' }}>
+          backgroundColor: theme.status.successSubtle }}>
           <Feather name="calendar" size={13} color={GREEN} />
           <Text style={{ fontSize: 12, fontWeight: '700', color: GREEN }}>
             {new Date().toLocaleString('default', { month: 'short', year: 'numeric' })}
@@ -158,7 +158,7 @@ export function RunPayrollScreen() {
               <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: '600' }}>
                 Total Payout — {rows.length} worker{rows.length !== 1 ? 's' : ''}
               </Text>
-              <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: '900', letterSpacing: -1 }}>
+              <Text style={{ color: theme.text.onBrand, fontSize: 32, fontWeight: '900', letterSpacing: -1 }}>
                 {formatINR(rows.reduce((s, r) => s + r.salaryPaise, 0))}
               </Text>
               <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
@@ -172,15 +172,15 @@ export function RunPayrollScreen() {
               <Pressable onPress={toggleAll}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
                   padding: spacing.md, borderBottomWidth: 1, borderBottomColor: border,
-                  backgroundColor: isLight ? '#F9FAFB' : '#111827' }}>
+                  backgroundColor: theme.bg.muted }}>
                 <View style={{
                   width: 22, height: 22, borderRadius: 6,
                   borderWidth: 2,
-                  borderColor: allChecked ? BLUE : isLight ? '#D1D5DB' : '#374151',
+                  borderColor: allChecked ? BLUE : theme.border.strong,
                   backgroundColor: allChecked ? BLUE : 'transparent',
                   alignItems: 'center', justifyContent: 'center',
                 }}>
-                  {allChecked && <Feather name="check" size={13} color="#FFFFFF" />}
+                  {allChecked && <Feather name="check" size={13} color={theme.text.onBrand} />}
                 </View>
                 <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', color: textSecondary, textTransform: 'uppercase', letterSpacing: 0.8 }}>
                   Worker
@@ -202,8 +202,8 @@ export function RunPayrollScreen() {
                     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
                     paddingHorizontal: spacing.md, paddingVertical: 14,
                     borderTopWidth: i > 0 ? 1 : 0, borderTopColor: border,
-                    backgroundColor: row.paid ? (isLight ? '#F0FDF4' : '#052e16')
-                      : row.checked ? (isLight ? '#EFF6FF' : '#1e3a5f')
+                    backgroundColor: row.paid ? (theme.status.successSubtle)
+                      : row.checked ? (theme.brand.primarySubtle)
                       : surface,
                     opacity: pressed ? 0.8 : 1,
                   })}
@@ -211,11 +211,11 @@ export function RunPayrollScreen() {
                   <View style={{
                     width: 22, height: 22, borderRadius: 6,
                     borderWidth: 2,
-                    borderColor: row.paid ? GREEN : row.checked ? BLUE : isLight ? '#D1D5DB' : '#374151',
+                    borderColor: row.paid ? GREEN : row.checked ? BLUE : theme.border.strong,
                     backgroundColor: row.paid ? GREEN : row.checked ? BLUE : 'transparent',
                     alignItems: 'center', justifyContent: 'center',
                   }}>
-                    {(row.paid || row.checked) && <Feather name="check" size={13} color="#FFFFFF" />}
+                    {(row.paid || row.checked) && <Feather name="check" size={13} color={theme.text.onBrand} />}
                   </View>
 
                   <View style={{ flex: 1, gap: 2 }}>
@@ -233,12 +233,12 @@ export function RunPayrollScreen() {
 
                   <View style={{ width: 50, alignItems: 'center' }}>
                     {row.paid ? (
-                      <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, backgroundColor: isLight ? '#F0FDF4' : '#052E16' }}>
+                      <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, backgroundColor: theme.status.successSubtle }}>
                         <Text style={{ fontSize: 10, fontWeight: '700', color: GREEN }}>Paid</Text>
                       </View>
                     ) : (
                       <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
-                        backgroundColor: isLight ? '#F3F4F6' : '#1F2937' }}>
+                        backgroundColor: theme.bg.muted }}>
                         <Text style={{ fontSize: 10, fontWeight: '600', color: textSecondary }}>Due</Text>
                       </View>
                     )}
@@ -273,13 +273,13 @@ export function RunPayrollScreen() {
             onPress={markPaid}
             disabled={!anyChecked}
             style={{
-              backgroundColor: anyChecked ? GREEN : isLight ? '#D1D5DB' : '#374151',
+              backgroundColor: anyChecked ? GREEN : theme.border.strong,
               borderRadius: 14, paddingVertical: 15, alignItems: 'center',
               flexDirection: 'row', justifyContent: 'center', gap: 8,
             }}
           >
-            <Feather name="check-circle" size={20} color="#FFFFFF" />
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+            <Feather name="check-circle" size={20} color={theme.text.onBrand} />
+            <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text.onBrand }}>
               {anyChecked
                 ? `Mark ${rows.filter((r) => r.checked && !r.paid).length === rows.filter((r) => !r.paid).length ? 'All' : 'Selected'} as Paid`
                 : 'Select workers to pay'}
@@ -302,7 +302,7 @@ export function RunPayrollScreen() {
           }}>
             <View style={{
               width: 88, height: 88, borderRadius: 44,
-              backgroundColor: isLight ? '#F0FDF4' : '#052E16',
+              backgroundColor: theme.status.successSubtle,
               alignItems: 'center', justifyContent: 'center',
               borderWidth: 2, borderColor: GREEN,
             }}>

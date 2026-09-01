@@ -1,29 +1,30 @@
 /**
- * Doondo color tokens — jewel-touched warm dark luxe.
+ * Doondo color tokens.
  *
- * Five-color system designed to read as a luxury brand:
+ * SOURCE OF TRUTH: the `design/` folder at the repo root (design.md,
+ * theme.md, layout.md, components.md) — not this file's history. Per
+ * design/theme.md: brand primary is blue (#2563EB light / #60A5FA dark),
+ * used everywhere for primary actions, active states, and links. Orange
+ * (#F97316, `voice` below) is reserved strictly for the Voice feature —
+ * never a general secondary accent. `background.*`/`surface.*`/`text.*`/
+ * `border.*`/`brand.primary(Light|Dark)`/`voice`/`success`/`warning`/`error`
+ * on `dark` and `light` below are the canonical shape design/theme.md
+ * defines; prefer them in new/updated code.
  *
- *   - Brick coral (#C8533A) — the hero. Preserved from existing Doondo brand
- *     but pulled toward red so it reads as designer, not startup.
- *   - Deep jade (#0E6E54) — trust, match, verification, success. Reserved.
- *   - Rich gold-amber (#C28C30) — money, urgent, salary highlights.
- *   - Champagne gold (#B89968) — RARE. Reserved for premium moments only:
- *     verified profiles, top match score, premium subscribers, story highlights,
- *     hire-celebration accents. The gold appears so seldom it stays special.
- *   - Warm-black canvas (#0C0A0E) — composed, not navy, not pure black. A
- *     hint of cool keeps it from going muddy.
- *
- * Premium states get a hairline champagne-gold border (0.5px, 35% opacity)
- * instead of the default border. A small detail you barely notice that adds
- * up to luxe.
+ * The `coral`/`jade`/`amber`/`champagne` raw scales and the `premium`/
+ * `status`/non-voice `accent` semantic groups below predate the design/
+ * system (an earlier "jewel-toned warm dark luxe" direction) and are kept
+ * only because ~150 existing files still reference them — they are being
+ * migrated off screen-by-screen (see design-system rollout phases), not a
+ * second design language to design new UI against.
  *
  * Three layers:
- *   1. Raw scales (coral, jade, amber, champagne, gray, etc.)
- *   2. Semantic aliases (bg.canvas, text.primary, brand.hero, premium.gold)
- *   3. Component-level conventions (premium.hairline for the gold-border rule)
- *
- * App code should almost always reach for the semantic aliases. Raw scales
- * are for the rare custom moment.
+ *   1. Raw scales (blue is current; coral/jade/amber/champagne are legacy)
+ *   2. Semantic aliases — design/theme.md's canonical shape, plus legacy
+ *      aliases (bg.canvas, brand.hero-successor accent.*, premium.gold)
+ *      kept for not-yet-migrated consumers
+ *   3. Component-level conventions (premium.hairline for the gold-border
+ *      rule — legacy, not part of design/)
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -133,47 +134,64 @@ export const blue = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const dark = {
+  /**
+   * Canonical semantic tokens — design/theme.md §4 (source of truth).
+   * `bg.*` below mirrors these exactly for the ~156 files already reading
+   * `theme.bg.*`; new/updated code should prefer `background.*`/`surface.*`
+   * directly since that's the shape design/theme.md and design/components.md
+   * document.
+   */
+  background: {
+    primary: '#090B10',
+    secondary: '#0F1219',
+    tertiary: '#151A24',
+  },
+  surface: {
+    primary: '#11151D',
+    secondary: '#151A24',
+    elevated: '#1A202B',
+  },
+  voice: '#F97316',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  error: '#EF4444',
+
   bg: {
-    canvas: gray[900], // app background — composed warm-black
-    surface: gray[800], // cards, list items
-    elevated: gray[750], // modals, sheets, dropdowns
-    muted: gray[850], // subtle wells inside surfaces
+    canvas: '#090B10', // = background.primary (design/theme.md §4)
+    surface: '#11151D', // = surface.primary
+    elevated: '#1A202B', // = surface.elevated
+    muted: '#151A24', // = surface.secondary / background.tertiary
     inverse: gray[50], // for occasional light surfaces in dark mode
   },
   border: {
     subtle: 'rgba(236, 232, 223, 0.06)',
-    default: 'rgba(236, 232, 223, 0.10)',
-    strong: 'rgba(236, 232, 223, 0.18)',
-    focus: coral[500],
+    default: '#252B36', // design/theme.md §4 border.default
+    strong: '#343C49', // design/theme.md §4 border.strong
+    /** design/design.md §12: "Focused → Border: brand.primary". */
+    focus: blue[400],
   },
   text: {
-    primary: '#ECE8DF', // refined off-white, slightly cooler than pure cream
-    secondary: '#9C988F',
-    tertiary: '#6E6A63',
+    primary: '#F8FAFC', // design/theme.md §4 text.primary
+    secondary: '#A1A8B3', // design/theme.md §4 text.secondary
+    tertiary: '#737B88', // design/theme.md §4 text.tertiary
     disabled: '#3F3D38',
-    inverse: gray[900], // text on light surfaces
-    onBrand: '#FFFFFF', // text on coral
+    inverse: '#0B0F16', // design/theme.md §4 text.inverse
+    onBrand: '#FFFFFF', // text on brand.primary
     onPremium: '#221A0C', // text on champagne (use rarely, mostly fills are subtle)
   },
   brand: {
     /**
-     * Unified theme (post theme-unification pass). Two distinct roles —
-     * see THEME_UNIFICATION_PROMPT.md Step 0 for the full rationale:
-     *
-     *   - `primary` (blue): the ONE big action on a screen — banner/hero
-     *     card fills, primary CTA buttons, the logo mark, active/selected
-     *     states (active tab, selected toggle pill, selected chip).
-     *   - `accent` (coral, same values as the old `hero`): small inline
-     *     affordances — links, checkboxes/toggles/switches, focus rings,
-     *     small badges and tags. This is the exact treatment the Login
-     *     screen already used via the shared `tone="hero"` text component;
-     *     that pattern is unchanged, just renamed for clarity.
-     *
-     * `hero*` is kept as a deprecated alias of `accent*` during the
-     * migration so partially-converted screens still compile; it is
-     * removed once the audit is complete (see the final-audit stage).
+     * design/theme.md: brand.primary (blue) is THE hero color for every
+     * primary action, active/selected state, and link, everywhere, both
+     * roles — not one of two competing heroes. `accent` (coral) below is a
+     * legacy secondary-accent color from before design/ existed; it is
+     * being migrated off screen-by-screen (do not use it in new/updated
+     * UI — use `primary` for anything that isn't the Voice feature, which
+     * uses `voice` above instead of either of these).
      */
-    primary: blue[600],
+    primary: blue[400], // design/theme.md §4 brand.primary
+    primaryLight: blue[300], // design/theme.md §4 brand.primaryLight
+    primaryDark: blue[500], // design/theme.md §4 brand.primaryDark
     primaryHover: blue[700],
     primaryPressed: blue[800],
     primarySubtle: 'rgba(37, 99, 235, 0.14)',
@@ -263,30 +281,49 @@ export const dark = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const light = {
+  /** Canonical semantic tokens — design/theme.md §3 (source of truth). */
+  background: {
+    primary: '#F7F9FC',
+    secondary: '#FFFFFF',
+    tertiary: '#EEF3FA',
+  },
+  surface: {
+    primary: '#FFFFFF',
+    secondary: '#F3F6FB',
+    elevated: '#FFFFFF',
+  },
+  voice: '#F97316',
+  success: '#16A34A',
+  warning: '#F59E0B',
+  error: '#EF4444',
+
   bg: {
-    canvas: gray[50], // warm cream
-    surface: gray[0], // white
-    elevated: gray[0],
-    muted: '#F8F4ED',
+    canvas: '#F7F9FC', // = background.primary (design/theme.md §3)
+    surface: '#FFFFFF', // = surface.primary
+    elevated: '#FFFFFF', // = surface.elevated
+    muted: '#F3F6FB', // = surface.secondary / background.tertiary
     inverse: gray[900],
   },
   border: {
     subtle: 'rgba(11, 10, 7, 0.06)',
-    default: 'rgba(11, 10, 7, 0.10)',
-    strong: 'rgba(11, 10, 7, 0.18)',
-    focus: coral[500],
+    default: '#E2E8F0', // design/theme.md §3 border.default
+    strong: '#CBD5E1', // design/theme.md §3 border.strong
+    /** design/design.md §12: "Focused → Border: brand.primary". */
+    focus: blue[600],
   },
   text: {
-    primary: '#1A1814',
-    secondary: '#57534B',
-    tertiary: '#767164',
+    primary: '#111827', // design/theme.md §3 text.primary
+    secondary: '#64748B', // design/theme.md §3 text.secondary
+    tertiary: '#94A3B8', // design/theme.md §3 text.tertiary
     disabled: '#C4BEB1',
-    inverse: gray[50],
+    inverse: '#FFFFFF', // design/theme.md §3 text.inverse
     onBrand: '#FFFFFF',
     onPremium: '#221A0C',
   },
   brand: {
-    primary: blue[600],
+    primary: blue[600], // design/theme.md §3 brand.primary
+    primaryLight: blue[500], // design/theme.md §3 brand.primaryLight
+    primaryDark: blue[700], // design/theme.md §3 brand.primaryDark
     primaryHover: blue[700],
     primaryPressed: blue[800],
     primarySubtle: blue[50],
@@ -433,11 +470,13 @@ export const seekerLight = {
 export type Theme = typeof dark;
 /**
  * `seekerLight` (defined above) is kept as a standalone export for
- * reference/history but deliberately excluded from `themes` / `ThemeName`
- * — the theme-unification pass (THEME_UNIFICATION_PROMPT.md Step 0)
- * retired the role-based light/dark split. Nothing in the app can
- * select it anymore; `ThemeProvider` only ever resolves to `dark` or
- * `light`, and `SeekerThemeOverride` is now a pass-through.
+ * reference/history but deliberately excluded from `themes` / `ThemeName`.
+ * design/ (the single source of truth — see design/theme.md) specifies one
+ * theme with System/Light/Dark modes for the whole product, not a
+ * role-based split. Nothing in the app can select `seekerLight` anymore;
+ * `ThemeProvider` only ever resolves to `dark` or `light` (System mode
+ * picks between them via the OS appearance), and `SeekerThemeOverride` is
+ * now a pass-through.
  */
 export const themes = { dark, light } as const;
 export type ThemeName = keyof typeof themes;

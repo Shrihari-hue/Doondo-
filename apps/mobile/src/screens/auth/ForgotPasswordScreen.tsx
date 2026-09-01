@@ -140,7 +140,7 @@ export function ForgotPasswordScreen() {
             </View>
 
             <View style={{ flex: 1, gap: 4 }}>
-              <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+              <Text variant="titleLarge" weight="medium" style={{ color: theme.text.onBrand }}>
                 {t('auth.forgot.title')}
               </Text>
               <Text variant="caption" style={{ letterSpacing: 1.2, color: theme.brand.primaryOnDark }}>
@@ -188,10 +188,10 @@ export function ForgotPasswordScreen() {
                   paddingVertical: spacing.lg,
                 }}
               >
-                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+                <Text style={{ color: theme.text.onBrand, fontSize: 16, fontWeight: '700' }}>
                   {submitting ? t('auth.forgot.cta_sending') : t('auth.forgot.cta_send')}
                 </Text>
-                {!submitting && <Feather name="arrow-right" size={18} color="#FFFFFF" />}
+                {!submitting && <Feather name="arrow-right" size={18} color={theme.text.onBrand} />}
               </LinearGradient>
             </Pressable>
             <Button
@@ -226,7 +226,7 @@ export function ForgotPasswordScreen() {
             }}
           >
             <ActivityIndicator size="large" color={theme.brand.primaryVivid} />
-            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
+            <Text style={{ color: theme.text.onBrand, fontWeight: '600' }}>
               {t('auth.forgot.cta_sending')}
             </Text>
           </View>

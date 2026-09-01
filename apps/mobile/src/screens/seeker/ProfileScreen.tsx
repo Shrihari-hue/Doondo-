@@ -296,7 +296,7 @@ export function ProfileScreen() {
                   shadowRadius: 4,
                 }}
               >
-                <Feather name="camera" size={16} color={theme.brand.accent} />
+                <Feather name="camera" size={16} color={theme.brand.primary} />
               </View>
             </View>
           </Pressable>
@@ -306,7 +306,7 @@ export function ProfileScreen() {
               fontSize: 26,
               lineHeight: 30,
               fontWeight: '700',
-              color: '#FFFFFF',
+              color: theme.text.onBrand,
               letterSpacing: -0.3,
               marginBottom: spacing.xs,
             }}
@@ -337,7 +337,7 @@ export function ProfileScreen() {
                   backgroundColor: 'rgba(16, 185, 129, 0.95)',
                 }}
               >
-                <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>
+                <Text style={{ color: theme.text.onBrand, fontSize: 12, fontWeight: '600' }}>
                   {t('profile_screen.verified_worker')}
                 </Text>
               </View>
@@ -355,7 +355,7 @@ export function ProfileScreen() {
                 }}
               >
                 <Feather name="star" size={13} color="#FCD34D" />
-                <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>
+                <Text style={{ color: theme.text.onBrand, fontSize: 12, fontWeight: '600' }}>
                   {user.rating.avg.toFixed(1)}
                 </Text>
                 <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>
@@ -399,7 +399,7 @@ export function ProfileScreen() {
               </Text>
               <Text
                 style={{
-                  color: '#FFFFFF',
+                  color: theme.text.onBrand,
                   fontSize: 11,
                   fontWeight: '700',
                 }}
@@ -465,9 +465,9 @@ export function ProfileScreen() {
                 gap: spacing.md,
                 padding: spacing.lg,
                 borderRadius: radii.lg,
-                backgroundColor: theme.brand.accent,
+                backgroundColor: theme.brand.primary,
                 opacity: pressed ? 0.9 : 1,
-                shadowColor: theme.brand.accent,
+                shadowColor: theme.brand.primary,
                 shadowOpacity: 0.25,
                 shadowRadius: 16,
                 shadowOffset: { width: 0, height: 8 },
@@ -537,7 +537,7 @@ export function ProfileScreen() {
                 borderRadius: radii.lg,
                 backgroundColor: theme.bg.surface,
                 borderWidth: 0.5,
-                borderColor: theme.brand.accentBorder,
+                borderColor: theme.brand.primaryBorder,
                 shadowColor: '#0F172A',
                 shadowOffset: { width: 0, height: 6 },
                 shadowOpacity: 0.08,
@@ -551,12 +551,12 @@ export function ProfileScreen() {
                   width: 36,
                   height: 36,
                   borderRadius: 10,
-                  backgroundColor: theme.brand.accentSubtle,
+                  backgroundColor: theme.brand.primarySubtle,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Feather name="star" size={18} color={theme.brand.accent} />
+                <Feather name="star" size={18} color={theme.brand.primary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text
@@ -590,7 +590,7 @@ export function ProfileScreen() {
                 style={{
                   fontSize: 13,
                   fontWeight: '600',
-                  color: theme.brand.accent,
+                  color: theme.brand.primary,
                 }}
               >
                 {t('profile_screen.ratings_banner.cta')}
@@ -709,8 +709,8 @@ export function ProfileScreen() {
             style={{
               ...cardBase(theme),
               padding: spacing.lg,
-              backgroundColor: theme.brand.accentSubtle,
-              borderColor: theme.brand.accentBorder,
+              backgroundColor: theme.brand.primarySubtle,
+              borderColor: theme.brand.primaryBorder,
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -732,7 +732,7 @@ export function ProfileScreen() {
                         fontSize: 34,
                         lineHeight: 38,
                         fontWeight: '700',
-                        color: theme.brand.accent,
+                        color: theme.brand.primary,
                         letterSpacing: -0.5,
                       }}
                     >
@@ -792,7 +792,7 @@ export function ProfileScreen() {
                 >
                   <Text
                     style={{
-                      color: '#FFFFFF',
+                      color: theme.text.onBrand,
                       fontSize: 14,
                       fontWeight: '700',
                     }}
@@ -833,16 +833,16 @@ export function ProfileScreen() {
                         paddingHorizontal: 14,
                         paddingVertical: 8,
                         borderRadius: radii.pill,
-                        backgroundColor: theme.brand.accentSubtle,
+                        backgroundColor: theme.brand.primarySubtle,
                         borderWidth: 0.5,
-                        borderColor: theme.brand.accentBorder,
+                        borderColor: theme.brand.primaryBorder,
                       }}
                     >
                       <Text
                         style={{
                           fontSize: 13,
                           fontWeight: '600',
-                          color: theme.brand.accent,
+                          color: theme.brand.primary,
                         }}
                       >
                         {capitalize(s)}
@@ -859,7 +859,7 @@ export function ProfileScreen() {
                     style={{
                       fontSize: 13,
                       fontWeight: '600',
-                      color: theme.brand.accent,
+                      color: theme.brand.primary,
                     }}
                   >
                     {t('profile_screen.skills_card.add_or_edit')}
@@ -1292,7 +1292,7 @@ function SkillSuggestionsRail({ onEdit }: { onEdit: () => void }) {
                 { count: s.jobsNeedingIt },
               )}
             </Text>
-            <Text style={{ fontSize: 11, fontWeight: '600', color: theme.brand.accent, marginTop: 4 }}>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: theme.brand.primary, marginTop: 4 }}>
               {t('profile_screen.suggestions.add_to_skills')}
             </Text>
           </Pressable>
@@ -1379,13 +1379,13 @@ function HiringRequestsRow() {
               height: 22,
               borderRadius: 11,
               paddingHorizontal: 7,
-              backgroundColor: theme.brand.accent,
+              backgroundColor: theme.brand.primary,
               alignItems: 'center',
               justifyContent: 'center',
               marginRight: spacing.sm,
             }}
           >
-            <Text style={{ fontSize: 12, fontWeight: '800', color: '#FFFFFF' }}>
+            <Text style={{ fontSize: 12, fontWeight: '800', color: theme.text.onBrand }}>
               {pending}
             </Text>
           </View>
@@ -1443,7 +1443,7 @@ function StreakChip({
       })}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-        {active && <Feather name="zap" size={14} color={theme.brand.accent} />}
+        {active && <Feather name="zap" size={14} color={theme.brand.primary} />}
         <Text
           style={{
             fontSize: 18,
@@ -1613,7 +1613,7 @@ function StatTile({
           fontSize: 20,
           lineHeight: 24,
           fontWeight: '700',
-          color: theme.brand.accent,
+          color: theme.brand.primary,
           letterSpacing: -0.3,
         }}
       >

@@ -214,7 +214,7 @@ function Inner() {
             accessibilityRole="button"
             style={{ marginTop: spacing.sm }}
           >
-            <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
+            <Text variant="footnote" weight="medium" style={{ color: theme.brand.primary }}>
               {t('my_employer.view_profile')}
             </Text>
           </Pressable>
@@ -399,7 +399,7 @@ function Stat({
 }) {
   return (
     <View style={{ alignItems: 'center', gap: 2 }}>
-      <Text variant="title" weight="semibold" style={{ color: theme.brand.accent }}>
+      <Text variant="title" weight="semibold" style={{ color: theme.brand.primary }}>
         {value}
       </Text>
       <Text variant="caption" tone="tertiary">

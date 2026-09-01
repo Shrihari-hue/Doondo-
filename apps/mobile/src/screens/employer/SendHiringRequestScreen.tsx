@@ -106,10 +106,10 @@ export function SendHiringRequestScreen() {
           }}
         >
           <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={{ fontSize: 22, color: '#FFFFFF' }}>←</Text>
+            <Text style={{ fontSize: 22, color: theme.text.onBrand }}>←</Text>
           </Pressable>
           <Text
-            style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
+            style={{ fontSize: 17, fontWeight: '600', color: theme.text.onBrand, flex: 1 }}
           >
             Hire {seekerName}
           </Text>
@@ -245,7 +245,7 @@ export function SendHiringRequestScreen() {
                 opacity: !canSend ? 0.45 : pressed ? 0.85 : 1,
               })}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>
+              <Text style={{ color: theme.text.onBrand, fontSize: 15, fontWeight: '700' }}>
                 {sendMutation.isPending ? 'Sending…' : 'Send hiring request'}
               </Text>
             </Pressable>

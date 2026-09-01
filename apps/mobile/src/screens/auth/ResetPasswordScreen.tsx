@@ -159,7 +159,7 @@ export function ResetPasswordScreen() {
             >
               {t('auth.reset.done_eyebrow')}
             </Text>
-            <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF', textAlign: 'center' }}>
+            <Text variant="titleLarge" weight="medium" style={{ color: theme.text.onBrand, textAlign: 'center' }}>
               {t('auth.reset.done_title')}
             </Text>
             <Text
@@ -184,10 +184,10 @@ export function ResetPasswordScreen() {
                 paddingVertical: spacing.lg,
               }}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+              <Text style={{ color: theme.text.onBrand, fontSize: 16, fontWeight: '700' }}>
                 {t('auth.reset.done_cta')}
               </Text>
-              <Feather name="arrow-right" size={18} color="#FFFFFF" />
+              <Feather name="arrow-right" size={18} color={theme.text.onBrand} />
             </LinearGradient>
           </Pressable>
         </View>
@@ -240,7 +240,7 @@ export function ResetPasswordScreen() {
             </View>
 
             <View style={{ flex: 1, gap: 4 }}>
-              <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+              <Text variant="titleLarge" weight="medium" style={{ color: theme.text.onBrand }}>
                 {t('auth.reset.title')}
               </Text>
               <Text variant="caption" style={{ letterSpacing: 1.2, color: theme.brand.primaryOnDark }}>
@@ -305,10 +305,10 @@ export function ResetPasswordScreen() {
                   paddingVertical: spacing.lg,
                 }}
               >
-                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+                <Text style={{ color: theme.text.onBrand, fontSize: 16, fontWeight: '700' }}>
                   {submitting ? t('auth.reset.cta_saving') : t('auth.reset.cta_save')}
                 </Text>
-                {!submitting && <Feather name="arrow-right" size={18} color="#FFFFFF" />}
+                {!submitting && <Feather name="arrow-right" size={18} color={theme.text.onBrand} />}
               </LinearGradient>
             </Pressable>
             <Button
@@ -343,7 +343,7 @@ export function ResetPasswordScreen() {
             }}
           >
             <ActivityIndicator size="large" color={theme.brand.primaryVivid} />
-            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
+            <Text style={{ color: theme.text.onBrand, fontWeight: '600' }}>
               {t('auth.reset.cta_saving')}
             </Text>
           </View>

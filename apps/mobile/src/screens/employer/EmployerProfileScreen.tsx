@@ -120,7 +120,7 @@ export function EmployerProfileScreen() {
       >
         {/* ─── Gradient hero banner ──────────────────────────────────── */}
         <LinearGradient
-          colors={['#1D4ED8', theme.brand.primary, '#3B82F6']}
+          colors={theme.brand.primaryImmersiveGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ paddingTop: spacing.lg, paddingBottom: spacing['2xl'], paddingHorizontal: spacing.xl, gap: spacing.lg }}
@@ -150,7 +150,7 @@ export function EmployerProfileScreen() {
               <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.7)', letterSpacing: 1.2 }}>
                 {t('employer.profile.eyebrow')}
               </Text>
-              <Text style={{ fontSize: 22, fontWeight: '700', color: '#FFFFFF' }}>
+              <Text style={{ fontSize: 22, fontWeight: '700', color: theme.text.onBrand }}>
                 {user.companyName ?? user.name}
               </Text>
               <Pressable onPress={onChangePhoto} disabled={photoMutation.isPending}>
@@ -453,7 +453,7 @@ function LaborBudgetCard({ t }: { t: TFn }) {
                   numberOfLines={2}
                   adjustsFontSizeToFit
                   minimumFontScale={0.85}
-                  style={{ textAlign: 'center', color: '#FFFFFF' }}
+                  style={{ textAlign: 'center', color: theme.text.onBrand }}
                 >
                   {mutation.isPending ? t('employer.labor_budget.saving') : t('employer.labor_budget.save')}
                 </Text>

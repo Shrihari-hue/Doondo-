@@ -63,7 +63,7 @@ export function WorkerPerformanceScreen() {
   const navigation = useNavigation<Nav>();
   const route      = useRoute<Route>();
   const insets     = useSafeAreaInsets();
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight    = scheme !== 'dark';
 
   const { applicationId, workerName } = route.params;
@@ -72,12 +72,12 @@ export function WorkerPerformanceScreen() {
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const monthLabel   = `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
 
-  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
-  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary   = isLight ? '#111827' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
-  const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
-  const inputBg       = isLight ? '#FFFFFF' : '#0D0D0D';
+  const surface       = theme.bg.surface;
+  const border        = theme.border.default;
+  const textPrimary   = theme.text.primary;
+  const textSecondary = theme.text.secondary;
+  const bg            = theme.bg.canvas;
+  const inputBg       = theme.bg.surface;
 
   const [ratings, setRatings] = useState<Ratings>({ punctuality: 0, quality: 0, attitude: 0 });
   const [notes, setNotes]     = useState('');
@@ -221,24 +221,24 @@ export function WorkerPerformanceScreen() {
 
         {/* Worker name banner */}
         <View style={{
-          backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F', borderRadius: radii.lg, padding: spacing.md,
+          backgroundColor: theme.brand.primarySubtle, borderRadius: radii.lg, padding: spacing.md,
           flexDirection: 'row', alignItems: 'center', gap: spacing.md,
         }}>
           <View style={{
             width: 44, height: 44, borderRadius: 22,
             backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center',
           }}>
-            <Text style={{ fontSize: 20, color: '#FFFFFF', fontWeight: '700' }}>
+            <Text style={{ fontSize: 20, color: theme.text.onBrand, fontWeight: '700' }}>
               {workerName.charAt(0).toUpperCase()}
             </Text>
           </View>
           <View>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: isLight ? '#1E3A8A' : '#93C5FD' }}>{workerName}</Text>
-            <Text style={{ fontSize: 13, color: '#3B82F6' }}>Monthly Review · {monthLabel}</Text>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: theme.brand.primary }}>{workerName}</Text>
+            <Text style={{ fontSize: 13, color: theme.brand.primary }}>Monthly Review · {monthLabel}</Text>
           </View>
           {saved && (
             <View style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4,
-              backgroundColor: isLight ? '#D1FAE5' : '#052E16', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
+              backgroundColor: theme.status.successSubtle, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
               <Feather name="check" size={12} color={GREEN} />
               <Text style={{ fontSize: 12, fontWeight: '700', color: GREEN }}>Saved</Text>
             </View>
@@ -251,7 +251,7 @@ export function WorkerPerformanceScreen() {
             backgroundColor: surface, borderRadius: radii.lg, borderWidth: 1, borderColor: border, padding: spacing.md, gap: spacing.sm,
           }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: theme.brand.primarySubtle,
                 alignItems: 'center', justifyContent: 'center' }}>
                 <Feather name={dim.icon} size={18} color={BLUE} />
               </View>
@@ -291,7 +291,7 @@ export function WorkerPerformanceScreen() {
         {/* Overall average */}
         {overallAvg && (
           <View style={{
-            backgroundColor: isLight ? '#F0FDF4' : '#052E16', borderRadius: radii.lg, borderWidth: 1, borderColor: isLight ? '#BBF7D0' : '#166534',
+            backgroundColor: theme.status.successSubtle, borderRadius: radii.lg, borderWidth: 1, borderColor: theme.status.successBorder,
             padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md,
           }}>
             <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: GREEN + '20',
@@ -328,7 +328,7 @@ export function WorkerPerformanceScreen() {
           onPress={() => void saveReview()}
           style={{ backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 16, alignItems: 'center' }}
         >
-          <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>Save Review</Text>
+          <Text style={{ fontSize: 16, fontWeight: '800', color: theme.text.onBrand }}>Save Review</Text>
         </AnimatedPressable>
 
         {/* Export PDF */}

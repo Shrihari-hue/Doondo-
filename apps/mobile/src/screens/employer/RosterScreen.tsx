@@ -38,7 +38,7 @@ type SlotPick = { entry: RosterEntry; colIndex: number } | null;
 export function RosterScreen() {
   const navigation  = useNavigation<Nav>();
   const insets      = useSafeAreaInsets();
-  const { scheme }  = useTheme();
+  const { theme, scheme }  = useTheme();
   const isLight     = scheme !== 'dark';
   const qc          = useQueryClient();
   const { width: windowWidth } = useWindowDimensions();
@@ -60,11 +60,11 @@ export function RosterScreen() {
   const HEADER_FONT = Math.max(10, Math.round(HEADER_CIRCLE * 0.46));
   const CHECK_ICON = Math.max(9, Math.round(SHIFT_CIRCLE * 0.55));
 
-  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
-  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary   = isLight ? '#111827' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
-  const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
+  const surface       = theme.bg.surface;
+  const border        = theme.border.default;
+  const textPrimary   = theme.text.primary;
+  const textSecondary = theme.text.secondary;
+  const bg            = theme.bg.canvas;
 
   const [slotPick, setSlotPick] = useState<SlotPick>(null);
   const [showCrewMsg, setShowCrewMsg] = useState(false);
@@ -191,7 +191,7 @@ export function RosterScreen() {
                   }}>
                     <Text style={{
                       fontSize: HEADER_FONT, fontWeight: '700',
-                      color: isToday ? '#FFFFFF' : (i >= 5 ? '#EF4444' : textSecondary),
+                      color: isToday ? theme.text.onBrand : (i >= 5 ? theme.error : textSecondary),
                     }}>
                       {d}
                     </Text>
@@ -228,7 +228,7 @@ export function RosterScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center',
                   paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
                   borderBottomWidth: 1, borderBottomColor: border,
-                  backgroundColor: isLight ? '#F8FAFF' : '#1E2A3A' }}>
+                  backgroundColor: theme.brand.primarySubtle }}>
                   <View style={{ width: 110, marginRight: spacing.sm, gap: 2 }}>
                     <Text style={{ fontSize: 13, fontWeight: '700', color: textPrimary }} numberOfLines={1}>
                       {entry.title}
@@ -249,7 +249,7 @@ export function RosterScreen() {
                           borderWidth: isActive ? 0 : 1, borderColor: border,
                           alignItems: 'center', justifyContent: 'center',
                         }}>
-                          {isActive && <Feather name="check" size={CHECK_ICON} color="#FFFFFF" />}
+                          {isActive && <Feather name="check" size={CHECK_ICON} color={theme.text.onBrand} />}
                         </View>
                       </View>
                     );
@@ -293,7 +293,7 @@ export function RosterScreen() {
                 >
                   <View style={{
                     width: 32, height: 32, borderRadius: 16,
-                    backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
+                    backgroundColor: theme.brand.primarySubtle,
                     borderWidth: 1.5, borderStyle: 'dashed', borderColor: BLUE,
                     alignItems: 'center', justifyContent: 'center',
                   }}>
@@ -335,7 +335,7 @@ export function RosterScreen() {
             }}
           >
             {/* Handle */}
-            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginBottom: 16 }} />
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: theme.border.strong, alignSelf: 'center', marginBottom: 16 }} />
 
             <View style={{ paddingHorizontal: spacing.xl, marginBottom: 12 }}>
               <Text style={{ fontSize: 17, fontWeight: '700', color: textPrimary }}>
@@ -386,7 +386,7 @@ export function RosterScreen() {
                       paddingHorizontal: 12, paddingVertical: 6,
                       backgroundColor: BLUE, borderRadius: radii.pill,
                     }}>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Assign</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: theme.text.onBrand }}>Assign</Text>
                     </View>
                   </Pressable>
                 ))
@@ -412,7 +412,7 @@ export function RosterScreen() {
               paddingBottom: insets.bottom + spacing.xl,
             }}>
               {/* Handle */}
-              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center' }} />
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: theme.border.strong, alignSelf: 'center' }} />
 
               {/* Title row */}
               <View style={{ gap: 4 }}>
@@ -431,7 +431,7 @@ export function RosterScreen() {
                 multiline
                 numberOfLines={4}
                 style={{
-                  backgroundColor: isLight ? '#F3F4F6' : '#1E1E1E',
+                  backgroundColor: theme.bg.muted,
                   borderRadius: 12,
                   padding: spacing.md,
                   fontSize: 15,
@@ -457,10 +457,10 @@ export function RosterScreen() {
                 })}
               >
                 {crewMsgSending
-                  ? <ActivityIndicator size="small" color="#FFFFFF" />
-                  : <Feather name="send" size={16} color="#FFFFFF" />
+                  ? <ActivityIndicator size="small" color={theme.text.onBrand} />
+                  : <Feather name="send" size={16} color={theme.text.onBrand} />
                 }
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text.onBrand }}>
                   {crewMsgSending ? 'Sending…' : 'Send to All'}
                 </Text>
               </Pressable>

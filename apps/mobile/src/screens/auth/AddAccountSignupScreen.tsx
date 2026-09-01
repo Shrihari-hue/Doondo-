@@ -321,7 +321,7 @@ export function AddAccountSignupScreen() {
             </View>
 
             <View style={{ flex: 1, gap: 4 }}>
-              <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+              <Text variant="titleLarge" weight="medium" style={{ color: theme.text.onBrand }}>
                 {heroTitle}
               </Text>
               <Text variant="caption" style={{ letterSpacing: 1.2, color: theme.brand.primaryOnDark }}>
@@ -372,7 +372,7 @@ export function AddAccountSignupScreen() {
                     alignItems: 'center',
                   }}
                 >
-                  <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>
+                  <Text style={{ color: theme.text.onBrand, fontSize: 15, fontWeight: '700' }}>
                     {isEmployer
                       ? t('auth.add_account_signup.recovery_signin_employer')
                       : t('auth.add_account_signup.recovery_signin_default')}
@@ -510,7 +510,7 @@ export function AddAccountSignupScreen() {
                     paddingVertical: spacing.lg,
                   }}
                 >
-                  <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+                  <Text style={{ color: theme.text.onBrand, fontSize: 16, fontWeight: '700' }}>
                     {submitting
                       ? isLogin
                         ? t('auth.add_account_signup.cta_signing_in')
@@ -521,7 +521,7 @@ export function AddAccountSignupScreen() {
                           ? t('auth.add_account_signup.cta_create_employer')
                           : t('auth.add_account_signup.cta_create_default')}
                   </Text>
-                  {!submitting && <Feather name="arrow-right" size={18} color="#FFFFFF" />}
+                  {!submitting && <Feather name="arrow-right" size={18} color={theme.text.onBrand} />}
                 </LinearGradient>
               </Pressable>
               {/* Forgot-password link — visible only in login mode. The
@@ -557,7 +557,7 @@ export function AddAccountSignupScreen() {
               <Text
                 variant="footnote"
                 weight="medium"
-                tone="hero"
+                tone="primary"
                 onPress={() => switchMode(isLogin ? 'signup' : 'login')}
               >
                 {isLogin
@@ -591,7 +591,7 @@ export function AddAccountSignupScreen() {
             }}
           >
             <ActivityIndicator size="large" color={theme.brand.primaryVivid} />
-            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
+            <Text style={{ color: theme.text.onBrand, fontWeight: '600' }}>
               {isLogin
                 ? t('auth.add_account_signup.cta_signing_in')
                 : t('auth.add_account_signup.cta_creating')}

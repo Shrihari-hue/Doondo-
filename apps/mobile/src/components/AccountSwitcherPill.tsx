@@ -254,13 +254,13 @@ function QuickSwitchContent({
               paddingHorizontal: 3,
               backgroundColor: theme.status.danger,
               borderWidth: 1.5,
-              borderColor: '#FFFFFF',
+              borderColor: theme.bg.canvas,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
             <Text
-              style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '800' }}
+              style={{ color: theme.text.onBrand, fontSize: 9, fontWeight: '800' }}
               allowFontScaling={false}
             >
               {pendingCount > 9 ? '9+' : pendingCount}
@@ -330,7 +330,7 @@ function DefaultContent({
               borderRadius: 5,
               backgroundColor: theme.status.danger,
               borderWidth: 1.5,
-              borderColor: '#FFFFFF',
+              borderColor: theme.bg.canvas,
             }}
           />
         )}

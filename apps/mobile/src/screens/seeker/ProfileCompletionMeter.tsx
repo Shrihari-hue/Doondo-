@@ -61,7 +61,7 @@ export function ProfileCompletionMeter({ user }: Props) {
 
   // Color the bar warmer as % increases — gives a sense of progress.
   const fill =
-    score < 33 ? '#F59E0B' : score < 66 ? '#3B82F6' : '#10B981';
+    score < 33 ? theme.warning : score < 66 ? theme.brand.primary : theme.success;
 
   return (
     <Pressable
@@ -121,7 +121,7 @@ export function ProfileCompletionMeter({ user }: Props) {
             {next.subtitle}
           </Text>
         </View>
-        <Text style={{ color: theme.brand.accent, fontWeight: '700', fontSize: 12 }}>
+        <Text style={{ color: theme.brand.primary, fontWeight: '700', fontSize: 12 }}>
           +{next.weight}% →
         </Text>
       </View>

@@ -252,11 +252,11 @@ function Inner() {
                 paddingHorizontal: spacing.lg,
                 paddingVertical: spacing.sm,
                 borderRadius: radii.pill,
-                backgroundColor: theme.brand.accent,
+                backgroundColor: theme.brand.primary,
                 opacity: pressed ? 0.85 : 1,
               })}
             >
-              <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
+              <Text style={{ color: theme.text.onBrand, fontWeight: '600' }}>
                 {t('find_friends.open_settings')}
               </Text>
             </Pressable>
@@ -294,15 +294,15 @@ function Inner() {
                     gap: spacing.sm,
                     padding: spacing.md,
                     borderRadius: radii.lg,
-                    backgroundColor: theme.brand.accentSubtle,
+                    backgroundColor: theme.brand.primarySubtle,
                     opacity: pressed ? 0.8 : 1,
                   })}
                 >
-                  <Feather name="users" size={16} color={theme.brand.accent} />
-                  <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: theme.brand.accent }}>
+                  <Feather name="users" size={16} color={theme.brand.primary} />
+                  <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: theme.brand.primary }}>
                     {t('find_friends.start_cohort_cta')}
                   </Text>
-                  <Feather name="chevron-right" size={16} color={theme.brand.accent} />
+                  <Feather name="chevron-right" size={16} color={theme.brand.primary} />
                 </Pressable>
               </View>
             )}
@@ -343,7 +343,7 @@ function Inner() {
                         {f.role === 'employer' ? t('find_friends.role_employer') : t('find_friends.role_seeker')}
                       </Text>
                     </View>
-                    <Feather name="chevron-right" size={16} color={theme.brand.accent} />
+                    <Feather name="chevron-right" size={16} color={theme.brand.primary} />
                   </Pressable>
                 ))
               )}

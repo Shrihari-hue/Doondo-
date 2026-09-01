@@ -372,10 +372,10 @@ function ResumeBuilderInner() {
           }}
         >
           <Pressable onPress={goBack} hitSlop={12}>
-            <Text style={{ fontSize: 22, color: '#FFFFFF' }}>←</Text>
+            <Text style={{ fontSize: 22, color: theme.text.onBrand }}>←</Text>
           </Pressable>
           <Text
-            style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
+            style={{ fontSize: 17, fontWeight: '600', color: theme.text.onBrand, flex: 1 }}
           >
             {t('resume_builder.header_title')}
           </Text>
@@ -389,7 +389,7 @@ function ResumeBuilderInner() {
               accessibilityRole="button"
               accessibilityLabel={t('resume_builder.header_preview')}
             >
-              <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFFFFF' }}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: theme.text.onBrand }}>
                 {t('resume_builder.header_preview')}
               </Text>
             </Pressable>
@@ -493,7 +493,7 @@ function ResumeBuilderInner() {
             elevation: 4,
           })}
         >
-          <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text.onBrand }}>
             {save.isPending
               ? t('resume_builder.cta_saving')
               : isReview
@@ -681,7 +681,7 @@ function EditSlide({
           value={draft.current}
           onValueChange={(v) => onChange({ current: v })}
           trackColor={{ true: blue[500], false: theme.border.default }}
-          thumbColor="#FFFFFF"
+          thumbColor={theme.text.onBrand}
         />
       </Pressable>
 
@@ -832,7 +832,7 @@ function EducationSection({
               }}
             >
               {e.current ? (
-                <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>
+                <Text style={{ color: theme.text.onBrand, fontSize: 11, fontWeight: '700' }}>
                   ✓
                 </Text>
               ) : null}
@@ -842,7 +842,7 @@ function EducationSection({
             </Text>
           </Pressable>
           <Pressable onPress={() => remove(i)} hitSlop={6} style={{ alignSelf: 'flex-end' }}>
-            <Text style={{ fontSize: 12, color: '#B91C1C', fontWeight: '600' }}>
+            <Text style={{ fontSize: 12, color: theme.error, fontWeight: '600' }}>
               {t('resume_builder.education_remove')}
             </Text>
           </Pressable>
@@ -993,7 +993,7 @@ function WorkPhotosSection({
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>
+              <Text style={{ color: theme.text.onBrand, fontSize: 12, fontWeight: '700' }}>
                 ×
               </Text>
             </View>
@@ -1020,7 +1020,7 @@ function WorkPhotosSection({
             >
               <Text
                 numberOfLines={1}
-                style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}
+                style={{ color: theme.text.onBrand, fontSize: 10, fontWeight: '700' }}
               >
                 {photo.skill ? prettifySkill(photo.skill) : 'Tap to tag'}
               </Text>
@@ -1340,6 +1340,7 @@ function MonthField({
 // ─── Pieces ──────────────────────────────────────────────────────────────────
 
 function ProgressBar({ step, totalSteps }: { step: number; totalSteps: number }) {
+  const { theme } = useTheme();
   const safeTotal = Math.max(1, totalSteps);
   const pct = Math.max(0, Math.min(100, ((step + 1) / safeTotal) * 100));
   return (
@@ -1355,7 +1356,7 @@ function ProgressBar({ step, totalSteps }: { step: number; totalSteps: number })
         style={{
           width: `${pct}%`,
           height: '100%',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: theme.text.onBrand,
         }}
       />
     </View>

@@ -74,7 +74,7 @@ export function WorkerAttendanceScreen() {
   const navigation   = useNavigation<Nav>();
   const route        = useRoute<Route>();
   const insets       = useSafeAreaInsets();
-  const { scheme }   = useTheme();
+  const { theme, scheme }   = useTheme();
   const isLight      = scheme !== 'dark';
 
   const today   = new Date();
@@ -90,11 +90,11 @@ export function WorkerAttendanceScreen() {
     staleTime: 5 * 60_000,
   });
 
-  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
-  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary   = isLight ? '#111827' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
-  const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
+  const surface       = theme.bg.surface;
+  const border        = theme.border.default;
+  const textPrimary   = theme.text.primary;
+  const textSecondary = theme.text.secondary;
+  const bg            = theme.bg.canvas;
 
   // Find this worker's timesheet row
   const workerRow = tsQuery.data?.workers.find(
@@ -169,11 +169,11 @@ export function WorkerAttendanceScreen() {
 
         {/* "Coming soon" banner when per-day API data isn't available yet */}
         {!hasRealData && !tsQuery.isLoading && (
-          <View style={{ backgroundColor: isLight ? '#FFFBEB' : '#2A1A00', borderRadius: 12, padding: spacing.md,
+          <View style={{ backgroundColor: theme.status.warningSubtle, borderRadius: 12, padding: spacing.md,
             flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-            borderWidth: 1, borderColor: isLight ? '#FDE68A' : '#78350F' }}>
+            borderWidth: 1, borderColor: theme.status.warningBorder }}>
             <Feather name="info" size={16} color={AMBER} />
-            <Text style={{ flex: 1, fontSize: 13, color: isLight ? '#92400E' : '#FCD34D', lineHeight: 18 }}>
+            <Text style={{ flex: 1, fontSize: 13, color: theme.warning, lineHeight: 18 }}>
               Detailed per-day attendance will appear here once the worker starts logging shifts via the Doondo app.
             </Text>
           </View>
@@ -275,9 +275,9 @@ export function WorkerAttendanceScreen() {
                       <Text style={{
                         fontSize: 12,
                         fontWeight: cell.isToday ? '900' : '500',
-                        color: cell.isToday ? '#FFFFFF'
+                        color: cell.isToday ? theme.text.onBrand
                           : isWeekend ? textSecondary
-                          : isFuture ? isLight ? '#D1D5DB' : '#374151'
+                          : isFuture ? theme.border.strong
                           : (cellText[cell.status] ?? textPrimary),
                       }}>
                         {cell.day}

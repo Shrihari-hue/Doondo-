@@ -107,7 +107,7 @@ function Inner() {
             }}
             hitSlop={8}
           >
-            <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.accent }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.primary }}>
               {t('mentors.my_sessions')}
             </Text>
           </Pressable>
@@ -177,7 +177,7 @@ function Inner() {
                     </Text>
                   ) : null}
                 </View>
-                <Text style={{ color: theme.brand.accent, fontSize: 12, fontWeight: '700' }}>
+                <Text style={{ color: theme.brand.primary, fontSize: 12, fontWeight: '700' }}>
                   {t('mentors.request_arrow')}
                 </Text>
               </Pressable>
@@ -220,7 +220,7 @@ function Inner() {
                     }}
                     style={{ marginTop: spacing.xs }}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: theme.brand.accent }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: theme.brand.primary }}>
                       {t('mentors.book_session_cta')}
                     </Text>
                   </Pressable>
@@ -311,14 +311,14 @@ function Inner() {
                   borderRadius: radii.pill,
                   backgroundColor: theme.brand.primary,
                   alignItems: 'center',
-                  shadowColor: '#1E40AF',
+                  shadowColor: theme.brand.primary,
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.25,
                   shadowRadius: 6,
                   elevation: 4,
                 }}
               >
-                <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
+                <Text style={{ color: theme.text.onBrand, fontWeight: '700' }}>
                   {requestMut.isPending ? t('mentors.modal_sending') : t('mentors.modal_send')}
                 </Text>
               </Pressable>
@@ -367,16 +367,16 @@ function BecomeMentorPanel({
         marginHorizontal: spacing.xl,
         padding: spacing.lg,
         borderRadius: 16,
-        backgroundColor: '#EFF6FF',
+        backgroundColor: theme.brand.primarySubtle,
         borderWidth: 0.5,
-        borderColor: '#BFDBFE',
+        borderColor: theme.brand.primaryBorder,
         gap: spacing.sm,
       }}
     >
-      <Text style={{ fontSize: 15, fontWeight: '700', color: '#1E3A8A' }}>
+      <Text style={{ fontSize: 15, fontWeight: '700', color: theme.brand.primary }}>
         {t('mentors.become_title')}
       </Text>
-      <Text style={{ fontSize: 12, color: '#1E40AF', lineHeight: 18 }}>
+      <Text style={{ fontSize: 12, color: theme.brand.primary, lineHeight: 18 }}>
         {t('mentors.become_blurb', { trade: prettifySkill(trade), city })}
       </Text>
       <TextInput
@@ -407,7 +407,7 @@ function BecomeMentorPanel({
           alignItems: 'center',
         }}
       >
-        <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
+        <Text style={{ color: theme.text.onBrand, fontWeight: '700' }}>
           {becomeMut.isPending ? t('mentors.become_saving') : t('mentors.become_cta')}
         </Text>
       </Pressable>

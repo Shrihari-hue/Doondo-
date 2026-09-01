@@ -111,7 +111,7 @@ function Inner() {
               void query.refetch();
               void attendanceQuery.refetch();
             }}
-            tintColor={theme.brand.accent}
+            tintColor={theme.brand.primary}
           />
         }
       >
@@ -221,7 +221,7 @@ function Stat({
 }) {
   return (
     <View style={{ alignItems: 'center', gap: 2 }}>
-      <Text variant="title" weight="semibold" style={{ color: theme.brand.accent }}>
+      <Text variant="title" weight="semibold" style={{ color: theme.brand.primary }}>
         {value}
       </Text>
       <Text variant="caption" tone="tertiary">

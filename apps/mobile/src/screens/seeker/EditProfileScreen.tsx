@@ -602,9 +602,9 @@ function SkillsForm({ user }: { user: PublicUser }) {
                 paddingHorizontal: 12,
                 paddingVertical: 8,
                 borderRadius: 999,
-                backgroundColor: active ? theme.brand.primary : '#1F2937',
+                backgroundColor: active ? theme.brand.primary : theme.bg.muted,
                 borderWidth: active ? 0 : 1,
-                borderColor: active ? theme.brand.primary : '#374151',
+                borderColor: active ? theme.brand.primary : theme.border.default,
                 opacity: pressed ? 0.7 : 1,
                 flexShrink: 0,
               })}
@@ -614,14 +614,14 @@ function SkillsForm({ user }: { user: PublicUser }) {
                 style={{
                   fontSize: 13,
                   fontWeight: '600',
-                  color: '#FFFFFF',
+                  color: theme.text.onBrand,
                   flexShrink: 1,
                 }}
                 numberOfLines={1}
               >
                 {tradeShortLabel(trade)}
               </Text>
-              {active && <Feather name="check" size={13} color="#FFFFFF" />}
+              {active && <Feather name="check" size={13} color={theme.text.onBrand} />}
             </Pressable>
           );
         })}
@@ -701,7 +701,7 @@ function SkillsForm({ user }: { user: PublicUser }) {
           elevation: 4,
         })}
       >
-        <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+        <Text style={{ color: theme.text.onBrand, fontSize: 16, fontWeight: '700' }}>
           {mutation.isPending ? t('edit_profile.saving') : t('edit_profile.save')}
         </Text>
       </Pressable>

@@ -132,10 +132,10 @@ export function AvailabilityBeaconChip({
       <View
         style={{
           borderRadius: radii.lg,
-          backgroundColor: isLive ? '#ECFDF5' : '#EFF6FF',
+          backgroundColor: isLive ? theme.status.successSubtle : theme.brand.primarySubtle,
           borderWidth: 1,
-          borderColor: isLive ? '#86EFAC' : theme.brand.primary,
-          shadowColor: isLive ? '#10B981' : theme.brand.primary,
+          borderColor: isLive ? theme.status.successBorder : theme.brand.primary,
+          shadowColor: isLive ? theme.success : theme.brand.primary,
           shadowOffset: { width: 0, height: 3 },
           shadowOpacity: 0.12,
           shadowRadius: 8,
@@ -170,7 +170,7 @@ export function AvailabilityBeaconChip({
               width: 36,
               height: 36,
               borderRadius: 18,
-              backgroundColor: isLive ? '#10B981' : theme.brand.primary,
+              backgroundColor: isLive ? theme.success : theme.brand.primary,
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -192,7 +192,7 @@ export function AvailabilityBeaconChip({
             <Text
               style={{
                 fontSize: 12,
-                color: isLive ? '#047857' : '#1E3A8A',
+                color: isLive ? theme.success : theme.brand.primary,
               }}
               numberOfLines={1}
             >
@@ -215,7 +215,7 @@ export function AvailabilityBeaconChip({
                   paddingHorizontal: spacing.sm,
                   paddingVertical: 4,
                   borderRadius: radii.pill,
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: theme.text.onBrand,
                   borderWidth: 0.5,
                   borderColor: theme.status.successBorder,
                 }}
@@ -531,9 +531,9 @@ function AvailabilityBeaconSheet({
                         // some Android displays / Force Dark setups; the
                         // navy border anchors the shape even if the fill
                         // is muted by the device.
-                        backgroundColor: active ? '#1D4ED8' : theme.bg.surface,
+                        backgroundColor: active ? theme.brand.primary : theme.bg.surface,
                         borderWidth: 1,
-                        borderColor: active ? '#1E3A8A' : theme.border.default,
+                        borderColor: active ? theme.brand.primary : theme.border.default,
                         opacity: pressed ? 0.85 : 1,
                         shadowColor: active ? theme.brand.primary : '#0F172A',
                         shadowOffset: { width: 0, height: active ? 4 : 1 },
@@ -548,7 +548,7 @@ function AvailabilityBeaconSheet({
                           lineHeight: 22,
                           fontWeight: '800',
                           letterSpacing: -0.3,
-                          color: active ? '#FFFFFF' : theme.text.primary,
+                          color: active ? theme.text.onBrand : theme.text.primary,
                         }}
                       >
                         {o.label}
@@ -588,7 +588,7 @@ function AvailabilityBeaconSheet({
                       paddingHorizontal: spacing.sm,
                       paddingVertical: 2,
                       borderRadius: radii.pill,
-                      backgroundColor: '#DBEAFE',
+                      backgroundColor: theme.brand.primaryBorder,
                     }}
                   >
                     <Text
@@ -631,9 +631,9 @@ function AvailabilityBeaconSheet({
                         // navy border on active so the selected card is
                         // visible even when the device renders the blue
                         // fill faintly.
-                        backgroundColor: active ? '#1D4ED8' : theme.bg.surface,
+                        backgroundColor: active ? theme.brand.primary : theme.bg.surface,
                         borderWidth: 1,
-                        borderColor: active ? '#1E3A8A' : theme.border.default,
+                        borderColor: active ? theme.brand.primary : theme.border.default,
                         opacity: pressed ? 0.75 : 1,
                         shadowColor: active ? theme.brand.primary : '#0F172A',
                         shadowOffset: { width: 0, height: 2 },
@@ -651,7 +651,7 @@ function AvailabilityBeaconSheet({
                           fontSize: 11,
                           fontWeight: '600',
                           textAlign: 'center',
-                          color: active ? '#FFFFFF' : theme.text.primary,
+                          color: active ? theme.text.onBrand : theme.text.primary,
                         }}
                       >
                         {tradeShortLabel(tradeItem)}
@@ -704,7 +704,7 @@ function AvailabilityBeaconSheet({
                   borderRadius: radii.lg,
                   borderWidth: 0.5,
                   borderColor: wageEnabled ? theme.brand.primary : theme.border.default,
-                  backgroundColor: wageEnabled ? '#EFF6FF' : theme.bg.surface,
+                  backgroundColor: wageEnabled ? theme.brand.primarySubtle : theme.bg.surface,
                   opacity: pressed ? 0.85 : 1,
                 })}
               >
@@ -721,16 +721,16 @@ function AvailabilityBeaconSheet({
                   }}
                 >
                   {wageEnabled ? (
-                    <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>✓</Text>
+                    <Text style={{ color: theme.text.onBrand, fontSize: 13, fontWeight: '700' }}>✓</Text>
                   ) : null}
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text
-                    style={{ fontSize: 14, fontWeight: '700', color: wageEnabled ? '#1E3A8A' : theme.text.primary }}
+                    style={{ fontSize: 14, fontWeight: '700', color: wageEnabled ? theme.brand.primary : theme.text.primary }}
                   >
                     {t('home.beacon.sheet.wage_toggle_title')}
                   </Text>
-                  <Text style={{ fontSize: 12, color: wageEnabled ? '#475569' : theme.text.secondary }}>
+                  <Text style={{ fontSize: 12, color: wageEnabled ? theme.brand.primary : theme.text.secondary }}>
                     {t('home.beacon.sheet.wage_toggle_hint')}
                   </Text>
                 </View>
@@ -781,14 +781,14 @@ function AvailabilityBeaconSheet({
                               borderRadius: radii.md,
                               alignItems: 'center',
                               justifyContent: 'center',
-                              backgroundColor: active ? '#1D4ED8' : theme.bg.surface,
+                              backgroundColor: active ? theme.brand.primary : theme.bg.surface,
                               borderWidth: 1,
-                              borderColor: active ? '#1E3A8A' : theme.border.default,
+                              borderColor: active ? theme.brand.primary : theme.border.default,
                               opacity: pressed ? 0.85 : 1,
                             })}
                           >
                             <Text
-                              style={{ fontSize: 12, fontWeight: '700', color: active ? '#FFFFFF' : theme.text.primary }}
+                              style={{ fontSize: 12, fontWeight: '700', color: active ? theme.text.onBrand : theme.text.primary }}
                             >
                               {t(`home.beacon.sheet.wage_period_${p}`)}
                             </Text>
@@ -819,7 +819,7 @@ function AvailabilityBeaconSheet({
                   borderRadius: radii.lg,
                   borderWidth: 0.5,
                   borderColor: recurring ? theme.brand.primary : theme.border.default,
-                  backgroundColor: recurring ? '#EFF6FF' : theme.bg.surface,
+                  backgroundColor: recurring ? theme.brand.primarySubtle : theme.bg.surface,
                   opacity: pressed ? 0.85 : 1,
                 })}
               >
@@ -836,7 +836,7 @@ function AvailabilityBeaconSheet({
                   }}
                 >
                   {recurring ? (
-                    <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>
+                    <Text style={{ color: theme.text.onBrand, fontSize: 13, fontWeight: '700' }}>
                       ✓
                     </Text>
                   ) : null}
@@ -846,7 +846,7 @@ function AvailabilityBeaconSheet({
                     style={{
                       fontSize: 14,
                       fontWeight: '700',
-                      color: recurring ? '#1E3A8A' : theme.text.primary,
+                      color: recurring ? theme.brand.primary : theme.text.primary,
                     }}
                   >
                     {t('home.beacon.sheet.repeat_weekly_title')}
@@ -854,7 +854,7 @@ function AvailabilityBeaconSheet({
                   <Text
                     style={{
                       fontSize: 12,
-                      color: recurring ? '#475569' : theme.text.secondary,
+                      color: recurring ? theme.brand.primary : theme.text.secondary,
                     }}
                   >
                     {t('home.beacon.sheet.repeat_weekly_hint')}
@@ -899,12 +899,12 @@ function AvailabilityBeaconSheet({
                             // border on active so the chip never reads
                             // as white-on-white if the device attenuates
                             // the fill.
-                            backgroundColor: active ? '#1D4ED8' : theme.bg.surface,
+                            backgroundColor: active ? theme.brand.primary : theme.bg.surface,
                             borderWidth: 1,
                             borderColor: active
-                              ? '#1E3A8A'
+                              ? theme.brand.primary
                               : isToday
-                                ? '#93C5FD'
+                                ? theme.brand.primaryLight
                                 : theme.border.default,
                             opacity: pressed ? 0.7 : 1,
                           })}
@@ -914,9 +914,9 @@ function AvailabilityBeaconSheet({
                               fontSize: 13,
                               fontWeight: '700',
                               color: active
-                                ? '#FFFFFF'
+                                ? theme.text.onBrand
                                 : isToday
-                                  ? '#1D4ED8'
+                                  ? theme.brand.primary
                                   : theme.text.primary,
                             }}
                           >
@@ -943,17 +943,17 @@ function AvailabilityBeaconSheet({
                         accessibilityLabel={t('home.beacon.sheet.from')}
                         style={{
                           backgroundColor: startFieldBad
-                            ? '#FEF2F2'
+                            ? theme.status.dangerSubtle
                             : theme.bg.surface,
                           borderWidth: 1,
                           borderColor: startFieldBad
-                            ? '#DC2626'
+                            ? theme.error
                             : theme.border.default,
                           borderRadius: radii.md,
                           paddingHorizontal: spacing.md,
                           paddingVertical: spacing.sm + 2,
                           fontSize: 15,
-                          color: startFieldBad ? '#DC2626' : theme.text.primary,
+                          color: startFieldBad ? theme.error : theme.text.primary,
                         }}
                         maxLength={5}
                         keyboardType="numbers-and-punctuation"
@@ -973,17 +973,17 @@ function AvailabilityBeaconSheet({
                         accessibilityLabel={t('home.beacon.sheet.to')}
                         style={{
                           backgroundColor: endFieldBad
-                            ? '#FEF2F2'
+                            ? theme.status.dangerSubtle
                             : theme.bg.surface,
                           borderWidth: 1,
                           borderColor: endFieldBad
-                            ? '#DC2626'
+                            ? theme.error
                             : theme.border.default,
                           borderRadius: radii.md,
                           paddingHorizontal: spacing.md,
                           paddingVertical: spacing.sm + 2,
                           fontSize: 15,
-                          color: endFieldBad ? '#DC2626' : theme.text.primary,
+                          color: endFieldBad ? theme.error : theme.text.primary,
                         }}
                         maxLength={5}
                         keyboardType="numbers-and-punctuation"
@@ -995,7 +995,7 @@ function AvailabilityBeaconSheet({
                       fontSize: 11,
                       lineHeight: 16,
                       fontWeight: timeRangeValid ? '400' : '600',
-                      color: timeRangeValid ? theme.text.tertiary : '#DC2626',
+                      color: timeRangeValid ? theme.text.tertiary : theme.error,
                     }}
                   >
                     {timeRangeValid
@@ -1018,7 +1018,7 @@ function AvailabilityBeaconSheet({
               paddingVertical: spacing.sm,
               paddingHorizontal: spacing.md,
               borderRadius: radii.md,
-              backgroundColor: canPublish ? '#ECFDF5' : '#FFF7ED',
+              backgroundColor: canPublish ? theme.status.successSubtle : theme.status.warningSubtle,
             }}
           >
             <View
@@ -1027,7 +1027,7 @@ function AvailabilityBeaconSheet({
                 height: 8,
                 borderRadius: 4,
                 marginTop: 4,
-                backgroundColor: canPublish ? '#10B981' : '#F59E0B',
+                backgroundColor: canPublish ? theme.success : theme.warning,
               }}
             />
             <Text
@@ -1036,7 +1036,7 @@ function AvailabilityBeaconSheet({
                 fontSize: 12,
                 lineHeight: 17,
                 fontWeight: '600',
-                color: canPublish ? theme.status.success : '#9A3412',
+                color: canPublish ? theme.status.success : theme.warning,
               }}
             >
               {canPublish
@@ -1105,11 +1105,11 @@ function AvailabilityBeaconSheet({
                 // outline — same robustness fix as the active tiles, so
                 // the primary CTA never disappears into the canvas on
                 // devices where the brighter blue attenuates.
-                backgroundColor: canPublish ? '#1D4ED8' : '#CBD5E1',
+                backgroundColor: canPublish ? theme.brand.primary : theme.border.strong,
                 borderWidth: canPublish ? 1 : 0,
-                borderColor: '#1E3A8A',
+                borderColor: theme.brand.primary,
                 opacity: publishMutation.isPending ? 0.6 : pressed ? 0.9 : 1,
-                shadowColor: '#1D4ED8',
+                shadowColor: theme.brand.primary,
                 shadowOpacity: canPublish ? 0.35 : 0,
                 shadowRadius: 14,
                 shadowOffset: { width: 0, height: 6 },
@@ -1120,7 +1120,7 @@ function AvailabilityBeaconSheet({
                 style={{
                   fontSize: 16,
                   fontWeight: '700',
-                  color: canPublish ? '#FFFFFF' : '#64748B',
+                  color: canPublish ? theme.text.onBrand : theme.text.secondary,
                   letterSpacing: 0.2,
                 }}
               >

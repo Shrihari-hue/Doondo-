@@ -217,12 +217,12 @@ export function RolePickerScreen() {
                   paddingVertical: spacing.sm,
                   paddingHorizontal: spacing.md,
                   borderRadius: radii.md,
-                  backgroundColor: theme.brand.accentSubtle,
+                  backgroundColor: theme.brand.primarySubtle,
                   borderWidth: 0.5,
-                  borderColor: theme.brand.accentBorder,
+                  borderColor: theme.brand.primaryBorder,
                 }}
               >
-                <Text variant="footnote" weight="medium" tone="hero">
+                <Text variant="footnote" weight="medium" tone="primary">
                   {pushBanner}
                 </Text>
               </View>
@@ -313,7 +313,7 @@ export function RolePickerScreen() {
               />
 
               <JourneyCard
-                accent={isLight ? theme.brand.accentHover : theme.brand.accentVivid}
+                accent={isLight ? theme.brand.primaryHover : theme.brand.primaryVivid}
                 badgeIcon="user"
                 icon="search"
                 headline={t('role_picker.employer_headline')}
@@ -412,7 +412,7 @@ function SeekerWorkTypeSheet({ onCancel, onPick, t }: SeekerWorkTypeSheetProps &
             variant="display"
             weight="medium"
             display
-            style={{ color: '#FFFFFF', textAlign: 'center' }}
+            style={{ color: theme.text.onBrand, textAlign: 'center' }}
           >
             {t('role_picker.sheet_title')}
           </Text>
@@ -523,7 +523,7 @@ function SeekerWorkTypeSheet({ onCancel, onPick, t }: SeekerWorkTypeSheetProps &
                 alignItems: 'center',
               }}
             >
-              <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+              <Text variant="bodyLarge" weight="medium" style={{ color: theme.text.onBrand }}>
                 {t('role_picker.sheet_continue')}
               </Text>
             </LinearGradient>
@@ -621,8 +621,8 @@ function ChoiceCard({
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
-            <Feather name={icon} size={18} color="#FFFFFF" />
-            <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+            <Feather name={icon} size={18} color={theme.text.onBrand} />
+            <Text variant="bodyLarge" weight="medium" style={{ color: theme.text.onBrand }}>
               {title}
             </Text>
           </View>
@@ -849,7 +849,7 @@ function JourneyCard({
             justifyContent: 'center',
           }}
         >
-          <Feather name={badgeIcon} size={compact ? 13 : 15} color="#FFFFFF" />
+          <Feather name={badgeIcon} size={compact ? 13 : 15} color={theme.text.onBrand} />
         </View>
         <Text
           variant={compact ? 'footnote' : 'bodyLarge'}
@@ -893,7 +893,7 @@ function JourneyCard({
               justifyContent: 'center',
             }}
           >
-            <Feather name={icon} size={compact ? 18 : 22} color="#FFFFFF" />
+            <Feather name={icon} size={compact ? 18 : 22} color={theme.text.onBrand} />
           </View>
         </View>
       </View>
@@ -909,7 +909,7 @@ function JourneyCard({
         <Text
           variant={compact ? 'caption' : 'footnote'}
           weight="medium"
-          style={{ color: '#FFFFFF', fontSize: compact ? 11 : 13 }}
+          style={{ color: theme.text.onBrand, fontSize: compact ? 11 : 13 }}
           numberOfLines={1}
         >
           {cta}

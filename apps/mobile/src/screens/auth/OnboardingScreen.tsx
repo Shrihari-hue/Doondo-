@@ -140,12 +140,12 @@ export function OnboardingScreen() {
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <DoondoMark size={22} color="#FFFFFF" accent="#FFFFFF" />
+            <DoondoMark size={22} color={theme.text.onBrand} accent="#FFFFFF" />
             <Text
               style={{
                 fontSize: 22,
                 fontWeight: '700',
-                color: '#FFFFFF',
+                color: theme.text.onBrand,
                 letterSpacing: -0.5,
               }}
             >
@@ -225,6 +225,7 @@ export function OnboardingScreen() {
 }
 
 function SlideView({ slide, t }: { slide: Slide; t: TFn }) {
+  const { theme } = useTheme();
   return (
     <View
       style={{
@@ -247,7 +248,7 @@ function SlideView({ slide, t }: { slide: Slide; t: TFn }) {
           justifyContent: 'center',
         }}
       >
-        <Feather name={slide.icon} size={56} color="#FFFFFF" />
+        <Feather name={slide.icon} size={56} color={theme.text.onBrand} />
       </View>
 
       <View style={{ gap: spacing.sm, alignItems: 'center' }}>
@@ -263,7 +264,7 @@ function SlideView({ slide, t }: { slide: Slide; t: TFn }) {
         </Text>
         <Text
           style={{
-            color: '#FFFFFF',
+            color: theme.text.onBrand,
             fontSize: 28,
             lineHeight: 32,
             fontWeight: '700',

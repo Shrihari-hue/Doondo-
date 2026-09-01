@@ -134,7 +134,7 @@ export function DisputeSection({ applicationId }: { applicationId: string }) {
           {t('dispute.section_title')}
         </Text>
         <Pressable onPress={() => setRaiseOpen(true)} hitSlop={8} accessibilityRole="button">
-          <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
+          <Text variant="footnote" weight="medium" style={{ color: theme.brand.primary }}>
             {t('dispute.raise_cta')}
           </Text>
         </Pressable>
@@ -201,7 +201,7 @@ export function DisputeSection({ applicationId }: { applicationId: string }) {
                 {!closed && (
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs }}>
                     <Pressable onPress={() => setReplyFor(d.id)} hitSlop={6} accessibilityRole="button">
-                      <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
+                      <Text variant="footnote" weight="medium" style={{ color: theme.brand.primary }}>
                         {t('dispute.reply')}
                       </Text>
                     </Pressable>
@@ -282,7 +282,7 @@ export function DisputeSection({ applicationId }: { applicationId: string }) {
                       <Text
                         variant="footnote"
                         weight="medium"
-                        style={{ color: category === c ? '#FFFFFF' : theme.text.secondary }}
+                        style={{ color: category === c ? theme.text.onBrand : theme.text.secondary }}
                       >
                         {t(`dispute.category.${c}`)}
                       </Text>

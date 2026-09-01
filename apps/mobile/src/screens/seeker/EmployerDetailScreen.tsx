@@ -118,7 +118,7 @@ function EmployerDetailInner() {
           <RefreshControl
             refreshing={query.isRefetching}
             onRefresh={() => void query.refetch()}
-            tintColor={theme.brand.accent}
+            tintColor={theme.brand.primary}
           />
         }
         ListHeaderComponent={
@@ -481,10 +481,10 @@ function Header({
           }}
         >
           <Pressable onPress={onBack} hitSlop={12}>
-            <Text style={{ fontSize: 22, color: '#FFFFFF' }}>←</Text>
+            <Text style={{ fontSize: 22, color: theme.text.onBrand }}>←</Text>
           </Pressable>
           <Text
-            style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
+            style={{ fontSize: 17, fontWeight: '600', color: theme.text.onBrand, flex: 1 }}
             numberOfLines={1}
           >
             {t('employer_detail.header_title')}
@@ -511,7 +511,7 @@ function Header({
                 style={{
                   fontSize: 22,
                   fontWeight: '700',
-                  color: '#FFFFFF',
+                  color: theme.text.onBrand,
                   letterSpacing: -0.5,
                 }}
                 numberOfLines={2}
@@ -529,7 +529,7 @@ function Header({
                     borderColor: 'rgba(255,255,255,0.45)',
                   }}
                 >
-                  <Text style={{ fontSize: 10, color: '#FFFFFF', fontWeight: '700' }}>
+                  <Text style={{ fontSize: 10, color: theme.text.onBrand, fontWeight: '700' }}>
                     {t('employer_detail.verified_badge')}
                   </Text>
                 </View>
@@ -549,7 +549,7 @@ function Header({
                   score={employer.rating.avg}
                   count={employer.rating.count}
                   compact
-                  style={{ color: '#FFFFFF' }}
+                  style={{ color: theme.text.onBrand }}
                 />
               </View>
             ) : (
@@ -902,14 +902,14 @@ function InterestButton({
           disabled={busy}
           accessibilityRole="button"
           style={({ pressed }) => ({
-            backgroundColor: theme.brand.accent,
+            backgroundColor: theme.brand.primary,
             paddingVertical: 14,
             borderRadius: radii.pill,
             alignItems: 'center',
             opacity: busy ? 0.5 : pressed ? 0.85 : 1,
           })}
         >
-          <Text style={{ color: '#FFFDF7', fontSize: 15, fontWeight: '700' }}>
+          <Text style={{ color: theme.text.onBrand, fontSize: 15, fontWeight: '700' }}>
             {expressMutation.isPending
               ? 'Sending…'
               : 'I’m interested in working here'}

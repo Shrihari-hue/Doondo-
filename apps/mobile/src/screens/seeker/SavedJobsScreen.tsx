@@ -82,7 +82,7 @@ export function SavedJobsScreen() {
           <RefreshControl
             refreshing={query.isFetching && !query.isLoading}
             onRefresh={() => void query.refetch()}
-            tintColor={theme.brand.accent}
+            tintColor={theme.brand.primary}
           />
         }
       >

@@ -207,8 +207,8 @@ export function PostMedia({ media }: { media: MediaShape }) {
           padding: spacing.md,
           borderRadius: radii.lg,
           borderWidth: 0.5,
-          borderColor: theme.brand.accentBorder,
-          backgroundColor: theme.brand.accentSubtle,
+          borderColor: theme.voice + '4D',
+          backgroundColor: theme.voice + '1A',
         }}
       >
         <View
@@ -216,12 +216,12 @@ export function PostMedia({ media }: { media: MediaShape }) {
             width: 44,
             height: 44,
             borderRadius: 22,
-            backgroundColor: theme.brand.accent,
+            backgroundColor: theme.voice,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Feather name="play" size={18} color="#FFFFFF" style={{ marginLeft: 2 }} />
+          <Feather name="play" size={18} color={theme.text.onBrand} style={{ marginLeft: 2 }} />
         </View>
         <View
           style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 3 }}
@@ -233,7 +233,7 @@ export function PostMedia({ media }: { media: MediaShape }) {
                 width: 3,
                 height: h,
                 borderRadius: 2,
-                backgroundColor: theme.brand.accent,
+                backgroundColor: theme.voice,
                 opacity: 0.55,
               }}
             />
@@ -281,7 +281,7 @@ export function PostMedia({ media }: { media: MediaShape }) {
             width: 46,
             height: 46,
             borderRadius: 12,
-            backgroundColor: '#E7F6EC',
+            backgroundColor: theme.status.successSubtle,
             alignItems: 'center',
             justifyContent: 'center',
           }}
@@ -310,7 +310,7 @@ export function PostMedia({ media }: { media: MediaShape }) {
           borderRadius: radii.lg,
           overflow: 'hidden',
           borderWidth: 0.5,
-          borderColor: '#E4C063',
+          borderColor: theme.status.warningBorder,
         }}
       >
         {uris[0] ? (
@@ -323,12 +323,12 @@ export function PostMedia({ media }: { media: MediaShape }) {
           <View
             style={{
               height: 130,
-              backgroundColor: '#FBF3DC',
+              backgroundColor: theme.status.warningSubtle,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="award" size={36} color="#8A6D1A" />
+            <Feather name="award" size={36} color={theme.status.warning} />
           </View>
         )}
         <View
@@ -337,23 +337,23 @@ export function PostMedia({ media }: { media: MediaShape }) {
             alignItems: 'center',
             gap: 8,
             padding: spacing.md,
-            backgroundColor: '#FBF3DC',
+            backgroundColor: theme.status.warningSubtle,
           }}
         >
-          <Feather name="award" size={16} color="#8A6D1A" />
+          <Feather name="award" size={16} color={theme.status.warning} />
           <View style={{ flex: 1 }}>
             <Text
               style={{
                 fontSize: 10,
                 fontWeight: '700',
                 letterSpacing: 1,
-                color: '#8A6D1A',
+                color: theme.status.warning,
               }}
             >
               CERTIFICATE
             </Text>
             <Text
-              style={{ fontSize: 14, fontWeight: '700', color: '#5C4708' }}
+              style={{ fontSize: 14, fontWeight: '700', color: theme.status.warning }}
               numberOfLines={2}
             >
               {media.certificateTitle ?? 'Certificate'}
@@ -375,7 +375,7 @@ export function PostMedia({ media }: { media: MediaShape }) {
           height: 200,
           borderRadius: radii.lg,
           overflow: 'hidden',
-          backgroundColor: theme.brand.accentSubtle,
+          backgroundColor: theme.brand.primarySubtle,
           alignItems: 'center',
           justifyContent: 'center',
         }}

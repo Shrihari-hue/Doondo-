@@ -3,7 +3,7 @@ import { radii, spacing } from '@doondo/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { Text } from './Text';
 
-type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'hero' | 'premium';
+type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'hero' | 'primary' | 'premium';
 
 interface Props extends Omit<ViewProps, 'children'> {
   label: string;
@@ -22,7 +22,7 @@ interface Props extends Omit<ViewProps, 'children'> {
  *   - warning  → salary, urgent, expiring
  *   - danger   → SOS, rejected, blocked
  *   - info     → tips, neutral signals
- *   - hero     → highlighted CTAs, hot jobs
+ *   - hero / primary → highlighted CTAs, hot jobs (blue — same tone, `hero` kept as an alias name for existing call sites)
  *   - premium  → champagne — verified premium, top match, story highlights
  */
 export function Pill({ label, tone = 'neutral', leading, style, ...rest }: Props) {
@@ -54,10 +54,22 @@ export function Pill({ label, tone = 'neutral', leading, style, ...rest }: Props
       border: theme.status.infoBorder,
       color: theme.status.info,
     },
+    /**
+     * design/theme.md: blue is the one hero color everywhere (Voice is the
+     * only thing that gets orange). `hero` is kept as a name so the ~7
+     * existing call sites using tone="hero" don't need touching, but it
+     * now renders in brand.primary blue, not the legacy coral — same
+     * values as `primary` below.
+     */
     hero: {
-      bg: theme.brand.accentSubtle,
-      border: theme.brand.accentBorder,
-      color: theme.brand.accent,
+      bg: theme.brand.primarySubtle,
+      border: theme.brand.primaryBorder,
+      color: theme.brand.primary,
+    },
+    primary: {
+      bg: theme.brand.primarySubtle,
+      border: theme.brand.primaryBorder,
+      color: theme.brand.primary,
     },
     premium: {
       bg: theme.premium.goldSubtle,
@@ -77,11 +89,12 @@ export function Pill({ label, tone = 'neutral', leading, style, ...rest }: Props
           borderColor: t.border,
           borderWidth: 0.5,
           borderRadius: radii.pill,
-          paddingHorizontal: spacing.md,
-          paddingVertical: spacing.xs,
+          paddingHorizontal: spacing.md, // design/components.md Chip: 12-14px
+          minHeight: 32, // design/components.md Chip: 32-36px
           alignSelf: 'flex-start',
           flexDirection: 'row',
           alignItems: 'center',
+          justifyContent: 'center',
           gap: spacing.xs,
         },
         style,

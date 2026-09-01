@@ -1,4 +1,5 @@
 import { Pressable, View, type PressableProps } from 'react-native';
+import type { ReactNode } from 'react';
 import { radii, spacing } from '@doondo/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
@@ -15,6 +16,14 @@ interface Props extends Omit<PressableProps, 'children' | 'style'> {
   fullWidth?: boolean;
   /** Disables and dims the button; haptic + onPress are skipped. */
   disabled?: boolean;
+  /**
+   * Leading icon, rendered with an 8px gap before the label — the
+   * "Icon — 8px gap — Text" pattern from design/components.md's
+   * PrimaryButton spec. Pass a sized icon element (e.g. a Feather icon);
+   * this component doesn't own icon color/size, so match `tone`'s color
+   * yourself for a consistent look.
+   */
+  icon?: ReactNode;
 }
 
 /**
@@ -36,6 +45,7 @@ export function Button({
   size = 'md',
   fullWidth = true,
   disabled = false,
+  icon,
   onPress,
   ...rest
 }: Props) {
@@ -102,16 +112,19 @@ export function Button({
         <View
           style={{
             backgroundColor: pressed && !disabled ? v.bgPressed : v.bg,
-            borderRadius: radii.lg,
+            borderRadius: radii.button, // design/components.md PrimaryButton: 16px
             borderWidth: 0.5,
             borderColor: v.borderColor,
             paddingVertical: s.paddingV,
             paddingHorizontal: s.paddingH,
+            flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
+            gap: spacing.sm, // design/components.md: "Icon — 8px gap — Text"
             opacity: disabled ? 0.5 : 1,
           }}
         >
+          {icon}
           {/* Indic-language labels for actions like "Apply Now" can be 1.5-2x
              longer than English (ಈಗ ಅರ್ಜಿ ಸಲ್ಲಿಸಿ vs Apply Now). Let the label
              wrap to two lines and shrink to 85% so it never clips on the

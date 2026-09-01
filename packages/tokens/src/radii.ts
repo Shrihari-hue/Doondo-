@@ -11,6 +11,9 @@ export const radii = {
   sm: 6,
   md: 10,
   lg: 14,
+  /** design/components.md: Button and Input radius (16px). */
+  button: 16,
+  /** design/components.md: Card and Banner radius (20px). Same value as `xl`. */
   xl: 20,
   '2xl': 28,
   pill: 999,

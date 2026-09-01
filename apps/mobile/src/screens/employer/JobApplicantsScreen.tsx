@@ -398,7 +398,7 @@ export function JobApplicantsScreen() {
                 opacity: sending || !bulkMsg.trim() ? 0.5 : pressed ? 0.85 : 1,
               })}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>
+              <Text style={{ color: theme.text.onBrand, fontSize: 15, fontWeight: '700' }}>
                 {sending ? t('employer.bulk_message.sending') : t('employer.bulk_message.send')}
               </Text>
             </Pressable>
@@ -460,7 +460,7 @@ export function JobApplicantsScreen() {
                   opacity: savingBriefing ? 0.5 : pressed ? 0.85 : 1,
                 })}
               >
-                <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>
+                <Text style={{ color: theme.text.onBrand, fontSize: 15, fontWeight: '700' }}>
                   {savingBriefing ? t('employer.briefing.saving') : t('employer.briefing.save')}
                 </Text>
               </Pressable>

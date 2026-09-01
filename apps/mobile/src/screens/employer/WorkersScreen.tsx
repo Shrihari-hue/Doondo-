@@ -73,7 +73,7 @@ function monthsAgo(entry: ApplicantEntry): string {
 }
 
 export function WorkersScreen() {
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight = scheme !== 'dark';
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
@@ -81,11 +81,11 @@ export function WorkersScreen() {
   const [filter, setFilter] = useState<WorkerFilter>('all');
   const [search, setSearch] = useState('');
 
-  const bg = isLight ? '#F9FAFB' : '#0C0A0E';
-  const surface = isLight ? '#FFFFFF' : '#0D0D0D';
-  const border = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary = isLight ? '#111827' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+  const bg = theme.bg.canvas;
+  const surface = theme.bg.surface;
+  const border = theme.border.default;
+  const textPrimary = theme.text.primary;
+  const textSecondary = theme.text.secondary;
 
   const query = useQuery({
     queryKey: ['applicants', 'employer', 'workers-tab'],
@@ -165,9 +165,9 @@ export function WorkersScreen() {
               onPress={() => { haptic('selection'); navigation.navigate('RunPayroll'); }}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4,
                 paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20,
-                backgroundColor: '#16A34A20', borderWidth: 1, borderColor: '#16A34A40' }}>
-              <Feather name="dollar-sign" size={13} color="#16A34A" />
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#16A34A' }}>Payroll</Text>
+                backgroundColor: GREEN + '20', borderWidth: 1, borderColor: GREEN + '40' }}>
+              <Feather name="dollar-sign" size={13} color={theme.success} />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: theme.success }}>Payroll</Text>
             </Pressable>
             <Pressable hitSlop={12}><Feather name="sliders" size={20} color={textPrimary} /></Pressable>
           </View>
@@ -177,7 +177,7 @@ export function WorkersScreen() {
         <View style={{ paddingHorizontal: spacing.xl, paddingVertical: spacing.sm,
           backgroundColor: surface, borderBottomWidth: 0.5, borderBottomColor: border }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-            backgroundColor: isLight ? '#F3F4F6' : '#1E1E1E', borderRadius: 10, paddingHorizontal: spacing.md, height: 38 }}>
+            backgroundColor: theme.bg.muted, borderRadius: 10, paddingHorizontal: spacing.md, height: 38 }}>
             <Feather name="search" size={15} color={textSecondary} />
             <TextInput
               value={search}
@@ -194,7 +194,7 @@ export function WorkersScreen() {
         {/* Aggregate stats bar */}
         {all.length > 0 && (
           <View style={{
-            flexDirection: 'row', backgroundColor: isLight ? '#F0FDF4' : '#052E16',
+            flexDirection: 'row', backgroundColor: theme.status.successSubtle,
             paddingHorizontal: spacing.xl, paddingVertical: 8,
             borderBottomWidth: 0.5, borderBottomColor: border,
             alignItems: 'center', gap: 6, flexWrap: 'wrap',
@@ -203,12 +203,12 @@ export function WorkersScreen() {
               { label: `${counts.active} Active`, color: GREEN },
               { label: `${counts.on_leave} On Leave`, color: AMBER },
               { label: `${counts.absent} Absent`, color: RED },
-              ...(totalMonthlySalaryPaise > 0 ? [{ label: `${formatLakh(totalMonthlySalaryPaise)}/mo`, color: isLight ? '#166534' : '#86EFAC' }] : []),
+              ...(totalMonthlySalaryPaise > 0 ? [{ label: `${formatLakh(totalMonthlySalaryPaise)}/mo`, color: theme.status.success }] : []),
             ].map((item, i, arr) => (
               <View key={item.label} style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={{ fontSize: 12, fontWeight: '600', color: item.color }}>{item.label}</Text>
                 {i < arr.length - 1 && (
-                  <Text style={{ fontSize: 12, color: isLight ? '#BBF7D0' : '#166534', marginLeft: 6 }}>·</Text>
+                  <Text style={{ fontSize: 12, color: theme.status.successBorder, marginLeft: 6 }}>·</Text>
                 )}
               </View>
             ))}
@@ -306,17 +306,17 @@ function WorkerCard({
 }) {
   const [showMore, setShowMore] = useState(false);
   const [showTrust, setShowTrust] = useState(false);
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isCardLight = scheme !== 'dark';
   const name = entry.seeker?.name ?? 'Worker';
   const role = entry.job?.title ?? entry.seeker?.skills?.[0] ?? 'Worker';
 
-  const statusColor = wf === 'active' ? GREEN : wf === 'on_leave' ? AMBER : wf === 'absent' ? RED : '#9CA3AF';
+  const statusColor = wf === 'active' ? GREEN : wf === 'on_leave' ? AMBER : wf === 'absent' ? RED : theme.text.tertiary;
   const statusLabel = wf === 'active' ? 'Active' : wf === 'on_leave' ? 'On Leave' : wf === 'absent' ? 'Absent' : 'Past';
-  const statusBg = wf === 'active' ? (isCardLight ? '#F0FDF4' : '#052E16')
-    : wf === 'on_leave' ? (isCardLight ? '#FFFBEB' : '#2A1A00')
-    : wf === 'absent' ? (isCardLight ? '#FEF2F2' : '#3B0A0A')
-    : (isCardLight ? '#F3F4F6' : '#1F2937');
+  const statusBg = wf === 'active' ? theme.status.successSubtle
+    : wf === 'on_leave' ? theme.status.warningSubtle
+    : wf === 'absent' ? theme.status.dangerSubtle
+    : theme.bg.muted;
 
   // Trust score ring — SVG-like with a View + border trick
   const ringSize = 52;
@@ -365,12 +365,12 @@ function WorkerCard({
           style={{ alignItems: 'center', gap: 2 }}>
           <Text style={{ fontSize: 9, color: textSecondary, fontWeight: '600' }}>Trust Score</Text>
           <View style={{ width: ringSize, height: ringSize, borderRadius: ringSize / 2,
-            borderWidth: 3, borderColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center',
+            borderWidth: 3, borderColor: theme.border.default, alignItems: 'center', justifyContent: 'center',
             backgroundColor: 'transparent' }}>
             <View style={{ width: ringSize - 10, height: ringSize - 10, borderRadius: (ringSize - 10) / 2,
               borderWidth: 3, borderColor: score >= 90 ? GREEN : score >= 75 ? BLUE : AMBER,
               alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: textSecondary === '#6B7280' ? '#111827' : '#F9FAFB' }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text.primary }}>
                 {score}
               </Text>
             </View>

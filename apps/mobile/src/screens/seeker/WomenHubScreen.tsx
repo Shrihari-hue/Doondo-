@@ -149,13 +149,13 @@ function WomenHubScreenInner() {
         {/* Intro */}
         <View
           style={{
-            backgroundColor: theme.brand.accentSubtle,
+            backgroundColor: theme.brand.primarySubtle,
             borderRadius: radii.lg,
             padding: spacing.lg,
             gap: spacing.xs,
           }}
         >
-          <Text variant="bodyLarge" weight="semibold" style={{ color: theme.brand.accent }}>
+          <Text variant="bodyLarge" weight="semibold" style={{ color: theme.brand.primary }}>
             {t('women.intro_title')}
           </Text>
           <Text variant="footnote" tone="secondary" style={{ lineHeight: 20 }}>
@@ -189,8 +189,8 @@ function WomenHubScreenInner() {
               haptic('selection');
               void setWomenMode(on);
             }}
-            trackColor={{ false: theme.border.default, true: theme.brand.accent }}
-            thumbColor="#FFFFFF"
+            trackColor={{ false: theme.border.default, true: theme.brand.primary }}
+            thumbColor={theme.text.onBrand}
           />
         </View>
 
@@ -254,7 +254,7 @@ function WomenHubScreenInner() {
                   <Text
                     variant="footnote"
                     weight="medium"
-                    style={{ color: theme.brand.accent }}
+                    style={{ color: theme.brand.primary }}
                   >
                     {payLabel(job.pay, t)}
                   </Text>
@@ -298,12 +298,12 @@ function WomenHubScreenInner() {
                   width: 36,
                   height: 36,
                   borderRadius: 18,
-                  backgroundColor: theme.brand.accentSubtle,
+                  backgroundColor: theme.brand.primarySubtle,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Feather name={TIP_ICONS[tip.id] ?? 'info'} size={16} color={theme.brand.accent} />
+                <Feather name={TIP_ICONS[tip.id] ?? 'info'} size={16} color={theme.brand.primary} />
               </View>
               <View style={{ flex: 1, gap: 2 }}>
                 <Text variant="body" weight="medium">
@@ -351,7 +351,7 @@ function WomenHubScreenInner() {
                   width: 36,
                   height: 36,
                   borderRadius: 18,
-                  backgroundColor: tool.tone === 'danger' ? theme.status.dangerSubtle : theme.brand.accentSubtle,
+                  backgroundColor: tool.tone === 'danger' ? theme.status.dangerSubtle : theme.brand.primarySubtle,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -359,7 +359,7 @@ function WomenHubScreenInner() {
                 <Feather
                   name={tool.icon}
                   size={16}
-                  color={tool.tone === 'danger' ? theme.status.danger : theme.brand.accent}
+                  color={tool.tone === 'danger' ? theme.status.danger : theme.brand.primary}
                 />
               </View>
               <View style={{ flex: 1, gap: 2 }}>

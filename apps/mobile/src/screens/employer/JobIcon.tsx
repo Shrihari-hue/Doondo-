@@ -199,10 +199,13 @@ function palette(theme: Theme): Record<
       border: theme.status.successBorder,
       fg: theme.status.success,
     },
+    // Fixed decorative rose tint (not brand.primary) — this palette needs 6
+    // visually distinct hues for 6 job categories; reusing the brand blue
+    // here would make "rose" indistinguishable from the "blue" category.
     rose: {
-      bg: theme.brand.accentSubtle,
-      border: theme.brand.accentBorder,
-      fg: theme.brand.accent,
+      bg: 'rgba(200, 83, 58, 0.14)',
+      border: 'rgba(200, 83, 58, 0.32)',
+      fg: '#D66A4E',
     },
     slate: { bg: theme.bg.muted, border: theme.border.default, fg: theme.text.secondary },
   };

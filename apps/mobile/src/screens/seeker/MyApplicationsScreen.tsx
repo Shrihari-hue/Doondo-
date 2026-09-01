@@ -322,7 +322,7 @@ function MyApplicationsInner() {
                   style={{
                     fontSize: 12,
                     fontWeight: '700',
-                    color: active ? '#FFFFFF' : theme.text.primary,
+                    color: active ? theme.text.onBrand : theme.text.primary,
                   }}
                 >
                   {t(f.labelKey)}
@@ -370,7 +370,7 @@ function MyApplicationsInner() {
                       backgroundColor: theme.bg.surface,
                       borderRadius: radii.lg,
                       borderWidth: 1,
-                      borderColor: theme.brand.accent,
+                      borderColor: theme.brand.primary,
                       padding: spacing.lg,
                       gap: spacing.sm,
                     }}
@@ -392,10 +392,10 @@ function MyApplicationsInner() {
                         paddingHorizontal: spacing.lg,
                         paddingVertical: 10,
                         borderRadius: radii.pill,
-                        backgroundColor: theme.brand.accent,
+                        backgroundColor: theme.brand.primary,
                       }}
                     >
-                      <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                      <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 14 }}>
                         {t('home_safe.confirm')}
                       </Text>
                     </Pressable>
@@ -411,7 +411,7 @@ function MyApplicationsInner() {
                 void query.refetch();
                 void homeSafeQuery.refetch();
               }}
-              tintColor={theme.brand.accent}
+              tintColor={theme.brand.primary}
             />
           }
           renderItem={({ item }) => {
@@ -487,11 +487,11 @@ function MyApplicationsInner() {
                       paddingVertical: 12,
                       borderRadius: radii.pill,
                       borderWidth: 0.5,
-                      borderColor: theme.brand.accent,
+                      borderColor: theme.brand.primary,
                       alignItems: 'center',
                     }}
                   >
-                    <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
+                    <Text variant="footnote" weight="medium" style={{ color: theme.brand.primary }}>
                       {t('applications.open_my_job')}
                     </Text>
                   </Pressable>
@@ -575,9 +575,9 @@ function MyApplicationsInner() {
                       gap: spacing.sm,
                       padding: spacing.sm,
                       borderRadius: radii.md,
-                      backgroundColor: theme.brand.accentSubtle,
+                      backgroundColor: theme.brand.primarySubtle,
                       borderWidth: 0.5,
-                      borderColor: theme.brand.accentBorder,
+                      borderColor: theme.brand.primaryBorder,
                       opacity: pressed ? 0.7 : 1,
                     })}
                   >
@@ -587,7 +587,7 @@ function MyApplicationsInner() {
                         flex: 1,
                         fontSize: 13,
                         fontWeight: '600',
-                        color: theme.brand.accent,
+                        color: theme.brand.primary,
                       }}
                     >
                       {t('applications.rate_now_title', { name: unrated.otherPartyName })}
@@ -595,7 +595,7 @@ function MyApplicationsInner() {
                     <Text
                       style={{
                         fontSize: 12,
-                        color: theme.brand.accent,
+                        color: theme.brand.primary,
                         fontWeight: '600',
                       }}
                     >
@@ -1365,8 +1365,8 @@ function OfferResponseCard({ application }: { application: PublicApplication }) 
         padding: spacing.md,
         borderRadius: radii.lg,
         borderWidth: 0.5,
-        borderColor: theme.brand.accent,
-        backgroundColor: theme.brand.accentSubtle,
+        borderColor: theme.brand.primary,
+        backgroundColor: theme.brand.primarySubtle,
         gap: spacing.sm,
       }}
     >
@@ -1397,12 +1397,12 @@ function OfferResponseCard({ application }: { application: PublicApplication }) 
                 flex: 1,
                 paddingVertical: 10,
                 borderRadius: radii.pill,
-                backgroundColor: theme.brand.accent,
+                backgroundColor: theme.brand.primary,
                 alignItems: 'center',
                 opacity: busy || !counterRupees ? 0.6 : 1,
               }}
             >
-              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+              <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 13 }}>
                 {t('offer_response.counter_send')}
               </Text>
             </Pressable>
@@ -1425,12 +1425,12 @@ function OfferResponseCard({ application }: { application: PublicApplication }) 
               flex: 1,
               paddingVertical: 10,
               borderRadius: radii.pill,
-              backgroundColor: '#10B981',
+              backgroundColor: theme.success,
               alignItems: 'center',
               opacity: busy ? 0.6 : 1,
             }}
           >
-            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+            <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 13 }}>
               {t('offer_response.accept')}
             </Text>
           </Pressable>
@@ -1442,11 +1442,11 @@ function OfferResponseCard({ application }: { application: PublicApplication }) 
               paddingVertical: 10,
               borderRadius: radii.pill,
               borderWidth: 0.5,
-              borderColor: theme.brand.accent,
+              borderColor: theme.brand.primary,
               alignItems: 'center',
             }}
           >
-            <Text style={{ color: theme.brand.accent, fontWeight: '700', fontSize: 13 }}>
+            <Text style={{ color: theme.brand.primary, fontWeight: '700', fontSize: 13 }}>
               {t('offer_response.counter')}
             </Text>
           </Pressable>

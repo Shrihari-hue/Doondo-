@@ -186,13 +186,13 @@ function Inner() {
           {/* Pitch banner */}
           <View
             style={{
-              backgroundColor: theme.brand.accentSubtle,
+              backgroundColor: theme.brand.primarySubtle,
               borderRadius: 14,
               padding: spacing.lg,
               gap: 4,
             }}
           >
-            <Text style={{ fontSize: 12, fontWeight: '700', color: theme.brand.accent }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: theme.brand.primary }}>
               {t('smart_resume.pitch_label')}
             </Text>
             <Text style={{ fontSize: 14, lineHeight: 20, color: theme.text.primary }}>
@@ -218,7 +218,7 @@ function Inner() {
                 style={{
                   fontSize: 12,
                   fontWeight: '700',
-                  color: theme.brand.accent,
+                  color: theme.brand.primary,
                   paddingVertical: 4,
                   paddingHorizontal: 8,
                 }}
@@ -495,7 +495,7 @@ function StagedLoader({ steps }: { steps: string[] }) {
             {i < active ? (
               <Text style={{ fontSize: 12, color: theme.status.success }}>✓</Text>
             ) : i === active ? (
-              <ActivityIndicator size="small" color={theme.brand.accent} />
+              <ActivityIndicator size="small" color={theme.brand.primary} />
             ) : (
               <Text style={{ fontSize: 11, color: theme.text.tertiary }}>{i + 1}</Text>
             )}

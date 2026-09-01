@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { spacing, radii } from '@doondo/tokens';
+import type { ThemeContextValue } from '@/theme/types';
 import { Screen, Text, LoadingSpinner } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
@@ -34,16 +35,20 @@ function inr(paise: number, opts?: { lakhs?: boolean }): string {
   return `₹${Math.round(paise / 100).toLocaleString('en-IN')}`;
 }
 
-function statusCopy(s: InsuranceSubscription['status'], t: TFn): { label: string; color: string } {
+function statusCopy(
+  s: InsuranceSubscription['status'],
+  t: TFn,
+  theme: ThemeContextValue['theme'],
+): { label: string; color: string } {
   switch (s) {
     case 'pending':
-      return { label: t('insurance.status_pending'), color: '#92400E' };
+      return { label: t('insurance.status_pending'), color: theme.warning };
     case 'active':
-      return { label: t('insurance.status_active'), color: '#065F46' };
+      return { label: t('insurance.status_active'), color: theme.success };
     case 'paused':
-      return { label: t('insurance.status_paused'), color: '#9CA3AF' };
+      return { label: t('insurance.status_paused'), color: theme.text.tertiary };
     case 'cancelled':
-      return { label: t('insurance.status_cancelled'), color: '#B91C1C' };
+      return { label: t('insurance.status_cancelled'), color: theme.error };
   }
 }
 
@@ -93,7 +98,7 @@ function Inner() {
   const tier = data?.tier;
   const activeOrPending =
     sub?.status === 'pending' || sub?.status === 'active' || sub?.status === 'paused';
-  const sc = sub ? statusCopy(sub.status, t) : null;
+  const sc = sub ? statusCopy(sub.status, t, theme) : null;
 
   return (
     <Screen edges={[]}>
@@ -132,19 +137,19 @@ function Inner() {
               marginHorizontal: spacing.xl,
               padding: spacing.lg,
               borderRadius: 20,
-              backgroundColor: '#1E3A8A',
+              backgroundColor: theme.brand.primaryDark,
               gap: spacing.sm,
-              shadowColor: '#1E3A8A',
+              shadowColor: theme.brand.primaryDark,
               shadowOffset: { width: 0, height: 6 },
               shadowOpacity: 0.3,
               shadowRadius: 12,
               elevation: 6,
             }}
           >
-            <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: '#BFDBFE' }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: theme.brand.primaryOnDark }}>
               {t('insurance.standard_cover_label')}
             </Text>
-            <Text style={{ fontSize: 28, fontWeight: '800', color: '#FFFFFF' }}>
+            <Text style={{ fontSize: 28, fontWeight: '800', color: theme.text.onBrand }}>
               {t('insurance.price_per_month', { n: Math.round(tier.monthlyPremiumPaise / 100) })}
             </Text>
             <View style={{ gap: spacing.xs, marginTop: spacing.sm }}>
@@ -163,7 +168,7 @@ function Inner() {
                   backgroundColor: 'rgba(255,255,255,0.18)',
                 }}
               >
-                <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: theme.text.onBrand }}>
                   {sc.label}
                 </Text>
               </View>
@@ -184,7 +189,7 @@ function Inner() {
                 alignItems: 'center',
               }}
             >
-              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 15 }}>
+              <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 15 }}>
                 {optInMut.isPending ? t('insurance.opt_in_subscribing') : t('insurance.opt_in_btn')}
               </Text>
             </Pressable>
@@ -209,11 +214,11 @@ function Inner() {
                 paddingVertical: spacing.md,
                 borderRadius: radii.pill,
                 borderWidth: 0.5,
-                borderColor: '#FCA5A5',
+                borderColor: theme.error,
                 alignItems: 'center',
               }}
             >
-              <Text style={{ color: '#B91C1C', fontWeight: '600', fontSize: 14 }}>
+              <Text style={{ color: theme.error, fontWeight: '600', fontSize: 14 }}>
                 {t('insurance.cancel_btn')}
               </Text>
             </Pressable>
@@ -228,10 +233,11 @@ function Inner() {
 }
 
 function Bullet({ text }: { text: string }) {
+  const { theme } = useTheme();
   return (
     <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-      <Text style={{ fontSize: 14, color: '#BFDBFE' }}>✓</Text>
-      <Text style={{ flex: 1, fontSize: 13, color: '#FFFFFF', lineHeight: 18 }}>
+      <Text style={{ fontSize: 14, color: theme.brand.primaryOnDark }}>✓</Text>
+      <Text style={{ flex: 1, fontSize: 13, color: theme.text.onBrand, lineHeight: 18 }}>
         {text}
       </Text>
     </View>

@@ -21,7 +21,7 @@ import {
 } from '@react-navigation/bottom-tabs';
 
 import { spacing } from '@doondo/tokens';
-import { Text } from '@/components';
+import { Text, VoiceAction } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
@@ -145,38 +145,24 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
   function renderVoiceAction() {
     return (
-      <Pressable
+      <View
         key="voice-search"
-        accessibilityRole="button"
-        accessibilityLabel={t('tabs.voice')}
-        onPress={() => {
-          haptic('selection');
-          rootNavigation.navigate('VoiceAgent');
-        }}
         style={{
           flex: 1,
           alignItems: 'center',
-          justifyContent: 'center',
-          paddingVertical: spacing.xs,
+          justifyContent: 'flex-end',
           gap: 2,
         }}
       >
-        <View
-          style={{
-            width: 42,
-            height: 42,
-            borderRadius: 21,
-            backgroundColor: theme.accent.voice,
-            alignItems: 'center',
-            justifyContent: 'center',
-            shadowColor: theme.accent.voice,
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.24,
-            shadowRadius: 10,
-            elevation: 6,
-          }}
-        >
-          <Feather name="mic" size={18} color="#FFFFFF" />
+        {/* Raised above the row per design/design.md §17 "Elevated" — the
+           marginBottom lifts it without shifting the sibling tabs, which
+           stay in their own flex:1 slots at the row's normal baseline. */}
+        <View style={{ marginBottom: 16 }}>
+          <VoiceAction
+            size={42}
+            accessibilityLabel={t('tabs.voice')}
+            onPress={() => rootNavigation.navigate('VoiceAgent')}
+          />
         </View>
         <Text
           variant="caption"
@@ -184,12 +170,14 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           numberOfLines={1}
           style={{
             fontSize: 10,
-            color: theme.accent.voice,
+            color: theme.voice,
+            position: 'absolute',
+            bottom: spacing.xs,
           }}
         >
           {t('tabs.voice')}
         </Text>
-      </Pressable>
+      </View>
     );
   }
 

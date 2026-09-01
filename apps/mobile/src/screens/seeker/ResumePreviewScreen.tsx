@@ -256,7 +256,7 @@ function ResumePreviewInner() {
                   style={{
                     fontSize: 20,
                     fontWeight: '700',
-                    color: '#FFFFFF',
+                    color: theme.text.onBrand,
                     letterSpacing: -0.4,
                   }}
                   numberOfLines={1}
@@ -282,7 +282,7 @@ function ResumePreviewInner() {
                       score={user.rating.avg}
                       count={user.rating.count}
                       compact
-                      style={{ color: '#FFFFFF' }}
+                      style={{ color: theme.text.onBrand }}
                     />
                   </View>
                 ) : null}
@@ -493,7 +493,7 @@ function ResumePreviewInner() {
             elevation: 4,
           })}
         >
-          <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text.onBrand }}>
             {t('resume_preview.cta_share')}
           </Text>
         </Pressable>
@@ -525,6 +525,7 @@ function ContactRow({ user, t }: { user: PublicUser; t: TFn }) {
 }
 
 function PillTag({ label, icon }: { label: string; icon: string }) {
+  const { theme } = useTheme();
   return (
     <View
       style={{
@@ -539,8 +540,8 @@ function PillTag({ label, icon }: { label: string; icon: string }) {
         borderColor: 'rgba(255,255,255,0.34)',
       }}
     >
-      <Text style={{ fontSize: 11, color: '#FFFFFF' }}>{icon}</Text>
-      <Text style={{ fontSize: 12, color: '#FFFFFF', fontWeight: '500' }}>
+      <Text style={{ fontSize: 11, color: theme.text.onBrand }}>{icon}</Text>
+      <Text style={{ fontSize: 12, color: theme.text.onBrand, fontWeight: '500' }}>
         {label}
       </Text>
     </View>
@@ -587,7 +588,7 @@ function SuggestionCard({
             width: 32,
             height: 32,
             borderRadius: 16,
-            backgroundColor: '#FEE2E2',
+            backgroundColor: theme.status.dangerSubtle,
             alignItems: 'center',
             justifyContent: 'center',
           }}
@@ -626,7 +627,7 @@ function SuggestionCard({
           opacity: pressed ? 0.85 : 1,
         })}
       >
-        <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: theme.text.onBrand }}>
           {t('resume_preview.suggestion_cta')}
         </Text>
       </Pressable>
@@ -682,6 +683,7 @@ function WorkPhotosWithVerifyBadges({
  * know the trade fundamentals.
  */
 function TestedTradesSection({ t, seekerId }: { t: TFn; seekerId: string }) {
+  const { theme } = useTheme();
   const passed = useQuery({
     queryKey: ['skillTests', 'passed', seekerId],
     queryFn: () => skillTestsApi.passedForSeeker(seekerId),
@@ -710,14 +712,14 @@ function TestedTradesSection({ t, seekerId }: { t: TFn; seekerId: string }) {
                 paddingHorizontal: spacing.md,
                 paddingVertical: spacing.sm,
                 borderRadius: radii.pill,
-                backgroundColor: '#FEF3C7',
+                backgroundColor: theme.status.warningSubtle,
                 borderWidth: 0.5,
-                borderColor: '#FDE68A',
+                borderColor: theme.status.warningBorder,
               }}
             >
               <Text style={{ fontSize: 14 }}>🧠</Text>
               {test ? <Text style={{ fontSize: 12 }}>{test.emoji}</Text> : null}
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#78350F' }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: theme.status.warning }}>
                 {t('resume_preview.tested_label', { name: test ? test.title : prettifySkill(id) })}
               </Text>
             </View>
@@ -734,6 +736,7 @@ function TestedTradesSection({ t, seekerId }: { t: TFn; seekerId: string }) {
  * with the endorser count.
  */
 function VerifiedTradesSection({ t, seekerId }: { t: TFn; seekerId: string }) {
+  const { theme } = useTheme();
   const query = useQuery({
     queryKey: ['endorsements', seekerId],
     queryFn: () => endorsementsApi.listForSeeker(seekerId),
@@ -754,13 +757,13 @@ function VerifiedTradesSection({ t, seekerId }: { t: TFn; seekerId: string }) {
               paddingHorizontal: spacing.md,
               paddingVertical: spacing.sm,
               borderRadius: radii.pill,
-              backgroundColor: '#D1FAE5',
+              backgroundColor: theme.status.successSubtle,
               borderWidth: 0.5,
-              borderColor: '#86EFAC',
+              borderColor: theme.status.successBorder,
             }}
           >
             <Text style={{ fontSize: 14 }}>✓</Text>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: '#065F46' }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: theme.status.success }}>
               {prettifySkill(v.trade)}
               {' · '}
               {t(
@@ -778,6 +781,7 @@ function VerifiedTradesSection({ t, seekerId }: { t: TFn; seekerId: string }) {
 }
 
 function BadgesSection({ t }: { t: TFn }) {
+  const { theme } = useTheme();
   const enrollmentsQuery = useQuery({
     queryKey: ['enrollments', 'me'],
     queryFn: () => coursesApi.myEnrollments(),
@@ -812,9 +816,9 @@ function BadgesSection({ t }: { t: TFn }) {
                 paddingHorizontal: spacing.md,
                 paddingVertical: spacing.sm,
                 borderRadius: radii.pill,
-                backgroundColor: '#FEF3C7',
+                backgroundColor: theme.status.warningSubtle,
                 borderWidth: 0.5,
-                borderColor: '#FDE68A',
+                borderColor: theme.status.warningBorder,
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 6,
@@ -822,7 +826,7 @@ function BadgesSection({ t }: { t: TFn }) {
             >
               <Text style={{ fontSize: 14 }}>🏅</Text>
               <Text style={{ fontSize: 12 }}>{c.emoji}</Text>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#78350F' }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: theme.status.warning }}>
                 {c.title}
               </Text>
             </View>

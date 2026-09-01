@@ -196,7 +196,7 @@ function Inner() {
         />
         <MoneyCard
           glyph="💰"
-          tint={theme.brand.accentSubtle}
+          tint={theme.brand.primarySubtle}
           label={t('earnings_hub.ledger')}
           hint={t('earnings_hub.ledger_hint')}
           topValue={earningsTop}
@@ -218,7 +218,7 @@ function Inner() {
         />
         <MoneyCard
           glyph="🛡️"
-          tint={theme.brand.accentSubtle}
+          tint={theme.brand.primarySubtle}
           label={t('earnings_hub.insurance')}
           hint={t('earnings_hub.insurance_hint')}
           topValue={insuranceTop}
@@ -272,7 +272,7 @@ function MoneyCard({
     primary: theme.text.primary,
     success: theme.status.success,
     tertiary: theme.text.tertiary,
-    hero: theme.brand.accent,
+    hero: theme.brand.primary,
   };
 
   return (
@@ -408,7 +408,7 @@ function PromoCard({ title, body, cta, onPress }: PromoCardProps) {
             style={{
               fontSize: 20,
               fontWeight: '700',
-              color: '#FFFFFF',
+              color: theme.text.onBrand,
               lineHeight: 25,
             }}
           >
@@ -434,15 +434,15 @@ function PromoCard({ title, body, cta, onPress }: PromoCardProps) {
               paddingHorizontal: spacing.lg,
               paddingVertical: 10,
               borderRadius: 999,
-              backgroundColor: '#FFFFFF',
+              backgroundColor: theme.bg.surface,
             }}
           >
             <Text
-              style={{ fontSize: 13, fontWeight: '700', color: theme.brand.accent }}
+              style={{ fontSize: 13, fontWeight: '700', color: theme.brand.primary }}
             >
               {cta}
             </Text>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.accent }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.primary }}>
               →
             </Text>
           </View>

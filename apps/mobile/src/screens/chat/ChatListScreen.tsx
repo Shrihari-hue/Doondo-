@@ -54,17 +54,17 @@ const RED = '#EF4444';
 
 export function ChatListScreen() {
   const { isAuthenticated, user } = useAuth();
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight = scheme !== 'dark';
   const navigation = useNavigation<Nav>();
   const t = useTranslate();
   const [tab, setTab] = useState<TabKey>('all');
 
-  const bg = isLight ? '#FFFFFF' : '#0C0A0E';
-  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
-  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary = isLight ? '#1F2937' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+  const bg = theme.bg.canvas;
+  const cardBg = theme.bg.surface;
+  const cardBorder = theme.border.default;
+  const textPrimary = theme.text.primary;
+  const textSecondary = theme.text.secondary;
 
   const query = useQuery({
     queryKey: ['chat', 'conversations'],
@@ -114,7 +114,7 @@ export function ChatListScreen() {
           <View
             style={{
               flexDirection: 'row',
-              backgroundColor: isLight ? '#F3F4F6' : '#141414',
+              backgroundColor: theme.bg.muted,
               borderRadius: radii.lg,
               padding: 4,
               borderWidth: 1,
@@ -193,7 +193,7 @@ export function ChatListScreen() {
                   key={c.id}
                   t={t}
                   conversation={c}
-                  cardBorder={isLight ? '#F3F4F6' : '#1E1E1E'}
+                  cardBorder={theme.bg.muted}
                   textPrimary={textPrimary}
                   textSecondary={textSecondary}
                   onPress={() =>
@@ -233,8 +233,8 @@ export function ChatListScreen() {
               opacity: pressed ? 0.88 : 1,
             })}
           >
-            <Feather name="edit" size={16} color="#FFFFFF" />
-            <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>
+            <Feather name="edit" size={16} color={theme.text.onBrand} />
+            <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text.onBrand }}>
               {t('chat_list.new_chat_btn')}
             </Text>
           </Pressable>
@@ -286,6 +286,7 @@ function ConversationRow({
   textSecondary: string;
   onPress: () => void;
 }) {
+  const { theme } = useTheme();
   const counterpart = conversation.counterpart;
   const displayName =
     counterpart?.companyName ?? counterpart?.name ?? t('chat_list.fallback_name');
@@ -367,7 +368,7 @@ function ConversationRow({
               >
                 <Text
                   style={{
-                    color: '#FFFFFF',
+                    color: theme.text.onBrand,
                     fontSize: 11,
                     fontWeight: '700',
                   }}

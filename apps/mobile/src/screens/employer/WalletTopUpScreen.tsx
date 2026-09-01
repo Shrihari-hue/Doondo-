@@ -68,12 +68,12 @@ export function WalletTopUpScreen() {
   const isLight     = scheme !== 'dark';
   const queryClient = useQueryClient();
 
-  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
-  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary   = isLight ? '#111827' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
-  const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
-  const subtleBg      = isLight ? '#F3F4F6' : '#1F2937';
+  const surface       = theme.bg.surface;
+  const border        = theme.border.default;
+  const textPrimary   = theme.text.primary;
+  const textSecondary = theme.text.secondary;
+  const bg            = theme.bg.canvas;
+  const subtleBg      = theme.bg.muted;
 
   // ─── State ────────────────────────────────────────────────────────────────
   const [step,        setStep]        = useState<Step>('amount');
@@ -214,12 +214,12 @@ export function WalletTopUpScreen() {
         {step === 'amount' && (
           <>
             {/* Balance indicator */}
-            <LinearGradient colors={[theme.brand.primary, '#1D4ED8']}
+            <LinearGradient colors={theme.brand.primaryGradient}
               style={{ borderRadius: radii.xl, padding: spacing.lg, gap: 4 }}>
               <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: '500' }}>
                 Doondo Wallet
               </Text>
-              <Text style={{ fontSize: 28, fontWeight: '800', color: '#FFFFFF' }}>₹1,250</Text>
+              <Text style={{ fontSize: 28, fontWeight: '800', color: theme.text.onBrand }}>₹1,250</Text>
               <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>Current balance</Text>
             </LinearGradient>
 
@@ -236,7 +236,7 @@ export function WalletTopUpScreen() {
                         flex: 1, minWidth: '40%', paddingVertical: 14, borderRadius: radii.lg,
                         alignItems: 'center', borderWidth: active ? 2 : 1,
                         borderColor: active ? BLUE : border,
-                        backgroundColor: active ? (isLight ? '#EFF6FF' : '#1E3A5F') : subtleBg,
+                        backgroundColor: active ? (theme.brand.primarySubtle) : subtleBg,
                         opacity: pressed ? 0.85 : 1,
                       })}>
                       <Text style={{ fontSize: 18, fontWeight: '800', color: active ? BLUE : textPrimary }}>
@@ -251,7 +251,7 @@ export function WalletTopUpScreen() {
               <View style={{
                 flexDirection: 'row', alignItems: 'center', borderWidth: isCustom ? 2 : 1,
                 borderColor: isCustom ? BLUE : border, borderRadius: radii.lg,
-                backgroundColor: isCustom ? (isLight ? '#EFF6FF' : '#1E3A5F') : subtleBg,
+                backgroundColor: isCustom ? (theme.brand.primarySubtle) : subtleBg,
                 paddingHorizontal: spacing.md,
               }}>
                 <Text style={{ fontSize: 18, color: isCustom ? BLUE : textSecondary, fontWeight: '700' }}>₹</Text>
@@ -270,23 +270,23 @@ export function WalletTopUpScreen() {
                 />
               </View>
               {isCustom && amountPaise > 0 && amountPaise < 10_000 && (
-                <Text style={{ fontSize: 12, color: '#EF4444' }}>Minimum top-up is ₹100</Text>
+                <Text style={{ fontSize: 12, color: theme.error }}>Minimum top-up is ₹100</Text>
               )}
             </View>
 
             {/* UPI info banner */}
             <View style={{
               flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm,
-              backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
+              backgroundColor: theme.brand.primarySubtle,
               borderRadius: radii.lg, padding: spacing.md, borderWidth: 1,
-              borderColor: isLight ? '#BFDBFE' : '#1E3A5F',
+              borderColor: theme.brand.primaryBorder,
             }}>
-              <Feather name="zap" size={18} color={isLight ? '#1E40AF' : '#93C5FD'} />
+              <Feather name="zap" size={18} color={theme.brand.primary} />
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: isLight ? '#1E40AF' : '#93C5FD' }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.primary }}>
                   Instant via UPI
                 </Text>
-                <Text style={{ fontSize: 12, color: isLight ? '#3B82F6' : '#93C5FD', lineHeight: 18, marginTop: 2 }}>
+                <Text style={{ fontSize: 12, color: theme.brand.primary, lineHeight: 18, marginTop: 2 }}>
                   Pays via GPay, PhonePe, BHIM, or any UPI app. Money reflects instantly.
                 </Text>
               </View>
@@ -296,14 +296,14 @@ export function WalletTopUpScreen() {
               onPress={() => void initiateOrder()}
               disabled={loading || !amountValid}
               style={{
-                backgroundColor: amountValid ? BLUE : (isLight ? '#D1D5DB' : '#374151'),
+                backgroundColor: amountValid ? BLUE : (theme.border.strong),
                 borderRadius: radii.lg, paddingVertical: 16, alignItems: 'center',
                 flexDirection: 'row', justifyContent: 'center', gap: spacing.sm,
               }}>
               {loading
-                ? <ActivityIndicator color="#FFFFFF" size="small" />
-                : <Feather name="arrow-right" size={18} color="#FFFFFF" />}
-              <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>
+                ? <ActivityIndicator color={theme.text.onBrand} size="small" />
+                : <Feather name="arrow-right" size={18} color={theme.text.onBrand} />}
+              <Text style={{ fontSize: 16, fontWeight: '800', color: theme.text.onBrand }}>
                 {loading ? 'Creating order…' : `Proceed to pay ${amountValid ? paise(amountPaise) : ''}`}
               </Text>
             </AnimatedPressable>
@@ -317,7 +317,7 @@ export function WalletTopUpScreen() {
             <View style={{ backgroundColor: surface, borderRadius: radii.lg, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
               <View style={{ backgroundColor: BLUE, padding: spacing.md }}>
                 <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Payment Summary</Text>
-                <Text style={{ fontSize: 32, fontWeight: '800', color: '#FFFFFF', marginTop: 4 }}>
+                <Text style={{ fontSize: 32, fontWeight: '800', color: theme.text.onBrand, marginTop: 4 }}>
                   {paise(order.amountPaise)}
                 </Text>
               </View>
@@ -356,8 +356,8 @@ export function WalletTopUpScreen() {
               onPress={() => void openUpiAndPoll()}
               style={{ backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 16,
                 alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: spacing.sm }}>
-              <Feather name="zap" size={18} color="#FFFFFF" />
-              <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>
+              <Feather name="zap" size={18} color={theme.text.onBrand} />
+              <Text style={{ fontSize: 16, fontWeight: '800', color: theme.text.onBrand }}>
                 Pay {paise(order.amountPaise)} via UPI
               </Text>
             </AnimatedPressable>
@@ -372,7 +372,7 @@ export function WalletTopUpScreen() {
         {step === 'verifying' && (
           <View style={{ alignItems: 'center', gap: spacing.xl, paddingVertical: 40 }}>
             <View style={{ width: 80, height: 80, borderRadius: 40,
-              backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
+              backgroundColor: theme.brand.primarySubtle,
               alignItems: 'center', justifyContent: 'center' }}>
               <ActivityIndicator color={BLUE} size="large" />
             </View>
@@ -393,7 +393,7 @@ export function WalletTopUpScreen() {
               onPress={() => void checkNow()}
               style={{ backgroundColor: GREEN, borderRadius: radii.lg, paddingVertical: 14,
                 paddingHorizontal: spacing['2xl'], alignItems: 'center' }}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text.onBrand }}>
                 I've Paid — Check Now
               </Text>
             </AnimatedPressable>
@@ -412,7 +412,7 @@ export function WalletTopUpScreen() {
           <View style={{ alignItems: 'center', gap: spacing.xl, paddingVertical: 40 }}>
             {/* Success icon */}
             <View style={{ width: 88, height: 88, borderRadius: 44,
-              backgroundColor: isLight ? '#F0FDF4' : '#052E16',
+              backgroundColor: theme.status.successSubtle,
               alignItems: 'center', justifyContent: 'center',
               borderWidth: 2, borderColor: GREEN }}>
               <Feather name="check" size={40} color={GREEN} />
@@ -446,7 +446,7 @@ export function WalletTopUpScreen() {
               onPress={() => navigation.goBack()}
               style={{ width: '100%', backgroundColor: BLUE, borderRadius: radii.lg,
                 paddingVertical: 16, alignItems: 'center' }}>
-              <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>Done</Text>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: theme.text.onBrand }}>Done</Text>
             </AnimatedPressable>
           </View>
         )}
@@ -455,13 +455,13 @@ export function WalletTopUpScreen() {
         {step === 'failed' && (
           <View style={{ alignItems: 'center', gap: spacing.xl, paddingVertical: 40 }}>
             <View style={{ width: 88, height: 88, borderRadius: 44,
-              backgroundColor: isLight ? '#FEF2F2' : '#3B0A0A',
+              backgroundColor: theme.status.dangerSubtle,
               alignItems: 'center', justifyContent: 'center',
-              borderWidth: 2, borderColor: '#EF4444' }}>
-              <Feather name="x" size={40} color="#EF4444" />
+              borderWidth: 2, borderColor: theme.error }}>
+              <Feather name="x" size={40} color={theme.error} />
             </View>
             <View style={{ alignItems: 'center', gap: spacing.sm }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: '#EF4444' }}>Payment Failed</Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: theme.error }}>Payment Failed</Text>
               <Text style={{ fontSize: 14, color: textSecondary, textAlign: 'center', lineHeight: 22 }}>
                 The payment was not completed. No money has been deducted. You can try again.
               </Text>
@@ -470,7 +470,7 @@ export function WalletTopUpScreen() {
               onPress={() => { setStep('amount'); setOrder(null); setPollCount(0); }}
               style={{ width: '100%', backgroundColor: BLUE, borderRadius: radii.lg,
                 paddingVertical: 16, alignItems: 'center' }}>
-              <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>Try Again</Text>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: theme.text.onBrand }}>Try Again</Text>
             </AnimatedPressable>
             <Pressable onPress={() => navigation.goBack()} style={{ paddingVertical: spacing.sm }}>
               <Text style={{ fontSize: 14, color: textSecondary }}>Cancel</Text>

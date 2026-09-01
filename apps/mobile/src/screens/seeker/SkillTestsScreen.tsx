@@ -93,10 +93,10 @@ function SkillTestsInner() {
           }}
         >
           <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={{ fontSize: 22, color: '#FFFFFF' }}>←</Text>
+            <Text style={{ fontSize: 22, color: theme.text.onBrand }}>←</Text>
           </Pressable>
           <Text
-            style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
+            style={{ fontSize: 17, fontWeight: '600', color: theme.text.onBrand, flex: 1 }}
           >
             {t('skill_tests.header_title')}
           </Text>
@@ -250,12 +250,12 @@ function TestCard({
             paddingHorizontal: spacing.md,
             paddingVertical: spacing.sm,
             borderRadius: radii.pill,
-            backgroundColor: '#FEF3C7',
+            backgroundColor: theme.status.warningSubtle,
             borderWidth: 0.5,
-            borderColor: '#FDE68A',
+            borderColor: theme.status.warningBorder,
           }}
         >
-          <Text style={{ fontSize: 11, fontWeight: '700', color: '#78350F' }}>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.status.warning }}>
             {t('skill_tests.status_cooldown', { h: cooldownHours })}
           </Text>
         </View>
@@ -270,7 +270,7 @@ function TestCard({
             opacity: pressed ? 0.85 : 1,
           })}
         >
-          <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: theme.text.onBrand }}>
             {t('skill_tests.cta_take')}
           </Text>
         </Pressable>
@@ -430,7 +430,7 @@ function TakeTestModal({
                                 width: 8,
                                 height: 8,
                                 borderRadius: 4,
-                                backgroundColor: '#FFFFFF',
+                                backgroundColor: theme.bg.surface,
                               }}
                             />
                           ) : null}
@@ -475,7 +475,7 @@ function TakeTestModal({
                 opacity: pressed ? 0.85 : 1,
               })}
             >
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text.onBrand }}>
                 {t('skill_tests.cta_done')}
               </Text>
             </Pressable>
@@ -492,7 +492,7 @@ function TakeTestModal({
                 opacity: !answeredAll || submit.isPending ? 0.5 : pressed ? 0.85 : 1,
               })}
             >
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text.onBrand }}>
                 {submit.isPending
                   ? t('skill_tests.cta_grading')
                   : answeredAll
@@ -549,10 +549,10 @@ function ResultPanel({
   return (
     <View
       style={{
-        backgroundColor: '#FEF3C7',
+        backgroundColor: theme.status.warningSubtle,
         borderRadius: radii.lg,
         borderWidth: 0.5,
-        borderColor: '#FDE68A',
+        borderColor: theme.status.warningBorder,
         padding: spacing.xl,
         gap: spacing.sm,
         alignItems: 'center',
@@ -560,18 +560,18 @@ function ResultPanel({
     >
       <Text style={{ fontSize: 56 }}>📚</Text>
       <Text
-        style={{ fontSize: 22, fontWeight: '800', color: '#78350F', letterSpacing: -0.3 }}
+        style={{ fontSize: 22, fontWeight: '800', color: theme.status.warning, letterSpacing: -0.3 }}
       >
         {t('skill_tests.result_failed_title')}
       </Text>
-      <Text style={{ fontSize: 14, color: '#92400E', textAlign: 'center' }}>
+      <Text style={{ fontSize: 14, color: theme.status.warning, textAlign: 'center' }}>
         {t('skill_tests.result_failed_body', {
           score: attempt.score,
           total: test.questions.length,
           pass: test.passingScore,
         })}
       </Text>
-      <Text style={{ fontSize: 12, color: '#92400E', textAlign: 'center', opacity: 0.85 }}>
+      <Text style={{ fontSize: 12, color: theme.status.warning, textAlign: 'center', opacity: 0.85 }}>
         {t('skill_tests.result_failed_retry')}
       </Text>
     </View>

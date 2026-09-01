@@ -262,7 +262,7 @@ function PickStage({
         <Text
           variant="footnote"
           weight="medium"
-          style={{ letterSpacing: 1.2, color: theme.brand.accent }}
+          style={{ letterSpacing: 1.2, color: theme.brand.primary }}
         >
           {t('profile_from_photo.eyebrow')}
         </Text>
@@ -363,16 +363,16 @@ function PickAction({
           borderRadius: 22,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: primary ? 'rgba(255,253,247,0.18)' : theme.brand.accentSubtle,
+          backgroundColor: primary ? 'rgba(255,253,247,0.18)' : theme.brand.primarySubtle,
         }}
       >
-        <Feather name={icon} size={20} color={primary ? '#FFFDF7' : theme.brand.accent} />
+        <Feather name={icon} size={20} color={primary ? theme.text.onBrand : theme.brand.primary} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text
           variant="bodyLarge"
           weight="medium"
-          style={{ color: primary ? '#FFFDF7' : theme.text.primary }}
+          style={{ color: primary ? theme.text.onBrand : theme.text.primary }}
         >
           {title}
         </Text>
@@ -386,7 +386,7 @@ function PickAction({
       <Feather
         name="chevron-right"
         size={18}
-        color={primary ? '#FFFDF7' : theme.text.secondary}
+        color={primary ? theme.text.onBrand : theme.text.secondary}
       />
     </Pressable>
   );
@@ -417,7 +417,7 @@ function ExtractingStage({ imageDataUrl }: { imageDataUrl: string }) {
         />
       </View>
       <View style={{ alignItems: 'center', gap: spacing.sm }}>
-        <ActivityIndicator size="small" color={theme.brand.accent} />
+        <ActivityIndicator size="small" color={theme.brand.primary} />
         <Text variant="bodyLarge" weight="medium">
           {t('profile_from_photo.extracting_title')}
         </Text>
@@ -666,12 +666,12 @@ function ConfirmStage({
             flex: 2,
             paddingVertical: spacing.md,
             borderRadius: radii.pill,
-            backgroundColor: theme.brand.accent,
+            backgroundColor: theme.brand.primary,
             alignItems: 'center',
             opacity: saving ? 0.5 : pressed ? 0.85 : 1,
           })}
         >
-          <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFDF7' }}>
+          <Text variant="bodyLarge" weight="medium" style={{ color: theme.text.onBrand }}>
             {saving ? t('profile_from_photo.saving') : t('profile_from_photo.save')}
           </Text>
         </Pressable>

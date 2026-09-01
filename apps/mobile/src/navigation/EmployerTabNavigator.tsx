@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { spacing } from '@doondo/tokens';
-import { Text, BlurOverlay } from '@/components';
+import { Text, BlurOverlay, VoiceAction } from '@/components';
 import { jobsApi } from '@/api/jobs.api';
 import { getSecure, setSecure } from '@/lib/secureStore';
 import { useTheme } from '@/theme/useTheme';
@@ -254,7 +254,7 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
                 >
                   <View
                     style={{
-                      backgroundColor: theme.accent.voice,
+                      backgroundColor: theme.voice,
                       paddingHorizontal: 10,
                       paddingVertical: 6,
                       borderRadius: 12,
@@ -265,7 +265,7 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
                       elevation: 6,
                     }}
                   >
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFFFFF' }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: theme.text.onBrand }}>
                       Try voice search
                     </Text>
                   </View>
@@ -278,38 +278,27 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
                       borderTopWidth: 5,
                       borderLeftColor: 'transparent',
                       borderRightColor: 'transparent',
-                      borderTopColor: theme.accent.voice,
+                      borderTopColor: theme.voice,
                     }}
                   />
                 </Pressable>
               )}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Voice search"
-                onPress={() => { haptic('medium'); dismissMicBubble(); rootNav.navigate('EmployerVoiceAgent'); }}
-                onLongPress={() => { haptic('medium'); setShowSearch(true); }}
-                style={({ pressed }) => ({
-                  width: 56,
-                  height: 56,
+              <View
+                style={{
                   borderRadius: 28,
-                  backgroundColor: theme.accent.voice,
-                  alignItems: 'center',
-                  justifyContent: 'center',
                   // White ring separates the FAB from the white tab bar in light mode
                   borderWidth: 3,
                   borderColor: barBg,
-                  // Lift it clearly above the tab bar
-                  marginBottom: 16,
-                  shadowColor: '#000000',
-                  shadowOpacity: 0.25,
-                  shadowRadius: 8,
-                  shadowOffset: { width: 0, height: -2 },
-                  elevation: 12,
-                  opacity: pressed ? 0.85 : 1,
-                })}
+                  marginBottom: 16, // lift it clearly above the tab bar
+                }}
               >
-                <Feather name="mic" size={24} color="#FFFFFF" />
-              </Pressable>
+                <VoiceAction
+                  size={56}
+                  accessibilityLabel="Voice search"
+                  onPress={() => { dismissMicBubble(); rootNav.navigate('EmployerVoiceAgent'); }}
+                  onLongPress={() => { haptic('medium'); setShowSearch(true); }}
+                />
+              </View>
             </View>
           );
         }
@@ -349,7 +338,7 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
                   borderWidth: 1.5,
                   borderColor: barBg,
                 }}>
-                  <Text style={{ fontSize: 9, fontWeight: '800', color: '#FFFFFF', lineHeight: 12 }}>
+                  <Text style={{ fontSize: 9, fontWeight: '800', color: theme.text.onBrand, lineHeight: 12 }}>
                     {badgeCount > 99 ? '99+' : String(badgeCount)}
                   </Text>
                 </View>

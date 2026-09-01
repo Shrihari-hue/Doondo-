@@ -42,6 +42,7 @@ function BarChart({
   data: number[]; colors: string[]; labels: string[];
   height?: number; textColor: string; surfaceBg: string;
 }) {
+  const { theme } = useTheme();
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const maxVal = Math.max(...data, 1);
   const barH = height - 24;
@@ -52,10 +53,10 @@ function BarChart({
       {activeIdx !== null && (
         <View style={{
           position: 'absolute', top: -36, alignSelf: 'center',
-          backgroundColor: '#1F2937', borderRadius: 8,
+          backgroundColor: theme.bg.muted, borderRadius: 8,
           paddingHorizontal: 10, paddingVertical: 5, zIndex: 10,
         }}>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: theme.text.onBrand }}>
             {labels[activeIdx]}: {data[activeIdx]}
           </Text>
         </View>
@@ -134,14 +135,14 @@ function StatRow({
 export function EmployerAnalyticsScreen() {
   const navigation  = useNavigation<Nav>();
   const insets      = useSafeAreaInsets();
-  const { scheme }  = useTheme();
+  const { theme, scheme }  = useTheme();
   const isLight     = scheme !== 'dark';
 
-  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
-  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary   = isLight ? '#111827' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
-  const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
+  const surface       = theme.bg.surface;
+  const border        = theme.border.default;
+  const textPrimary   = theme.text.primary;
+  const textSecondary = theme.text.secondary;
+  const bg            = theme.bg.canvas;
 
   const query = useQuery({
     queryKey: ['applicants', 'employer', 'all'],
@@ -256,7 +257,7 @@ export function EmployerAnalyticsScreen() {
                   <Text style={{ fontSize: 13, fontWeight: '600', color: textPrimary, textTransform: 'capitalize' }}>{s}</Text>
                   <Text style={{ fontSize: 13, fontWeight: '700', color: STATUS_COLORS[s] }}>{count}</Text>
                 </View>
-                <View style={{ height: 8, borderRadius: 4, backgroundColor: isLight ? '#F3F4F6' : '#1E1E1E', overflow: 'hidden' }}>
+                <View style={{ height: 8, borderRadius: 4, backgroundColor: theme.bg.muted, overflow: 'hidden' }}>
                   <View style={{ width: `${Math.round(pct * 100)}%`, height: 8, borderRadius: 4, backgroundColor: STATUS_COLORS[s] }} />
                 </View>
               </View>
@@ -268,7 +269,7 @@ export function EmployerAnalyticsScreen() {
         <View style={{ backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border, padding: spacing.lg, gap: spacing.md }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>Hires — Last 6 Weeks</Text>
-            <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, backgroundColor: isLight ? '#F0FDF4' : '#052E16' }}>
+            <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, backgroundColor: theme.status.successSubtle }}>
               <Text style={{ fontSize: 11, fontWeight: '700', color: GREEN }}>+{statusCounts.hired} total</Text>
             </View>
           </View>
@@ -319,12 +320,12 @@ export function EmployerAnalyticsScreen() {
                     </Text>
                   </View>
                   {/* Applicants bar (grey bg) with hired overlay (green) */}
-                  <View style={{ height: 10, borderRadius: 5, backgroundColor: isLight ? '#F3F4F6' : '#1E1E1E', overflow: 'hidden' }}>
+                  <View style={{ height: 10, borderRadius: 5, backgroundColor: theme.bg.muted, overflow: 'hidden' }}>
                     <View style={{ width: `${Math.round(hireRatePct * 100)}%`, height: 10, borderRadius: 5, backgroundColor: GREEN }} />
                   </View>
                   <View style={{ flexDirection: 'row', gap: spacing.md }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isLight ? '#D1D5DB' : '#4B5563' }} />
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: theme.border.strong }} />
                       <Text style={{ fontSize: 11, color: textSecondary }}>{job.applicants} applicants</Text>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>

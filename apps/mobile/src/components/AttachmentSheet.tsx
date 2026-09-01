@@ -136,7 +136,7 @@ export function AttachmentSheet({
     opacity: scrim.value,
   }));
 
-  // Each tile gets its own accent. Camera uses the brand coral — it's the
+  // Each tile gets its own accent. Camera uses the brand blue — it's the
   // most-tapped action and the brand wants to be felt here. The other three
   // use restrained accent tints (blue/amber/jade) so the grid still reads
   // as a family, not a rainbow.
@@ -155,7 +155,7 @@ export function AttachmentSheet({
       label: 'Photo',
       caption: 'From gallery',
       accent: blue[400],
-      tintBg: 'rgba(61, 122, 199, 0.14)',
+      tintBg: theme.status.infoSubtle,
       borderColor: theme.border.default,
       Icon: PhotoIcon,
       onPress: pickAnd(onPickPhoto),
@@ -177,7 +177,7 @@ export function AttachmentSheet({
       label: 'Video',
       caption: 'Record or pick',
       accent: amber[400],
-      tintBg: 'rgba(224, 167, 68, 0.14)',
+      tintBg: theme.status.warningSubtle,
       borderColor: theme.border.default,
       Icon: VideoIcon,
       onPress: pickAnd(onPickVideo),

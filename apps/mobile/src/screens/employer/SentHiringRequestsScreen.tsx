@@ -104,10 +104,10 @@ export function SentHiringRequestsScreen() {
           }}
         >
           <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={{ fontSize: 22, color: '#FFFFFF' }}>←</Text>
+            <Text style={{ fontSize: 22, color: theme.text.onBrand }}>←</Text>
           </Pressable>
           <Text
-            style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
+            style={{ fontSize: 17, fontWeight: '600', color: theme.text.onBrand, flex: 1 }}
           >
             Requests sent
           </Text>
@@ -260,7 +260,7 @@ function SentCard({
             opacity: pressed ? 0.85 : 1,
           })}
         >
-          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>
+          <Text style={{ color: theme.text.onBrand, fontSize: 13, fontWeight: '700' }}>
             View in applicants
           </Text>
         </Pressable>

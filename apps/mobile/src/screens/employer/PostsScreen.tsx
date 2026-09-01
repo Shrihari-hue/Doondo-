@@ -21,7 +21,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { radii, spacing, blue } from '@doondo/tokens';
+import { radii, spacing } from '@doondo/tokens';
 import { Screen, Text, Card, Pill, SkeletonCard, EmptyState, BlurOverlay, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
@@ -112,7 +112,7 @@ export function PostsScreen() {
           <RefreshControl
             refreshing={query.isRefetching}
             onRefresh={() => void query.refetch()}
-            tintColor={theme.brand.accent}
+            tintColor={theme.brand.primary}
           />
         }
       >
@@ -162,9 +162,10 @@ export function PostsScreen() {
 }
 
 function Header({ count, t }: { count: number; t: TFn }) {
+  const { theme } = useTheme();
   return (
     <LinearGradient
-      colors={['#060B16', '#0D1B33', blue[900]]}
+      colors={theme.brand.primaryBannerGradient}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{
@@ -180,7 +181,7 @@ function Header({ count, t }: { count: number; t: TFn }) {
       <Text
         variant="caption"
         weight="medium"
-        style={{ letterSpacing: 1.4, color: blue[300], textAlign: 'center' }}
+        style={{ letterSpacing: 1.4, color: theme.brand.primaryOnDark, textAlign: 'center' }}
       >
         {t('employer.posts.eyebrow')}
       </Text>
@@ -188,7 +189,7 @@ function Header({ count, t }: { count: number; t: TFn }) {
         variant="display"
         weight="medium"
         display
-        style={{ color: '#FFFFFF', textAlign: 'center' }}
+        style={{ color: theme.text.onBrand, textAlign: 'center' }}
       >
         {t('employer.posts.title')}
       </Text>
@@ -246,7 +247,7 @@ function PostJobEmptyState({ onPostJob, t }: { onPostJob: () => void; t: TFn }) 
           <Feather
             name="file-text"
             size={30}
-            color={blue[300]}
+            color={theme.brand.primaryOnDark}
             style={{ position: 'absolute', top: 26, right: 24 }}
           />
           <Feather
@@ -272,7 +273,7 @@ function PostJobEmptyState({ onPostJob, t }: { onPostJob: () => void; t: TFn }) 
               justifyContent: 'center',
             }}
           >
-            <Feather name="plus" size={16} color="#FFFFFF" />
+            <Feather name="plus" size={16} color={theme.text.onBrand} />
           </View>
         </View>
       </View>
@@ -308,10 +309,10 @@ function PostJobEmptyState({ onPostJob, t }: { onPostJob: () => void; t: TFn }) 
           opacity: pressed ? 0.85 : 1,
         })}
       >
-        <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>
+        <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text.onBrand }}>
           {t('employer.posts.cta_post')}
         </Text>
-        <Feather name="plus" size={18} color="#FFFFFF" />
+        <Feather name="plus" size={18} color={theme.text.onBrand} />
       </Pressable>
     </View>
   );
@@ -373,7 +374,7 @@ function Section({ title, jobs, t, perJobStats }: { title: string; jobs: PublicJ
               width: 8,
               height: 8,
               borderRadius: 4,
-              backgroundColor: theme.brand.accent,
+              backgroundColor: theme.brand.primary,
             }}
           />
           <Text
@@ -540,27 +541,27 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
         {/* ── Row 2: metrics ── */}
         <View style={{
           flexDirection: 'row', alignItems: 'center',
-          backgroundColor: isLight ? '#F9FAFB' : '#141414',
+          backgroundColor: theme.bg.muted,
           borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9,
           gap: 0,
         }}>
           <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
-            <Text style={{ fontSize: 16, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>{views}</Text>
-            <Text style={{ fontSize: 11, color: isLight ? '#9CA3AF' : '#6B7280' }}>Views</Text>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: theme.text.primary }}>{views}</Text>
+            <Text style={{ fontSize: 11, color: theme.text.tertiary }}>Views</Text>
           </View>
-          <View style={{ width: 1, height: 28, backgroundColor: isLight ? '#E5E7EB' : '#1E1E1E' }} />
+          <View style={{ width: 1, height: 28, backgroundColor: theme.border.default }} />
           <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
             <Text style={{ fontSize: 16, fontWeight: '800', color: BLUE }}>{applicantCount}</Text>
-            <Text style={{ fontSize: 11, color: isLight ? '#9CA3AF' : '#6B7280' }}>Applied</Text>
+            <Text style={{ fontSize: 11, color: theme.text.tertiary }}>Applied</Text>
           </View>
-          <View style={{ width: 1, height: 28, backgroundColor: isLight ? '#E5E7EB' : '#1E1E1E' }} />
+          <View style={{ width: 1, height: 28, backgroundColor: theme.border.default }} />
           <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
             <Text style={{ fontSize: 16, fontWeight: '800', color: GREEN }}>{hiredCount}</Text>
-            <Text style={{ fontSize: 11, color: isLight ? '#9CA3AF' : '#6B7280' }}>Hired</Text>
+            <Text style={{ fontSize: 11, color: theme.text.tertiary }}>Hired</Text>
           </View>
           {job.status === 'active' && (
             <>
-              <View style={{ width: 1, height: 28, backgroundColor: isLight ? '#E5E7EB' : '#1E1E1E' }} />
+              <View style={{ width: 1, height: 28, backgroundColor: theme.border.default }} />
               <Pressable
                 onPress={() => { haptic('selection'); setShowBoost(true); }}
                 style={{ flex: 1, alignItems: 'center', gap: 2 }}>
@@ -580,7 +581,7 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
                 {Math.round((hiredCount / job.headcount) * 100)}%
               </Text>
             </View>
-            <View style={{ height: 5, borderRadius: 3, backgroundColor: isLight ? '#E5E7EB' : '#374151' }}>
+            <View style={{ height: 5, borderRadius: 3, backgroundColor: theme.border.default }}>
               <View style={{ height: 5, borderRadius: 3,
                 width: `${Math.min(100, Math.round((hiredCount / job.headcount) * 100))}%`,
                 backgroundColor: hiredCount >= job.headcount ? GREEN : BLUE }} />
@@ -595,13 +596,13 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
             backgroundColor: BLUE, borderRadius: 12,
             paddingHorizontal: spacing.md, paddingVertical: 11,
           }}>
-          <Feather name="users" size={15} color="#FFFFFF" />
-          <Text style={{ flex: 1, fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>
+          <Feather name="users" size={15} color={theme.text.onBrand} />
+          <Text style={{ flex: 1, fontSize: 14, fontWeight: '700', color: theme.text.onBrand }}>
             View Applicants
           </Text>
           <View style={{ backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 20,
             paddingHorizontal: 8, paddingVertical: 2, minWidth: 26, alignItems: 'center' }}>
-            <Text style={{ fontSize: 12, fontWeight: '800', color: '#FFFFFF' }}>{applicantCount}</Text>
+            <Text style={{ fontSize: 12, fontWeight: '800', color: theme.text.onBrand }}>{applicantCount}</Text>
           </View>
           <Feather name="chevron-right" size={15} color="rgba(255,255,255,0.8)" />
         </AnimatedPressable>
@@ -614,7 +615,7 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
             style={({ pressed }) => ({
               flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
               paddingVertical: 10, borderRadius: 12,
-              backgroundColor: isLight ? '#F0FDF4' : '#052E16',
+              backgroundColor: theme.status.successSubtle,
               borderWidth: 1, borderColor: GREEN + '40',
               opacity: pressed || repost.isPending ? 0.7 : 1,
             })}>
@@ -632,21 +633,21 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
           <Pressable style={{ flex: 1, justifyContent: 'flex-end' }} onPress={() => setShowBoost(false)}>
             <Pressable onPress={(e) => e.stopPropagation?.()}>
               <View style={{
-                backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+                backgroundColor: theme.bg.surface,
                 borderTopLeftRadius: 24, borderTopRightRadius: 24,
                 padding: spacing.xl, gap: spacing.lg,
                 paddingBottom: spacing['2xl'],
               }}>
-                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#374151', alignSelf: 'center' }} />
+                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: theme.border.strong, alignSelf: 'center' }} />
                 <View style={{ gap: spacing.xs }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Feather name="zap" size={20} color={isLight ? '#111827' : '#F9FAFB'} />
-                    <Text style={{ fontSize: 22, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>Boost this job</Text>
+                    <Feather name="zap" size={20} color={theme.text.primary} />
+                    <Text style={{ fontSize: 22, fontWeight: '800', color: theme.text.primary }}>Boost this job</Text>
                   </View>
-                  <Text style={{ fontSize: 14, color: isLight ? '#6B7280' : '#9CA3AF' }}>Reach more qualified workers faster.</Text>
+                  <Text style={{ fontSize: 14, color: theme.text.secondary }}>Reach more qualified workers faster.</Text>
                 </View>
                 {[
-                  { icon: 'zap' as const, tag: 'Urgent Hire', desc: 'Top of search results for 7 days', price: '₹299', color: '#EF4444' },
+                  { icon: 'zap' as const, tag: 'Urgent Hire', desc: 'Top of search results for 7 days', price: '₹299', color: theme.error },
                   { icon: 'star' as const, tag: 'Featured', desc: 'Highlighted card for 14 days', price: '₹499', color: AMBER },
                   { icon: 'send' as const, tag: 'Sponsored', desc: 'Push notification to 500+ matched workers', price: '₹899', color: BLUE },
                 ].map((opt) => (
@@ -661,16 +662,16 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
                     </View>
                     <View style={{ flex: 1, gap: 2 }}>
                       <Text style={{ fontSize: 15, fontWeight: '700', color: opt.color }}>{opt.tag}</Text>
-                      <Text style={{ fontSize: 13, color: isLight ? '#6B7280' : '#9CA3AF' }}>{opt.desc}</Text>
+                      <Text style={{ fontSize: 13, color: theme.text.secondary }}>{opt.desc}</Text>
                     </View>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>{opt.price}</Text>
+                    <Text style={{ fontSize: 15, fontWeight: '800', color: theme.text.primary }}>{opt.price}</Text>
                   </Pressable>
                 ))}
                 <Pressable onPress={() => setShowBoost(false)} style={({ pressed }) => ({
                   paddingVertical: 14, borderRadius: 12, borderWidth: 1.5,
-                  borderColor: isLight ? '#D1D5DB' : '#374151', alignItems: 'center', opacity: pressed ? 0.7 : 1,
+                  borderColor: theme.border.strong, alignItems: 'center', opacity: pressed ? 0.7 : 1,
                 })}>
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: isLight ? '#6B7280' : '#9CA3AF' }}>Maybe later</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: theme.text.secondary }}>Maybe later</Text>
                 </Pressable>
               </View>
             </Pressable>
@@ -723,10 +724,10 @@ function TipCard({ t }: { t: TFn }) {
         alignItems: 'center',
         gap: spacing.md,
         padding: spacing.lg,
-        backgroundColor: theme.brand.accentSubtle,
+        backgroundColor: theme.brand.primarySubtle,
         borderRadius: radii.lg,
         borderWidth: 0.5,
-        borderColor: theme.brand.accentBorder,
+        borderColor: theme.brand.primaryBorder,
       }}
     >
       <View
@@ -734,14 +735,14 @@ function TipCard({ t }: { t: TFn }) {
           width: 44,
           height: 44,
           borderRadius: radii.md,
-          backgroundColor: theme.brand.accentSubtle,
+          backgroundColor: theme.brand.primarySubtle,
           borderWidth: 0.5,
-          borderColor: theme.brand.accentBorder,
+          borderColor: theme.brand.primaryBorder,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Feather name="info" size={20} color={theme.brand.accent} />
+        <Feather name="info" size={20} color={theme.brand.primary} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text variant="footnote" weight="medium" tone="hero">

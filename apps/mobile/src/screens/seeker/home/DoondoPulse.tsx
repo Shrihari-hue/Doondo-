@@ -119,7 +119,7 @@ export function DoondoPulse() {
             paddingVertical: spacing.sm,
             borderTopWidth: 0.5,
             borderTopColor: theme.border.default,
-            backgroundColor: pressed ? theme.bg.muted : theme.brand.accentSubtle,
+            backgroundColor: pressed ? theme.bg.muted : theme.brand.primarySubtle,
           })}
         >
           <Text
@@ -131,7 +131,7 @@ export function DoondoPulse() {
           <Text
             variant="footnote"
             weight="medium"
-            style={{ color: theme.brand.accent }}
+            style={{ color: theme.brand.primary }}
           >
             {t('pulse.nudge_cta')} →
           </Text>

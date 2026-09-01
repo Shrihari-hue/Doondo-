@@ -75,8 +75,8 @@ export function EmptyState({
 
   const toneMap = {
     neutral: { bg: theme.bg.muted, border: theme.border.default, color: theme.text.tertiary },
-    hero: { bg: theme.brand.accentSubtle, border: theme.brand.accentBorder, color: theme.brand.accent },
-    accent: { bg: theme.brand.accentSubtle, border: theme.brand.accentBorder, color: theme.brand.accent },
+    hero: { bg: theme.brand.primarySubtle, border: theme.brand.primaryBorder, color: theme.brand.primary },
+    accent: { bg: theme.brand.primarySubtle, border: theme.brand.primaryBorder, color: theme.brand.primary },
     blue: { bg: theme.brand.primarySubtle, border: theme.brand.primaryBorder, color: theme.brand.primary },
     primary: { bg: theme.brand.primarySubtle, border: theme.brand.primaryBorder, color: theme.brand.primary },
     premium: { bg: theme.premium.goldSubtle, border: theme.premium.goldBorder, color: theme.premium.gold },
@@ -170,6 +170,7 @@ export function EmptyState({
 function EmptyIllustration({
   variant, color, bg, border,
 }: { variant: IllustrationVariant; color: string; bg: string; border: string }) {
+  const { theme } = useTheme();
   const SIZE = 72;
   const c = color;
   const dim = `${c}40`;
@@ -203,7 +204,7 @@ function EmptyIllustration({
         <View style={{ width: 22, height: 12, borderTopLeftRadius: 11, borderTopRightRadius: 11, borderWidth: 2, borderColor: c, position: 'absolute', top: 28, left: 20 }} />
         {/* Checkmark circle */}
         <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: c, position: 'absolute', top: 20, right: 10, alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ width: 10, height: 6, borderLeftWidth: 2, borderBottomWidth: 2, borderColor: '#FFFFFF', transform: [{ rotate: '-45deg' }], marginTop: -2 }} />
+          <View style={{ width: 10, height: 6, borderLeftWidth: 2, borderBottomWidth: 2, borderColor: theme.text.onBrand, transform: [{ rotate: '-45deg' }], marginTop: -2 }} />
         </View>
       </>
     ),

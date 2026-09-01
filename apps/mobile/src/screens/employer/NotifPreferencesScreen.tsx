@@ -30,7 +30,7 @@ type Nav = NativeStackNavigationProp<AppStackParamList>;
 const BLUE = '#2563EB'; // = theme.brand.primary; module-scope constant, theme unreachable here
 const GREEN  = '#16A34A';
 const AMBER  = '#F59E0B';
-const CORAL  = '#C8533A';
+const CORAL  = BLUE;
 
 // Storage key inside 'notifPrefs' — we piggyback the same secureStore key
 // used by WorkerPerformanceScreen for different sub-keys in the same JSON map.
@@ -92,14 +92,14 @@ const PREF_ITEMS: Array<{
 export function NotifPreferencesScreen() {
   const navigation = useNavigation<Nav>();
   const insets     = useSafeAreaInsets();
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight    = scheme !== 'dark';
 
-  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
-  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary   = isLight ? '#111827' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
-  const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
+  const surface       = theme.bg.surface;
+  const border        = theme.border.default;
+  const textPrimary   = theme.text.primary;
+  const textSecondary = theme.text.secondary;
+  const bg            = theme.bg.canvas;
 
   const [prefs, setPrefs]   = useState<NotifPrefs>(DEFAULT_PREFS);
   const [loaded, setLoaded] = useState(false);
@@ -168,13 +168,13 @@ export function NotifPreferencesScreen() {
 
         {/* Info banner */}
         <View style={{
-          backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F', borderRadius: radii.lg, borderWidth: 0.5, borderColor: isLight ? '#BFDBFE' : '#1E3A5F',
+          backgroundColor: theme.brand.primarySubtle, borderRadius: radii.lg, borderWidth: 0.5, borderColor: theme.brand.primaryBorder,
           padding: spacing.md, flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md,
         }}>
           <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: BLUE + '22', alignItems: 'center', justifyContent: 'center' }}>
             <Feather name="bell" size={15} color={BLUE} />
           </View>
-          <Text style={{ flex: 1, fontSize: 13, color: isLight ? '#1E40AF' : '#93C5FD', lineHeight: 19 }}>
+          <Text style={{ flex: 1, fontSize: 13, color: theme.brand.primary, lineHeight: 19 }}>
             Choose which events trigger a push notification. Changes take effect immediately.
           </Text>
         </View>
@@ -182,7 +182,7 @@ export function NotifPreferencesScreen() {
         {/* Preference items */}
         <View style={{
           backgroundColor: surface, borderRadius: radii.lg, borderWidth: 1, borderColor: border, overflow: 'hidden',
-          shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+          shadowColor: theme.text.primary, shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
         }}>
           {PREF_ITEMS.map((item, i) => (
             <Pressable
@@ -199,7 +199,7 @@ export function NotifPreferencesScreen() {
               {/* Icon */}
               <View style={{
                 width: 44, height: 44, borderRadius: 12,
-                backgroundColor: prefs[item.key] ? item.color + '18' : (isLight ? '#F3F4F6' : '#111111'),
+                backgroundColor: prefs[item.key] ? item.color + '18' : (theme.bg.muted),
                 alignItems: 'center', justifyContent: 'center',
               }}>
                 <Feather name={item.icon} size={19} color={prefs[item.key] ? item.color : textSecondary} />
@@ -216,7 +216,7 @@ export function NotifPreferencesScreen() {
                 value={loaded ? prefs[item.key] : false}
                 onValueChange={() => void toggle(item.key)}
                 trackColor={{ false: border, true: blue[500] }}
-                thumbColor="#FFFFFF"
+                thumbColor={theme.text.onBrand}
                 ios_backgroundColor={border}
               />
             </Pressable>

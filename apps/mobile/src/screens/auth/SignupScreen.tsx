@@ -194,7 +194,7 @@ export function SignupScreen() {
             </View>
 
             <View style={{ flex: 1, gap: 4 }}>
-              <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+              <Text variant="titleLarge" weight="medium" style={{ color: theme.text.onBrand }}>
                 {t('auth.signup.title')}
               </Text>
               <Text variant="caption" style={{ letterSpacing: 1.2, color: theme.brand.primaryOnDark }}>
@@ -337,7 +337,7 @@ export function SignupScreen() {
                   alignItems: 'center',
                 }}
               >
-                <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+                <Text variant="bodyLarge" weight="medium" style={{ color: theme.text.onBrand }}>
                   {submitting ? t('auth.signup.cta_creating') : t('auth.signup.cta_create')}
                 </Text>
               </LinearGradient>
@@ -351,7 +351,7 @@ export function SignupScreen() {
             <Text
               variant="footnote"
               weight="medium"
-              tone="hero"
+              tone="primary"
               onPress={() => navigation.navigate('Login')}
             >
               {t('auth.signup.sign_in')}
@@ -382,7 +382,7 @@ export function SignupScreen() {
             }}
           >
             <ActivityIndicator size="large" color={theme.brand.primaryVivid} />
-            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
+            <Text style={{ color: theme.text.onBrand, fontWeight: '600' }}>
               {t('auth.signup.cta_creating')}
             </Text>
           </View>
@@ -591,7 +591,7 @@ function RolePill({
           gap: spacing.sm,
         }}
       >
-        <Feather name={icon} size={18} color={active ? '#FFFFFF' : theme.text.secondary} />
+        <Feather name={icon} size={18} color={active ? theme.text.onBrand : theme.text.secondary} />
         <Text
           style={{
             fontSize: 15,

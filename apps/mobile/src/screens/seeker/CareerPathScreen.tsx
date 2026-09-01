@@ -78,9 +78,9 @@ function CareerPathInner() {
             accessibilityRole="button"
             accessibilityLabel={t('career_path.back')}
           >
-            <Feather name="arrow-left" size={22} color="#FFFFFF" />
+            <Feather name="arrow-left" size={22} color={theme.text.onBrand} />
           </Pressable>
-          <Text style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}>
+          <Text style={{ fontSize: 17, fontWeight: '600', color: theme.text.onBrand, flex: 1 }}>
             {t('career_path.title')}
           </Text>
         </View>
@@ -211,7 +211,7 @@ function StepCard({
           style={{
             fontSize: 13,
             fontWeight: '700',
-            color: reached ? '#FFFDF7' : theme.text.tertiary,
+            color: reached ? theme.text.onBrand : theme.text.tertiary,
           }}
         >
           {index + 1}
@@ -293,7 +293,7 @@ function StepBadge({ label, tone }: { label: string; tone: 'current' | 'next' })
       <Text
         variant="caption"
         weight="medium"
-        style={{ color: isCurrent ? '#FFFDF7' : theme.status.success }}
+        style={{ color: isCurrent ? theme.text.onBrand : theme.status.success }}
       >
         {label}
       </Text>

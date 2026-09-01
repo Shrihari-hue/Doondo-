@@ -44,8 +44,8 @@ const BLUE_LIGHT = '#EFF6FF';
 const GREEN_DARK = '#16A34A';
 const AMBER = '#F59E0B';
 const ORANGE = '#F97316';
-const CORAL = '#C8533A';
-const CORAL_LIGHT = '#FBEEEA';
+const CORAL = BLUE;
+const CORAL_LIGHT = BLUE_LIGHT;
 
 const WHY_EMPLOYERS_FEATURES: ReadonlyArray<{
   icon: React.ComponentProps<typeof Feather>['name'];
@@ -150,7 +150,7 @@ export function EmployerHomeScreen() {
           color: GREEN_DARK,
           text: `${name} hired for ${job}`,
           time: a.timeline.hiredAt,
-          bg:   isLight ? '#F0FDF4' : '#052E16',
+          bg:   theme.status.successSubtle,
         });
       }
       if (a.status === 'shortlisted' && a.timeline.shortlistedAt) {
@@ -160,7 +160,7 @@ export function EmployerHomeScreen() {
           color: BLUE,
           text: `${name} shortlisted for ${job}`,
           time: a.timeline.shortlistedAt,
-          bg:   isLight ? '#EFF6FF' : '#1E3A5F',
+          bg:   theme.brand.primarySubtle,
         });
       }
       if (a.status === 'pending' && a.timeline.appliedAt) {
@@ -170,7 +170,7 @@ export function EmployerHomeScreen() {
           color: AMBER,
           text: `${name} applied for ${job}`,
           time: a.timeline.appliedAt,
-          bg:   isLight ? '#FFFBEB' : '#2A1A00',
+          bg:   theme.status.warningSubtle,
         });
       }
       if (a.interview && a.interview.scheduledAt) {
@@ -238,18 +238,18 @@ export function EmployerHomeScreen() {
   const profilePct   = Math.round((filledCount / profileFields.length) * 100);
   const showNudge    = !nudgeDismissed && profilePct < 100;
 
-  const bg = isLight ? '#FFFFFF' : '#0C0A0E';
-  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
-  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary = isLight ? '#1F2937' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+  const bg = theme.bg.canvas;
+  const cardBg = theme.bg.surface;
+  const cardBorder = theme.border.default;
+  const textPrimary = theme.text.primary;
+  const textSecondary = theme.text.secondary;
 
   // "Why Employers ❤️ Doondo" section — follows the system/app theme like
   // the rest of the screen, just with a slightly distinct card surface.
-  const whySectionBg = isLight ? '#F9FAFB' : '#111111';
-  const whyCardBg = isLight ? '#FFFFFF' : '#18181D';
-  const whyCardBorder = isLight ? '#E5E7EB' : 'rgba(255,255,255,0.08)';
-  const whyTitleColor = isLight ? '#111827' : '#F9FAFB';
+  const whySectionBg = theme.bg.muted;
+  const whyCardBg = theme.bg.surface;
+  const whyCardBorder = theme.border.default;
+  const whyTitleColor = theme.text.primary;
   const whyDescColor = textSecondary;
 
   return (
@@ -301,10 +301,10 @@ export function EmployerHomeScreen() {
               <View style={{
                 position: 'absolute', top: -4, right: -6,
                 minWidth: 16, height: 16, borderRadius: 8,
-                backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center',
+                backgroundColor: theme.error, alignItems: 'center', justifyContent: 'center',
                 paddingHorizontal: 3, borderWidth: 1.5, borderColor: bg,
               }}>
-                <Text style={{ fontSize: 9, fontWeight: '800', color: '#FFFFFF' }}>
+                <Text style={{ fontSize: 9, fontWeight: '800', color: theme.text.onBrand }}>
                   {counts.pending > 99 ? '99+' : String(counts.pending)}
                 </Text>
               </View>
@@ -360,7 +360,7 @@ export function EmployerHomeScreen() {
               onPress={() => { haptic('selection'); navigation.navigate('EditProfile', { section: 'business_basics' }); }}
               style={({ pressed }) => ({
                 marginHorizontal: spacing.xl, marginBottom: spacing.md,
-                backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
+                backgroundColor: theme.brand.primarySubtle,
                 borderRadius: 14, borderWidth: 1, borderColor: BLUE + '40',
                 padding: spacing.md,
                 opacity: pressed ? 0.85 : 1,
@@ -371,17 +371,17 @@ export function EmployerHomeScreen() {
                 hitSlop={8}
                 style={{ position: 'absolute', top: spacing.sm, right: spacing.sm, zIndex: 1 }}
               >
-                <Feather name="x" size={16} color={isLight ? '#3B82F6' : '#60A5FA'} />
+                <Feather name="x" size={16} color={theme.brand.primary} />
               </Pressable>
 
               <View style={{ alignItems: 'center', gap: spacing.sm }}>
                 {/* Segmented dot-arc progress ring */}
                 <ProfileRing pct={profilePct} />
                 <View style={{ alignItems: 'center', gap: 2 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: isLight ? '#1E40AF' : '#93C5FD', textAlign: 'center' }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: theme.brand.primary, textAlign: 'center' }}>
                     Complete your profile
                   </Text>
-                  <Text style={{ fontSize: 12, color: isLight ? '#3B82F6' : '#60A5FA', textAlign: 'center' }}>
+                  <Text style={{ fontSize: 12, color: theme.brand.primary, textAlign: 'center' }}>
                     {filledCount}/{profileFields.length} fields done · Get 2× more applicants
                   </Text>
                 </View>
@@ -391,7 +391,7 @@ export function EmployerHomeScreen() {
 
           {/* ── Hero Gradient Summary Card ── */}
           <LinearGradient
-            colors={['#1D4ED8', theme.brand.primary, '#3B82F6']}
+            colors={theme.brand.primaryImmersiveGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
@@ -408,7 +408,7 @@ export function EmployerHomeScreen() {
                 <Text style={{ fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.75)', letterSpacing: 0.2 }}>
                   Dashboard Overview
                 </Text>
-                <Text style={{ fontSize: 18, fontWeight: '800', color: '#FFFFFF' }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: theme.text.onBrand }}>
                   {appsQuery.isLoading ? 'Loading...' : `${counts.openRoles} active role${counts.openRoles !== 1 ? 's' : ''}`}
                 </Text>
               </View>
@@ -417,7 +417,7 @@ export function EmployerHomeScreen() {
                 backgroundColor: 'rgba(255,255,255,0.2)',
                 alignItems: 'center', justifyContent: 'center',
               }}>
-                <Feather name="briefcase" size={20} color="#FFFFFF" />
+                <Feather name="briefcase" size={20} color={theme.text.onBrand} />
               </View>
             </View>
 
@@ -444,7 +444,7 @@ export function EmployerHomeScreen() {
                     paddingHorizontal: spacing.xs,
                   })}
                 >
-                  <Text style={{ fontSize: 26, fontWeight: '900', color: '#FFFFFF', lineHeight: 32, textAlign: 'center' }}>
+                  <Text style={{ fontSize: 26, fontWeight: '900', color: theme.text.onBrand, lineHeight: 32, textAlign: 'center' }}>
                     {appsQuery.isLoading ? '—' : String(stat.value)}
                   </Text>
                   <View style={{ alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs }}>
@@ -465,12 +465,12 @@ export function EmployerHomeScreen() {
           {expiringDocs.length > 0 && (
             <View style={{
               marginHorizontal: spacing.xl, marginBottom: spacing.md,
-              backgroundColor: isLight ? '#FFFBEB' : '#2A1A00', borderRadius: 14, borderWidth: 1, borderColor: isLight ? '#FDE68A' : '#78350F',
+              backgroundColor: theme.status.warningSubtle, borderRadius: 14, borderWidth: 1, borderColor: theme.status.warningBorder,
               padding: spacing.md, gap: spacing.sm,
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                 <Text style={{ fontSize: 16 }}>⚠️</Text>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: isLight ? '#92400E' : '#FCD34D' }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: theme.warning }}>
                   Documents expiring soon
                 </Text>
               </View>
@@ -481,10 +481,10 @@ export function EmployerHomeScreen() {
                   style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm })}
                 >
                   <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: AMBER }} />
-                  <Text style={{ flex: 1, fontSize: 13, color: isLight ? '#78350F' : '#FDE68A' }} numberOfLines={1}>
+                  <Text style={{ flex: 1, fontSize: 13, color: theme.warning }} numberOfLines={1}>
                     {alert.workerName} — {alert.docTitle}
                   </Text>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: isLight ? '#B45309' : '#FCD34D' }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: theme.warning }}>
                     {alert.daysLeft}d left
                   </Text>
                 </Pressable>
@@ -497,7 +497,7 @@ export function EmployerHomeScreen() {
             onPress={() => { haptic('selection'); navigation.navigate('TimeOffRequests' as never); }}
             style={{
               marginHorizontal: spacing.xl, marginBottom: spacing.md,
-              backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
+              backgroundColor: theme.brand.primarySubtle,
               borderRadius: 14, borderWidth: 1,
               borderColor: isLight ? 'rgba(37,99,235,0.14)' : 'rgba(96,165,250,0.18)',
               padding: spacing.md,
@@ -508,8 +508,8 @@ export function EmployerHomeScreen() {
               <Feather name="calendar" size={18} color={BLUE} />
             </View>
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: isLight ? '#1E40AF' : '#93C5FD' }}>Time-Off Requests</Text>
-              <Text style={{ fontSize: 12, color: isLight ? '#3B82F6' : '#60A5FA' }}>Review leave requests from your crew</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: theme.brand.primary }}>Time-Off Requests</Text>
+              <Text style={{ fontSize: 12, color: theme.brand.primary }}>Review leave requests from your crew</Text>
             </View>
             <Feather name="chevron-right" size={16} color={BLUE} />
           </AnimatedPressable>
@@ -521,8 +521,8 @@ export function EmployerHomeScreen() {
               backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 13,
               flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
             }}>
-            <Feather name="plus" size={18} color="#FFFFFF" />
-            <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>Hire More Workers</Text>
+            <Feather name="plus" size={18} color={theme.text.onBrand} />
+            <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text.onBrand }}>Hire More Workers</Text>
           </AnimatedPressable>
 
           {/* ── Business Card ── */}
@@ -583,7 +583,7 @@ export function EmployerHomeScreen() {
             style={{ marginHorizontal: spacing.xl, marginBottom: spacing.lg }}
           >
             <LinearGradient
-              colors={[BLUE_DARK, BLUE, '#3B82F6']}
+              colors={theme.brand.primaryImmersiveGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
@@ -605,10 +605,10 @@ export function EmployerHomeScreen() {
                     justifyContent: 'center',
                   }}
                 >
-                  <Feather name="credit-card" size={18} color="#FFFFFF" />
+                  <Feather name="credit-card" size={18} color={theme.text.onBrand} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text.onBrand }}>
                     Wallet Balance
                   </Text>
                   <Text
@@ -651,9 +651,9 @@ export function EmployerHomeScreen() {
           >
             {([
               { icon: 'calendar', label: 'Attendance', bg: BLUE_LIGHT, color: BLUE, onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
-              { icon: 'dollar-sign', label: 'Salary', bg: '#F0FDF4', color: GREEN_DARK, onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
+              { icon: 'dollar-sign', label: 'Salary', bg: theme.status.successSubtle, color: GREEN_DARK, onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
               { icon: 'clipboard', label: 'Assign Task', bg: CORAL_LIGHT, color: CORAL, onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
-              { icon: 'bar-chart-2', label: 'Analytics', bg: '#FFF7ED', color: ORANGE, onPress: () => { haptic('selection'); navigation.navigate('EmployerAnalytics' as never); } },
+              { icon: 'bar-chart-2', label: 'Analytics', bg: theme.status.warningSubtle, color: ORANGE, onPress: () => { haptic('selection'); navigation.navigate('EmployerAnalytics' as never); } },
             ] as const).map((item) => (
               <Pressable
                 key={item.label}
@@ -729,7 +729,7 @@ export function EmployerHomeScreen() {
                   <View
                     style={{
                       width: 40, height: 40, borderRadius: 12,
-                      backgroundColor: isLight ? '#F3F4F6' : '#1E1E1E',
+                      backgroundColor: theme.bg.muted,
                       alignItems: 'center', justifyContent: 'center',
                     }}
                   >
@@ -816,7 +816,7 @@ export function EmployerHomeScreen() {
                   justifyContent: 'center',
                 }}
               >
-                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Post a Job</Text>
+                <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 14 }}>Post a Job</Text>
               </Pressable>
             </View>
           ) : (
@@ -854,7 +854,7 @@ export function EmployerHomeScreen() {
                       width: 46,
                       height: 46,
                       borderRadius: 23,
-                      backgroundColor: isLight ? '#F3F4F6' : '#1E1E1E',
+                      backgroundColor: theme.bg.muted,
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
@@ -875,7 +875,7 @@ export function EmployerHomeScreen() {
                   {newCount > 0 && (
                     <View
                       style={{
-                        backgroundColor: '#DCFCE7',
+                        backgroundColor: theme.status.successSubtle,
                         borderRadius: 20,
                         paddingHorizontal: 8,
                         paddingVertical: 3,
@@ -991,13 +991,13 @@ export function EmployerHomeScreen() {
           <Pressable style={{ flex: 1, justifyContent: 'flex-end' }} onPress={() => setShowMenu(false)}>
             <Pressable onPress={(e) => e.stopPropagation?.()}>
               <View style={{
-                backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+                backgroundColor: theme.bg.surface,
                 borderTopLeftRadius: 24, borderTopRightRadius: 24,
                 paddingBottom: insets.bottom + spacing.xl,
                 paddingTop: spacing.md,
               }}>
-                <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#333', alignSelf: 'center', marginBottom: spacing.lg }} />
-                <Text style={{ fontSize: 18, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB', paddingHorizontal: spacing.xl, marginBottom: spacing.md }}>Quick Access</Text>
+                <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: theme.border.strong, alignSelf: 'center', marginBottom: spacing.lg }} />
+                <Text style={{ fontSize: 18, fontWeight: '800', color: theme.text.primary, paddingHorizontal: spacing.xl, marginBottom: spacing.md }}>Quick Access</Text>
                 <View style={{ paddingHorizontal: spacing.xl, gap: spacing.sm }}>
                   {([
                     { icon: 'bar-chart-2' as const, label: 'Analytics',            description: 'View performance & insights',    onPress: () => navigation.navigate('EmployerAnalytics') },
@@ -1029,18 +1029,18 @@ export function EmployerHomeScreen() {
           <Pressable style={{ flex: 1, justifyContent: 'flex-end' }} onPress={() => setShowNotifTray(false)}>
             <Pressable onPress={(e) => e.stopPropagation?.()}>
               <View style={{
-                backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+                backgroundColor: theme.bg.surface,
                 borderTopLeftRadius: 24, borderTopRightRadius: 24,
                 paddingBottom: insets.bottom + spacing.xl,
                 paddingTop: spacing.md,
                 maxHeight: 520,
               }}>
                 {/* Handle */}
-                <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#333', alignSelf: 'center', marginBottom: spacing.md }} />
+                <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: theme.border.strong, alignSelf: 'center', marginBottom: spacing.md }} />
 
                 {/* Header */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl, marginBottom: spacing.md }}>
-                  <Text style={{ fontSize: 18, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>Notifications</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '800', color: theme.text.primary }}>Notifications</Text>
                   <Pressable hitSlop={8} onPress={() => { haptic('selection'); navigation.navigate('NotifPreferences'); setShowNotifTray(false); }}>
                     <Text style={{ fontSize: 13, fontWeight: '600', color: BLUE }}>Settings</Text>
                   </Pressable>
@@ -1063,7 +1063,7 @@ export function EmployerHomeScreen() {
                     group: 'Interviews',
                     icon: 'calendar' as const,
                     color: CORAL,
-                    bg: isLight ? CORAL_LIGHT : '#3F140A',
+                    bg: theme.brand.primarySubtle,
                     items: applications.filter((a) => (a as any).interview?.scheduledAt).slice(0, 2).map((a) => ({
                       id: a.id,
                       text: `Interview with ${a.seeker?.name ?? 'a candidate'} coming up`,
@@ -1074,7 +1074,7 @@ export function EmployerHomeScreen() {
                     group: 'Documents',
                     icon: 'file-text' as const,
                     color: AMBER,
-                    bg: isLight ? '#FFFBEB' : '#2A1A00',
+                    bg: theme.status.warningSubtle,
                     items: expiringDocs.map((d) => ({
                       id: d.applicationId,
                       text: `${d.workerName}'s ${d.docTitle} expires in ${d.daysLeft}d`,
@@ -1094,14 +1094,14 @@ export function EmployerHomeScreen() {
                         style={({ pressed }) => ({
                           flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm,
                           paddingVertical: spacing.sm,
-                          borderTopWidth: 0.5, borderTopColor: isLight ? '#F3F4F6' : '#1E1E1E',
+                          borderTopWidth: 0.5, borderTopColor: theme.bg.muted,
                           opacity: pressed ? 0.7 : 1,
                         })}
                       >
                         <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: section.color, marginTop: 6, flexShrink: 0 }} />
-                        <Text style={{ flex: 1, fontSize: 13, color: isLight ? '#374151' : '#D1D5DB', lineHeight: 19 }} numberOfLines={2}>{item.text}</Text>
+                        <Text style={{ flex: 1, fontSize: 13, color: theme.text.secondary, lineHeight: 19 }} numberOfLines={2}>{item.text}</Text>
                         {item.time ? (
-                          <Text style={{ fontSize: 11, color: isLight ? '#9CA3AF' : '#6B7280', flexShrink: 0 }}>
+                          <Text style={{ fontSize: 11, color: theme.text.tertiary, flexShrink: 0 }}>
                             {(() => { const m = Math.floor((Date.now() - new Date(item.time).getTime()) / 60_000); return m < 60 ? `${m}m` : `${Math.floor(m/60)}h`; })()}
                           </Text>
                         ) : null}
@@ -1112,8 +1112,8 @@ export function EmployerHomeScreen() {
 
                 {counts.pending === 0 && expiringDocs.length === 0 && (
                   <View style={{ padding: spacing.xl, alignItems: 'center', gap: spacing.sm }}>
-                    <Feather name="check-circle" size={32} color={isLight ? '#D1D5DB' : '#374151'} />
-                    <Text style={{ fontSize: 14, color: isLight ? '#9CA3AF' : '#6B7280' }}>All caught up!</Text>
+                    <Feather name="check-circle" size={32} color={theme.border.strong} />
+                    <Text style={{ fontSize: 14, color: theme.text.tertiary }}>All caught up!</Text>
                   </View>
                 )}
               </View>
@@ -1137,6 +1137,7 @@ function QuickAccessCard({
   description: string;
   onPress: () => void;
 }) {
+  const { theme } = useTheme();
   return (
     <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
       <LinearGradient
@@ -1171,7 +1172,7 @@ function QuickAccessCard({
         </View>
 
         <View style={{ flex: 1, justifyContent: 'center', gap: 2 }}>
-          <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>{title}</Text>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text.onBrand }}>{title}</Text>
           <Text numberOfLines={1} style={{ fontSize: 12, color: blue[300] }}>
             {description}
           </Text>
@@ -1193,7 +1194,7 @@ function ProfileRing({ pct }: { pct: number }) {
   const DOT_R = 2.5;
   const filled = Math.round((pct / 100) * DOTS);
   const isGreen = pct >= 80;
-  const activeColor = isGreen ? '#16A34A' : theme.brand.primary;
+  const activeColor = isGreen ? theme.success : theme.brand.primary;
 
   const dots = Array.from({ length: DOTS }, (_, i) => {
     const angle = (i / DOTS) * 2 * Math.PI - Math.PI / 2; // start at top

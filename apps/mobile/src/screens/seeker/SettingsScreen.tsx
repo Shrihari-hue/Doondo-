@@ -246,7 +246,7 @@ function SettingsInner() {
                       <Feather
                         name="check"
                         size={18}
-                        color={theme.brand.accent}
+                        color={theme.brand.primary}
                       />
                     )}
                   </Pressable>
@@ -485,7 +485,7 @@ function SettingsInner() {
                         haptic('selection');
                         void setLockEnabled(!lockEnabled);
                       }}
-                      trackColor={{ false: theme.bg.muted, true: theme.brand.accent }}
+                      trackColor={{ false: theme.bg.muted, true: theme.brand.primary }}
                     />
                   </View>
                   <Text
@@ -593,7 +593,7 @@ function SettingsInner() {
                   void access.setTtsEnabled(v);
                   if (v) access.speak('Voice mode on');
                 }}
-                trackColor={{ false: theme.bg.muted, true: theme.brand.accent }}
+                trackColor={{ false: theme.bg.muted, true: theme.brand.primary }}
               />
             </View>
           </View>
@@ -796,7 +796,7 @@ function ThemeRow({
               width: 9,
               height: 9,
               borderRadius: 5,
-              backgroundColor: theme.brand.accent,
+              backgroundColor: theme.brand.primary,
             }}
           />
         )}
@@ -934,12 +934,12 @@ function PrefRow({
           width: 32,
           height: 32,
           borderRadius: radii.sm,
-          backgroundColor: theme.brand.accentSubtle,
+          backgroundColor: theme.brand.primarySubtle,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Feather name={icon} size={16} color={theme.brand.accent} />
+        <Feather name={icon} size={16} color={theme.brand.primary} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={{ fontSize: 14, fontWeight: '600', color: theme.text.primary }}>
@@ -950,7 +950,7 @@ function PrefRow({
       <Switch
         value={value}
         onValueChange={onChange}
-        trackColor={{ false: theme.bg.muted, true: theme.brand.accent }}
+        trackColor={{ false: theme.bg.muted, true: theme.brand.primary }}
       />
     </View>
   );

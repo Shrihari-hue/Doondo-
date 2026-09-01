@@ -89,10 +89,10 @@ export function ApplicantDetailScreen() {
   const queryClient = useQueryClient();
   const { theme, scheme } = useTheme();
   const isLight       = scheme !== 'dark';
-  const textPrimary   = isLight ? '#111827' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
-  const subtleBg      = isLight ? '#F9FAFB' : '#1E1E1E';
-  const borderColor   = isLight ? '#E5E7EB' : '#1E1E1E';
+  const textPrimary   = theme.text.primary;
+  const textSecondary = theme.text.secondary;
+  const subtleBg      = theme.bg.muted;
+  const borderColor   = theme.border.default;
   const t = useTranslate();
   const [showHired, setShowHired] = useState(false);
   const [showHireConfirm, setShowHireConfirm] = useState(false);
@@ -331,8 +331,8 @@ export function ApplicantDetailScreen() {
 
   const { width: screenWidth } = Dimensions.get('window');
   const HERO_HEIGHT = 320;
-  const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named constant, not reachable from theme here
-  const GREEN = '#22C55E';
+  const BLUE = theme.brand.primary;
+  const GREEN = theme.success;
 
   const seeker = applicant.seeker;
   const name = seeker?.name ?? 'Worker';
@@ -368,27 +368,27 @@ export function ApplicantDetailScreen() {
           onPress={() => { setShowOnboarding(false); navigation.goBack(); }}>
           <Pressable onPress={(e) => e.stopPropagation?.()}>
             <View style={{
-              backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+              backgroundColor: theme.bg.surface,
               borderTopLeftRadius: 24, borderTopRightRadius: 24,
               padding: spacing.xl, gap: spacing.lg,
               paddingBottom: spacing['2xl'],
             }}>
               {/* Handle */}
-              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#374151', alignSelf: 'center' }} />
+              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: theme.border.strong, alignSelf: 'center' }} />
 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                 <View style={{
                   width: 34, height: 34, borderRadius: 17,
-                  backgroundColor: isLight ? '#F0FDF4' : '#052E16',
+                  backgroundColor: theme.status.successSubtle,
                   alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <Feather name="check-circle" size={18} color="#16A34A" />
+                  <Feather name="check-circle" size={18} color={theme.success} />
                 </View>
                 <View style={{ gap: 2, flex: 1 }}>
-                  <Text style={{ fontSize: 20, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: theme.text.primary }}>
                     Day 1 Checklist
                   </Text>
-                  <Text style={{ fontSize: 13, color: isLight ? '#6B7280' : '#9CA3AF' }}>
+                  <Text style={{ fontSize: 13, color: theme.text.secondary }}>
                     Make sure {name.split(' ')[0]}'s first day goes smoothly.
                   </Text>
                 </View>
@@ -415,20 +415,20 @@ export function ApplicantDetailScreen() {
                   <View style={{
                     width: 26, height: 26, borderRadius: 8,
                     borderWidth: 2,
-                    borderColor: onboardingChecked[item.key] ? '#16A34A' : (isLight ? '#D1D5DB' : '#374151'),
-                    backgroundColor: onboardingChecked[item.key] ? '#16A34A' : 'transparent',
+                    borderColor: onboardingChecked[item.key] ? theme.success : (theme.border.strong),
+                    backgroundColor: onboardingChecked[item.key] ? theme.success : 'transparent',
                     alignItems: 'center', justifyContent: 'center',
                   }}>
                     {onboardingChecked[item.key] && (
-                      <Feather name="check" size={14} color="#FFFFFF" />
+                      <Feather name="check" size={14} color={theme.text.onBrand} />
                     )}
                   </View>
-                  <Feather name={item.icon} size={16} color={isLight ? '#6B7280' : '#9CA3AF'} />
+                  <Feather name={item.icon} size={16} color={theme.text.secondary} />
                   <Text style={{
                     flex: 1, fontSize: 15, fontWeight: '500',
                     color: onboardingChecked[item.key]
-                      ? (isLight ? '#9CA3AF' : '#6B7280')
-                      : (isLight ? '#111827' : '#F9FAFB'),
+                      ? (theme.text.tertiary)
+                      : (theme.text.primary),
                     textDecorationLine: onboardingChecked[item.key] ? 'line-through' : 'none',
                   }}>
                     {item.label}
@@ -439,11 +439,11 @@ export function ApplicantDetailScreen() {
               <Pressable
                 onPress={() => { haptic('success'); setShowOnboarding(false); navigation.goBack(); }}
                 style={({ pressed }) => ({
-                  backgroundColor: '#16A34A', borderRadius: 12, paddingVertical: 14,
+                  backgroundColor: theme.success, borderRadius: 12, paddingVertical: 14,
                   alignItems: 'center', opacity: pressed ? 0.85 : 1, marginTop: spacing.sm,
                 })}
               >
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text.onBrand }}>
                   {Object.values(onboardingChecked).filter(Boolean).length >= 5 ? '✓ All done!' : 'Done for now'}
                 </Text>
               </Pressable>
@@ -460,19 +460,19 @@ export function ApplicantDetailScreen() {
           onPress={() => setShowFeedback(false)}>
           <Pressable onPress={(e) => e.stopPropagation?.()}>
             <View style={{
-              backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+              backgroundColor: theme.bg.surface,
               borderTopLeftRadius: 24, borderTopRightRadius: 24,
               padding: spacing.xl, gap: spacing.lg, paddingBottom: spacing['2xl'],
             }}>
-              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#374151', alignSelf: 'center' }} />
+              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: theme.border.strong, alignSelf: 'center' }} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                 <Feather name="clipboard" size={18} color={BLUE} />
-                <Text style={{ fontSize: 20, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>Interview Feedback</Text>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: theme.text.primary }}>Interview Feedback</Text>
               </View>
 
               {/* Showed up? */}
               <View style={{ gap: spacing.sm }}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: isLight ? '#374151' : '#D1D5DB' }}>Did {name.split(' ')[0]} show up?</Text>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: theme.text.secondary }}>Did {name.split(' ')[0]} show up?</Text>
                 <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                   {[{ val: true, label: 'Yes', icon: 'check' as const }, { val: false, label: 'No-show', icon: 'x' as const }].map(({ val, label, icon }) => (
                     <Pressable key={label} onPress={() => { haptic('selection'); setFeedbackShowedUp(val); }}
@@ -480,12 +480,12 @@ export function ApplicantDetailScreen() {
                         flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
                         paddingVertical: 10, borderRadius: 10,
                         borderWidth: 1.5,
-                        borderColor: feedbackShowedUp === val ? theme.brand.primary : (isLight ? '#E5E7EB' : '#374151'),
-                        backgroundColor: feedbackShowedUp === val ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent',
+                        borderColor: feedbackShowedUp === val ? theme.brand.primary : (theme.border.default),
+                        backgroundColor: feedbackShowedUp === val ? (theme.brand.primarySubtle) : 'transparent',
                         opacity: pressed ? 0.75 : 1,
                       })}>
-                      <Feather name={icon} size={14} color={feedbackShowedUp === val ? theme.brand.primary : (isLight ? '#6B7280' : '#9CA3AF')} />
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: feedbackShowedUp === val ? theme.brand.primary : (isLight ? '#6B7280' : '#9CA3AF') }}>{label}</Text>
+                      <Feather name={icon} size={14} color={feedbackShowedUp === val ? theme.brand.primary : (theme.text.secondary)} />
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: feedbackShowedUp === val ? theme.brand.primary : (theme.text.secondary) }}>{label}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -493,11 +493,11 @@ export function ApplicantDetailScreen() {
 
               {/* Impression 1-5 stars */}
               <View style={{ gap: spacing.sm }}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: isLight ? '#374151' : '#D1D5DB' }}>Overall impression</Text>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: theme.text.secondary }}>Overall impression</Text>
                 <View style={{ flexDirection: 'row', gap: spacing.md }}>
                   {[1, 2, 3, 4, 5].map((n) => (
                     <Pressable key={n} onPress={() => { haptic('selection'); setFeedbackImpression(n); }} hitSlop={8}>
-                      <Text style={{ fontSize: 28, color: '#F59E0B', opacity: n <= feedbackImpression ? 1 : 0.25 }}>★</Text>
+                      <Text style={{ fontSize: 28, color: theme.warning, opacity: n <= feedbackImpression ? 1 : 0.25 }}>★</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -505,7 +505,7 @@ export function ApplicantDetailScreen() {
 
               {/* Next step */}
               <View style={{ gap: spacing.sm }}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: isLight ? '#374151' : '#D1D5DB' }}>Next step</Text>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: theme.text.secondary }}>Next step</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
                   {[
                     { val: 'hire' as const,      label: 'Hire',       icon: 'check' as const },
@@ -517,12 +517,12 @@ export function ApplicantDetailScreen() {
                         flexDirection: 'row', alignItems: 'center', gap: 6,
                         paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
                         borderWidth: 1.5,
-                        borderColor: feedbackNextStep === val ? theme.brand.primary : (isLight ? '#E5E7EB' : '#374151'),
-                        backgroundColor: feedbackNextStep === val ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent',
+                        borderColor: feedbackNextStep === val ? theme.brand.primary : (theme.border.default),
+                        backgroundColor: feedbackNextStep === val ? (theme.brand.primarySubtle) : 'transparent',
                         opacity: pressed ? 0.75 : 1,
                       })}>
-                      <Feather name={icon} size={14} color={feedbackNextStep === val ? theme.brand.primary : (isLight ? '#6B7280' : '#9CA3AF')} />
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: feedbackNextStep === val ? theme.brand.primary : (isLight ? '#6B7280' : '#9CA3AF') }}>{label}</Text>
+                      <Feather name={icon} size={14} color={feedbackNextStep === val ? theme.brand.primary : (theme.text.secondary)} />
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: feedbackNextStep === val ? theme.brand.primary : (theme.text.secondary) }}>{label}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -542,7 +542,7 @@ export function ApplicantDetailScreen() {
                   alignItems: 'center', opacity: pressed || (feedbackShowedUp === null || feedbackImpression === 0 || feedbackNextStep === '') ? 0.5 : 1,
                 })}
               >
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>Save Feedback</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text.onBrand }}>Save Feedback</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -557,7 +557,7 @@ export function ApplicantDetailScreen() {
           {photoUrl ? (
             <Image source={{ uri: photoUrl }} style={{ width: screenWidth, height: HERO_HEIGHT }} resizeMode="cover" />
           ) : (
-            <View style={{ width: screenWidth, height: HERO_HEIGHT, backgroundColor: '#1F2937' }} />
+            <View style={{ width: screenWidth, height: HERO_HEIGHT, backgroundColor: theme.bg.muted }} />
           )}
           <LinearGradient
             colors={['transparent', 'rgba(0,0,0,0.8)']}
@@ -568,29 +568,29 @@ export function ApplicantDetailScreen() {
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl }}>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}
               style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
-              <Feather name="arrow-left" size={20} color="#FFFFFF" />
+              <Feather name="arrow-left" size={20} color={theme.text.onBrand} />
             </Pressable>
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
               <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
-                <Feather name="heart" size={18} color="#FFFFFF" />
+                <Feather name="heart" size={18} color={theme.text.onBrand} />
               </View>
               <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
-                <Feather name="share-2" size={18} color="#FFFFFF" />
+                <Feather name="share-2" size={18} color={theme.text.onBrand} />
               </View>
             </View>
           </View>
           {/* Available badge */}
           <View style={{ position: 'absolute', top: insets.top + spacing.sm + 46, right: spacing.xl,
             backgroundColor: GREEN, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
-            <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Available Today</Text>
+            <Text style={{ color: theme.text.onBrand, fontSize: 11, fontWeight: '700' }}>Available Today</Text>
           </View>
           {/* Name overlay */}
           <View style={{ position: 'absolute', bottom: spacing.lg, left: spacing.xl, right: spacing.xl, gap: 4 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF' }}>{name}</Text>
+              <Text style={{ fontSize: 24, fontWeight: '800', color: theme.text.onBrand }}>{name}</Text>
               {seeker?.isVerified && (
                 <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center' }}>
-                  <Feather name="check" size={13} color="#FFFFFF" />
+                  <Feather name="check" size={13} color={theme.text.onBrand} />
                 </View>
               )}
             </View>
@@ -599,8 +599,8 @@ export function ApplicantDetailScreen() {
             </Text>
             {rating && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Text style={{ color: '#FCD34D', fontSize: 14 }}>{'\u2605'}</Text>
-                <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>{rating} ({reviewCount} reviews)</Text>
+                <Text style={{ color: theme.warning, fontSize: 14 }}>{'\u2605'}</Text>
+                <Text style={{ color: theme.text.onBrand, fontSize: 13, fontWeight: '600' }}>{rating} ({reviewCount} reviews)</Text>
               </View>
             )}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: 2 }}>
@@ -614,16 +614,16 @@ export function ApplicantDetailScreen() {
         </View>
 
         {/* Trust Score */}
-        <View style={{ backgroundColor: '#111827', marginHorizontal: spacing.xl, marginTop: -spacing.md,
+        <View style={{ backgroundColor: theme.brand.primaryCard, marginHorizontal: spacing.xl, marginTop: -spacing.md,
           borderRadius: 16, padding: spacing.md, flexDirection: 'row', alignItems: 'center' }}>
           <View>
             <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '600' }}>Trust Score</Text>
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, marginTop: 2 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: '800' }}>{trustScore}</Text>
+              <Text style={{ color: theme.text.onBrand, fontSize: 28, fontWeight: '800' }}>{trustScore}</Text>
               <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 16, marginBottom: 4 }}>/100</Text>
               <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: GREEN,
                 alignItems: 'center', justifyContent: 'center', marginBottom: 2, marginLeft: 2 }}>
-                <Feather name="check" size={14} color="#FFFFFF" />
+                <Feather name="check" size={14} color={theme.text.onBrand} />
               </View>
             </View>
             <Text style={{ color: GREEN, fontSize: 12, fontWeight: '600', marginTop: 2 }}>Highly Reliable</Text>
@@ -634,12 +634,12 @@ export function ApplicantDetailScreen() {
         <View style={{ flexDirection: 'row', marginHorizontal: spacing.xl, marginTop: spacing.md, gap: spacing.sm }}>
           {(['Aadhaar', 'Police', 'Address', 'Experience'] as const).map((label) => (
             <View key={label} style={{ flex: 1, alignItems: 'center', gap: 4, padding: spacing.sm,
-              borderRadius: 12, backgroundColor: isLight ? '#F0FDF4' : '#052E16', borderWidth: 1, borderColor: isLight ? '#BBF7D0' : '#166534' }}>
-              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: isLight ? '#DCFCE7' : '#052E16', alignItems: 'center', justifyContent: 'center' }}>
-                <Feather name="shield" size={16} color="#16A34A" />
+              borderRadius: 12, backgroundColor: theme.status.successSubtle, borderWidth: 1, borderColor: theme.status.successBorder }}>
+              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: theme.status.successSubtle, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="shield" size={16} color={theme.success} />
               </View>
               <Text style={{ fontSize: 10, fontWeight: '700', color: textPrimary, textAlign: 'center' }}>{label}</Text>
-              <Text style={{ fontSize: 10, color: '#16A34A', fontWeight: '600' }}>Verified</Text>
+              <Text style={{ fontSize: 10, color: theme.success, fontWeight: '600' }}>Verified</Text>
             </View>
           ))}
         </View>
@@ -647,7 +647,7 @@ export function ApplicantDetailScreen() {
         {/* Salary */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
           marginHorizontal: spacing.xl, marginTop: spacing.md, padding: spacing.md,
-          borderRadius: 12, borderWidth: 1, borderColor: borderColor, backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D' }}>
+          borderRadius: 12, borderWidth: 1, borderColor: borderColor, backgroundColor: theme.bg.surface }}>
           <View>
             <Text style={{ fontSize: 22, fontWeight: '800', color: textPrimary }}>
               {'₹'}{payAmount.toLocaleString('en-IN')} / {payPeriod}
@@ -666,13 +666,13 @@ export function ApplicantDetailScreen() {
             <Pressable
               onPress={() => { haptic('selection'); navigation.navigate('PostJob'); }}
               style={({ pressed }) => ({
-                flex: 2, backgroundColor: isLight ? '#F0FDF4' : '#052E16', borderWidth: 1.5, borderColor: '#16A34A',
+                flex: 2, backgroundColor: theme.status.successSubtle, borderWidth: 1.5, borderColor: theme.success,
                 borderRadius: 12, paddingVertical: 14, alignItems: 'center', gap: 4,
                 flexDirection: 'row', justifyContent: 'center', opacity: pressed ? 0.85 : 1,
               })}
             >
-              <Feather name="refresh-cw" size={15} color="#16A34A" />
-              <Text style={{ color: '#16A34A', fontSize: 15, fontWeight: '800' }}>Extend Contract</Text>
+              <Feather name="refresh-cw" size={15} color={theme.success} />
+              <Text style={{ color: theme.success, fontSize: 15, fontWeight: '800' }}>Extend Contract</Text>
             </Pressable>
           ) : (
             <Pressable
@@ -683,7 +683,7 @@ export function ApplicantDetailScreen() {
                 borderRadius: 12, paddingVertical: 14, alignItems: 'center', opacity: pressed ? 0.85 : 1,
               })}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>
+              <Text style={{ color: theme.text.onBrand, fontSize: 16, fontWeight: '800' }}>
                 {transition.isPending ? 'Hiring\u2026' : 'Hire Now'}
               </Text>
             </Pressable>
@@ -707,15 +707,15 @@ export function ApplicantDetailScreen() {
               flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
               marginHorizontal: spacing.xl, marginTop: spacing.sm,
               borderRadius: 12, paddingVertical: 11,
-              borderWidth: 1.5, borderColor: '#C8533A',
-              backgroundColor: isLight ? '#FBEEEA' : '#3F140A',
+              borderWidth: 1.5, borderColor: theme.brand.primary,
+              backgroundColor: theme.brand.primarySubtle,
               opacity: pressed || generatingLetter ? 0.75 : 1,
             })}
           >
             {generatingLetter
-              ? <ActivityIndicator size="small" color="#C8533A" />
-              : <Feather name="file-text" size={16} color="#C8533A" />}
-            <Text style={{ fontSize: 14, fontWeight: '700', color: '#C8533A' }}>
+              ? <ActivityIndicator size="small" color={theme.brand.primary} />
+              : <Feather name="file-text" size={16} color={theme.brand.primary} />}
+            <Text style={{ fontSize: 14, fontWeight: '700', color: theme.brand.primary }}>
               {generatingLetter ? 'Generating…' : 'Generate Offer Letter'}
             </Text>
           </Pressable>
@@ -729,13 +729,13 @@ export function ApplicantDetailScreen() {
               flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
               marginHorizontal: spacing.xl, marginTop: spacing.sm,
               borderRadius: 12, paddingVertical: 11,
-              borderWidth: 1.5, borderColor: applicant.interview?.status === 'scheduled' ? '#16A34A' : borderColor,
-              backgroundColor: applicant.interview?.status === 'scheduled' ? '#F0FDF4' : subtleBg,
+              borderWidth: 1.5, borderColor: applicant.interview?.status === 'scheduled' ? theme.success : borderColor,
+              backgroundColor: applicant.interview?.status === 'scheduled' ? theme.status.successSubtle : subtleBg,
               opacity: pressed ? 0.75 : 1,
             })}
           >
-            <Feather name="calendar" size={15} color={applicant.interview?.status === 'scheduled' ? '#16A34A' : textSecondary} />
-            <Text style={{ fontSize: 14, fontWeight: '600', color: applicant.interview?.status === 'scheduled' ? '#16A34A' : textSecondary }}>
+            <Feather name="calendar" size={15} color={applicant.interview?.status === 'scheduled' ? theme.success : textSecondary} />
+            <Text style={{ fontSize: 14, fontWeight: '600', color: applicant.interview?.status === 'scheduled' ? theme.success : textSecondary }}>
               {applicant.interview?.status === 'scheduled'
                 ? `Interview: ${new Date(applicant.interview.scheduledFor).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
                 : 'Schedule Interview'}
@@ -745,7 +745,7 @@ export function ApplicantDetailScreen() {
 
         {/* Stats row */}
         <View style={{ flexDirection: 'row', marginHorizontal: spacing.xl, marginTop: spacing.md,
-          borderRadius: 12, borderWidth: 1, borderColor: borderColor, backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D', overflow: 'hidden' }}>
+          borderRadius: 12, borderWidth: 1, borderColor: borderColor, backgroundColor: theme.bg.surface, overflow: 'hidden' }}>
           {[
             { label: 'Jobs Completed', value: jobsDone > 0 ? String(jobsDone) : '—' },
             { label: 'Repeat Clients', value: (seeker as any)?.repeatClientRate ? `${(seeker as any).repeatClientRate}%` : '—' },
@@ -774,7 +774,7 @@ export function ApplicantDetailScreen() {
               flexDirection: 'row', alignItems: 'center', gap: spacing.md,
               marginHorizontal: spacing.xl, marginTop: spacing.md,
               padding: spacing.md, borderRadius: 12,
-              backgroundColor: theme.brand.accentSubtle, borderWidth: 0.5, borderColor: theme.brand.accentBorder,
+              backgroundColor: theme.brand.primarySubtle, borderWidth: 0.5, borderColor: theme.brand.primaryBorder,
               opacity: pressed ? 0.7 : 1,
             })}
           >
@@ -783,7 +783,7 @@ export function ApplicantDetailScreen() {
               <Text variant="bodyLarge" weight="medium" tone="hero">{t('employer.applicant_detail.rate_worker')}</Text>
               <Text variant="footnote" tone="secondary" numberOfLines={1}>{t('employer.applicant_detail.rate_worker_hint')}</Text>
             </View>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.brand.accent }}>{t('employer.applicant_detail.rate_cta') + ' \u203A'}</Text>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.brand.primary }}>{t('employer.applicant_detail.rate_cta') + ' \u203A'}</Text>
           </Pressable>
         )}
 
@@ -800,24 +800,24 @@ export function ApplicantDetailScreen() {
                 flexDirection: 'row', alignItems: 'center', gap: spacing.md,
                 marginHorizontal: spacing.xl, marginTop: spacing.md,
                 padding: spacing.md, borderRadius: 12,
-                backgroundColor: isLight ? '#FFFBEB' : '#2A1A00', borderWidth: 0.5, borderColor: isLight ? '#FDE68A' : '#78350F',
+                backgroundColor: theme.status.warningSubtle, borderWidth: 0.5, borderColor: theme.status.warningBorder,
                 opacity: pressed ? 0.7 : 1,
               })}
             >
-              <Feather name="clipboard" size={20} color={isLight ? '#92400E' : '#FCD34D'} />
+              <Feather name="clipboard" size={20} color={theme.warning} />
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: isLight ? '#92400E' : '#FCD34D' }}>Interview Feedback</Text>
-                <Text style={{ fontSize: 12, color: isLight ? '#B45309' : '#FCD34D' }}>Your interview with {name.split(' ')[0]} has passed — leave feedback.</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: theme.warning }}>Interview Feedback</Text>
+                <Text style={{ fontSize: 12, color: theme.warning }}>Your interview with {name.split(' ')[0]} has passed — leave feedback.</Text>
               </View>
               <Pressable onPress={(e) => { e.stopPropagation?.(); setFeedbackDismissed(true); }} hitSlop={8}>
-                <Feather name="x" size={16} color="#B45309" />
+                <Feather name="x" size={16} color={theme.warning} />
               </Pressable>
             </Pressable>
           );
         })()}
 
         {/* Tabs */}
-        <View style={{ flexDirection: 'row', marginTop: spacing.lg, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
+        <View style={{ flexDirection: 'row', marginTop: spacing.lg, borderBottomWidth: 1, borderBottomColor: theme.border.default }}>
           {([
             { key: 'profile', label: 'Profile', icon: 'user' as const },
             { key: 'reviews', label: 'Reviews', icon: 'star' as const },
@@ -834,9 +834,9 @@ export function ApplicantDetailScreen() {
               }}
                 style={{ flex: 1, alignItems: 'center', paddingVertical: spacing.sm, gap: 3,
                   borderBottomWidth: 2, borderBottomColor: active ? BLUE : 'transparent' }}>
-                <Feather name={tab.icon} size={18} color={active ? BLUE : '#9CA3AF'} />
+                <Feather name={tab.icon} size={18} color={active ? BLUE : theme.text.tertiary} />
                 <Text style={{ fontSize: 11, fontWeight: active ? '700' : '500',
-                  color: active ? BLUE : '#6B7280' }}>
+                  color: active ? BLUE : theme.text.secondary }}>
                   {tab.label}
                 </Text>
               </Pressable>
@@ -898,10 +898,10 @@ export function ApplicantDetailScreen() {
                   const hasSlot = true;
                   return (
                     <View key={slot} style={{ flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12,
-                      backgroundColor: hasSlot ? (isLight ? '#EFF6FF' : '#1E3A5F') : subtleBg,
+                      backgroundColor: hasSlot ? (theme.brand.primarySubtle) : subtleBg,
                       borderWidth: 1.5, borderColor: hasSlot ? theme.brand.primary : borderColor, gap: 4 }}>
-                      <Feather name={icons[slot]} size={18} color={hasSlot ? theme.brand.primary : '#9CA3AF'} />
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: hasSlot ? theme.brand.primary : '#9CA3AF' }}>
+                      <Feather name={icons[slot]} size={18} color={hasSlot ? theme.brand.primary : theme.text.tertiary} />
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: hasSlot ? theme.brand.primary : theme.text.tertiary }}>
                         {slot}
                       </Text>
                     </View>
@@ -938,10 +938,10 @@ export function ApplicantDetailScreen() {
                       <Feather name="file-text" size={18} color={textSecondary} />
                       <Text style={{ flex: 1, fontSize: 14, color: textPrimary }}>{d.extracted?.title || d.fileName}</Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Text style={{ fontSize: 13, color: '#16A34A', fontWeight: '600' }}>Verified</Text>
-                        <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#16A34A',
+                        <Text style={{ fontSize: 13, color: theme.success, fontWeight: '600' }}>Verified</Text>
+                        <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: theme.success,
                           alignItems: 'center', justifyContent: 'center' }}>
-                          <Feather name="check" size={11} color="#FFFFFF" />
+                          <Feather name="check" size={11} color={theme.text.onBrand} />
                         </View>
                       </View>
                     </Pressable>
@@ -1037,19 +1037,19 @@ export function ApplicantDetailScreen() {
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 2 }}>
                   {[1,2,3,4,5].map((s) => (
-                    <Text key={s} style={{ fontSize: 18, color: s <= Math.round(Number(rating ?? 0)) ? '#FBBF24' : '#E5E7EB' }}>{'\u2605'}</Text>
+                    <Text key={s} style={{ fontSize: 18, color: s <= Math.round(Number(rating ?? 0)) ? theme.warning : theme.border.default }}>{'\u2605'}</Text>
                   ))}
                 </View>
-                <Text style={{ fontSize: 12, color: '#6B7280' }}>({reviewCount} reviews)</Text>
+                <Text style={{ fontSize: 12, color: theme.text.secondary }}>({reviewCount} reviews)</Text>
               </View>
               <View style={{ flex: 1, gap: 5 }}>
                 {([5,4,3,2,1] as const).map((star) => {
                   const pct = reviewCount > 0 ? Math.max(4, star === 5 ? 78 : star === 4 ? 17 : star === 3 ? 5 : 1) : 0;
                   return (
                     <View key={star} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={{ fontSize: 11, color: '#6B7280', width: 8 }}>{star}</Text>
-                      <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: isLight ? '#F3F4F6' : '#1E1E1E' }}>
-                        <View style={{ width: `${pct}%`, height: 6, borderRadius: 3, backgroundColor: '#FBBF24' }} />
+                      <Text style={{ fontSize: 11, color: theme.text.secondary, width: 8 }}>{star}</Text>
+                      <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: theme.bg.muted }}>
+                        <View style={{ width: `${pct}%`, height: 6, borderRadius: 3, backgroundColor: theme.warning }} />
                       </View>
                     </View>
                   );
@@ -1068,9 +1068,9 @@ export function ApplicantDetailScreen() {
                 ].map((item) => (
                   <View key={item.tag} style={{ flexDirection: 'row', alignItems: 'center', gap: 4,
                     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
-                    backgroundColor: isLight ? '#F0F9FF' : '#1E3A5F', borderWidth: 1, borderColor: isLight ? '#BAE6FD' : '#1E3A5F' }}>
-                    <Text style={{ fontSize: 13, color: '#0369A1', fontWeight: '600' }}>{item.tag}</Text>
-                    <Text style={{ fontSize: 12, color: '#0284C7' }}>({item.count})</Text>
+                    backgroundColor: theme.brand.primarySubtle, borderWidth: 1, borderColor: theme.brand.primaryBorder }}>
+                    <Text style={{ fontSize: 13, color: theme.brand.primary, fontWeight: '600' }}>{item.tag}</Text>
+                    <Text style={{ fontSize: 12, color: theme.brand.primary }}>({item.count})</Text>
                   </View>
                 ))}
               </View>
@@ -1083,8 +1083,8 @@ export function ApplicantDetailScreen() {
                     <View key={i} style={{ paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: borderColor, gap: 6 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: isLight ? '#E5E7EB' : '#1F2937', alignItems: 'center', justifyContent: 'center' }}>
-                            <Feather name="user" size={18} color="#9CA3AF" />
+                          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: theme.border.default, alignItems: 'center', justifyContent: 'center' }}>
+                            <Feather name="user" size={18} color={theme.text.tertiary} />
                           </View>
                           <View>
                             <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary }}>{rev.reviewerName ?? 'Employer'}</Text>
@@ -1092,7 +1092,7 @@ export function ApplicantDetailScreen() {
                           </View>
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                          <Text style={{ fontSize: 13, color: '#FBBF24' }}>{'\u2605'}</Text>
+                          <Text style={{ fontSize: 13, color: theme.warning }}>{'\u2605'}</Text>
                           <Text style={{ fontSize: 13, fontWeight: '700', color: textPrimary }}>{rev.rating?.toFixed(1)}</Text>
                         </View>
                       </View>
@@ -1108,8 +1108,8 @@ export function ApplicantDetailScreen() {
                       <View key={i} style={{ paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: borderColor, gap: 6 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: isLight ? '#E5E7EB' : '#1F2937', alignItems: 'center', justifyContent: 'center' }}>
-                              <Feather name="user" size={18} color="#9CA3AF" />
+                            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: theme.border.default, alignItems: 'center', justifyContent: 'center' }}>
+                              <Feather name="user" size={18} color={theme.text.tertiary} />
                             </View>
                             <View>
                               <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary }}>{rev.name}</Text>
@@ -1117,7 +1117,7 @@ export function ApplicantDetailScreen() {
                             </View>
                           </View>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                            <Text style={{ fontSize: 13, color: '#FBBF24' }}>{'\u2605'}</Text>
+                            <Text style={{ fontSize: 13, color: theme.warning }}>{'\u2605'}</Text>
                             <Text style={{ fontSize: 13, fontWeight: '700', color: textPrimary }}>{rev.rating.toFixed(1)}</Text>
                           </View>
                         </View>
@@ -1141,7 +1141,7 @@ export function ApplicantDetailScreen() {
             <WorkPhotosCarousel photos={seeker?.workPhotos ?? []} seekerId={seeker?.id ?? null}
               applicationId={applicant.id} skills={seeker?.skills ?? []} canVerify={applicant.status === 'hired'} />
             {(seeker?.workPhotos?.length ?? 0) === 0 && (
-              <Text style={{ textAlign: 'center', color: '#9CA3AF', fontSize: 14, marginTop: spacing.xl }}>
+              <Text style={{ textAlign: 'center', color: theme.text.tertiary, fontSize: 14, marginTop: spacing.xl }}>
                 No photos uploaded
               </Text>
             )}
@@ -1198,11 +1198,11 @@ export function ApplicantDetailScreen() {
         <Pressable style={{ flex: 1, justifyContent: 'flex-end' }}
           onPress={() => setShowScheduleSheet(false)}>
           <Pressable onPress={(e) => e.stopPropagation?.()}
-            style={{ backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+            style={{ backgroundColor: theme.bg.surface,
               borderTopLeftRadius: 24, borderTopRightRadius: 24,
               padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg }}>
             {/* Handle */}
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#3A3A3A', alignSelf: 'center' }} />
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: theme.border.strong, alignSelf: 'center' }} />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: BLUE + '15', alignItems: 'center', justifyContent: 'center' }}>
                 <Feather name="calendar" size={18} color={BLUE} />
@@ -1222,7 +1222,7 @@ export function ApplicantDetailScreen() {
                       style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
                         borderWidth: active ? 1.5 : 1,
                         borderColor: active ? BLUE : borderColor,
-                        backgroundColor: active ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent' }}>
+                        backgroundColor: active ? (theme.brand.primarySubtle) : 'transparent' }}>
                       <Text style={{ fontSize: 13, fontWeight: active ? '700' : '500', color: active ? BLUE : textSecondary }}>{label}</Text>
                     </Pressable>
                   );
@@ -1242,7 +1242,7 @@ export function ApplicantDetailScreen() {
                       style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
                         borderWidth: active ? 1.5 : 1,
                         borderColor: active ? BLUE : borderColor,
-                        backgroundColor: active ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent' }}>
+                        backgroundColor: active ? (theme.brand.primarySubtle) : 'transparent' }}>
                       <Text style={{ fontSize: 13, fontWeight: active ? '700' : '500', color: active ? BLUE : textSecondary }}>{label}</Text>
                     </Pressable>
                   );
@@ -1261,7 +1261,7 @@ export function ApplicantDetailScreen() {
                       style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 9, borderRadius: 10,
                         borderWidth: active ? 1.5 : 1,
                         borderColor: active ? BLUE : borderColor,
-                        backgroundColor: active ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent' }}>
+                        backgroundColor: active ? (theme.brand.primarySubtle) : 'transparent' }}>
                       <Feather name={icon} size={13} color={active ? BLUE : textSecondary} />
                       <Text style={{ fontSize: 12, fontWeight: active ? '700' : '500', color: active ? BLUE : textSecondary }}>{label}</Text>
                     </Pressable>
@@ -1286,7 +1286,7 @@ export function ApplicantDetailScreen() {
                 backgroundColor: BLUE, borderRadius: 14, paddingVertical: 15,
                 alignItems: 'center', opacity: pressed || scheduleMutation.isPending ? 0.75 : 1,
               })}>
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>
+              <Text style={{ color: theme.text.onBrand, fontSize: 16, fontWeight: '800' }}>
                 {scheduleMutation.isPending ? 'Scheduling…' : 'Confirm Interview'}
               </Text>
             </Pressable>
@@ -1309,14 +1309,14 @@ export function ApplicantDetailScreen() {
           <Pressable
             onPress={(e) => e.stopPropagation?.()}
             style={{
-              backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+              backgroundColor: theme.bg.surface,
               borderTopLeftRadius: 24, borderTopRightRadius: 24,
               padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl,
               gap: spacing.lg,
             }}
           >
             {/* Handle bar */}
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#3A3A3A', alignSelf: 'center' }} />
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: theme.border.strong, alignSelf: 'center' }} />
 
             {/* Avatar + name */}
             <View style={{ alignItems: 'center', gap: spacing.sm }}>
@@ -1335,9 +1335,9 @@ export function ApplicantDetailScreen() {
             </View>
 
             {/* Info row */}
-            <View style={{ backgroundColor: isLight ? '#F0FDF4' : '#052E16', borderRadius: 12, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              <Feather name="check-circle" size={18} color="#16A34A" />
-              <Text style={{ flex: 1, fontSize: 13, color: isLight ? '#166534' : '#86EFAC' }}>
+            <View style={{ backgroundColor: theme.status.successSubtle, borderRadius: 12, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <Feather name="check-circle" size={18} color={theme.success} />
+              <Text style={{ flex: 1, fontSize: 13, color: theme.status.success }}>
                 An offer will be sent to {name} starting today. You can manage them from My Workers.
               </Text>
             </View>
@@ -1348,11 +1348,11 @@ export function ApplicantDetailScreen() {
                 onPress={() => { setShowHireConfirm(false); haptic('success'); transition.mutate('hired'); }}
                 disabled={transition.isPending}
                 style={({ pressed }) => ({
-                  backgroundColor: '#16A34A', borderRadius: 14, paddingVertical: 16,
+                  backgroundColor: theme.success, borderRadius: 14, paddingVertical: 16,
                   alignItems: 'center', opacity: pressed ? 0.85 : 1,
                 })}
               >
-                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>
+                <Text style={{ color: theme.text.onBrand, fontSize: 16, fontWeight: '800' }}>
                   {transition.isPending ? 'Hiring…' : 'Confirm Hire'}
                 </Text>
               </Pressable>
@@ -1391,8 +1391,8 @@ function VideoPitchCard({
   const { theme } = useTheme();
   const dur = reel.durationSeconds;
   const durLabel = dur >= 60 ? `${Math.floor(dur / 60)}m ${dur % 60}s` : `${dur}s`;
-  const surface = isLight ? '#FFFFFF' : '#0D0D0D';
-  const border  = isLight ? '#E5E7EB' : '#1E1E1E';
+  const surface = theme.bg.surface;
+  const border  = theme.border.default;
 
   function openVideo() {
     haptic('selection');
@@ -1412,7 +1412,7 @@ function VideoPitchCard({
           <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>Video Pitch</Text>
         </View>
         <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
-          backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F', borderWidth: 0.5, borderColor: isLight ? '#BFDBFE' : '#1E3A5F' }}>
+          backgroundColor: theme.brand.primarySubtle, borderWidth: 0.5, borderColor: theme.brand.primaryBorder }}>
           <Text style={{ fontSize: 12, fontWeight: '600', color: theme.brand.primary }}>{durLabel}</Text>
         </View>
       </View>
@@ -1421,7 +1421,7 @@ function VideoPitchCard({
       <Pressable
         onPress={openVideo}
         style={({ pressed }) => ({
-          aspectRatio: 16 / 9, backgroundColor: '#0F172A',
+          aspectRatio: 16 / 9, backgroundColor: theme.bg.canvas,
           alignItems: 'center', justifyContent: 'center',
           opacity: pressed ? 0.85 : 1,
         })}
@@ -1441,7 +1441,7 @@ function VideoPitchCard({
           backgroundColor: 'rgba(255,255,255,0.92)',
           alignItems: 'center', justifyContent: 'center',
         }}>
-          <Feather name="play" size={26} color="#111827" style={{ marginLeft: 3 }} />
+          <Feather name="play" size={26} color={theme.text.primary} style={{ marginLeft: 3 }} />
         </View>
         <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 8 }}>
           Tap to play in browser
@@ -1467,6 +1467,7 @@ function VideoPitchCard({
  * beacon — either way the seeker has signalled they're reachable.
  */
 function CallSeekerButton({ seekerId }: { seekerId: string }) {
+  const { theme } = useTheme();
   const t = useTranslate();
   const mutation = useMutation({
     mutationFn: () => contactApi.revealSeeker(seekerId),
@@ -1509,16 +1510,16 @@ function CallSeekerButton({ seekerId }: { seekerId: string }) {
         borderRadius: radii.pill,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#10B981',
+        backgroundColor: theme.success,
         opacity: mutation.isPending ? 0.5 : pressed ? 0.85 : 1,
-        shadowColor: '#10B981',
+        shadowColor: theme.success,
         shadowOpacity: 0.25,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 3 },
         elevation: 3,
       })}
     >
-      <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>
+      <Text style={{ color: theme.text.onBrand, fontSize: 15, fontWeight: '700' }}>
         {mutation.isPending
           ? t('employer.applicant_detail.call_opening')
           : t('employer.applicant_detail.call_worker')}
@@ -2178,11 +2179,11 @@ function CallViaDoondoButton({ applicationId }: { applicationId: string }) {
         paddingVertical: 12,
         borderRadius: radii.pill,
         borderWidth: 0.5,
-        borderColor: theme.brand.accent,
+        borderColor: theme.brand.primary,
         opacity: busy ? 0.6 : 1,
       }}
     >
-      <Text variant="body" weight="medium" style={{ color: theme.brand.accent }}>
+      <Text variant="body" weight="medium" style={{ color: theme.brand.primary }}>
         {busy ? t('masked_call.connecting') : t('masked_call.cta')}
       </Text>
     </Pressable>
@@ -2530,9 +2531,9 @@ function EndorsementsSection({
                 paddingHorizontal: spacing.md,
                 paddingVertical: spacing.sm,
                 borderRadius: radii.pill,
-                backgroundColor: verified ? '#D1FAE5' : theme.bg.surface,
+                backgroundColor: verified ? theme.status.successSubtle : theme.bg.surface,
                 borderWidth: 0.5,
-                borderColor: verified ? '#86EFAC' : theme.border.default,
+                borderColor: verified ? theme.status.successBorder : theme.border.default,
                 opacity: pressed ? 0.7 : 1,
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -2544,7 +2545,7 @@ function EndorsementsSection({
                 style={{
                   fontSize: 12,
                   fontWeight: '700',
-                  color: verified ? '#065F46' : theme.text.primary,
+                  color: verified ? theme.success : theme.text.primary,
                 }}
               >
                 {prettifySkill(trade)}
@@ -2609,7 +2610,7 @@ function ConstitutionPanel({
               key={i}
               style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' }}
             >
-              <Text style={{ color: theme.brand.accent, lineHeight: 20 }}>•</Text>
+              <Text style={{ color: theme.brand.primary, lineHeight: 20 }}>•</Text>
               <Text variant="footnote" style={{ flex: 1 }}>
                 {item}
               </Text>
@@ -2659,17 +2660,17 @@ function ApplicantBadgesSection({ seekerId }: { seekerId: string }) {
               paddingHorizontal: spacing.md,
               paddingVertical: spacing.sm,
               borderRadius: radii.pill,
-              backgroundColor: '#FEF3C7',
+              backgroundColor: theme.status.warningSubtle,
               borderWidth: 0.5,
-              borderColor: '#FDE68A',
+              borderColor: theme.status.warningBorder,
               flexDirection: 'row',
               alignItems: 'center',
               gap: 6,
             }}
           >
-            <Feather name="award" size={14} color="#78350F" />
+            <Feather name="award" size={14} color={theme.warning} />
             <Text style={{ fontSize: 12 }}>{b.emoji}</Text>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: '#78350F' }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: theme.warning }}>
               {b.title}
             </Text>
           </View>

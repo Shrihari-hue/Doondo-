@@ -149,7 +149,7 @@ function CourseDetailInner() {
           <RefreshControl
             refreshing={detail.isRefetching}
             onRefresh={() => void detail.refetch()}
-            tintColor={theme.brand.accent}
+            tintColor={theme.brand.primary}
           />
         }
       >
@@ -167,7 +167,7 @@ function CourseDetailInner() {
           }}
         >
           <Pressable onPress={() => navigation.goBack()} hitSlop={12} accessibilityRole="button" accessibilityLabel={t('common.back')}>
-            <Feather name="arrow-left" size={22} color="#FFFFFF" />
+            <Feather name="arrow-left" size={22} color={theme.text.onBrand} />
           </Pressable>
           <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
             <View
@@ -189,7 +189,7 @@ function CourseDetailInner() {
                 style={{
                   fontSize: 22,
                   fontWeight: '700',
-                  color: '#FFFFFF',
+                  color: theme.text.onBrand,
                   letterSpacing: -0.3,
                   lineHeight: 26,
                 }}
@@ -218,8 +218,8 @@ function CourseDetailInner() {
                     gap: 4,
                   }}
                 >
-                  <Feather name="award" size={12} color="#78350F" />
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#78350F' }}>
+                  <Feather name="award" size={12} color={theme.status.warning} />
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: theme.status.warning }}>
                     {t('course_detail.badge_earned')}
                   </Text>
                 </View>
@@ -274,7 +274,7 @@ function CourseDetailInner() {
               style={{
                 width: `${Math.round(progress * 100)}%`,
                 height: '100%',
-                backgroundColor: isCompleted ? '#10B981' : theme.brand.primary,
+                backgroundColor: isCompleted ? theme.success : theme.brand.primary,
               }}
             />
           </View>
@@ -294,7 +294,7 @@ function CourseDetailInner() {
                     opacity: enrollMutation.isPending ? 0.5 : pressed ? 0.85 : 1,
                   }}
                 >
-                  <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
+                  <Text style={{ color: theme.text.onBrand, fontSize: 14, fontWeight: '700' }}>
                     {enrollMutation.isPending ? t('course_detail.starting') : t('course_detail.start_course')}
                   </Text>
                 </View>
@@ -349,13 +349,13 @@ function CourseDetailInner() {
                     width: 32,
                     height: 32,
                     borderRadius: 16,
-                    backgroundColor: done ? '#D1FAE5' : theme.bg.muted,
+                    backgroundColor: done ? theme.status.successSubtle : theme.bg.muted,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
                   {done ? (
-                    <Feather name="check" size={15} color="#065F46" />
+                    <Feather name="check" size={15} color={theme.status.success} />
                   ) : (
                     <Text
                       style={{
@@ -511,7 +511,7 @@ function LessonModal({
                       borderRadius: radii.pill,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      backgroundColor: completed ? '#10B981' : theme.brand.primary,
+                      backgroundColor: completed ? theme.success : theme.brand.primary,
                       opacity: completed
                         ? 0.7
                         : completing
@@ -519,14 +519,14 @@ function LessonModal({
                           : pressed
                             ? 0.85
                             : 1,
-                      shadowColor: completed ? '#10B981' : theme.brand.primary,
+                      shadowColor: completed ? theme.success : theme.brand.primary,
                       shadowOpacity: 0.25,
                       shadowRadius: 10,
                       shadowOffset: { width: 0, height: 4 },
                       elevation: 4,
                     }}
                   >
-                    <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+                    <Text style={{ color: theme.text.onBrand, fontSize: 16, fontWeight: '700' }}>
                       {completed
                         ? t('course_detail.lesson_complete_done')
                         : completing

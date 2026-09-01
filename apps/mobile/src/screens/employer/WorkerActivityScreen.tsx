@@ -22,6 +22,7 @@ type Route = RouteProp<AppStackParamList, 'WorkerActivity'>;
 
 const BLUE = '#2563EB'; // = theme.brand.primary; module-scope constant, theme unreachable here
 const GREEN = '#16A34A';
+const GRAY = '#9CA3AF'; // = theme.text.tertiary
 
 type EventType = 'check_in' | 'task_completed' | 'check_out' | 'shift';
 
@@ -36,7 +37,7 @@ interface ActivityEvent {
 const EVENT_COLOR: Record<EventType, string> = {
   check_in:       GREEN,
   task_completed: BLUE,
-  check_out:      '#9CA3AF',
+  check_out:      GRAY,
   shift:          BLUE,
 };
 
@@ -67,6 +68,7 @@ function TimelineSection({
   title: string; events: ActivityEvent[];
   surface: string; border: string; textPrimary: string; textSecondary: string; isLight: boolean;
 }) {
+  const { theme } = useTheme();
   return (
     <View style={{ gap: spacing.sm }}>
       <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>{title}</Text>
@@ -80,10 +82,10 @@ function TimelineSection({
                 <View style={{
                   width: 22, height: 22, borderRadius: 11,
                   backgroundColor: ev.complete ? color : 'transparent',
-                  borderWidth: ev.complete ? 0 : 2, borderColor: '#D1D5DB',
+                  borderWidth: ev.complete ? 0 : 2, borderColor: theme.border.strong,
                   alignItems: 'center', justifyContent: 'center',
                 }}>
-                  {ev.complete && <Feather name="check" size={12} color="#FFFFFF" />}
+                  {ev.complete && <Feather name="check" size={12} color={theme.text.onBrand} />}
                 </View>
                 {!isLast && <View style={{ width: 2, flex: 1, backgroundColor: border, marginTop: 4 }} />}
               </View>
@@ -107,14 +109,14 @@ export function WorkerActivityScreen() {
   const navigation   = useNavigation<Nav>();
   const route        = useRoute<Route>();
   const insets       = useSafeAreaInsets();
-  const { scheme }   = useTheme();
+  const { theme, scheme }   = useTheme();
   const isLight      = scheme !== 'dark';
 
-  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
-  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary   = isLight ? '#111827' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
-  const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
+  const surface       = theme.bg.surface;
+  const border        = theme.border.default;
+  const textPrimary   = theme.text.primary;
+  const textSecondary = theme.text.secondary;
+  const bg            = theme.bg.canvas;
 
   // Current + previous month
   const now    = new Date();
@@ -227,11 +229,11 @@ export function WorkerActivityScreen() {
 
         {/* Info banner when using fallback */}
         {!hasRealData && (
-          <View style={{ backgroundColor: isLight ? '#F8FAFF' : '#1E2A3A', borderRadius: radii.md, padding: spacing.md,
+          <View style={{ backgroundColor: theme.brand.primarySubtle, borderRadius: radii.md, padding: spacing.md,
             flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-            borderWidth: 1, borderColor: isLight ? '#DBEAFE' : '#1E3A5F' }}>
+            borderWidth: 1, borderColor: theme.brand.primaryBorder }}>
             <Feather name="info" size={14} color={BLUE} />
-            <Text style={{ flex: 1, fontSize: 12, color: isLight ? '#1D4ED8' : '#93C5FD', lineHeight: 17 }}>
+            <Text style={{ flex: 1, fontSize: 12, color: theme.brand.primary, lineHeight: 17 }}>
               Detailed activity will populate once this worker starts logging shifts via Doondo.
             </Text>
           </View>

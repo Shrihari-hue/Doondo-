@@ -220,10 +220,10 @@ function JobAlertFormInner() {
           }}
         >
           <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={{ fontSize: 22, color: '#FFFFFF' }}>←</Text>
+            <Text style={{ fontSize: 22, color: theme.text.onBrand }}>←</Text>
           </Pressable>
           <Text
-            style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
+            style={{ fontSize: 17, fontWeight: '600', color: theme.text.onBrand, flex: 1 }}
           >
             {isEdit ? t('job_alert_form.title_edit') : t('job_alert_form.title_new')}
           </Text>
@@ -298,7 +298,7 @@ function JobAlertFormInner() {
                       style={{
                         fontSize: 13,
                         fontWeight: '600',
-                        color: active ? '#FFFFFF' : theme.text.primary,
+                        color: active ? theme.text.onBrand : theme.text.primary,
                       }}
                     >
                       {prettyJobType(jt, t)}
@@ -343,7 +343,7 @@ function JobAlertFormInner() {
               value={draft.urgentOnly}
               onValueChange={(v) => setDraft((d) => ({ ...d, urgentOnly: v }))}
               trackColor={{ true: blue[500], false: theme.border.default }}
-              thumbColor="#FFFFFF"
+              thumbColor={theme.text.onBrand}
             />
           </Pressable>
 
@@ -401,7 +401,7 @@ function JobAlertFormInner() {
             opacity: saving || loading ? 0.5 : pressed ? 0.85 : 1,
           })}
         >
-          <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text.onBrand }}>
             {saving ? t('job_alert_form.saving') : isEdit ? t('job_alert_form.save_changes') : t('job_alert_form.create_alert')}
           </Text>
         </Pressable>

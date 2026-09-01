@@ -23,7 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 
-import { spacing, radii, blue } from '@doondo/tokens';
+import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Button, Avatar, LoadingSpinner, ErrorPanel } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
@@ -150,11 +150,12 @@ function PassportHero({
   insetsTop: number;
   onBack: () => void;
 }) {
+  const { theme } = useTheme();
   const memberSince = formatMonthYear(passport.memberSince);
 
   return (
     <LinearGradient
-      colors={[blue[700], blue[600], blue[500]]}
+      colors={theme.brand.primaryImmersiveGradient}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{
@@ -169,7 +170,7 @@ function PassportHero({
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
         <Pressable onPress={onBack} hitSlop={12} accessibilityRole="button" accessibilityLabel={t('skill_passport.back')}>
-          <Feather name="arrow-left" size={22} color="#FFFFFF" />
+          <Feather name="arrow-left" size={22} color={theme.text.onBrand} />
         </Pressable>
         <Text
           style={{
@@ -188,7 +189,7 @@ function PassportHero({
 
       <Avatar name={name} photoUrl={photoUrl} size={72} />
       <View style={{ alignItems: 'center', gap: 2 }}>
-        <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFFFFF' }} numberOfLines={1}>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text.onBrand }} numberOfLines={1}>
           {name}
         </Text>
         <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.82)' }}>
@@ -203,7 +204,7 @@ function PassportHero({
             fontSize: 48,
             lineHeight: 54,
             fontWeight: '800',
-            color: '#FFFFFF',
+            color: theme.text.onBrand,
           }}
         >
           {passport.score}
@@ -239,13 +240,13 @@ function PassportHero({
         }}
       >
         {passport.isIdentityVerified ? (
-          <Feather name="check-circle" size={13} color="#D1FAE5" />
+          <Feather name="check-circle" size={13} color={theme.status.successSubtle} />
         ) : null}
         <Text
           style={{
             fontSize: 12,
             fontWeight: '600',
-            color: passport.isIdentityVerified ? '#D1FAE5' : 'rgba(255,255,255,0.85)',
+            color: passport.isIdentityVerified ? theme.status.successSubtle : 'rgba(255,255,255,0.85)',
           }}
         >
           {passport.isIdentityVerified

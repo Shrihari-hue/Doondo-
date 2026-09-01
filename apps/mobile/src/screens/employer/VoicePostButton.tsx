@@ -158,9 +158,9 @@ export function VoicePostButton({ onDraft }: VoicePostButtonProps) {
           }}
         >
           {busy ? (
-            <ActivityIndicator color={active ? '#FFFFFF' : ORANGE} />
+            <ActivityIndicator color={active ? theme.text.onBrand : ORANGE} />
           ) : (
-            <Feather name={listening ? 'square' : 'mic'} size={20} color={active ? '#FFFFFF' : ORANGE} />
+            <Feather name={listening ? 'square' : 'mic'} size={20} color={active ? theme.text.onBrand : ORANGE} />
           )}
         </View>
         <View style={{ flex: 1 }}>

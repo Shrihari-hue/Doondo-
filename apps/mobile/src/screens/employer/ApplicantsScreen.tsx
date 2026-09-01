@@ -45,13 +45,17 @@ import { ApplicantCard } from './ApplicantCard';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
-const BLUE = '#2563EB'; // = theme.brand.primary; module-scope constant, theme unreachable here
+// Module-scope constants — theme isn't reachable here (useTheme() only works
+// inside a component). These are the exact light-theme values of
+// theme.brand.primary / primarySubtle / success / error respectively; not
+// dark-mode-reactive, same pre-existing limitation as elsewhere in this file.
+const BLUE = '#2563EB';
 const BLUE_LIGHT = '#EFF6FF';
-const GREEN      = '#16A34A';
-const RED        = '#EF4444';
+const GREEN = '#16A34A';
+const RED = '#EF4444';
 
 export function ApplicantsScreen() {
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight    = scheme !== 'dark';
   const navigation = useNavigation<Nav>();
   const insets     = useSafeAreaInsets();
@@ -197,10 +201,10 @@ export function ApplicantsScreen() {
     return list;
   }, [allApplicants, filter, appliedLocation, appliedMinExp, appliedSkill]);
 
-  const bg            = isLight ? '#FFFFFF' : '#0C0A0E';
-  const border        = isLight ? '#E5E7EB' : '#1F1F1F';
-  const textPrimary   = isLight ? '#1F2937' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+  const bg            = theme.bg.canvas;
+  const border        = theme.border.default;
+  const textPrimary   = theme.text.primary;
+  const textSecondary = theme.text.secondary;
 
   const TABS: Array<{ key: ApplicationStatus | 'all'; label: string; count: number }> = [
     { key: 'all',         label: 'All',         count: counts.all },
@@ -397,10 +401,10 @@ export function ApplicantsScreen() {
                 <Pressable onPress={() => void startVoiceListen()} hitSlop={8}>
                   <View style={{
                     width: 32, height: 32, borderRadius: 16,
-                    backgroundColor: listening ? RED : (isLight ? '#F3F4F6' : '#1E1E1E'),
+                    backgroundColor: listening ? RED : (theme.bg.muted),
                     alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <Feather name="mic" size={15} color={listening ? '#FFFFFF' : textSecondary} />
+                    <Feather name="mic" size={15} color={listening ? theme.text.onBrand : textSecondary} />
                   </View>
                 </Pressable>
                 <Pressable onPress={() => {
@@ -451,11 +455,11 @@ export function ApplicantsScreen() {
                 </Text>
                 {tab.count > 0 && (
                   <View style={{
-                    backgroundColor: active ? BLUE : (isLight ? '#F3F4F6' : '#1E1E1E'),
+                    backgroundColor: active ? BLUE : (theme.bg.muted),
                     borderRadius: 10, minWidth: 20, height: 20,
                     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5,
                   }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: active ? '#FFFFFF' : textSecondary }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: active ? theme.text.onBrand : textSecondary }}>
                       {tab.count}
                     </Text>
                   </View>
@@ -472,10 +476,10 @@ export function ApplicantsScreen() {
             refreshControl={<RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} tintColor={BLUE} />}
           >
             {([
-              { key: 'pending',     label: 'New',         color: '#F59E0B', bg: isLight ? '#FFFBEB' : '#2A1A00', count: counts.pending },
-              { key: 'shortlisted', label: 'Shortlisted', color: BLUE,      bg: isLight ? BLUE_LIGHT : '#1E3A5F', count: counts.shortlisted },
-              { key: 'hired',       label: 'Hired',       color: GREEN,     bg: isLight ? '#F0FDF4' : '#052E16', count: counts.hired },
-              { key: 'rejected',    label: 'Rejected',    color: '#EF4444', bg: isLight ? '#FEF2F2' : '#3B0A0A',
+              { key: 'pending',     label: 'New',         color: theme.warning, bg: theme.status.warningSubtle, count: counts.pending },
+              { key: 'shortlisted', label: 'Shortlisted', color: BLUE,      bg: isLight ? BLUE_LIGHT : theme.brand.primarySubtle, count: counts.shortlisted },
+              { key: 'hired',       label: 'Hired',       color: GREEN,     bg: theme.status.successSubtle, count: counts.hired },
+              { key: 'rejected',    label: 'Rejected',    color: theme.error, bg: theme.status.dangerSubtle,
                 count: allApplicants.filter((a) => a.status === 'rejected').length },
             ] as const).map((col) => {
               const colApplicants = allApplicants.filter((a) => a.status === col.key);
@@ -556,7 +560,7 @@ export function ApplicantsScreen() {
                         backgroundColor: selected.has(a.id) ? BLUE : 'transparent',
                         alignItems: 'center', justifyContent: 'center',
                       }}>
-                      {selected.has(a.id) && <Feather name="check" size={13} color="#FFFFFF" />}
+                      {selected.has(a.id) && <Feather name="check" size={13} color={theme.text.onBrand} />}
                     </Pressable>
                   )}
                   <View style={{ flex: 1 }}>
@@ -586,11 +590,11 @@ export function ApplicantsScreen() {
         {voiceStatus !== '' && (
           <View style={{
             position: 'absolute', top: 80, left: spacing.xl, right: spacing.xl,
-            backgroundColor: isLight ? '#1F2937' : '#F9FAFB', borderRadius: 12,
+            backgroundColor: theme.bg.inverse, borderRadius: 12,
             paddingHorizontal: spacing.md, paddingVertical: 10, alignItems: 'center',
             shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
           }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: isLight ? '#F9FAFB' : '#1F2937' }}>{voiceStatus}</Text>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.text.inverse }}>{voiceStatus}</Text>
           </View>
         )}
 
@@ -599,7 +603,7 @@ export function ApplicantsScreen() {
           <View style={{
             position: 'absolute', left: 0, right: 0, bottom: 0,
             paddingBottom: insets.bottom + spacing.sm, paddingHorizontal: spacing.xl,
-            paddingTop: spacing.md, backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+            paddingTop: spacing.md, backgroundColor: theme.bg.surface,
             borderTopWidth: 1, borderTopColor: border, gap: spacing.sm,
             shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: -4 },
           }}>
@@ -630,11 +634,11 @@ export function ApplicantsScreen() {
               }}
                 style={({ pressed }) => ({
                   flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  borderRadius: 12, paddingVertical: 10, borderWidth: 1.5, borderColor: '#16A34A',
+                  borderRadius: 12, paddingVertical: 10, borderWidth: 1.5, borderColor: theme.success,
                   opacity: pressed ? 0.75 : 1,
                 })}>
-                <Feather name="folder-plus" size={15} color="#16A34A" />
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#16A34A' }}>Save to Folder</Text>
+                <Feather name="folder-plus" size={15} color={theme.success} />
+                <Text style={{ fontSize: 14, fontWeight: '700', color: theme.success }}>Save to Folder</Text>
               </Pressable>
             )}
             {/* Message Selected */}
@@ -669,9 +673,9 @@ export function ApplicantsScreen() {
                   opacity: pressed || isBulkPending ? 0.7 : 1,
                 })}>
                 {bulkShortlist.isPending
-                  ? <ActivityIndicator size="small" color="#FFFFFF" />
-                  : <><Feather name="check-circle" size={16} color="#FFFFFF" />
-                     <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>Shortlist</Text></>}
+                  ? <ActivityIndicator size="small" color={theme.text.onBrand} />
+                  : <><Feather name="check-circle" size={16} color={theme.text.onBrand} />
+                     <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text.onBrand }}>Shortlist</Text></>}
               </Pressable>
             </View>
           </View>
@@ -695,7 +699,7 @@ export function ApplicantsScreen() {
               {/* Header */}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
                 paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.xl,
-                paddingBottom: spacing.md, backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+                paddingBottom: spacing.md, backgroundColor: theme.bg.surface,
                 borderBottomWidth: 0.5, borderBottomColor: border }}>
                 <Pressable hitSlop={12} onPress={() => setShowCompare(false)}>
                   <Feather name="x" size={22} color={textPrimary} />
@@ -708,7 +712,7 @@ export function ApplicantsScreen() {
                 <View style={{ flexDirection: 'row', gap: spacing.md }}>
                   {cols.map((ap) => (
                     <View key={ap.id} style={{ flex: 1, alignItems: 'center', gap: spacing.sm,
-                      backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D', borderRadius: 16,
+                      backgroundColor: theme.bg.surface, borderRadius: 16,
                       borderWidth: 1, borderColor: border, padding: spacing.md }}>
                       <Avatar name={ap.seeker?.name ?? 'A'} photoUrl={ap.seeker?.photoUrl ?? null} size={56} premium={ap.seeker?.isVerified} />
                       <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary, textAlign: 'center' }} numberOfLines={1}>
@@ -734,9 +738,9 @@ export function ApplicantsScreen() {
                   { label: 'Status', fn: (ap: ApplicantEntry) => ap.status.charAt(0).toUpperCase() + ap.status.slice(1) },
                   { label: 'Applied', fn: (ap: ApplicantEntry) => new Date(ap.timeline.appliedAt).toLocaleDateString() },
                 ].map((row) => (
-                  <View key={row.label} style={{ backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+                  <View key={row.label} style={{ backgroundColor: theme.bg.surface,
                     borderRadius: 12, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
-                    <View style={{ backgroundColor: isLight ? '#F9FAFB' : '#111', paddingHorizontal: spacing.md, paddingVertical: 6 }}>
+                    <View style={{ backgroundColor: theme.bg.muted, paddingHorizontal: spacing.md, paddingVertical: 6 }}>
                       <Text style={{ fontSize: 12, fontWeight: '600', color: textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 }}>{row.label}</Text>
                     </View>
                     <View style={{ flexDirection: 'row' }}>
@@ -796,15 +800,15 @@ export function ApplicantsScreen() {
           <Pressable
             onPress={(e) => e.stopPropagation?.()}
             style={{
-              backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+              backgroundColor: theme.bg.surface,
               borderTopLeftRadius: 24, borderTopRightRadius: 24,
               padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg,
             }}
           >
             {/* Handle */}
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#3A3A3A', alignSelf: 'center' }} />
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: theme.border.strong, alignSelf: 'center' }} />
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 17, fontWeight: '700', color: isLight ? '#111827' : '#F9FAFB' }}>Filter Applicants</Text>
+              <Text style={{ fontSize: 17, fontWeight: '700', color: theme.text.primary }}>Filter Applicants</Text>
               <Pressable onPress={() => {
                 setDraftLocation(''); setDraftMinExp(0); setDraftSkill('');
               }} hitSlop={8}>
@@ -814,24 +818,24 @@ export function ApplicantsScreen() {
 
             {/* Location */}
             <View style={{ gap: 6 }}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: isLight ? '#374151' : '#D1D5DB' }}>Location</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: theme.text.secondary }}>Location</Text>
               <TextInput
                 value={draftLocation}
                 onChangeText={setDraftLocation}
                 placeholder="e.g. Koramangala"
-                placeholderTextColor={isLight ? '#9CA3AF' : '#6B7280'}
+                placeholderTextColor={theme.text.tertiary}
                 style={{
-                  borderWidth: 1, borderColor: isLight ? '#E5E7EB' : '#1E1E1E',
+                  borderWidth: 1, borderColor: theme.border.default,
                   borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
-                  fontSize: 14, color: isLight ? '#111827' : '#F9FAFB',
-                  backgroundColor: isLight ? '#F9FAFB' : '#111111',
+                  fontSize: 14, color: theme.text.primary,
+                  backgroundColor: theme.bg.muted,
                 }}
               />
             </View>
 
             {/* Min experience chips */}
             <View style={{ gap: 8 }}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: isLight ? '#374151' : '#D1D5DB' }}>Min Experience</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: theme.text.secondary }}>Min Experience</Text>
               <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                 {([0, 1, 3, 5] as const).map((yr) => {
                   const active = draftMinExp === yr;
@@ -841,11 +845,11 @@ export function ApplicantsScreen() {
                       style={{
                         paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
                         borderWidth: active ? 1.5 : 1,
-                        borderColor: active ? BLUE : (isLight ? '#E5E7EB' : '#1E1E1E'),
+                        borderColor: active ? BLUE : (theme.border.default),
                         backgroundColor: active ? BLUE_LIGHT : 'transparent',
                       }}>
                       <Text style={{ fontSize: 13, fontWeight: active ? '700' : '500',
-                        color: active ? BLUE : (isLight ? '#4B5563' : '#9CA3AF') }}>
+                        color: active ? BLUE : (theme.text.secondary) }}>
                         {yr === 0 ? 'Any' : `${yr}+ yrs`}
                       </Text>
                     </Pressable>
@@ -856,17 +860,17 @@ export function ApplicantsScreen() {
 
             {/* Skill */}
             <View style={{ gap: 6 }}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: isLight ? '#374151' : '#D1D5DB' }}>Skill</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: theme.text.secondary }}>Skill</Text>
               <TextInput
                 value={draftSkill}
                 onChangeText={setDraftSkill}
                 placeholder="e.g. Plumber, Electrician"
-                placeholderTextColor={isLight ? '#9CA3AF' : '#6B7280'}
+                placeholderTextColor={theme.text.tertiary}
                 style={{
-                  borderWidth: 1, borderColor: isLight ? '#E5E7EB' : '#1E1E1E',
+                  borderWidth: 1, borderColor: theme.border.default,
                   borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
-                  fontSize: 14, color: isLight ? '#111827' : '#F9FAFB',
-                  backgroundColor: isLight ? '#F9FAFB' : '#111111',
+                  fontSize: 14, color: theme.text.primary,
+                  backgroundColor: theme.bg.muted,
                 }}
               />
             </View>
@@ -885,7 +889,7 @@ export function ApplicantsScreen() {
                 alignItems: 'center', opacity: pressed ? 0.85 : 1,
               })}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>Apply Filters</Text>
+              <Text style={{ color: theme.text.onBrand, fontSize: 16, fontWeight: '800' }}>Apply Filters</Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -898,15 +902,15 @@ export function ApplicantsScreen() {
         <Pressable style={{ flex: 1, justifyContent: 'flex-end' }} onPress={() => setShowFolders(false)}>
           <Pressable onPress={(e) => e.stopPropagation?.()}>
             <View style={{
-              backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+              backgroundColor: theme.bg.surface,
               borderTopLeftRadius: 24, borderTopRightRadius: 24,
               padding: spacing.xl, gap: spacing.lg, paddingBottom: spacing['2xl'],
               maxHeight: '75%',
             }}>
-              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#374151', alignSelf: 'center' }} />
+              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: theme.border.strong, alignSelf: 'center' }} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Feather name="folder" size={20} color={isLight ? '#111827' : '#F9FAFB'} />
-                <Text style={{ fontSize: 20, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>Shortlist Folders</Text>
+                <Feather name="folder" size={20} color={theme.text.primary} />
+                <Text style={{ fontSize: 20, fontWeight: '800', color: theme.text.primary }}>Shortlist Folders</Text>
               </View>
 
               {/* Create new folder */}
@@ -915,12 +919,12 @@ export function ApplicantsScreen() {
                   value={newFolderName}
                   onChangeText={setNewFolderName}
                   placeholder="New folder name…"
-                  placeholderTextColor={isLight ? '#9CA3AF' : '#6B7280'}
+                  placeholderTextColor={theme.text.tertiary}
                   style={{
-                    flex: 1, borderWidth: 1, borderColor: isLight ? '#E5E7EB' : '#374151',
+                    flex: 1, borderWidth: 1, borderColor: theme.border.default,
                     borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9,
-                    fontSize: 14, color: isLight ? '#111827' : '#F9FAFB',
-                    backgroundColor: isLight ? '#F9FAFB' : '#111111',
+                    fontSize: 14, color: theme.text.primary,
+                    backgroundColor: theme.bg.muted,
                   }}
                   onSubmitEditing={() => void createFolder()}
                 />
@@ -931,7 +935,7 @@ export function ApplicantsScreen() {
                     backgroundColor: BLUE, opacity: pressed ? 0.7 : 1,
                     alignItems: 'center', justifyContent: 'center',
                   })}>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>Create</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text.onBrand }}>Create</Text>
                 </Pressable>
               </View>
 
@@ -939,7 +943,7 @@ export function ApplicantsScreen() {
               <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 300 }}>
                 {Object.keys(folders).length === 0 ? (
                   <View style={{ padding: spacing.xl, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 14, color: isLight ? '#9CA3AF' : '#6B7280' }}>No folders yet. Create one above.</Text>
+                    <Text style={{ fontSize: 14, color: theme.text.tertiary }}>No folders yet. Create one above.</Text>
                   </View>
                 ) : (
                   Object.entries(folders).map(([id, folder]) => (
@@ -949,17 +953,17 @@ export function ApplicantsScreen() {
                       style={({ pressed }) => ({
                         flexDirection: 'row', alignItems: 'center', gap: spacing.md,
                         paddingVertical: spacing.md,
-                        borderBottomWidth: 1, borderBottomColor: isLight ? '#F3F4F6' : '#1E1E1E',
+                        borderBottomWidth: 1, borderBottomColor: theme.bg.muted,
                         opacity: pressed ? 0.7 : 1,
                       })}
                     >
                       <Feather name="folder" size={20} color={BLUE} />
                       <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={{ fontSize: 15, fontWeight: '600', color: isLight ? '#111827' : '#F9FAFB' }}>{folder.name}</Text>
-                        <Text style={{ fontSize: 12, color: isLight ? '#6B7280' : '#9CA3AF' }}>{folder.applicationIds.length} applicants</Text>
+                        <Text style={{ fontSize: 15, fontWeight: '600', color: theme.text.primary }}>{folder.name}</Text>
+                        <Text style={{ fontSize: 12, color: theme.text.secondary }}>{folder.applicationIds.length} applicants</Text>
                       </View>
                       <Pressable onPress={() => void deleteFolder(id)} hitSlop={8}>
-                        <Feather name="trash-2" size={16} color="#EF4444" />
+                        <Feather name="trash-2" size={16} color={theme.error} />
                       </Pressable>
                     </Pressable>
                   ))
@@ -979,32 +983,32 @@ export function ApplicantsScreen() {
             onPress={(e) => e.stopPropagation?.()}
             style={{
               position: 'absolute', bottom: 0, left: 0, right: 0,
-              backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+              backgroundColor: theme.bg.surface,
               borderTopLeftRadius: 24, borderTopRightRadius: 24,
               padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl,
               gap: spacing.md,
             }}
           >
-            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginBottom: 4 }} />
-            <Text style={{ fontSize: 17, fontWeight: '700', color: isLight ? '#111827' : '#F9FAFB' }}>
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: theme.border.strong, alignSelf: 'center', marginBottom: 4 }} />
+            <Text style={{ fontSize: 17, fontWeight: '700', color: theme.text.primary }}>
               Message {selected.size} Applicant{selected.size !== 1 ? 's' : ''}
             </Text>
-            <Text style={{ fontSize: 13, color: isLight ? '#6B7280' : '#9CA3AF' }}>
+            <Text style={{ fontSize: 13, color: theme.text.secondary }}>
               A single message will be sent to each selected applicant via chat.
             </Text>
             <TextInput
               value={bulkMsgText}
               onChangeText={setBulkMsgText}
               placeholder="Type your message here…"
-              placeholderTextColor={isLight ? '#9CA3AF' : '#6B7280'}
+              placeholderTextColor={theme.text.tertiary}
               multiline
               numberOfLines={4}
               autoFocus
               style={{
-                borderWidth: 1, borderColor: isLight ? '#E5E7EB' : '#1E1E1E',
+                borderWidth: 1, borderColor: theme.border.default,
                 borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12,
-                fontSize: 15, color: isLight ? '#111827' : '#F9FAFB',
-                backgroundColor: isLight ? '#F9FAFB' : '#111111',
+                fontSize: 15, color: theme.text.primary,
+                backgroundColor: theme.bg.muted,
                 minHeight: 100, textAlignVertical: 'top',
               }}
             />
@@ -1019,9 +1023,9 @@ export function ApplicantsScreen() {
               })}
             >
               {bulkMsgSending
-                ? <ActivityIndicator size="small" color="#FFFFFF" />
-                : <><Feather name="send" size={16} color="#FFFFFF" />
-                   <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>
+                ? <ActivityIndicator size="small" color={theme.text.onBrand} />
+                : <><Feather name="send" size={16} color={theme.text.onBrand} />
+                   <Text style={{ fontSize: 16, fontWeight: '800', color: theme.text.onBrand }}>
                      Send to {selected.size}
                    </Text></>}
             </Pressable>
@@ -1037,7 +1041,7 @@ export function ApplicantsScreen() {
             position: 'absolute',
             bottom: insets.bottom + 90,
             left: 16, right: 16,
-            backgroundColor: '#1F2937',
+            backgroundColor: theme.bg.inverse,
             borderRadius: 14,
             paddingVertical: 12, paddingHorizontal: 16,
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -1048,12 +1052,12 @@ export function ApplicantsScreen() {
             elevation: 10,
           }}
         >
-          <Text style={{ fontSize: 14, color: '#F9FAFB', fontWeight: '500', flex: 1 }}>
+          <Text style={{ fontSize: 14, color: theme.text.inverse, fontWeight: '500', flex: 1 }}>
             {undoToast.label}
           </Text>
           <Pressable onPress={handleUndo} hitSlop={12}
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, paddingLeft: 16 })}>
-            <Text style={{ fontSize: 14, fontWeight: '800', color: '#60A5FA' }}>Undo</Text>
+            <Text style={{ fontSize: 14, fontWeight: '800', color: theme.brand.primary }}>Undo</Text>
           </Pressable>
         </Animated.View>
       )}
@@ -1073,6 +1077,7 @@ function SwipeableRow({
   onSwipeRight: () => void;
   disabled?: boolean;
 }) {
+  const { theme } = useTheme();
   const translateX = useRef(new Animated.Value(0)).current;
   const THRESHOLD = 80;
 
@@ -1109,7 +1114,7 @@ function SwipeableRow({
   // Background hint colors based on drag direction
   const bgColor = translateX.interpolate({
     inputRange: [-120, 0, 120],
-    outputRange: ['#FEE2E2', 'transparent', '#DCFCE7'],
+    outputRange: [theme.status.dangerSubtle, 'transparent', theme.status.successSubtle],
     extrapolate: 'clamp',
   });
 
@@ -1126,12 +1131,12 @@ function SwipeableRow({
         paddingHorizontal: 20,
       }}>
         <View style={{ alignItems: 'center', gap: 4 }}>
-          <Feather name="check-circle" size={22} color="#16A34A" />
-          <Text style={{ fontSize: 10, fontWeight: '700', color: '#16A34A' }}>Shortlist</Text>
+          <Feather name="check-circle" size={22} color={theme.success} />
+          <Text style={{ fontSize: 10, fontWeight: '700', color: theme.success }}>Shortlist</Text>
         </View>
         <View style={{ alignItems: 'center', gap: 4 }}>
-          <Feather name="x-circle" size={22} color="#EF4444" />
-          <Text style={{ fontSize: 10, fontWeight: '700', color: '#EF4444' }}>Reject</Text>
+          <Feather name="x-circle" size={22} color={theme.error} />
+          <Text style={{ fontSize: 10, fontWeight: '700', color: theme.error }}>Reject</Text>
         </View>
       </Animated.View>
       {/* Draggable card */}
@@ -1143,7 +1148,6 @@ function SwipeableRow({
 }
 
 // ── Kanban mini card ─────────────────────────────────────────────────────────
-const AMBER = '#F59E0B';
 
 function KanbanCard({ applicant, colKey, isLight, border, textPrimary, textSecondary, onPress, onMove }: {
   applicant: ApplicantEntry;
@@ -1155,8 +1159,9 @@ function KanbanCard({ applicant, colKey, isLight, border, textPrimary, textSecon
   onPress: () => void;
   onMove: (to: 'shortlisted' | 'hired' | 'rejected') => void;
 }) {
+  const { theme } = useTheme();
   const [showMoveSheet, setShowMoveSheet] = useState(false);
-  const surface = isLight ? '#FFFFFF' : '#0D0D0D';
+  const surface = theme.bg.surface;
   const name = applicant.seeker?.name ?? 'Applicant';
   const role = applicant.job?.title ?? applicant.seeker?.skills?.[0] ?? '—';
   const hash = [...applicant.id].reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -1165,7 +1170,7 @@ function KanbanCard({ applicant, colKey, isLight, border, textPrimary, textSecon
   const moveTargets: Array<{ to: 'shortlisted' | 'hired' | 'rejected'; label: string; color: string }> = [
     ...(colKey !== 'shortlisted' ? [{ to: 'shortlisted' as const, label: 'Shortlist', color: BLUE }] : []),
     ...(colKey !== 'hired'       ? [{ to: 'hired'       as const, label: 'Hire',      color: GREEN }] : []),
-    ...(colKey !== 'rejected'    ? [{ to: 'rejected'    as const, label: 'Reject',    color: '#EF4444' }] : []),
+    ...(colKey !== 'rejected'    ? [{ to: 'rejected'    as const, label: 'Reject',    color: theme.error }] : []),
   ];
 
   return (
@@ -1219,7 +1224,7 @@ function KanbanCard({ applicant, colKey, isLight, border, textPrimary, textSecon
             <View style={{ backgroundColor: surface, borderTopLeftRadius: 20, borderTopRightRadius: 20,
               padding: 20, gap: 12 }}>
               <View style={{ width: 36, height: 4, borderRadius: 2,
-                backgroundColor: isLight ? '#D1D5DB' : '#374151', alignSelf: 'center' }} />
+                backgroundColor: theme.border.strong, alignSelf: 'center' }} />
               <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>Move {name.split(' ')[0]}</Text>
               {moveTargets.map((mt) => (
                 <Pressable key={mt.to}

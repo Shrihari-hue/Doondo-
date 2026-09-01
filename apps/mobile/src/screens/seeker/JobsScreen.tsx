@@ -32,7 +32,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useWomenModeStore } from '@/stores/womenMode.store';
 
-import { spacing, radii, coral, champagne } from '@doondo/tokens';
+import { spacing, radii } from '@doondo/tokens';
 import { Screen, Text, Pill, Card, LoadingSpinner, SkeletonCard, Avatar, EmptyState, Button, ErrorPanel } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { jobsApi } from '@/api/jobs.api';
@@ -576,7 +576,7 @@ function Header({
 
   return (
     <View style={{ gap: spacing.lg, marginBottom: spacing.md, position: 'relative' }}>
-      {/* Soft coral radial glow behind the greeting — subtle warmth, ~4% */}
+      {/* Soft brand-blue radial glow behind the greeting — subtle warmth, ~4% */}
       <View
         pointerEvents="none"
         style={{
@@ -586,7 +586,7 @@ function Header({
           width: 240,
           height: 240,
           borderRadius: 120,
-          backgroundColor: coral[500],
+          backgroundColor: theme.brand.primary,
           opacity: 0.06,
         }}
       />
@@ -599,7 +599,7 @@ function Header({
           width: 160,
           height: 160,
           borderRadius: 80,
-          backgroundColor: coral[400],
+          backgroundColor: theme.brand.primaryLight,
           opacity: 0.05,
         }}
       />
@@ -644,9 +644,9 @@ function Header({
                   flexDirection: 'row',
                   alignItems: 'center',
                   borderRadius: radii.pill,
-                  backgroundColor: theme.brand.accentSubtle,
+                  backgroundColor: theme.brand.primarySubtle,
                   borderWidth: 0.5,
-                  borderColor: theme.brand.accent,
+                  borderColor: theme.brand.primary,
                 }}
               >
                 <Pressable
@@ -662,12 +662,12 @@ function Header({
                     paddingVertical: 5,
                   }}
                 >
-                  <Feather name="map-pin" size={12} color={theme.brand.accent} />
+                  <Feather name="map-pin" size={12} color={theme.brand.primary} />
                   <Text
                     variant="footnote"
                     weight="medium"
                     numberOfLines={1}
-                    style={{ color: theme.brand.accent, maxWidth: 180 }}
+                    style={{ color: theme.brand.primary, maxWidth: 180 }}
                   >
                     {searchPlaceLabel}
                   </Text>
@@ -679,7 +679,7 @@ function Header({
                   accessibilityLabel={t('jobs.clear_location')}
                   style={{ paddingRight: 9, paddingLeft: 2, paddingVertical: 5 }}
                 >
-                  <Feather name="x" size={13} color={theme.brand.accent} />
+                  <Feather name="x" size={13} color={theme.brand.primary} />
                 </Pressable>
               </View>
               <Text variant="footnote" tone="tertiary">
@@ -706,7 +706,7 @@ function Header({
               <Text
                 variant="footnote"
                 weight="medium"
-                style={{ color: theme.brand.accent, marginLeft: 6 }}
+                style={{ color: theme.brand.primary, marginLeft: 6 }}
               >
                 {t('jobs.change_location')}
               </Text>
@@ -863,8 +863,8 @@ function Header({
             paddingVertical: spacing.xs,
             borderRadius: radii.pill,
             borderWidth: 0.5,
-            borderColor: safeForWomenOnly ? '#10B981' : theme.border.default,
-            backgroundColor: safeForWomenOnly ? '#D1FAE5' : 'transparent',
+            borderColor: safeForWomenOnly ? theme.success : theme.border.default,
+            backgroundColor: safeForWomenOnly ? theme.status.successSubtle : 'transparent',
             flexDirection: 'row',
             alignItems: 'center',
             gap: 4,
@@ -873,12 +873,12 @@ function Header({
           <Feather
             name="shield"
             size={12}
-            color={safeForWomenOnly ? '#065F46' : theme.text.secondary}
+            color={safeForWomenOnly ? theme.success : theme.text.secondary}
           />
           <Text
             variant="footnote"
             weight={safeForWomenOnly ? 'medium' : 'regular'}
-            style={{ color: safeForWomenOnly ? '#065F46' : theme.text.secondary }}
+            style={{ color: safeForWomenOnly ? theme.success : theme.text.secondary }}
           >
             {t('jobs.filters.women_safe_only')}
           </Text>
@@ -899,8 +899,8 @@ function Header({
           padding: spacing.md,
           borderRadius: radii.lg,
           borderWidth: 0.5,
-          borderColor: theme.brand.accentBorder,
-          backgroundColor: theme.brand.accentSubtle,
+          borderColor: theme.brand.primaryBorder,
+          backgroundColor: theme.brand.primarySubtle,
           opacity: pressed ? 0.85 : 1,
         })}
       >
@@ -911,22 +911,22 @@ function Header({
             borderRadius: 12,
             backgroundColor: theme.bg.surface,
             borderWidth: 0.5,
-            borderColor: theme.brand.accentBorder,
+            borderColor: theme.brand.primaryBorder,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Feather name="layers" size={19} color={theme.brand.accent} />
+          <Feather name="layers" size={19} color={theme.brand.primary} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
+          <Text variant="footnote" weight="medium" style={{ color: theme.brand.primary }}>
             {t('jobs.swipe.entry_title')}
           </Text>
           <Text variant="caption" tone="tertiary">
             {t('jobs.swipe.entry_subtitle')}
           </Text>
         </View>
-        <Feather name="chevron-right" size={18} color={theme.brand.accent} />
+        <Feather name="chevron-right" size={18} color={theme.brand.primary} />
       </Pressable>
 
       {/* Recommended for you — section header for the job cards. Only shown
@@ -985,9 +985,9 @@ function HiringRequestsBanner({
         gap: spacing.md,
         padding: spacing.md,
         borderRadius: radii.lg,
-        backgroundColor: theme.brand.accent,
+        backgroundColor: theme.brand.primary,
         opacity: pressed ? 0.9 : 1,
-        shadowColor: theme.brand.accent,
+        shadowColor: theme.brand.primary,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.28,
         shadowRadius: 14,
@@ -1004,11 +1004,11 @@ function HiringRequestsBanner({
           justifyContent: 'center',
         }}
       >
-        <Feather name="mail" size={19} color="#FFFFFF" />
+        <Feather name="mail" size={19} color={theme.text.onBrand} />
       </View>
       <View style={{ flex: 1 }}>
         <Text
-          style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}
+          style={{ fontSize: 14, fontWeight: '700', color: theme.text.onBrand }}
           numberOfLines={2}
         >
           {t(
@@ -1022,7 +1022,7 @@ function HiringRequestsBanner({
           {t('jobs.hiring_requests_banner.subtitle')}
         </Text>
       </View>
-      <Feather name="chevron-right" size={18} color="#FFFFFF" />
+      <Feather name="chevron-right" size={18} color={theme.text.onBrand} />
     </Pressable>
   );
 }
@@ -1048,7 +1048,7 @@ interface JobCardProps {
  *             [pills row: pay, type, area, distance]
  *
  * In selection mode (multi-select for mass-apply), the card outline turns
- * coral and a checkmark appears in the top-right corner instead of the
+ * brand blue and a checkmark appears in the top-right corner instead of the
  * heart. Tapping toggles selection; long-press also toggles.
  */
 function JobCard({
@@ -1076,11 +1076,11 @@ function JobCard({
       delayLongPress={350}
       android_ripple={{ color: theme.bg.muted }}
       style={{
-        // When selected, give the card an extra coral ring outside the Card
-        // border — visible without changing the Card component's contract.
+        // When selected, give the card an extra brand-blue ring outside the
+        // Card border — visible without changing the Card component's contract.
         borderRadius: radii.lg,
         ...(selected
-          ? { borderWidth: 2, borderColor: theme.brand.accent }
+          ? { borderWidth: 2, borderColor: theme.brand.primary }
           : { borderWidth: 0, borderColor: 'transparent' }),
       }}
     >
@@ -1127,7 +1127,7 @@ function JobCard({
                   }}
                 >
                   {selected ? (
-                    <Feather name="check" size={13} color="#FFFFFF" />
+                    <Feather name="check" size={13} color={theme.text.onBrand} />
                   ) : null}
                 </View>
               ) : (
@@ -1139,7 +1139,7 @@ function JobCard({
                   <Feather
                     name="heart"
                     size={17}
-                    color={saved ? coral[500] : theme.text.tertiary}
+                    color={saved ? theme.brand.primary : theme.text.tertiary}
                   />
                 </Pressable>
               )}
@@ -1273,11 +1273,11 @@ function SelectionBar({ t, count, submitting, onCancel, onApply }: SelectionBarP
           paddingVertical: spacing.sm,
           paddingHorizontal: spacing.lg,
           borderRadius: radii.md,
-          backgroundColor: pressed ? theme.brand.primaryPressed : theme.brand.accent,
+          backgroundColor: pressed ? theme.brand.primaryPressed : theme.brand.primary,
           opacity: count === 0 ? 0.5 : 1,
         })}
       >
-        <Text variant="footnote" weight="medium" style={{ color: '#FFFFFF' }}>
+        <Text variant="footnote" weight="medium" style={{ color: theme.text.onBrand }}>
           {submitting ? t('jobs.selection.applying') : t('jobs.selection.apply_to_count', { count })}
         </Text>
       </Pressable>

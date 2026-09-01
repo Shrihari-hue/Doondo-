@@ -181,7 +181,7 @@ export function LoginScreen() {
             </View>
 
             <View style={{ flex: 1, gap: 4 }}>
-              <Text variant="titleLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+              <Text variant="titleLarge" weight="medium" style={{ color: theme.text.onBrand }}>
                 {roleChoices
                   ? t('auth.login.role_picker_title')
                   : selectedRole === 'employer'
@@ -248,7 +248,7 @@ export function LoginScreen() {
                     borderWidth: 0.5,
                     borderColor: theme.border.default,
                     backgroundColor: pressed
-                      ? theme.brand.accentSubtle
+                      ? theme.brand.primarySubtle
                       : theme.bg.surface,
                     opacity: submitting ? 0.6 : 1,
                   })}
@@ -347,11 +347,11 @@ export function LoginScreen() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       borderWidth: 1.5,
-                      borderColor: rememberMe ? theme.brand.accent : theme.border.default,
-                      backgroundColor: rememberMe ? theme.brand.accent : 'transparent',
+                      borderColor: rememberMe ? theme.brand.primary : theme.border.default,
+                      backgroundColor: rememberMe ? theme.brand.primary : 'transparent',
                     }}
                   >
-                    {rememberMe && <Feather name="check" size={14} color="#FFFFFF" />}
+                    {rememberMe && <Feather name="check" size={14} color={theme.text.onBrand} />}
                   </View>
                   <Text variant="footnote" tone="secondary">
                     {t('auth.login.remember_me')}
@@ -360,7 +360,7 @@ export function LoginScreen() {
                 <Text
                   variant="footnote"
                   weight="medium"
-                  tone="hero"
+                  tone="primary"
                   onPress={() => navigation.navigate('ForgotPassword')}
                 >
                   {t('auth.login.cta_forgot')}
@@ -381,7 +381,7 @@ export function LoginScreen() {
                     paddingVertical: spacing.lg,
                   }}
                 >
-                  <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+                  <Text style={{ color: theme.text.onBrand, fontSize: 16, fontWeight: '700' }}>
                     {submitting
                       ? t('auth.login.cta_signing_in')
                       : selectedRole === 'employer'
@@ -390,7 +390,7 @@ export function LoginScreen() {
                           ? t('auth.login.cta_signin_seeker')
                           : t('auth.login.cta_signin')}
                   </Text>
-                  {!submitting && <Feather name="arrow-right" size={18} color="#FFFFFF" />}
+                  {!submitting && <Feather name="arrow-right" size={18} color={theme.text.onBrand} />}
                 </LinearGradient>
               </Pressable>
 
@@ -431,7 +431,7 @@ export function LoginScreen() {
                 <Text
                   variant="footnote"
                   weight="medium"
-                  tone="hero"
+                  tone="primary"
                   onPress={() => navigation.navigate('Signup')}
                 >
                   {t('auth.login.create_one')}
@@ -464,7 +464,7 @@ export function LoginScreen() {
             }}
           >
             <ActivityIndicator size="large" color={theme.brand.primaryVivid} />
-            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
+            <Text style={{ color: theme.text.onBrand, fontWeight: '600' }}>
               {t('auth.login.cta_signing_in')}
             </Text>
           </View>
@@ -534,7 +534,7 @@ function RolePill({ label, icon, active, onPress }: RolePillProps) {
 
   const content = (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-      <Feather name={icon} size={18} color={active ? '#FFFFFF' : theme.text.secondary} />
+      <Feather name={icon} size={18} color={active ? theme.text.onBrand : theme.text.secondary} />
       <Text
         style={{
           fontSize: 15,

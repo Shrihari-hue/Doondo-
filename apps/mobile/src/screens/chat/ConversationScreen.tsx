@@ -111,14 +111,14 @@ function ConversationScreenInner() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { user } = useAuth();
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight = scheme !== 'dark';
-  const bg = isLight ? '#FFFFFF' : '#0C0A0E';
-  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
-  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary = isLight ? '#1F2937' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
-  const heroSubtle = isLight ? '#EFF6FF' : '#1E3A5F';
+  const bg = theme.bg.canvas;
+  const cardBg = theme.bg.surface;
+  const cardBorder = theme.border.default;
+  const textPrimary = theme.text.primary;
+  const textSecondary = theme.text.secondary;
+  const heroSubtle = theme.brand.primarySubtle;
   const queryClient = useQueryClient();
   const t = useTranslate();
   const [draft, setDraft] = useState('');
@@ -1040,10 +1040,10 @@ function IconCircleButton({
   filled?: boolean;
   onPress: () => void;
 }) {
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight = scheme !== 'dark';
-  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+  const cardBorder = theme.border.default;
+  const textSecondary = theme.text.secondary;
   return (
     <Pressable
       onPress={onPress}
@@ -1058,7 +1058,7 @@ function IconCircleButton({
         borderColor: cardBorder,
       }}
     >
-      <Feather name={icon} size={19} color={filled ? '#FFFFFF' : textSecondary} />
+      <Feather name={icon} size={19} color={filled ? theme.text.onBrand : textSecondary} />
     </Pressable>
   );
 }
@@ -1082,12 +1082,12 @@ function QuickReplyBar({
   onPick: (qr: QuickReply) => void;
   t: TFn;
 }) {
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight = scheme !== 'dark';
-  const bg = isLight ? '#FFFFFF' : '#0C0A0E';
-  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
-  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+  const bg = theme.bg.canvas;
+  const cardBg = theme.bg.surface;
+  const cardBorder = theme.border.default;
+  const textSecondary = theme.text.secondary;
   const replies = quickRepliesForRole(role);
   return (
     <ScrollView
@@ -1152,16 +1152,16 @@ function MessageBubble({
   onRetryTranslate: (messageId: string) => void;
   t: TFn;
 }) {
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight = scheme !== 'dark';
-  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
-  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+  const cardBg = theme.bg.surface;
+  const cardBorder = theme.border.default;
+  const textSecondary = theme.text.secondary;
   const failed = message.id.startsWith('failed-');
   const optimistic = message.id.startsWith('optimistic-');
 
   const bg = isMine ? BLUE : cardBg;
-  const fg = isMine ? '#FFFFFF' : (isLight ? '#1F2937' : '#F9FAFB');
+  const fg = isMine ? theme.text.onBrand : theme.text.primary;
 
   return (
     <View
@@ -1764,10 +1764,10 @@ function SendButton({
   sending: boolean;
   onPress: () => void;
 }) {
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight = scheme !== 'dark';
-  const mutedBg = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+  const mutedBg = theme.border.default;
+  const textSecondary = theme.text.secondary;
   return (
     <Pressable
       onPress={onPress}
@@ -1783,9 +1783,9 @@ function SendButton({
       }}
     >
       {sending ? (
-        <ActivityIndicator size="small" color={disabled ? textSecondary : '#FFFFFF'} />
+        <ActivityIndicator size="small" color={disabled ? textSecondary : theme.text.onBrand} />
       ) : (
-        <Feather name="send" size={17} color={disabled ? textSecondary : '#FFFFFF'} />
+        <Feather name="send" size={17} color={disabled ? textSecondary : theme.text.onBrand} />
       )}
     </Pressable>
   );
@@ -1876,12 +1876,12 @@ function PendingVoicePreview({
   onDiscard: () => void;
   t: TFn;
 }) {
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight = scheme !== 'dark';
-  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
-  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary = isLight ? '#1F2937' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+  const cardBg = theme.bg.surface;
+  const cardBorder = theme.border.default;
+  const textPrimary = theme.text.primary;
+  const textSecondary = theme.text.secondary;
   const playerRef = useRef<AudioPlayer | null>(null);
   const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -1991,7 +1991,7 @@ function PendingVoicePreview({
             justifyContent: 'center',
           }}
         >
-          <Feather name={playing ? 'pause' : 'play'} size={15} color="#FFFFFF" />
+          <Feather name={playing ? 'pause' : 'play'} size={15} color={theme.text.onBrand} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <PlaybackWaveform
@@ -2043,7 +2043,7 @@ function PendingVoicePreview({
             alignItems: 'center',
           }}
         >
-          <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFFFFF' }}>
+          <Text style={{ fontSize: 12, fontWeight: '600', color: theme.text.onBrand }}>
             {t('conversation.preview_send')}
           </Text>
         </Pressable>

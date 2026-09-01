@@ -407,7 +407,7 @@ function Inner() {
               }}
               hitSlop={8}
             >
-              <Text style={{ fontSize: 12, fontWeight: '600', color: theme.brand.accent }}>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: theme.brand.primary }}>
                 See more
               </Text>
             </Pressable>
@@ -424,12 +424,12 @@ function Inner() {
                   paddingHorizontal: 12,
                   paddingVertical: 8,
                   borderRadius: radii.pill,
-                  backgroundColor: theme.brand.accentSubtle,
+                  backgroundColor: theme.brand.primarySubtle,
                   borderWidth: 0.5,
-                  borderColor: theme.brand.accentBorder,
+                  borderColor: theme.brand.primaryBorder,
                 }}
               >
-                <Text style={{ fontSize: 12, fontWeight: '600', color: theme.brand.accent }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: theme.brand.primary }}>
                   {s.label}
                 </Text>
               </Pressable>
@@ -743,8 +743,8 @@ function MediaArea({
               borderRadius: radii.lg,
               borderWidth: 1,
               borderStyle: 'dashed',
-              borderColor: theme.brand.accentBorder,
-              backgroundColor: theme.brand.accentSubtle,
+              borderColor: theme.brand.primaryBorder,
+              backgroundColor: theme.brand.primarySubtle,
               alignItems: 'center',
               justifyContent: 'center',
               opacity: picking || mediaUris.length >= 6 ? 0.5 : 1,
@@ -755,7 +755,7 @@ function MediaArea({
               style={{
                 fontSize: 11,
                 fontWeight: '600',
-                color: theme.brand.accent,
+                color: theme.brand.primary,
                 marginTop: 4,
               }}
             >
@@ -839,8 +839,8 @@ function UploadZone({
         borderRadius: radii.lg,
         borderWidth: 1,
         borderStyle: 'dashed',
-        borderColor: theme.brand.accentBorder,
-        backgroundColor: theme.brand.accentSubtle,
+        borderColor: theme.brand.primaryBorder,
+        backgroundColor: theme.brand.primarySubtle,
         opacity: picking ? 0.6 : 1,
         gap: 6,
       }}

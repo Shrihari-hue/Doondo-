@@ -40,7 +40,7 @@ interface Props {
 }
 
 export function JobsMapView({ coords, jobs, radiusKm = 5 }: Props) {
-  const { theme } = useTheme();
+  const { scheme } = useTheme();
   const navigation = useNavigation<Nav>();
   const mapRef = useRef<MapView>(null);
 
@@ -134,10 +134,7 @@ export function JobsMapView({ coords, jobs, radiusKm = 5 }: Props) {
         initialRegion={initialRegion}
         // Apply our warm-black map style only in dark mode; in light mode
         // Google's default looks cleaner than fighting it with overrides.
-        customMapStyle={
-          // theme name lives on the closure via useTheme() above
-          theme.bg.canvas === '#0C0A0E' ? DOONDO_DARK_MAP_STYLE : []
-        }
+        customMapStyle={scheme === 'dark' ? DOONDO_DARK_MAP_STYLE : []}
         showsUserLocation
         showsMyLocationButton={false}
         showsCompass={false}
@@ -371,6 +368,7 @@ interface SalaryPinProps {
  * width with no internal flex, eliminating the truncation.
  */
 function SalaryPin({ pay, verified, active }: SalaryPinProps) {
+  const { theme } = useTheme();
   const fill = verified ? jade[500] : coral[500];
   const ring = champagne[300];
   const label = formatPayCompact(pay);
@@ -411,7 +409,7 @@ function SalaryPin({ pay, verified, active }: SalaryPinProps) {
           numberOfLines={1}
           allowFontScaling={false}
           style={{
-            color: '#FFFDF7',
+            color: theme.text.onBrand,
             fontSize: 13,
             fontWeight: '600',
             letterSpacing: 0.2,

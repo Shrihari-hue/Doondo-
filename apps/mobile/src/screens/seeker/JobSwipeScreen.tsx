@@ -373,13 +373,13 @@ function Inner() {
                         opacity: likeOpacity,
                         transform: [{ rotate: '-15deg' }],
                         borderWidth: 3,
-                        borderColor: '#10B981',
+                        borderColor: theme.success,
                         paddingHorizontal: 12,
                         paddingVertical: 4,
                         borderRadius: 6,
                       }}
                     >
-                      <Text style={{ color: '#10B981', fontWeight: '900', fontSize: 24 }}>
+                      <Text style={{ color: theme.success, fontWeight: '900', fontSize: 24 }}>
                         {t('jobs.swipe.overlay_interested')}
                       </Text>
                     </Animated.View>
@@ -391,13 +391,13 @@ function Inner() {
                         opacity: nopeOpacity,
                         transform: [{ rotate: '15deg' }],
                         borderWidth: 3,
-                        borderColor: '#EF4444',
+                        borderColor: theme.error,
                         paddingHorizontal: 12,
                         paddingVertical: 4,
                         borderRadius: 6,
                       }}
                     >
-                      <Text style={{ color: '#EF4444', fontWeight: '900', fontSize: 24 }}>
+                      <Text style={{ color: theme.error, fontWeight: '900', fontSize: 24 }}>
                         {t('jobs.swipe.overlay_skip')}
                       </Text>
                     </Animated.View>
@@ -439,7 +439,7 @@ function Inner() {
           <ActionButton
             iconName="close"
             onPress={() => fly('left', () => undefined)}
-            color="#B91C1C"
+            color={theme.error}
           />
           <ActionButton
             iconName="star"
@@ -460,7 +460,7 @@ function Inner() {
               if (!j) return;
               fly('right', () => interestMut.mutate(j.id));
             }}
-            color="#047857"
+            color={theme.success}
           />
         </View>
       )}

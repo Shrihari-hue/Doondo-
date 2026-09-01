@@ -25,19 +25,13 @@ import type { AppStackParamList } from '@/navigation/types';
 type Nav = NativeStackNavigationProp<AppStackParamList, 'CohortChat'>;
 type Route = RouteProp<AppStackParamList, 'CohortChat'>;
 
-const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named constant, not reachable from theme here
-
 function Bubble({ message, isMine, senderName }: { message: PublicCohortMessage; isMine: boolean; senderName: string }) {
-  const { scheme } = useTheme();
-  const isLight = scheme !== 'dark';
-  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
-  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
-  const fg = isMine ? '#FFFFFF' : isLight ? '#1F2937' : '#F9FAFB';
+  const { theme } = useTheme();
 
   if (message.kind === 'system') {
     return (
       <View style={{ alignItems: 'center', marginVertical: spacing.xs }}>
-        <Text style={{ fontSize: 11, color: cardBorder === '#1E1E1E' ? '#9CA3AF' : '#6B7280' }}>{message.body}</Text>
+        <Text style={{ fontSize: 11, color: theme.text.tertiary }}>{message.body}</Text>
       </View>
     );
   }
@@ -45,23 +39,23 @@ function Bubble({ message, isMine, senderName }: { message: PublicCohortMessage;
   return (
     <View style={{ alignSelf: isMine ? 'flex-end' : 'flex-start', maxWidth: '82%', marginBottom: spacing.xs }}>
       {!isMine && (
-        <Text style={{ fontSize: 11, color: '#6B7280', marginBottom: 2, marginLeft: 4 }}>{senderName}</Text>
+        <Text style={{ fontSize: 11, color: theme.text.secondary, marginBottom: 2, marginLeft: 4 }}>{senderName}</Text>
       )}
       <View
         style={{
-          backgroundColor: message.kind === 'image' ? 'transparent' : isMine ? BLUE : cardBg,
+          backgroundColor: message.kind === 'image' ? 'transparent' : isMine ? theme.brand.primary : theme.bg.surface,
           borderRadius: radii.lg,
           borderWidth: message.kind === 'image' ? 0 : !isMine ? 1 : 0,
-          borderColor: cardBorder,
+          borderColor: theme.border.default,
           overflow: 'hidden',
           paddingHorizontal: message.kind === 'image' ? 0 : 12,
           paddingVertical: message.kind === 'image' ? 0 : 8,
         }}
       >
         {message.kind === 'image' && message.attachment ? (
-          <Image source={{ uri: message.attachment.dataUrl }} style={{ width: 220, height: 165, backgroundColor: '#00000020' }} resizeMode="cover" />
+          <Image source={{ uri: message.attachment.dataUrl }} style={{ width: 220, height: 165, backgroundColor: theme.bg.muted }} resizeMode="cover" />
         ) : (
-          <Text style={{ color: fg, fontSize: 15, lineHeight: 21 }}>{message.body}</Text>
+          <Text style={{ color: isMine ? theme.text.onBrand : theme.text.primary, fontSize: 15, lineHeight: 21 }}>{message.body}</Text>
         )}
       </View>
     </View>
@@ -72,12 +66,11 @@ function Inner() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { user } = useAuth();
-  const { scheme } = useTheme();
-  const isLight = scheme !== 'dark';
-  const bg = isLight ? '#FFFFFF' : '#0C0A0E';
-  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary = isLight ? '#1F2937' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+  const { theme } = useTheme();
+  const bg = theme.bg.canvas;
+  const cardBorder = theme.border.default;
+  const textPrimary = theme.text.primary;
+  const textSecondary = theme.text.secondary;
   const t = useTranslate();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState('');
@@ -202,7 +195,7 @@ function Inner() {
           <View
             style={{
               flex: 1,
-              backgroundColor: isLight ? '#FFFFFF' : '#0D0D0D',
+              backgroundColor: theme.bg.surface,
               borderRadius: radii.lg,
               borderWidth: 1,
               borderColor: cardBorder,
@@ -230,11 +223,11 @@ function Inner() {
               borderRadius: 22,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: BLUE,
+              backgroundColor: theme.brand.primary,
               opacity: draft.trim().length === 0 ? 0.5 : 1,
             }}
           >
-            <Feather name="send" size={17} color="#FFFFFF" />
+            <Feather name="send" size={17} color={theme.text.onBrand} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>

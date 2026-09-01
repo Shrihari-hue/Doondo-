@@ -297,9 +297,9 @@ function LeaveRatingScreenInner() {
             }}
             trackColor={{
               false: theme.border.default,
-              true: theme.brand.accent,
+              true: theme.brand.primary,
             }}
-            thumbColor="#FFFDF7"
+            thumbColor={theme.text.onBrand}
           />
         </View>
 

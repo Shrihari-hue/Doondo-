@@ -280,7 +280,7 @@ function WhatsAppInboxInner() {
                   backgroundColor:
                     composer.trim().length === 0
                       ? theme.bg.muted
-                      : theme.brand.accent,
+                      : theme.brand.primary,
                   opacity: sendMutation.isPending ? 0.6 : 1,
                 }}
               >
@@ -373,7 +373,7 @@ function WhatsAppInboxInner() {
                         width: 8,
                         height: 8,
                         borderRadius: 4,
-                        backgroundColor: theme.brand.accent,
+                        backgroundColor: theme.brand.primary,
                         marginTop: 6,
                       }}
                     />
@@ -400,7 +400,7 @@ function WhatsAppInboxInner() {
                       <Text
                         variant="caption"
                         weight="medium"
-                        style={{ color: theme.brand.accent }}
+                        style={{ color: theme.brand.primary }}
                       >
                         Awaiting reply
                       </Text>

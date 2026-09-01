@@ -16,7 +16,11 @@ export const spacing = {
   '3xl': 32,
   '4xl': 40,
   '5xl': 48,
+  /** design/layout.md 8pt grid: 56 (between 5xl/48 and 6xl/64). */
+  56: 56,
   '6xl': 64,
+  /** design/layout.md 8pt grid: 72 — the largest value it lists. */
+  72: 72,
   '7xl': 80,
   '8xl': 96,
 } as const;

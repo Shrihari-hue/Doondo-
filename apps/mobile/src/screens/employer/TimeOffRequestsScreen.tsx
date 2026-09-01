@@ -96,15 +96,15 @@ function fmtDate(iso: string): string {
 export function TimeOffRequestsScreen() {
   const navigation = useNavigation();
   const insets     = useSafeAreaInsets();
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight    = scheme !== 'dark';
   const qc         = useQueryClient();
 
-  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
-  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary   = isLight ? '#111827' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
-  const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
+  const surface       = theme.bg.surface;
+  const border        = theme.border.default;
+  const textPrimary   = theme.text.primary;
+  const textSecondary = theme.text.secondary;
+  const bg            = theme.bg.canvas;
 
   // Local override map: requestId → approved | denied
   const [decisions, setDecisions] = useState<Record<string, RequestStatus>>({});
@@ -308,7 +308,7 @@ export function TimeOffRequestsScreen() {
                 paddingBottom: insets.bottom + spacing.xl,
               }}>
                 {/* Handle */}
-                <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center' }} />
+                <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: theme.border.strong, alignSelf: 'center' }} />
 
                 {/* Worker info */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
@@ -326,7 +326,7 @@ export function TimeOffRequestsScreen() {
                   { icon: 'info' as const, label: 'Reason', value: selected.reason },
                 ].map(({ icon, label, value }) => (
                   <View key={label} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
-                    <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: isLight ? '#F3F4F6' : '#1E1E1E', alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: theme.bg.muted, alignItems: 'center', justifyContent: 'center' }}>
                       <Feather name={icon} size={14} color={textSecondary} />
                     </View>
                     <View style={{ flex: 1 }}>
@@ -343,7 +343,7 @@ export function TimeOffRequestsScreen() {
                       onPress={() => decide(selected.id, 'denied')}
                       style={({ pressed }) => ({
                         flex: 1, alignItems: 'center', paddingVertical: 14,
-                        backgroundColor: isLight ? '#FEF2F2' : '#3B0000',
+                        backgroundColor: theme.status.dangerSubtle,
                         borderRadius: 14, borderWidth: 1, borderColor: RED,
                         opacity: pressed ? 0.7 : 1,
                       })}
@@ -359,7 +359,7 @@ export function TimeOffRequestsScreen() {
                         opacity: pressed ? 0.8 : 1,
                       })}
                     >
-                      <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>Approve</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text.onBrand }}>Approve</Text>
                     </Pressable>
                   </View>
                 ) : (

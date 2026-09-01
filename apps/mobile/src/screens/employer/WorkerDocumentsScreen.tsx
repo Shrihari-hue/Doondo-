@@ -12,6 +12,7 @@ import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
 import { spacing, radii } from '@doondo/tokens';
+import type { ThemeContextValue } from '@/theme/types';
 import { Screen, Text, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
@@ -62,12 +63,12 @@ const BASE_DOCS: Omit<DocItem, 'id' | 'status'>[] = [
   { icon: 'file-text',   label: 'Agreement'             },
 ];
 
-function getStatusStyle(isLight: boolean): Record<DocStatus, { color: string; bg: string }> {
+function getStatusStyle(theme: ThemeContextValue['theme']): Record<DocStatus, { color: string; bg: string }> {
   return {
-    Verified:  { color: GREEN,     bg: isLight ? '#F0FDF4' : '#052E16' },
-    Signed:    { color: BLUE,      bg: isLight ? '#EFF6FF' : '#1E3A5F' },
-    Pending:   { color: '#F59E0B', bg: isLight ? '#FFFBEB' : '#2A1A00' },
-    Uploading: { color: '#C8533A', bg: isLight ? '#FBEEEA' : '#3F140A' },
+    Verified:  { color: GREEN,     bg: theme.status.successSubtle },
+    Signed:    { color: BLUE,      bg: theme.brand.primarySubtle },
+    Pending:   { color: theme.warning, bg: theme.status.warningSubtle },
+    Uploading: { color: theme.brand.primary, bg: theme.brand.primarySubtle },
   };
 }
 
@@ -75,16 +76,16 @@ export function WorkerDocumentsScreen() {
   const navigation  = useNavigation<Nav>();
   const route       = useRoute<Route>();
   const insets      = useSafeAreaInsets();
-  const { scheme }  = useTheme();
+  const { theme, scheme }  = useTheme();
   const isLight     = scheme !== 'dark';
 
-  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
-  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary   = isLight ? '#111827' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
-  const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
+  const surface       = theme.bg.surface;
+  const border        = theme.border.default;
+  const textPrimary   = theme.text.primary;
+  const textSecondary = theme.text.secondary;
+  const bg            = theme.bg.canvas;
 
-  const STATUS_STYLE = getStatusStyle(isLight);
+  const STATUS_STYLE = getStatusStyle(theme);
 
   const derivedStatuses = deriveDocStatuses(route.params.applicationId);
   const [docs, setDocs] = useState<DocItem[]>(
@@ -155,23 +156,23 @@ export function WorkerDocumentsScreen() {
                   borderBottomColor: border, opacity: pressed && !isUploading ? 0.75 : 1,
                 })}>
                 <View style={{ width: 42, height: 42, borderRadius: 10,
-                  backgroundColor: isUploading ? (isLight ? '#FBEEEA' : '#3F140A') : (isLight ? '#F3F4F6' : '#1F2937'),
+                  backgroundColor: isUploading ? (theme.brand.primarySubtle) : (theme.bg.muted),
                   alignItems: 'center', justifyContent: 'center' }}>
                   {isUploading
-                    ? <Feather name="upload-cloud" size={19} color="#C8533A" />
+                    ? <Feather name="upload-cloud" size={19} color={theme.brand.primary} />
                     : <Feather name={doc.icon} size={19} color={textSecondary} />}
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={{ fontSize: 14, fontWeight: '600', color: textPrimary }}>{doc.label}</Text>
                   {doc.filename && isUploading && (
-                    <Text style={{ fontSize: 11, color: '#C8533A' }}>Uploading…</Text>
+                    <Text style={{ fontSize: 11, color: theme.brand.primary }}>Uploading…</Text>
                   )}
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <Text style={{ fontSize: 13, fontWeight: '700', color: st.color }}>{doc.status}</Text>
                   <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: st.color,
                     alignItems: 'center', justifyContent: 'center' }}>
-                    <Feather name={isUploading ? 'clock' : 'check'} size={11} color="#FFFFFF" />
+                    <Feather name={isUploading ? 'clock' : 'check'} size={11} color={theme.text.onBrand} />
                   </View>
                 </View>
                 {!isUploading && <Feather name="chevron-right" size={16} color={textSecondary} />}
@@ -184,15 +185,15 @@ export function WorkerDocumentsScreen() {
           backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 15,
           flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
         }}>
-          <Feather name="upload" size={18} color="#FFFFFF" />
-          <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>Upload New Document</Text>
+          <Feather name="upload" size={18} color={theme.text.onBrand} />
+          <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text.onBrand }}>Upload New Document</Text>
         </AnimatedPressable>
 
-        <View style={{ backgroundColor: isLight ? '#F8FAFF' : '#1A1F2E', borderRadius: radii.md, padding: spacing.md,
+        <View style={{ backgroundColor: theme.brand.primarySubtle, borderRadius: radii.md, padding: spacing.md,
           flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm,
-          borderWidth: 1, borderColor: isLight ? '#DBEAFE' : '#1E3A5F' }}>
+          borderWidth: 1, borderColor: theme.brand.primaryBorder }}>
           <Feather name="info" size={14} color={BLUE} style={{ marginTop: 1 }} />
-          <Text style={{ flex: 1, fontSize: 12, color: isLight ? '#1D4ED8' : '#93C5FD', lineHeight: 17 }}>
+          <Text style={{ flex: 1, fontSize: 12, color: theme.brand.primary, lineHeight: 17 }}>
             Uploaded documents are reviewed within 24 hours. Status changes to "Verified" once approved.
           </Text>
         </View>

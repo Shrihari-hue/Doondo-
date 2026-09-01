@@ -104,10 +104,10 @@ function HiringRequestsInner() {
           }}
         >
           <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={{ fontSize: 22, color: '#FFFFFF' }}>←</Text>
+            <Text style={{ fontSize: 22, color: theme.text.onBrand }}>←</Text>
           </Pressable>
           <Text
-            style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
+            style={{ fontSize: 17, fontWeight: '600', color: theme.text.onBrand, flex: 1 }}
           >
             Hiring requests
           </Text>
@@ -148,7 +148,7 @@ function HiringRequestsInner() {
               <RefreshControl
                 refreshing={query.isRefetching}
                 onRefresh={() => void query.refetch()}
-                tintColor={theme.brand.accent}
+                tintColor={theme.brand.primary}
               />
             }
             renderItem={({ item }) => (
@@ -252,7 +252,7 @@ function RequestCard({
               opacity: pending ? 0.5 : pressed ? 0.85 : 1,
             })}
           >
-            <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
+            <Text style={{ color: theme.text.onBrand, fontSize: 14, fontWeight: '700' }}>
               Accept
             </Text>
           </Pressable>

@@ -93,10 +93,10 @@ function CoursesInner() {
           }}
         >
           <Pressable onPress={() => navigation.goBack()} hitSlop={12} accessibilityRole="button" accessibilityLabel={t('common.back')}>
-            <Feather name="arrow-left" size={22} color="#FFFFFF" />
+            <Feather name="arrow-left" size={22} color={theme.text.onBrand} />
           </Pressable>
           <Text
-            style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
+            style={{ fontSize: 17, fontWeight: '600', color: theme.text.onBrand, flex: 1 }}
           >
             {t('courses.header_title')}
           </Text>
@@ -142,7 +142,7 @@ function CoursesInner() {
             <RefreshControl
               refreshing={catalogue.isRefetching}
               onRefresh={() => void catalogue.refetch()}
-              tintColor={theme.brand.accent}
+              tintColor={theme.brand.primary}
             />
           }
           ListHeaderComponent={
@@ -232,18 +232,18 @@ function BadgeStrip({
                     paddingHorizontal: spacing.md,
                     paddingVertical: spacing.sm,
                     borderRadius: radii.pill,
-                    backgroundColor: '#FEF3C7',
+                    backgroundColor: theme.status.warningSubtle,
                     borderWidth: 0.5,
-                    borderColor: '#FDE68A',
+                    borderColor: theme.status.warningBorder,
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 6,
                   }}
                 >
-                  <Feather name="award" size={13} color="#B45309" />
+                  <Feather name="award" size={13} color={theme.status.warning} />
                   <Text style={{ fontSize: 12 }}>{c.emoji}</Text>
                   <Text
-                    style={{ fontSize: 12, fontWeight: '700', color: '#78350F' }}
+                    style={{ fontSize: 12, fontWeight: '700', color: theme.status.warning }}
                   >
                     {c.title}
                   </Text>
@@ -352,7 +352,7 @@ function CourseCard({
               {course.title}
             </Text>
             {isCompleted ? (
-              <Feather name="award" size={13} color="#B45309" />
+              <Feather name="award" size={13} color={theme.status.warning} />
             ) : null}
           </View>
           <Text

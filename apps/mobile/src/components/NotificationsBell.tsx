@@ -63,7 +63,7 @@ export function NotificationsBell({ onPress, color }: Props) {
             variant="caption"
             weight="medium"
             style={{
-              color: '#FFFFFF',
+              color: theme.text.onBrand,
               fontSize: 10,
               lineHeight: 12,
             }}

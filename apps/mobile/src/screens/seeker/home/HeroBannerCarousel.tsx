@@ -56,6 +56,7 @@ interface Props {
 }
 
 export function HeroBannerCarousel({ onExploreJobs, navigation, t }: Props) {
+  const { theme } = useTheme();
   const [activeIndex, setActiveIndex] = useState(_sessionSlide);
   const [reducedMotion, setReducedMotion] = useState(false);
 
@@ -153,7 +154,7 @@ export function HeroBannerCarousel({ onExploreJobs, navigation, t }: Props) {
       style={{
         borderRadius: 20,
         overflow: 'hidden',
-        shadowColor: '#172554',
+        shadowColor: theme.brand.primary,
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.28,
         shadowRadius: 20,
@@ -206,7 +207,7 @@ export function HeroBannerCarousel({ onExploreJobs, navigation, t }: Props) {
               borderRadius: 3,
               backgroundColor:
                 i === activeIndex
-                  ? '#FFFFFF'
+                  ? theme.text.onBrand
                   : 'rgba(255,255,255,0.38)',
               // Smooth pill-expand on active dot
               ...(reducedMotion ? {} : { transition: 'width 0.3s' }),
@@ -221,9 +222,10 @@ export function HeroBannerCarousel({ onExploreJobs, navigation, t }: Props) {
 // ─── Slide 0: Explore Jobs ────────────────────────────────────────────────────
 
 function ExploreJobsSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
+  const { theme } = useTheme();
   return (
     <LinearGradient
-      colors={['#1E1B4B', '#172554', '#0F1A45']}
+      colors={theme.brand.primaryBannerGradient}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{
@@ -250,7 +252,7 @@ function ExploreJobsSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
             fontSize: 24,
             lineHeight: 30,
             fontWeight: '700',
-            color: '#FFFFFF',
+            color: theme.text.onBrand,
             letterSpacing: -0.5,
             maxWidth: 220,
           }}
@@ -262,7 +264,7 @@ function ExploreJobsSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
             alignSelf: 'flex-start',
             marginTop: spacing.xs,
             borderRadius: radii.pill,
-            backgroundColor: '#FFFFFF',
+            backgroundColor: theme.text.onBrand,
             shadowColor: '#0F172A',
             shadowOffset: { width: 0, height: 3 },
             shadowOpacity: 0.22,
@@ -287,11 +289,11 @@ function ExploreJobsSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
               }}
             >
               <Text
-                style={{ fontSize: 14, fontWeight: '800', color: '#0F1A45', letterSpacing: 0.1 }}
+                style={{ fontSize: 14, fontWeight: '800', color: theme.brand.primaryCard, letterSpacing: 0.1 }}
               >
                 {t('home.hero.cta')}
               </Text>
-              <Text style={{ fontSize: 14, color: '#0F1A45', fontWeight: '800' }}>→</Text>
+              <Text style={{ fontSize: 14, color: theme.brand.primaryCard, fontWeight: '800' }}>→</Text>
             </View>
           </Pressable>
         </View>
@@ -323,7 +325,7 @@ function SameDaySwipeSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
   const { theme } = useTheme();
   return (
     <LinearGradient
-      colors={['#1E3A8A', '#1D4ED8', '#1E40AF']}
+      colors={[theme.brand.primary, theme.brand.primary, theme.brand.primary]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{
@@ -352,7 +354,7 @@ function SameDaySwipeSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
               fontSize: 9,
               fontWeight: '800',
               letterSpacing: 1.8,
-              color: '#BFDBFE',
+              color: theme.brand.primaryBorder,
             }}
           >
             NEW FEATURE
@@ -364,7 +366,7 @@ function SameDaySwipeSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
             fontSize: 24,
             lineHeight: 30,
             fontWeight: '700',
-            color: '#FFFFFF',
+            color: theme.text.onBrand,
             letterSpacing: -0.5,
           }}
         >
@@ -412,11 +414,11 @@ function SameDaySwipeSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
               }}
             >
               <Text
-                style={{ fontSize: 14, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.1 }}
+                style={{ fontSize: 14, fontWeight: '800', color: theme.text.onBrand, letterSpacing: 0.1 }}
               >
                 {t('home.hero_swipe.cta')}
               </Text>
-              <Text style={{ fontSize: 14, color: '#FFFFFF', fontWeight: '800' }}>→</Text>
+              <Text style={{ fontSize: 14, color: theme.text.onBrand, fontWeight: '800' }}>→</Text>
             </View>
           </Pressable>
         </View>
@@ -446,6 +448,7 @@ function SameDaySwipeSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
  * Built entirely from View primitives — no asset import needed.
  */
 function SwipeIllustration() {
+  const { theme } = useTheme();
   return (
     <View style={{ width: 110, height: 130, position: 'relative' }}>
       {/* Card 3 — bottom of stack, rotated right */}
@@ -557,7 +560,7 @@ function SwipeIllustration() {
             justifyContent: 'center',
           }}
         >
-          <Text style={{ fontSize: 11, color: '#FCA5A5' }}>✕</Text>
+          <Text style={{ fontSize: 11, color: theme.status.danger }}>✕</Text>
         </View>
         <View
           style={{
@@ -571,7 +574,7 @@ function SwipeIllustration() {
             justifyContent: 'center',
           }}
         >
-          <Text style={{ fontSize: 11, color: '#6EE7B7' }}>✓</Text>
+          <Text style={{ fontSize: 11, color: theme.success }}>✓</Text>
         </View>
       </View>
     </View>

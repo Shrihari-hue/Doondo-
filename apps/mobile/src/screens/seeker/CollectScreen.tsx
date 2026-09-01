@@ -197,7 +197,7 @@ function Inner() {
                 <Text variant="footnote" tone="secondary">
                   {t('collect.balance_label')}
                 </Text>
-                <Text variant="display" weight="semibold" style={{ color: theme.brand.accent }}>
+                <Text variant="display" weight="semibold" style={{ color: theme.brand.primary }}>
                   {rupees(balance)}
                 </Text>
                 {bank?.verified ? (
@@ -349,7 +349,7 @@ function Inner() {
                 </Card>
               ) : qrs.length > 0 ? (
                 <Pressable onPress={() => setShownQr(qrs[0]!)}>
-                  <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
+                  <Text variant="footnote" weight="medium" style={{ color: theme.brand.primary }}>
                     {t('collect.show_existing', { n: qrs.length })}
                   </Text>
                 </Pressable>

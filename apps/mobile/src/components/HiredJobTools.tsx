@@ -178,7 +178,7 @@ function PrepChecklistCard({ application }: { application: PublicApplication }) 
               opacity: busy || !allChecked ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+            <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 13 }}>
               {t('prep_checklist.ready_cta')}
             </Text>
           </Pressable>
@@ -262,7 +262,7 @@ function WorkProofCard({ applicationId }: { applicationId: string }) {
             opacity: busy ? 0.6 : 1,
           }}
         >
-          <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+          <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 13 }}>
             {busy ? t('work_proof.sending') : t('work_proof.cta')}
           </Text>
         </Pressable>
@@ -354,12 +354,12 @@ function ShiftConfirmCard({ application }: { application: PublicApplication }) {
               flex: 1,
               paddingVertical: 10,
               borderRadius: radii.pill,
-              backgroundColor: '#10B981',
+              backgroundColor: theme.status.success,
               alignItems: 'center',
               opacity: busy ? 0.6 : 1,
             }}
           >
-            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+            <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 13 }}>
               {t('shift_confirm.coming')}
             </Text>
           </Pressable>
@@ -523,7 +523,7 @@ function ShiftCheckInCard({ applicationId }: { applicationId: string }) {
           opacity: busy ? 0.5 : pressed ? 0.85 : 1,
         })}
       >
-        <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFDF7' }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: theme.text.onBrand }}>
           {busy
             ? t('shift_card.working')
             : nextKind === 'check_in'

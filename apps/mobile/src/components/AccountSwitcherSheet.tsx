@@ -236,7 +236,7 @@ export function AccountSwitcherSheet({ visible, onClose, onAddEmployer }: Props)
                         }}
                       >
                         <Text
-                          style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}
+                          style={{ color: theme.text.onBrand, fontSize: 13, fontWeight: '700' }}
                         >
                           ✓
                         </Text>
@@ -259,7 +259,7 @@ export function AccountSwitcherSheet({ visible, onClose, onAddEmployer }: Props)
                         }}
                       >
                         <Text
-                          style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '800' }}
+                          style={{ color: theme.text.onBrand, fontSize: 12, fontWeight: '800' }}
                         >
                           {activityCount > 99 ? '99+' : activityCount}
                         </Text>

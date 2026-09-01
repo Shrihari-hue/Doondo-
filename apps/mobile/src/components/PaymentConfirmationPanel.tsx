@@ -238,7 +238,7 @@ export function PaymentConfirmationPanel({
                 opacity: mutation.isPending ? 0.5 : pressed ? 0.85 : 1,
               })}
             >
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: theme.text.onBrand }}>
                 ✓ Confirm paid
               </Text>
             </Pressable>
@@ -303,7 +303,7 @@ export function PaymentConfirmationPanel({
             opacity: mutation.isPending ? 0.5 : pressed ? 0.85 : 1,
           })}
         >
-          <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: theme.text.onBrand }}>
             ✓ Mark as paid
           </Text>
         </Pressable>

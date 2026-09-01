@@ -87,7 +87,7 @@ function Inner() {
           <RefreshControl
             refreshing={loading}
             onRefresh={() => void loadFeed()}
-            tintColor={theme.brand.accent}
+            tintColor={theme.brand.primary}
           />
         }
         contentContainerStyle={{
@@ -217,7 +217,7 @@ function QuickAction({
         opacity: pressed ? 0.6 : 1,
       })}
     >
-      <Feather name={icon} size={15} color={theme.brand.accent} />
+      <Feather name={icon} size={15} color={theme.brand.primary} />
       <Text style={{ fontSize: 12, fontWeight: '500', color: theme.text.secondary }}>
         {label}
       </Text>

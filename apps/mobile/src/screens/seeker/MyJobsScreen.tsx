@@ -181,7 +181,7 @@ function MyJobsInner() {
             <RefreshControl
               refreshing={activeQuery.isRefetching}
               onRefresh={() => void activeQuery.refetch()}
-              tintColor={theme.brand.accent}
+              tintColor={theme.brand.primary}
             />
           }
           renderItem={({ item }) => <JobRow t={t} job={item} onPress={() => openJob(item)} />}

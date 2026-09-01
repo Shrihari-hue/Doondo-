@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { spacing, radii } from '@doondo/tokens';
+import type { ThemeContextValue } from '@/theme/types';
 import { Screen, Text, EmptyState, LoadingSpinner } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
@@ -31,20 +32,24 @@ function formatINR(paise: number): string {
   return `₹${Math.round(paise / 100).toLocaleString('en-IN')}`;
 }
 
-function statusCopy(s: PublicAdvance['status'], t: TFn): { label: string; color: string } {
+function statusCopy(
+  s: PublicAdvance['status'],
+  t: TFn,
+  theme: ThemeContextValue['theme'],
+): { label: string; color: string } {
   switch (s) {
     case 'requested':
-      return { label: t('advance.status_requested'), color: '#92400E' };
+      return { label: t('advance.status_requested'), color: theme.warning };
     case 'approved':
-      return { label: t('advance.status_approved'), color: '#065F46' };
+      return { label: t('advance.status_approved'), color: theme.success };
     case 'paid':
-      return { label: t('advance.status_paid'), color: '#047857' };
+      return { label: t('advance.status_paid'), color: theme.success };
     case 'repaid':
-      return { label: t('advance.status_repaid'), color: '#1F2937' };
+      return { label: t('advance.status_repaid'), color: theme.text.secondary };
     case 'declined':
-      return { label: t('advance.status_declined'), color: '#B91C1C' };
+      return { label: t('advance.status_declined'), color: theme.error };
     case 'cancelled':
-      return { label: t('advance.status_cancelled'), color: '#6B7280' };
+      return { label: t('advance.status_cancelled'), color: theme.text.tertiary };
   }
 }
 
@@ -190,14 +195,14 @@ function Inner() {
               backgroundColor: theme.brand.primary,
               alignItems: 'center',
               opacity: createMut.isPending ? 0.6 : 1,
-              shadowColor: '#1E40AF',
+              shadowColor: theme.brand.primary,
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.25,
               shadowRadius: 6,
               elevation: 4,
             }}
           >
-            <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
+            <Text style={{ color: theme.text.onBrand, fontWeight: '700' }}>
               {createMut.isPending
                 ? t('advance.form_submitting')
                 : t('advance.form_request_btn', { amount: formatINR(amount) })}
@@ -235,7 +240,7 @@ function Inner() {
               }}
             >
               {advances.map((a, i) => {
-                const sc = statusCopy(a.status, t);
+                const sc = statusCopy(a.status, t, theme);
                 return (
                   <View
                     key={a.id}
@@ -280,7 +285,7 @@ function Inner() {
                         onPress={() => cancelMut.mutate(a.id)}
                         style={{ marginTop: 6, alignSelf: 'flex-start' }}
                       >
-                        <Text style={{ fontSize: 12, color: '#B91C1C', fontWeight: '600' }}>
+                        <Text style={{ fontSize: 12, color: theme.error, fontWeight: '600' }}>
                           {t('advance.history_cancel_request')}
                         </Text>
                       </Pressable>

@@ -30,15 +30,15 @@ export function WorkerDetailScreen() {
   const navigation   = useNavigation<Nav>();
   const route        = useRoute<Route>();
   const insets       = useSafeAreaInsets();
-  const { scheme }   = useTheme();
+  const { theme, scheme }   = useTheme();
   const isLight      = scheme !== 'dark';
   const queryClient  = useQueryClient();
 
-  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
-  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary   = isLight ? '#111827' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
-  const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
+  const surface       = theme.bg.surface;
+  const border        = theme.border.default;
+  const textPrimary   = theme.text.primary;
+  const textSecondary = theme.text.secondary;
+  const bg            = theme.bg.canvas;
 
   // Seed from workers-tab cache first — avoids a fresh 200-record fetch
   const workerQuery = useQuery({
@@ -207,10 +207,10 @@ export function WorkerDetailScreen() {
                 {w.seeker?.isVerified && (
                   <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: BLUE,
                     alignItems: 'center', justifyContent: 'center' }}>
-                    <Feather name="check" size={12} color="#FFFFFF" />
+                    <Feather name="check" size={12} color={theme.text.onBrand} />
                   </View>
                 )}
-                <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20, backgroundColor: isLight ? '#F0FDF4' : '#052E16' }}>
+                <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20, backgroundColor: theme.status.successSubtle }}>
                   <Text style={{ fontSize: 11, fontWeight: '700', color: GREEN }}>Active</Text>
                 </View>
               </View>
@@ -228,7 +228,7 @@ export function WorkerDetailScreen() {
                 <Text style={{ fontSize: 24, fontWeight: '900', color: textPrimary }}>{trustScore}/100</Text>
                 <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: GREEN,
                   alignItems: 'center', justifyContent: 'center' }}>
-                  <Feather name="shield" size={13} color="#FFFFFF" />
+                  <Feather name="shield" size={13} color={theme.text.onBrand} />
                 </View>
               </View>
               <Text style={{ fontSize: 12, color: GREEN, fontWeight: '600' }}>Excellent</Text>
@@ -244,11 +244,11 @@ export function WorkerDetailScreen() {
 
         {/* "—" values banner */}
         {(phone === '—' || workingHours === '—') && (
-          <View style={{ backgroundColor: isLight ? '#F8FAFF' : '#1E2A3A', borderRadius: 10, padding: spacing.md,
+          <View style={{ backgroundColor: theme.brand.primarySubtle, borderRadius: 10, padding: spacing.md,
             flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-            borderWidth: 1, borderColor: isLight ? '#DBEAFE' : '#1E3A5F' }}>
+            borderWidth: 1, borderColor: theme.brand.primaryBorder }}>
             <Feather name="info" size={14} color={BLUE} />
-            <Text style={{ flex: 1, fontSize: 12, color: '#1D4ED8', lineHeight: 17 }}>
+            <Text style={{ flex: 1, fontSize: 12, color: theme.brand.primary, lineHeight: 17 }}>
               Some details show "—" because the worker hasn't filled their profile or started shifts yet.
             </Text>
           </View>
@@ -259,7 +259,7 @@ export function WorkerDetailScreen() {
           {INFO_ROWS.map((row, i) => (
             <View key={row.label} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md,
               padding: spacing.md, borderBottomWidth: i < INFO_ROWS.length - 1 ? 1 : 0, borderBottomColor: border }}>
-              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: theme.brand.primarySubtle,
                 alignItems: 'center', justifyContent: 'center' }}>
                 <Feather name={row.icon} size={17} color={BLUE} />
               </View>
@@ -289,8 +289,8 @@ export function WorkerDetailScreen() {
               flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
               backgroundColor: BLUE, borderRadius: 12, paddingVertical: 13,
             }}>
-            <Feather name="message-square" size={18} color="#FFFFFF" />
-            <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>Message</Text>
+            <Feather name="message-square" size={18} color={theme.text.onBrand} />
+            <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text.onBrand }}>Message</Text>
           </AnimatedPressable>
           <AnimatedPressable
             onPress={() => {
@@ -327,7 +327,7 @@ export function WorkerDetailScreen() {
                   padding: spacing.md, borderBottomWidth: i < QUICK_NAV.length - 1 ? 1 : 0,
                   borderBottomColor: border,
                 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: theme.brand.primarySubtle,
                   alignItems: 'center', justifyContent: 'center' }}>
                   <Feather name={item.icon} size={17} color={BLUE} />
                 </View>

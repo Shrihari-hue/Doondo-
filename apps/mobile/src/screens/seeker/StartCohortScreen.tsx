@@ -130,7 +130,7 @@ function Inner() {
                     <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: theme.text.primary }}>
                       {c.title}
                     </Text>
-                    {active && <Feather name="check" size={16} color={theme.brand.accent} />}
+                    {active && <Feather name="check" size={16} color={theme.brand.primary} />}
                   </Pressable>
                 );
               })}
@@ -171,7 +171,7 @@ function Inner() {
                     <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: theme.text.primary }}>
                       {f.name}
                     </Text>
-                    {active && <Feather name="check-circle" size={18} color={theme.brand.accent} />}
+                    {active && <Feather name="check-circle" size={18} color={theme.brand.primary} />}
                   </Pressable>
                 );
               })}

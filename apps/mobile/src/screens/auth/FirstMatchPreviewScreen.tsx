@@ -167,7 +167,7 @@ export function FirstMatchPreviewScreen() {
           <Text
             variant="titleLarge"
             weight="medium"
-            style={{ color: '#FFFFFF', textAlign: 'center' }}
+            style={{ color: theme.text.onBrand, textAlign: 'center' }}
           >
             {t('first_match.title')}
           </Text>
@@ -242,7 +242,7 @@ export function FirstMatchPreviewScreen() {
               alignItems: 'center',
             }}
           >
-            <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFFFF' }}>
+            <Text variant="bodyLarge" weight="medium" style={{ color: theme.text.onBrand }}>
               {t('first_match.cta')}
             </Text>
           </LinearGradient>
@@ -340,13 +340,13 @@ function PreviewCard({ job, onPress, t }: PreviewCardProps) {
         padding: spacing.lg,
         borderRadius: radii.lg,
         borderWidth: 0.5,
-        borderColor: job.urgent ? theme.brand.accent : theme.border.default,
+        borderColor: job.urgent ? theme.brand.primary : theme.border.default,
         backgroundColor: theme.bg.surface,
         gap: spacing.sm,
       }}
     >
       <View style={{ flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' }}>
-        {job.urgent && <Pill label={t('first_match.pill_urgent')} tone="hero" />}
+        {job.urgent && <Pill label={t('first_match.pill_urgent')} tone="primary" />}
         {job.employer?.isVerified && (
           <Pill label={t('first_match.pill_verified')} tone="success" />
         )}

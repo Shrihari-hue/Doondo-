@@ -41,7 +41,7 @@ export function Card({
       style={[
         {
           backgroundColor: elevated ? theme.bg.elevated : theme.bg.surface,
-          borderRadius: radii.lg,
+          borderRadius: radii.xl, // design/components.md Card: 20px
           borderWidth: 0.5,
           borderColor: premium ? theme.premium.hairline : theme.border.default,
           padding: flush ? 0 : spacing.lg,

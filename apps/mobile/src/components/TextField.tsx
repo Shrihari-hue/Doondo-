@@ -54,9 +54,9 @@ export const TextField = forwardRef<TextInput, Props>(function TextField(
           backgroundColor: theme.bg.surface,
           borderColor,
           borderWidth: 0.5,
-          borderRadius: radii.md,
-          paddingHorizontal: spacing.md,
-          minHeight: 48,
+          borderRadius: radii.button, // design/components.md TextInput: 14-16px
+          paddingHorizontal: spacing.lg, // design/components.md TextInput: 16px
+          minHeight: 52, // design/components.md TextInput: 52-56px
         }}
       >
         <TextInput

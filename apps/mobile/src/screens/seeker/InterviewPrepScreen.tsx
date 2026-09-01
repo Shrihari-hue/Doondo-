@@ -223,12 +223,12 @@ function Section({
                 width: 26,
                 height: 26,
                 borderRadius: 13,
-                backgroundColor: theme.brand.accentSubtle,
+                backgroundColor: theme.brand.primarySubtle,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.accent }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: theme.brand.primary }}>
                 {i + 1}
               </Text>
             </View>

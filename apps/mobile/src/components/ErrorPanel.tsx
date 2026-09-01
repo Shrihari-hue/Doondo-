@@ -178,7 +178,7 @@ export function ErrorPanel({ error, onRetry, compact = false, title }: Props) {
             elevation: 4,
           })}
         >
-          <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+          <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 14 }}>
             {copy.cta}
           </Text>
         </Pressable>

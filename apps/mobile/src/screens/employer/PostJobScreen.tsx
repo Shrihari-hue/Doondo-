@@ -404,16 +404,16 @@ export function PostJobScreen() {
   const canSave = validationReason === null && !mutation.isPending;
 
   const isLight = scheme !== 'dark';
-  const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named constant, not reachable from theme here
-  const BLUE_LIGHT = isLight ? '#EFF6FF' : 'rgba(37,99,235,0.16)';
-  const screenBg = isLight ? '#FFFFFF' : '#0C0A0E';
-  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
-  const inputFill = isLight ? '#FAFAFA' : '#141414';
-  const inputBorder = isLight ? '#E5E7EB' : '#1E1E1E';
-  const labelColor = isLight ? '#374151' : '#D1D5DB';
-  const placeholderColor = isLight ? '#9CA3AF' : '#6B7280';
-  const textColor = isLight ? '#1F2937' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+  const BLUE = theme.brand.primary;
+  const BLUE_LIGHT = theme.brand.primarySubtle;
+  const screenBg = theme.bg.surface;
+  const cardBg = theme.bg.surface;
+  const inputFill = theme.bg.muted;
+  const inputBorder = theme.border.default;
+  const labelColor = theme.text.secondary;
+  const placeholderColor = theme.text.tertiary;
+  const textColor = theme.text.primary;
+  const textSecondary = theme.text.secondary;
 
   return (
     <Screen edges={[]}>
@@ -706,7 +706,7 @@ export function PostJobScreen() {
                     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
                     borderWidth: amount === p.val ? 1.5 : 1,
                     borderColor: amount === p.val ? BLUE : inputBorder,
-                    backgroundColor: amount === p.val ? (isLight ? '#EFF6FF' : '#1E3A5F') : (isLight ? '#FAFAFA' : '#1F2937'),
+                    backgroundColor: amount === p.val ? (theme.brand.primarySubtle) : (theme.bg.muted),
                     opacity: pressed ? 0.8 : 1,
                   })}>
                   <Text style={{ fontSize: 13, fontWeight: amount === p.val ? '700' : '500',
@@ -1158,7 +1158,7 @@ export function PostJobScreen() {
                       style={{
                         fontSize: 13,
                         fontWeight: '700',
-                        color: active ? '#FFFFFF' : theme.text.primary,
+                        color: active ? theme.text.onBrand : theme.text.primary,
                       }}
                     >
                       {label}
@@ -1200,7 +1200,7 @@ export function PostJobScreen() {
               }}
             >
               {urgent ? (
-                <Text variant="footnote" weight="medium" style={{ color: '#FFFFFF', lineHeight: 16 }}>
+                <Text variant="footnote" weight="medium" style={{ color: theme.text.onBrand, lineHeight: 16 }}>
                   ✓
                 </Text>
               ) : null}
@@ -1231,14 +1231,14 @@ export function PostJobScreen() {
               onPress={() => { haptic('selection'); mutation.mutate(); }}
               disabled={!canSave}
               style={({ pressed }) => ({
-                backgroundColor: canSave ? BLUE : '#93C5FD',
+                backgroundColor: canSave ? BLUE : theme.brand.primaryLight,
                 borderRadius: radii.lg,
                 paddingVertical: 16,
                 alignItems: 'center',
                 opacity: pressed ? 0.9 : 1,
               })}
             >
-              <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: theme.text.onBrand }}>
                 {mutation.isPending
                   ? (routeParams?.editJobId ? 'Saving…' : 'Publishing…')
                   : (routeParams?.editJobId ? 'Save Changes' : 'Publish Job')}
@@ -1290,13 +1290,13 @@ export function PostJobScreen() {
                     borderRadius: 14,
                     padding: 14,
                     marginBottom: 12,
-                    backgroundColor: isLight ? '#F9FAFB' : '#1F2937',
+                    backgroundColor: theme.bg.muted,
                   }}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                     <Text style={{ fontSize: 15, fontWeight: '700', color: textColor, flex: 1 }} numberOfLines={1}>{tpl.name}</Text>
                     <Pressable hitSlop={8} onPress={() => { haptic('selection'); void deleteTemplate(tpl.id); }}>
-                      <Feather name="trash-2" size={16} color="#EF4444" />
+                      <Feather name="trash-2" size={16} color={theme.error} />
                     </Pressable>
                   </View>
                   <Text style={{ fontSize: 13, color: textSecondary, marginBottom: 10 }} numberOfLines={2}>
@@ -1305,13 +1305,13 @@ export function PostJobScreen() {
                   <Pressable
                     onPress={() => { applyTemplate(tpl); setShowTemplates(false); haptic('success'); }}
                     style={({ pressed }) => ({
-                      backgroundColor: pressed ? '#1D4ED8' : BLUE,
+                      backgroundColor: pressed ? theme.brand.primaryDark : BLUE,
                       borderRadius: 10,
                       paddingVertical: 9,
                       alignItems: 'center',
                     })}
                   >
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>Use Template</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text.onBrand }}>Use Template</Text>
                   </Pressable>
                 </View>
               ))}
@@ -1351,7 +1351,7 @@ export function PostJobScreen() {
               {/* Header */}
               <View style={{ gap: 4 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Feather name="check-circle" size={20} color="#16A34A" />
+                  <Feather name="check-circle" size={20} color={theme.success} />
                   <Text style={{ fontSize: 18, fontWeight: '700', color: textColor }}>Job posted!</Text>
                 </View>
                 {reHireSuggestions.length > 0 ? (
@@ -1393,12 +1393,12 @@ export function PostJobScreen() {
                           style={({ pressed }) => ({
                             paddingHorizontal: 14, paddingVertical: 8,
                             borderRadius: 20,
-                            backgroundColor: invited ? inputFill : (pressed ? '#1D4ED8' : BLUE),
+                            backgroundColor: invited ? inputFill : (pressed ? theme.brand.primaryDark : BLUE),
                             borderWidth: invited ? 1 : 0,
                             borderColor: inputBorder,
                           })}
                         >
-                          <Text style={{ fontSize: 13, fontWeight: '700', color: invited ? placeholderColor : '#FFFFFF' }}>
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: invited ? placeholderColor : theme.text.onBrand }}>
                             {invited ? 'Invited ✓' : 'Invite'}
                           </Text>
                         </Pressable>
@@ -1420,7 +1420,7 @@ export function PostJobScreen() {
               >
                 <Text style={{
                   fontSize: 16, fontWeight: '700',
-                  color: reHireSuggestions.length > 0 ? labelColor : '#FFFFFF',
+                  color: reHireSuggestions.length > 0 ? labelColor : theme.text.onBrand,
                 }}>
                   {reHireSuggestions.length > 0 ? 'Done — Go to My Jobs' : 'View My Jobs'}
                 </Text>
@@ -1460,7 +1460,7 @@ function VoiceDescriptionField({
   const { theme, scheme } = useTheme();
   const isLight = scheme !== 'dark';
   const t = useTranslate();
-  const ORANGE = '#F97316';
+  const ORANGE = theme.voice;
 
   if (audio) {
     return (
@@ -1468,9 +1468,9 @@ function VoiceDescriptionField({
         style={{
           padding: spacing.md,
           borderRadius: radii.lg,
-          backgroundColor: isLight ? '#FFF7ED' : 'rgba(249,115,22,0.14)',
+          backgroundColor: theme.status.warningSubtle,
           borderWidth: 0.5,
-          borderColor: isLight ? '#FED7AA' : 'rgba(249,115,22,0.35)',
+          borderColor: theme.status.warningBorder,
           flexDirection: 'row',
           alignItems: 'center',
           gap: spacing.md,
@@ -1486,7 +1486,7 @@ function VoiceDescriptionField({
             justifyContent: 'center',
           }}
         >
-          <Feather name="mic" size={16} color="#FFFFFF" />
+          <Feather name="mic" size={16} color={theme.text.onBrand} />
         </View>
         <View style={{ flex: 1 }}>
           <Text variant="body" weight="medium">
@@ -1730,7 +1730,7 @@ function WomenSafetyField({
                 <Text
                   variant="footnote"
                   weight="medium"
-                  style={{ color: '#FFFFFF', lineHeight: 16 }}
+                  style={{ color: theme.text.onBrand, lineHeight: 16 }}
                 >
                   ✓
                 </Text>

@@ -199,7 +199,7 @@ function Inner() {
                 </Text>
               ) : null}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: theme.brand.accent }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: theme.brand.primary }}>
                   {formatPay(job.pay)}
                 </Text>
                 <Text style={{ fontSize: 12, color: theme.text.tertiary }}>

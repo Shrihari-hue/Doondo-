@@ -38,7 +38,7 @@ const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named con
 
 export function ApplicantCard({ applicant, showJobTitle = false, blind = false, blindIndex, onLongPress, fitScore }: Props) {
   const navigation = useNavigation<Nav>();
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight = scheme !== 'dark';
   const t = useTranslate();
 
@@ -52,10 +52,10 @@ export function ApplicantCard({ applicant, showJobTitle = false, blind = false, 
   const isHired = applicant.status === 'hired';
   const isScheduled = (applicant as any).interview?.status === 'scheduled';
 
-  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
-  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary = isLight ? '#1F2937' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+  const cardBg = theme.bg.surface;
+  const cardBorder = theme.border.default;
+  const textPrimary = theme.text.primary;
+  const textSecondary = theme.text.secondary;
 
   const location =
     applicant.seeker?.location?.area ??
@@ -154,20 +154,20 @@ export function ApplicantCard({ applicant, showJobTitle = false, blind = false, 
             <View style={{
               paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
               backgroundColor:
-                fitScore >= 80 ? (isLight ? '#F0FDF4' : '#052E16') :
-                fitScore >= 55 ? (isLight ? '#FFFBEB' : '#2A1A00') :
-                                 (isLight ? '#FEF2F2' : '#3B0A0A'),
+                fitScore >= 80 ? (theme.status.successSubtle) :
+                fitScore >= 55 ? (theme.status.warningSubtle) :
+                                 (theme.status.dangerSubtle),
               borderWidth: 0.5,
               borderColor:
-                fitScore >= 80 ? (isLight ? '#86EFAC' : '#166534') :
-                fitScore >= 55 ? (isLight ? '#FDE68A' : '#78350F') :
-                                 (isLight ? '#FCA5A5' : '#7F1D1D'),
+                fitScore >= 80 ? (theme.status.successBorder) :
+                fitScore >= 55 ? (theme.status.warningBorder) :
+                                 (theme.status.dangerBorder),
             }}>
               <Text style={{
                 fontSize: 11, fontWeight: '700',
                 color:
-                  fitScore >= 80 ? '#15803D' :
-                  fitScore >= 55 ? '#B45309' : '#DC2626',
+                  fitScore >= 80 ? theme.status.success :
+                  fitScore >= 55 ? theme.warning : theme.error,
               }}>
                 {fitScore}% match
               </Text>
@@ -253,6 +253,7 @@ function PipelineStrip({
   isScheduled: boolean;
   isLight: boolean;
 }) {
+  const { theme } = useTheme();
   const active = stepIndex(status, isScheduled);
   const isRejected = status === 'rejected';
 
@@ -275,8 +276,8 @@ function PipelineStrip({
       {PIPELINE_STEPS.map((step, i) => {
         const isDone = i <= active && !isRejected;
         const isCurrent = i === active && !isRejected;
-        const dotColor = isRejected ? '#EF4444' : isDone ? BLUE : (isLight ? '#D1D5DB' : '#374151');
-        const labelColor = isRejected && isCurrent ? '#EF4444' : isCurrent ? BLUE : (isLight ? '#9CA3AF' : '#6B7280');
+        const dotColor = isRejected ? theme.error : isDone ? BLUE : (theme.border.strong);
+        const labelColor = isRejected && isCurrent ? theme.error : isCurrent ? BLUE : (theme.text.tertiary);
 
         return (
           <View key={step.key} style={{ flex: 1, alignItems: 'center', gap: 3 }}>
@@ -285,13 +286,13 @@ function PipelineStrip({
               {i > 0 && (
                 <View style={{
                   flex: 1, height: 1.5,
-                  backgroundColor: i <= active && !isRejected ? BLUE : (isLight ? '#E5E7EB' : '#374151'),
+                  backgroundColor: i <= active && !isRejected ? BLUE : (theme.border.default),
                 }} />
               )}
               {isCurrent ? (
                 <Animated.View style={{
                   width: 10, height: 10, borderRadius: 5,
-                  backgroundColor: isRejected ? '#EF4444' : BLUE,
+                  backgroundColor: isRejected ? theme.error : BLUE,
                   transform: [{ scale: pulseScale }],
                 }} />
               ) : (
@@ -303,7 +304,7 @@ function PipelineStrip({
               {i < PIPELINE_STEPS.length - 1 && (
                 <View style={{
                   flex: 1, height: 1.5,
-                  backgroundColor: i < active && !isRejected ? BLUE : (isLight ? '#E5E7EB' : '#374151'),
+                  backgroundColor: i < active && !isRejected ? BLUE : (theme.border.default),
                 }} />
               )}
             </View>

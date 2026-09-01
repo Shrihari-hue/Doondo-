@@ -447,10 +447,10 @@ export function WorkforceScreen() {
                       paddingHorizontal: spacing.md,
                       paddingVertical: 6,
                       borderRadius: radii.pill,
-                      backgroundColor: theme.brand.accent,
+                      backgroundColor: theme.brand.primary,
                     }}
                   >
-                    <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>
+                    <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 12 }}>
                       {t('employer.crew.churn_reach_out')}
                     </Text>
                   </Pressable>
@@ -472,7 +472,7 @@ export function WorkforceScreen() {
                 {t('employer.crew.timesheet_title')}
               </Text>
               <Pressable onPress={exportTimesheet} hitSlop={8}>
-                <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
+                <Text variant="footnote" weight="medium" style={{ color: theme.brand.primary }}>
                   {t('employer.crew.timesheet_export')}
                 </Text>
               </Pressable>
@@ -522,7 +522,7 @@ export function WorkforceScreen() {
                 hitSlop={8}
                 accessibilityRole="button"
               >
-                <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
+                <Text variant="footnote" weight="medium" style={{ color: theme.brand.primary }}>
                   {t('employer.squad.new')}
                 </Text>
               </Pressable>
@@ -549,7 +549,7 @@ export function WorkforceScreen() {
                   </Text>
                   <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xs }}>
                     <Pressable onPress={() => setDeployFor(sq)} hitSlop={6} accessibilityRole="button">
-                      <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
+                      <Text variant="footnote" weight="medium" style={{ color: theme.brand.primary }}>
                         {t('employer.squad.deploy')}
                       </Text>
                     </Pressable>
@@ -578,11 +578,11 @@ export function WorkforceScreen() {
             borderRadius: radii.pill,
             alignItems: 'center',
             borderWidth: 0.5,
-            borderColor: theme.brand.accent,
+            borderColor: theme.brand.primary,
             opacity: statementBusy ? 0.6 : 1,
           }}
         >
-          <Text variant="body" weight="medium" style={{ color: theme.brand.accent }}>
+          <Text variant="body" weight="medium" style={{ color: theme.brand.primary }}>
             {statementBusy
               ? t('employer.statement.generating')
               : t('employer.statement.cta')}
@@ -596,11 +596,11 @@ export function WorkforceScreen() {
             paddingVertical: 14,
             borderRadius: radii.pill,
             alignItems: 'center',
-            backgroundColor: theme.brand.accent,
+            backgroundColor: theme.brand.primary,
             opacity: importing ? 0.6 : 1,
           }}
         >
-          <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 15 }}>
+          <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 15 }}>
             {importing ? t('employer.crew.importing') : t('employer.crew.import_cta')}
           </Text>
         </Pressable>
@@ -638,10 +638,10 @@ export function WorkforceScreen() {
                       paddingHorizontal: spacing.md,
                       paddingVertical: 6,
                       borderRadius: radii.pill,
-                      backgroundColor: theme.brand.accent,
+                      backgroundColor: theme.brand.primary,
                     }}
                   >
-                    <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>
+                    <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 12 }}>
                       {t('employer.crew.rehire')}
                     </Text>
                   </Pressable>
@@ -827,7 +827,7 @@ export function WorkforceScreen() {
                         borderRadius: radii.lg,
                         borderWidth: 0.5,
                         borderColor: picked ? theme.brand.primary : theme.border.default,
-                        backgroundColor: picked ? `${theme.brand.accent}14` : 'transparent',
+                        backgroundColor: picked ? `${theme.brand.primary}14` : 'transparent',
                       }}
                     >
                       <Avatar name={w.name} photoUrl={w.photoUrl} size={32} />

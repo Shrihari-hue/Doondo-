@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii } from '@doondo/tokens';
+import type { ThemeContextValue } from '@/theme/types';
 import { Screen, Text, BlurOverlay, EmptyState, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
@@ -51,19 +52,19 @@ const SEED_TASKS: Task[] = [
     date: 'Done: 10 Jun',priority: 'Medium', status: 'completed',   icon: 'wind' },
 ];
 
-function getPriorityStyle(isLight: boolean): Record<TaskPriority, { bg: string; fg: string }> {
+function getPriorityStyle(theme: ThemeContextValue['theme']): Record<TaskPriority, { bg: string; fg: string }> {
   return {
-    High:   { bg: isLight ? '#FEF2F2' : '#3B0A0A', fg: ORANGE },
-    Medium: { bg: isLight ? '#FFFBEB' : '#2A1A00', fg: AMBER },
-    Low:    { bg: isLight ? '#F0FDF4' : '#052E16', fg: GREEN },
+    High:   { bg: theme.status.dangerSubtle, fg: ORANGE },
+    Medium: { bg: theme.status.warningSubtle, fg: AMBER },
+    Low:    { bg: theme.status.successSubtle, fg: GREEN },
   };
 }
 
-function getStatusStyle(isLight: boolean): Record<TaskStatus, { bg: string; fg: string; label: string }> {
+function getStatusStyle(theme: ThemeContextValue['theme']): Record<TaskStatus, { bg: string; fg: string; label: string }> {
   return {
-    pending:     { bg: isLight ? '#F3F4F6' : '#1F2937', fg: '#6B7280', label: 'Pending' },
-    in_progress: { bg: isLight ? '#EFF6FF' : '#1E3A5F', fg: BLUE,      label: 'In Progress' },
-    completed:   { bg: isLight ? '#F0FDF4' : '#052E16', fg: GREEN,      label: 'Completed' },
+    pending:     { bg: theme.bg.muted, fg: theme.text.secondary, label: 'Pending' },
+    in_progress: { bg: theme.brand.primarySubtle, fg: BLUE,      label: 'In Progress' },
+    completed:   { bg: theme.status.successSubtle, fg: GREEN,      label: 'Completed' },
   };
 }
 
@@ -71,7 +72,7 @@ export function WorkerTasksScreen() {
   const navigation  = useNavigation<Nav>();
   const route       = useRoute<Route>();
   const insets      = useSafeAreaInsets();
-  const { scheme }  = useTheme();
+  const { theme, scheme }  = useTheme();
   const isLight     = scheme !== 'dark';
 
   const [tasks, setTasks]       = useState<Task[]>(SEED_TASKS);
@@ -82,15 +83,15 @@ export function WorkerTasksScreen() {
   const [newPri, setNewPri]       = useState<TaskPriority>('Medium');
   const [newDueDays, setNewDueDays] = useState<number>(0); // 0=Today, 1=Tomorrow, 3, 7
 
-  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
-  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary   = isLight ? '#111827' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
-  const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
-  const inputBg       = isLight ? '#F9FAFB' : '#0C0A0E';
+  const surface       = theme.bg.surface;
+  const border        = theme.border.default;
+  const textPrimary   = theme.text.primary;
+  const textSecondary = theme.text.secondary;
+  const bg            = theme.bg.canvas;
+  const inputBg       = theme.bg.muted;
 
-  const PRIORITY_STYLE = getPriorityStyle(isLight);
-  const STATUS_STYLE   = getStatusStyle(isLight);
+  const PRIORITY_STYLE = getPriorityStyle(theme);
+  const STATUS_STYLE   = getStatusStyle(theme);
 
   const counts = {
     pending:     tasks.filter((t) => t.status === 'pending').length,
@@ -198,7 +199,7 @@ export function WorkerTasksScreen() {
               borderWidth: 1, borderColor: border, padding: spacing.md, gap: spacing.sm,
               shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } }}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
-                <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
+                <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: theme.brand.primarySubtle,
                   alignItems: 'center', justifyContent: 'center' }}>
                   <Feather name={task.icon} size={20} color={BLUE} />
                 </View>
@@ -229,7 +230,7 @@ export function WorkerTasksScreen() {
                   <AnimatedPressable onPress={() => advanceTask(task.id)} hitSlop={8}
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 4,
                       paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
-                      backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F', marginLeft: 4 }}>
+                      backgroundColor: theme.brand.primarySubtle, marginLeft: 4 }}>
                     <Feather name={task.status === 'pending' ? 'play' : 'check'} size={11} color={BLUE} />
                     <Text style={{ fontSize: 11, fontWeight: '700', color: BLUE }}>
                       {task.status === 'pending' ? 'Start' : 'Done'}
@@ -237,7 +238,7 @@ export function WorkerTasksScreen() {
                   </AnimatedPressable>
                 )}
                 <AnimatedPressable onPress={() => deleteTask(task.id)} hitSlop={8} scaleValue={0.85}>
-                  <Feather name="trash-2" size={14} color="#EF4444" />
+                  <Feather name="trash-2" size={14} color={theme.error} />
                 </AnimatedPressable>
               </View>
             </View>
@@ -281,7 +282,7 @@ export function WorkerTasksScreen() {
                   return (
                     <AnimatedPressable key={p} onPress={() => setNewPri(p)} scaleValue={0.97}
                       style={{ flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10,
-                        backgroundColor: active ? sty.bg : (isLight ? '#F3F4F6' : '#1E1E1E'),
+                        backgroundColor: active ? sty.bg : (theme.bg.muted),
                         borderWidth: active ? 1.5 : 1, borderColor: active ? sty.fg : border }}>
                       <Text style={{ fontSize: 13, fontWeight: '700', color: active ? sty.fg : textSecondary }}>{p}</Text>
                     </AnimatedPressable>
@@ -303,7 +304,7 @@ export function WorkerTasksScreen() {
                         paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
                         borderWidth: active ? 1.5 : 1,
                         borderColor: active ? BLUE : border,
-                        backgroundColor: active ? (isLight ? '#EFF6FF' : '#1E3A5F') : 'transparent',
+                        backgroundColor: active ? (theme.brand.primarySubtle) : 'transparent',
                       }}>
                       <Text style={{ fontSize: 13, fontWeight: active ? '700' : '500',
                         color: active ? BLUE : textSecondary }}>{label}</Text>
@@ -317,7 +318,7 @@ export function WorkerTasksScreen() {
               backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 14,
               alignItems: 'center', opacity: pressed ? 0.85 : 1,
             })}>
-              <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>Assign Task</Text>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: theme.text.onBrand }}>Assign Task</Text>
             </Pressable>
           </View>
         </Pressable>

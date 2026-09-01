@@ -459,7 +459,7 @@ function VoiceAgentScreenInner() {
         >
           <Text
             variant="body"
-            style={{ color: mine ? '#FFFFFF' : theme.text.primary, lineHeight: 22 }}
+            style={{ color: mine ? theme.text.onBrand : theme.text.primary, lineHeight: 22 }}
           >
             {text}
           </Text>
@@ -489,12 +489,12 @@ function VoiceAgentScreenInner() {
               width: 26,
               height: 26,
               borderRadius: 13,
-              backgroundColor: theme.brand.accentSubtle,
+              backgroundColor: theme.brand.primarySubtle,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Text variant="footnote" weight="semibold" style={{ color: theme.brand.accent }}>
+            <Text variant="footnote" weight="semibold" style={{ color: theme.brand.primary }}>
               {position}
             </Text>
           </View>
@@ -515,7 +515,7 @@ function VoiceAgentScreenInner() {
                 marginTop: 4,
               }}
             >
-              <Text variant="footnote" weight="medium" style={{ color: theme.brand.accent }}>
+              <Text variant="footnote" weight="medium" style={{ color: theme.brand.primary }}>
                 {payLabel(job.pay, t)}
               </Text>
               {distance ? (
@@ -533,7 +533,7 @@ function VoiceAgentScreenInner() {
             accessibilityRole="button"
             style={{
               flex: 1,
-              backgroundColor: applied ? theme.bg.surface : theme.brand.accent,
+              backgroundColor: applied ? theme.bg.surface : theme.brand.primary,
               borderWidth: applied ? 1 : 0,
               borderColor: theme.border.default,
               borderRadius: radii.md,
@@ -545,7 +545,7 @@ function VoiceAgentScreenInner() {
             <Text
               variant="footnote"
               weight="semibold"
-              style={{ color: applied ? theme.text.secondary : '#FFFFFF' }}
+              style={{ color: applied ? theme.text.secondary : theme.text.onBrand }}
             >
               {applied ? t('voice_agent.card_applied') : t('voice_agent.card_apply')}
             </Text>
@@ -748,7 +748,7 @@ function VoiceAgentScreenInner() {
                 elevation: micDisabled ? 0 : 7,
               }}
             >
-              <Feather name={isListening ? 'square' : 'mic'} size={36} color="#FFFFFF" />
+              <Feather name={isListening ? 'square' : 'mic'} size={36} color={theme.text.onBrand} />
             </Pressable>
           </View>
         )}

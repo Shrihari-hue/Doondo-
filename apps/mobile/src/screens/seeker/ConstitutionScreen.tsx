@@ -208,8 +208,8 @@ function ConstitutionInner() {
                 <Switch
                   value={rules[rule.field]}
                   onValueChange={() => toggle(rule.field)}
-                  trackColor={{ false: theme.border.default, true: theme.brand.accent }}
-                  thumbColor="#FFFDF7"
+                  trackColor={{ false: theme.border.default, true: theme.brand.primary }}
+                  thumbColor={theme.text.onBrand}
                 />
               </View>
             </View>

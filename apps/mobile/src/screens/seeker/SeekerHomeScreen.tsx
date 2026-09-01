@@ -253,7 +253,7 @@ export function SeekerHomeScreen() {
           <RefreshControl
             refreshing={jobsQuery.isRefetching}
             onRefresh={() => void jobsQuery.refetch()}
-            tintColor={theme.brand.accent}
+            tintColor={theme.brand.primary}
           />
         }
       >
@@ -273,7 +273,7 @@ export function SeekerHomeScreen() {
               lineHeight: 30,
               fontWeight: '700',
               // Festival Mode gives the wordmark a seasonal tint.
-              color: festival ? festival.accent : theme.brand.accent,
+              color: festival ? festival.accent : theme.brand.primary,
               letterSpacing: -0.5,
             }}
           >
@@ -315,12 +315,12 @@ export function SeekerHomeScreen() {
               width: 32,
               height: 32,
               borderRadius: 16,
-              backgroundColor: theme.brand.accentSubtle,
+              backgroundColor: theme.brand.primarySubtle,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="map-pin" size={16} color={theme.brand.accent} />
+            <Feather name="map-pin" size={16} color={theme.brand.primary} />
           </View>
           <View style={{ flex: 1 }}>
             <Text
@@ -393,7 +393,7 @@ export function SeekerHomeScreen() {
                   fontSize: 19,
                   lineHeight: 24,
                   fontWeight: '600',
-                  color: '#FFFFFF',
+                  color: theme.text.onBrand,
                   letterSpacing: -0.2,
                 }}
               >
@@ -421,7 +421,7 @@ export function SeekerHomeScreen() {
                 borderColor: 'rgba(255,255,255,0.35)',
               }}
             >
-              <Feather name="mic" size={26} color="#FFFFFF" />
+              <Feather name="mic" size={26} color={theme.text.onBrand} />
             </View>
           </LinearGradient>
         </Pressable>
@@ -454,7 +454,7 @@ export function SeekerHomeScreen() {
                 style={{
                   fontSize: 13,
                   fontWeight: '600',
-                  color: theme.brand.accent,
+                  color: theme.brand.primary,
                 }}
               >
                 {t('home.view_all')}
@@ -532,7 +532,7 @@ export function SeekerHomeScreen() {
                 style={{
                   fontSize: 13,
                   fontWeight: '600',
-                  color: theme.brand.accent,
+                  color: theme.brand.primary,
                 }}
               >
                 {t('home.see_more')}
@@ -542,7 +542,7 @@ export function SeekerHomeScreen() {
 
           {jobsQuery.isLoading && (
             <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
-              <ActivityIndicator color={theme.brand.accent} />
+              <ActivityIndicator color={theme.brand.primary} />
             </View>
           )}
 
@@ -661,8 +661,8 @@ export function SeekerHomeScreen() {
                       paddingHorizontal: spacing.md,
                       paddingVertical: 8,
                       borderRadius: radii.pill,
-                      backgroundColor: theme.brand.accent,
-                      shadowColor: theme.brand.accent,
+                      backgroundColor: theme.brand.primary,
+                      shadowColor: theme.brand.primary,
                       shadowOffset: { width: 0, height: 4 },
                       shadowOpacity: 0.28,
                       shadowRadius: 8,
@@ -673,7 +673,7 @@ export function SeekerHomeScreen() {
                       style={{
                         fontSize: 13,
                         fontWeight: '600',
-                        color: '#FFFFFF',
+                        color: theme.text.onBrand,
                       }}
                     >
                       {t('home.jobs.apply_now')}
@@ -710,7 +710,7 @@ function ModeToggle({
     <View
       style={{
         flexDirection: 'row',
-        backgroundColor: '#EFF6FF', // blue-50
+        backgroundColor: theme.brand.primarySubtle,
         borderRadius: radii.pill,
         padding: 4,
         gap: 4,
@@ -759,7 +759,7 @@ function ModeToggle({
                 style={{
                   fontSize: 13,
                   fontWeight: '700',
-                  color: active ? '#FFFFFF' : '#1E40AF',
+                  color: active ? theme.text.onBrand : theme.brand.primary,
                   letterSpacing: 0.1,
                   textAlign: 'center',
                 }}
@@ -809,7 +809,7 @@ function PremiumHomeHeader({
             fontSize: 30,
             lineHeight: 34,
             fontWeight: '700',
-            color: theme.brand.accent,
+            color: theme.brand.primary,
             letterSpacing: -0.8,
           }}
         >

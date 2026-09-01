@@ -373,9 +373,9 @@ function TrustCircleInner() {
               accessibilityLabel={t('trust_circle.peer_a11y')}
               trackColor={{
                 false: theme.border.default,
-                true: theme.brand.accent,
+                true: theme.brand.primary,
               }}
-              thumbColor="#FFFDF7"
+              thumbColor={theme.text.onBrand}
             />
           </View>
         </View>
@@ -411,9 +411,9 @@ function TrustCircleInner() {
               accessibilityLabel={t('trust_circle.shifts_a11y')}
               trackColor={{
                 false: theme.border.default,
-                true: theme.brand.accent,
+                true: theme.brand.primary,
               }}
-              thumbColor="#FFFDF7"
+              thumbColor={theme.text.onBrand}
             />
           </View>
         </View>
@@ -686,12 +686,12 @@ function ContactSlot({
                 flex: 2,
                 paddingVertical: spacing.md,
                 borderRadius: radii.pill,
-                backgroundColor: theme.brand.accent,
+                backgroundColor: theme.brand.primary,
                 alignItems: 'center',
                 opacity: saving ? 0.5 : pressed ? 0.85 : 1,
               })}
             >
-              <Text variant="bodyLarge" weight="medium" style={{ color: '#FFFDF7' }}>
+              <Text variant="bodyLarge" weight="medium" style={{ color: theme.text.onBrand }}>
                 {saving
                   ? t('trust_circle.saving')
                   : hasContact

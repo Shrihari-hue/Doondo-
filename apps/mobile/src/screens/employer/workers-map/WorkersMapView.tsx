@@ -46,7 +46,7 @@ export function WorkersMapView({
   onCall,
   calling = false,
 }: Props) {
-  const { theme } = useTheme();
+  const { theme, scheme } = useTheme();
   const mapRef = useRef<MapView>(null);
 
   const [selected, setSelected] = useState<NearbyAvailability | null>(null);
@@ -135,9 +135,7 @@ export function WorkersMapView({
         ref={mapRef}
         style={{ flex: 1 }}
         initialRegion={initialRegion}
-        customMapStyle={
-          theme.bg.canvas === '#0C0A0E' ? DOONDO_DARK_MAP_STYLE : []
-        }
+        customMapStyle={scheme === 'dark' ? DOONDO_DARK_MAP_STYLE : []}
         showsUserLocation
         showsMyLocationButton={false}
         showsCompass={false}
@@ -266,14 +264,14 @@ export function WorkersMapView({
                   accessibilityLabel={`Send a hiring request to ${selected.seeker.name}`}
                   style={({ pressed }) => ({
                     flex: 1,
-                    backgroundColor: theme.brand.accent,
+                    backgroundColor: theme.brand.primary,
                     paddingVertical: 12,
                     borderRadius: radii.pill,
                     alignItems: 'center',
                     opacity: pressed ? 0.85 : 1,
                   })}
                 >
-                  <Text style={{ color: '#FFFDF7', fontSize: 14, fontWeight: '700' }}>
+                  <Text style={{ color: theme.text.onBrand, fontSize: 14, fontWeight: '700' }}>
                     Send hiring request
                   </Text>
                 </Pressable>

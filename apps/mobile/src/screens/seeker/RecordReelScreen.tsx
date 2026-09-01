@@ -148,7 +148,7 @@ function RecordReelScreenInner() {
           width: '100%',
           height: 320,
           borderRadius: radii.lg,
-          backgroundColor: '#000000',
+          backgroundColor: theme.bg.canvas,
           overflow: 'hidden',
         }}
       >
@@ -188,7 +188,7 @@ function RecordReelScreenInner() {
             }}
             pointerEvents="none"
           >
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={theme.text.onBrand} />
           </View>
         ) : null}
 
@@ -210,7 +210,7 @@ function RecordReelScreenInner() {
             <Text
               variant="bodyLarge"
               weight="medium"
-              style={{ color: '#FFFFFF', textAlign: 'center' }}
+              style={{ color: theme.text.onBrand, textAlign: 'center' }}
             >
               {t('reels.video_unavailable_title')}
             </Text>
@@ -269,7 +269,7 @@ function RecordReelScreenInner() {
       >
         {mode === 'loading' ? (
           <View style={{ paddingVertical: spacing['3xl'], alignItems: 'center' }}>
-            <ActivityIndicator color={theme.brand.accent} />
+            <ActivityIndicator color={theme.brand.primary} />
           </View>
         ) : null}
 
@@ -277,7 +277,7 @@ function RecordReelScreenInner() {
         {mode === 'empty' || mode === 'preview' ? (
           <View
             style={{
-              backgroundColor: theme.brand.accentSubtle,
+              backgroundColor: theme.brand.primarySubtle,
               borderRadius: radii.lg,
               padding: spacing.lg,
               gap: spacing.xs,
@@ -286,7 +286,7 @@ function RecordReelScreenInner() {
             <Text
               variant="bodyLarge"
               weight="semibold"
-              style={{ color: theme.brand.accent }}
+              style={{ color: theme.brand.primary }}
             >
               {t('reels.intro_title')}
             </Text>

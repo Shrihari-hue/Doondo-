@@ -150,7 +150,7 @@ function Inner() {
                   {t(`book_mentor_session.mode_${slot.mode}`)}
                 </Text>
               </View>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: theme.brand.accent }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: theme.brand.primary }}>
                 {bookingId === slot.id ? t('book_mentor_session.booking') : t('book_mentor_session.book_cta')}
               </Text>
             </Pressable>

@@ -54,15 +54,15 @@ export function WorkerSalaryScreen() {
   const navigation   = useNavigation<Nav>();
   const route        = useRoute<Route>();
   const insets       = useSafeAreaInsets();
-  const { scheme }   = useTheme();
+  const { theme, scheme }   = useTheme();
   const isLight      = scheme !== 'dark';
   const queryClient  = useQueryClient();
 
-  const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
-  const border        = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary   = isLight ? '#111827' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
-  const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
+  const surface       = theme.bg.surface;
+  const border        = theme.border.default;
+  const textPrimary   = theme.text.primary;
+  const textSecondary = theme.text.secondary;
+  const bg            = theme.bg.canvas;
 
   const workerQuery = useQuery({
     queryKey: ['applicants', 'detail', route.params.applicationId],
@@ -180,12 +180,12 @@ export function WorkerSalaryScreen() {
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg, paddingBottom: 60 }}>
 
         {/* Salary hero card */}
-        <LinearGradient colors={[BLUE, '#1D4ED8']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        <LinearGradient colors={theme.brand.primaryGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={{ borderRadius: radii.xl, padding: spacing.xl, gap: 4 }}>
           <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600' }}>
             Monthly Salary ({payPeriod})
           </Text>
-          <Text style={{ color: '#FFFFFF', fontSize: 36, fontWeight: '900', letterSpacing: -1 }}>
+          <Text style={{ color: theme.text.onBrand, fontSize: 36, fontWeight: '900', letterSpacing: -1 }}>
             {formatINR(totalPaise)}
           </Text>
           <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
@@ -234,7 +234,7 @@ export function WorkerSalaryScreen() {
                   return (
                     <View key={m.label} style={{
                       flex: 1, height: barHeight, borderRadius: 6,
-                      backgroundColor: m.isCurrent ? BLUE : (isLight ? '#BFDBFE' : '#1E3A5F'),
+                      backgroundColor: m.isCurrent ? BLUE : (theme.brand.primaryBorder),
                     }} />
                   );
                 })}
@@ -266,7 +266,7 @@ export function WorkerSalaryScreen() {
             <View key={row.label} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
               paddingHorizontal: spacing.md, paddingVertical: 12,
               borderTopWidth: i > 0 ? 1 : 0, borderTopColor: border,
-              backgroundColor: row.bold ? (isLight ? '#F8FAFF' : '#1E2A3A') : surface }}>
+              backgroundColor: row.bold ? (theme.brand.primarySubtle) : surface }}>
               <Text style={{ fontSize: 14, color: row.bold ? textPrimary : textSecondary,
                 fontWeight: row.bold ? '700' : '400' }}>{row.label}</Text>
               <Text style={{ fontSize: 14, color: textPrimary, fontWeight: row.bold ? '800' : '600' }}>{row.amount}</Text>
@@ -286,7 +286,7 @@ export function WorkerSalaryScreen() {
               paddingHorizontal: spacing.md, paddingVertical: 14,
               borderTopWidth: i > 0 ? 1 : 0, borderTopColor: border }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: isLight ? '#F0FDF4' : '#052E16',
+                <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: theme.status.successSubtle,
                   alignItems: 'center', justifyContent: 'center' }}>
                   <Feather name="check-circle" size={16} color={GREEN} />
                 </View>
@@ -294,7 +294,7 @@ export function WorkerSalaryScreen() {
               </View>
               <View style={{ alignItems: 'flex-end', gap: 2 }}>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary }}>{row.amount}</Text>
-                <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20, backgroundColor: isLight ? '#F0FDF4' : '#052E16' }}>
+                <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20, backgroundColor: theme.status.successSubtle }}>
                   <Text style={{ fontSize: 11, fontWeight: '700', color: GREEN }}>Paid</Text>
                 </View>
               </View>
@@ -321,7 +321,7 @@ export function WorkerSalaryScreen() {
 
         {/* Pay now */}
         <AnimatedPressable style={{ backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 15, alignItems: 'center' }}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text.onBrand }}>
             Pay {name.split(' ')[0]} — {formatINR(totalPaise)}
           </Text>
         </AnimatedPressable>

@@ -165,9 +165,6 @@ export function EmployerVoiceAgentScreen() {
   const isLight = scheme !== 'dark';
   const navigation = useNavigation<Nav>();
 
-  const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named constant, not reachable from theme here
-  const ORANGE = '#F97316';
-
   const [recognizer, setRecognizer] = useState<Recognizer | null>(null);
   const [voiceAvailable, setVoiceAvailable] = useState<boolean | null>(null);
   const [isListening, setIsListening] = useState(false);
@@ -288,7 +285,7 @@ export function EmployerVoiceAgentScreen() {
   const ring = (anim: Animated.Value, size: number) => (
     <Animated.View style={{
       position: 'absolute', width: size, height: size,
-      borderRadius: size / 2, borderWidth: 1.5, borderColor: ORANGE,
+      borderRadius: size / 2, borderWidth: 1.5, borderColor: theme.voice,
       opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
       transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.7] }) }],
     }} />
@@ -303,11 +300,11 @@ export function EmployerVoiceAgentScreen() {
           {mine ? 'You' : 'Doondo'}
         </Text>
         <View style={{
-          backgroundColor: mine ? BLUE : theme.bg.surface,
+          backgroundColor: mine ? theme.brand.primary : theme.bg.surface,
           borderWidth: mine ? 0 : 1, borderColor: theme.border.default,
           borderRadius: radii.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
         }}>
-          <Text style={{ fontSize: 15, color: mine ? '#FFFFFF' : theme.text.primary, lineHeight: 22 }}>
+          <Text style={{ fontSize: 15, color: mine ? theme.text.onBrand : theme.text.primary, lineHeight: 22 }}>
             {text}
           </Text>
         </View>
@@ -385,11 +382,11 @@ export function EmployerVoiceAgentScreen() {
               onPress={() => { const text = typed; setTyped(''); void sendTranscript(text); }}
               disabled={busy || !typed.trim()}
               style={({ pressed }) => ({
-                backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 13,
+                backgroundColor: theme.brand.primary, borderRadius: radii.lg, paddingVertical: 13,
                 alignItems: 'center', opacity: pressed || busy || !typed.trim() ? 0.6 : 1,
               })}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>Send</Text>
+              <Text style={{ color: theme.text.onBrand, fontSize: 15, fontWeight: '700' }}>Send</Text>
             </Pressable>
           </View>
         ) : (
@@ -404,15 +401,15 @@ export function EmployerVoiceAgentScreen() {
               accessibilityLabel="Voice assistant microphone"
               style={{
                 width: 96, height: 96, borderRadius: 48,
-                backgroundColor: isListening ? '#EF4444' : micDisabled ? theme.border.default : ORANGE,
+                backgroundColor: isListening ? theme.error : micDisabled ? theme.border.default : theme.voice,
                 alignItems: 'center', justifyContent: 'center',
-                shadowColor: isListening ? '#EF4444' : ORANGE,
+                shadowColor: isListening ? theme.error : theme.voice,
                 shadowOffset: { width: 0, height: 5 },
                 shadowOpacity: micDisabled ? 0 : 0.32,
                 shadowRadius: 14, elevation: micDisabled ? 0 : 7,
               }}
             >
-              <Feather name={isListening ? 'square' : 'mic'} size={36} color="#FFFFFF" />
+              <Feather name={isListening ? 'square' : 'mic'} size={36} color={theme.text.onBrand} />
             </Pressable>
           </View>
         )}
@@ -428,7 +425,7 @@ export function EmployerVoiceAgentScreen() {
                 paddingHorizontal: spacing.md, paddingVertical: 6,
                 borderRadius: radii.pill, borderWidth: 1,
                 borderColor: theme.border.default,
-                backgroundColor: isLight ? '#F9FAFB' : '#1F2937',
+                backgroundColor: theme.bg.muted,
                 opacity: busy || pressed ? 0.5 : 1,
               })}
             >

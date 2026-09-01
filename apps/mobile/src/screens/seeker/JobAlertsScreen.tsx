@@ -140,15 +140,15 @@ function JobAlertsInner() {
           }}
         >
           <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={{ fontSize: 22, color: '#FFFFFF' }}>←</Text>
+            <Text style={{ fontSize: 22, color: theme.text.onBrand }}>←</Text>
           </Pressable>
           <Text
-            style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF', flex: 1 }}
+            style={{ fontSize: 17, fontWeight: '600', color: theme.text.onBrand, flex: 1 }}
           >
             {t('job_alerts.title')}
           </Text>
           <Pressable onPress={onAdd} hitSlop={10}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text.onBrand }}>
               {t('job_alerts.add_btn')}
             </Text>
           </Pressable>
@@ -225,7 +225,7 @@ function JobAlertsInner() {
               <RefreshControl
                 refreshing={query.isRefetching}
                 onRefresh={() => void query.refetch()}
-                tintColor={theme.brand.accent}
+                tintColor={theme.brand.primary}
               />
             }
             renderItem={({ item }) => (
@@ -339,7 +339,7 @@ function AlertRow({
             onToggle(v);
           }}
           trackColor={{ true: blue[500], false: theme.border.default }}
-          thumbColor="#FFFFFF"
+          thumbColor={theme.text.onBrand}
         />
       </View>
     </Pressable>
@@ -420,7 +420,7 @@ function SuggestionCard({
           opacity: pressed ? 0.85 : 1,
         })}
       >
-        <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: theme.text.onBrand }}>
           {t('job_alerts.suggestion_cta')}
         </Text>
       </Pressable>

@@ -207,7 +207,7 @@ export function DenseJobFeed({ coords, mode, user, onExploreJobs }: Props) {
                       fontSize: 11,
                       fontWeight: '700',
                       textAlign: 'center',
-                      color: active ? '#FFFFFF' : theme.text.primary,
+                      color: active ? theme.text.onBrand : theme.text.primary,
                     }}
                   >
                     {tradeShortLabel(item)}
@@ -356,7 +356,7 @@ function PremiumJobCard({
             width: 56,
             height: 56,
             borderRadius: 14,
-            backgroundColor: '#172554',
+            backgroundColor: theme.brand.primaryCard,
             alignItems: 'center',
             justifyContent: 'center',
           }}
@@ -432,15 +432,15 @@ function PremiumJobCard({
               paddingHorizontal: 10,
               paddingVertical: 4,
               borderRadius: radii.pill,
-              backgroundColor: '#FEE2E2',
+              backgroundColor: theme.status.dangerSubtle,
               flexDirection: 'row',
               alignItems: 'center',
               gap: 2,
             }}
           >
-            <Text style={{ fontSize: 10, color: '#B91C1C' }}>⚡</Text>
+            <Text style={{ fontSize: 10, color: theme.error }}>⚡</Text>
             <Text
-              style={{ fontSize: 11, fontWeight: '800', color: '#B91C1C', letterSpacing: 0.4 }}
+              style={{ fontSize: 11, fontWeight: '800', color: theme.error, letterSpacing: 0.4 }}
             >
               {t('home.job_card.urgent')}
             </Text>
@@ -460,8 +460,8 @@ function PremiumJobCard({
       >
         <StatBox
           icon="₹"
-          iconBg="#EEF2FF"
-          iconColor="#172554"
+          iconBg={theme.brand.primarySubtle}
+          iconColor={theme.brand.primary}
           big={formatPayPrimary(job.pay)}
           small={formatPaySuffix(job.pay, t)}
         />
@@ -508,13 +508,13 @@ function PremiumJobCard({
                 paddingHorizontal: spacing.sm + 2,
                 paddingVertical: 6,
                 borderRadius: radii.pill,
-                backgroundColor: '#EFF6FF',
+                backgroundColor: theme.brand.primarySubtle,
                 borderWidth: 0.5,
-                borderColor: '#BFDBFE',
+                borderColor: theme.brand.primaryBorder,
               }}
             >
               <Text
-                style={{ fontSize: 12, fontWeight: '600', color: '#1E40AF' }}
+                style={{ fontSize: 12, fontWeight: '600', color: theme.brand.primary }}
                 numberOfLines={1}
               >
                 {prettifyRequirement(s, t)}
@@ -537,16 +537,16 @@ function PremiumJobCard({
           borderRadius: radii.pill,
           overflow: 'hidden',
           opacity: pressed ? 0.9 : 1,
-          shadowColor: '#172554',
+          shadowColor: theme.brand.primary,
           shadowOffset: { width: 0, height: 6 },
           shadowOpacity: 0.35,
           shadowRadius: 14,
           elevation: 5,
-          backgroundColor: '#172554',
+          backgroundColor: theme.brand.primaryCard,
         })}
       >
         <LinearGradient
-          colors={['#1E1B4B', '#172554', '#0F1A45']}
+          colors={theme.brand.primaryBannerGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
@@ -558,12 +558,12 @@ function PremiumJobCard({
             gap: 8,
           }}
         >
-          <Text style={{ fontSize: 16, color: '#FFFFFF' }}>📞</Text>
+          <Text style={{ fontSize: 16, color: theme.text.onBrand }}>📞</Text>
           <Text
             style={{
               fontSize: 15,
               fontWeight: '800',
-              color: '#FFFFFF',
+              color: theme.text.onBrand,
               letterSpacing: 0.3,
             }}
           >
@@ -596,7 +596,7 @@ function StatBox({
           width: 28,
           height: 28,
           borderRadius: 14,
-          backgroundColor: iconBg ?? '#EEF2FF',
+          backgroundColor: iconBg ?? theme.brand.primarySubtle,
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: 2,
@@ -606,7 +606,7 @@ function StatBox({
           style={{
             fontSize: 14,
             fontWeight: '800',
-            color: iconColor ?? '#172554',
+            color: iconColor ?? theme.brand.primary,
           }}
         >
           {icon}

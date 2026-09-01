@@ -35,17 +35,17 @@ const BLUE = '#2563EB'; // = theme.brand.primary; a module/local-scope named con
 const RED = '#EF4444';
 
 function NewChatInner() {
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight = scheme !== 'dark';
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const t = useTranslate();
 
-  const bg = isLight ? '#FFFFFF' : '#0C0A0E';
-  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
-  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary = isLight ? '#1F2937' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+  const bg = theme.bg.canvas;
+  const cardBg = theme.bg.surface;
+  const cardBorder = theme.border.default;
+  const textPrimary = theme.text.primary;
+  const textSecondary = theme.text.secondary;
 
   const appsQuery = useQuery({
     queryKey: ['applications', 'me'],
@@ -188,6 +188,7 @@ function ChatEmptyState({
   textPrimary: string;
   textSecondary: string;
 }) {
+  const { theme } = useTheme();
   return (
     <View
       style={{
@@ -237,7 +238,7 @@ function ChatEmptyState({
           opacity: pressed ? 0.85 : 1,
         })}
       >
-        <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>
+        <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text.onBrand }}>
           {cta.label}
         </Text>
       </Pressable>

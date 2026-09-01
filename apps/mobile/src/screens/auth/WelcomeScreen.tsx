@@ -76,7 +76,7 @@ export function WelcomeScreen() {
             variant="display"
             weight="medium"
             display
-            style={{ color: '#FFFFFF', textAlign: 'center' }}
+            style={{ color: theme.text.onBrand, textAlign: 'center' }}
           >
             {t('auth.welcome.hero')}
           </Text>
@@ -109,10 +109,10 @@ export function WelcomeScreen() {
                 paddingVertical: spacing.lg,
               }}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+              <Text style={{ color: theme.text.onBrand, fontSize: 16, fontWeight: '700' }}>
                 {t('auth.welcome.cta_create')}
               </Text>
-              <Feather name="arrow-right" size={18} color="#FFFFFF" />
+              <Feather name="arrow-right" size={18} color={theme.text.onBrand} />
             </LinearGradient>
           </Pressable>
           <Button

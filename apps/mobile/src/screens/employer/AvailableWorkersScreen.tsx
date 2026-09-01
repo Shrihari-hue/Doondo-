@@ -63,7 +63,7 @@ const GREEN = '#16A34A';
 const AMBER = '#F59E0B';
 
 export function AvailableWorkersScreen() {
-  const { scheme } = useTheme();
+  const { theme, scheme } = useTheme();
   const isLight = scheme !== 'dark';
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
@@ -72,11 +72,11 @@ export function AvailableWorkersScreen() {
   const [coords, setCoords] = useState<ResolvedCoords | null>(null);
   const [mode, setMode] = useState<ViewMode>('list');
 
-  const bg = isLight ? '#FFFFFF' : '#0C0A0E';
-  const cardBg = isLight ? '#FFFFFF' : '#0D0D0D';
-  const cardBorder = isLight ? '#E5E7EB' : '#1E1E1E';
-  const textPrimary = isLight ? '#1F2937' : '#F9FAFB';
-  const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
+  const bg = theme.bg.canvas;
+  const cardBg = theme.bg.surface;
+  const cardBorder = theme.border.default;
+  const textPrimary = theme.text.primary;
+  const textSecondary = theme.text.secondary;
 
   // Prefer live GPS → the employer's saved location → a flagged default,
   // so a denied GPS permission doesn't silently search a far-off city.
@@ -281,15 +281,15 @@ export function AvailableWorkersScreen() {
             padding: spacing.md,
             borderRadius: radii.lg,
             borderWidth: 1,
-            borderColor: isLight ? '#FDE68A' : '#78350F',
-            backgroundColor: isLight ? '#FFFBEB' : '#2A1A00',
+            borderColor: theme.status.warningBorder,
+            backgroundColor: theme.status.warningSubtle,
             flexDirection: 'row',
             alignItems: 'center',
             gap: spacing.sm,
           }}
         >
           <Feather name="alert-triangle" size={14} color={AMBER} />
-          <Text style={{ flex: 1, fontSize: 12, fontWeight: '600', color: isLight ? '#92400E' : '#FCD34D' }}>
+          <Text style={{ flex: 1, fontSize: 12, fontWeight: '600', color: theme.warning }}>
             {t('employer.available_workers.location_default')}
           </Text>
         </View>
@@ -439,10 +439,10 @@ function PastApplicantsStrip({
               paddingHorizontal: spacing.md,
               paddingVertical: 6,
               borderRadius: radii.pill,
-              backgroundColor: '#10B981',
+              backgroundColor: theme.success,
             }}
           >
-            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>
+            <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 12 }}>
               {t('employer.past_applicants.call')}
             </Text>
           </Pressable>
@@ -506,10 +506,10 @@ function TrustedWorkersStrip({
               paddingHorizontal: spacing.md,
               paddingVertical: 6,
               borderRadius: radii.pill,
-              backgroundColor: '#10B981',
+              backgroundColor: theme.success,
             }}
           >
-            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>
+            <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 12 }}>
               {t('employer.trusted_workers.call')}
             </Text>
           </Pressable>
@@ -532,6 +532,7 @@ function HeaderLink({
   isLight: boolean;
   onPress: () => void;
 }) {
+  const { theme } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -545,9 +546,9 @@ function HeaderLink({
         paddingVertical: 8,
         paddingHorizontal: spacing.sm,
         borderRadius: radii.lg,
-        backgroundColor: isLight ? '#EFF6FF' : 'rgba(59,130,246,0.14)',
+        backgroundColor: theme.brand.primarySubtle,
         borderWidth: 0.5,
-        borderColor: isLight ? '#DBEAFE' : 'rgba(96,165,250,0.35)',
+        borderColor: theme.brand.primaryBorder,
         opacity: pressed ? 0.8 : 1,
       })}
     >
@@ -591,7 +592,7 @@ function ModeTab({
         style={{
           fontSize: 13,
           fontWeight: '700',
-          color: active ? '#FFFFFF' : theme.text.tertiary,
+          color: active ? theme.text.onBrand : theme.text.tertiary,
         }}
       >
         {label}
@@ -703,14 +704,14 @@ function AvailabilityRow({
                   paddingHorizontal: spacing.sm,
                   paddingVertical: 2,
                   borderRadius: radii.pill,
-                  backgroundColor: isLight ? '#EFF6FF' : '#1E3A5F',
+                  backgroundColor: theme.brand.primarySubtle,
                   borderWidth: 0.5,
-                  borderColor: isLight ? '#BFDBFE' : '#1E3A5F',
+                  borderColor: theme.brand.primaryBorder,
                 }}
               >
                 {emoji ? <Text style={{ fontSize: 12 }}>{emoji}</Text> : null}
                 <Text
-                  style={{ fontSize: 11, fontWeight: '600', color: '#1E40AF' }}
+                  style={{ fontSize: 11, fontWeight: '600', color: theme.brand.primary }}
                 >
                   {prettifySkill(slug)}
                 </Text>
@@ -732,13 +733,13 @@ function AvailabilityRow({
             paddingHorizontal: spacing.sm,
             paddingVertical: 3,
             borderRadius: radii.pill,
-            backgroundColor: isLight ? '#ECFDF5' : '#064E3B',
+            backgroundColor: theme.status.successSubtle,
             borderWidth: 0.5,
-            borderColor: isLight ? '#86EFAC' : '#065F46',
+            borderColor: theme.status.successBorder,
           }}
         >
           <Text style={{ fontSize: 12 }}>💰</Text>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: isLight ? '#047857' : '#6EE7B7' }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: theme.success }}>
             {t('employer.available_workers.wants_wage', {
               amount: item.wage.amount,
               period: t(`employer.available_workers.period_${item.wage.period}`),
@@ -777,7 +778,7 @@ function AvailabilityRow({
             opacity: pressed ? 0.85 : 1,
           })}
         >
-          <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
+          <Text style={{ color: theme.text.onBrand, fontSize: 14, fontWeight: '700' }}>
             Send hiring request
           </Text>
         </Pressable>

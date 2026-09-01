@@ -70,7 +70,7 @@ export function Avatar({ name, photoUrl, size = 88, premium = false }: Props) {
       ) : (
         <Text
           style={{
-            color: '#FFFFFF',
+            color: theme.text.onBrand,
             fontSize: size * 0.36,
             fontWeight: '700',
             letterSpacing: 0.5,

@@ -171,7 +171,7 @@ export function UpiPaymentPanel({
             opacity: createMut.isPending ? 0.6 : 1,
           }}
         >
-          <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
+          <Text style={{ color: theme.text.onBrand, fontWeight: '700' }}>
             {createMut.isPending ? '…' : t('employer.upi.cta_open')}
           </Text>
         </Pressable>
@@ -193,7 +193,7 @@ export function UpiPaymentPanel({
                 alignItems: 'center',
               }}
             >
-              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+              <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 13 }}>
                 {t('employer.upi.cta_paid')}
               </Text>
             </Pressable>
