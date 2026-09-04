@@ -16,8 +16,12 @@ export interface PublicRating {
   reviewerName: string;
   reviewerPhotoUrl: string | null;
   revieweeId: string;
-  applicationId: string;
-  jobId: string;
+  /** Null for a Quick Work rating. */
+  applicationId: string | null;
+  /** Null for a Quick Work rating. */
+  jobId: string | null;
+  /** Null for a Jobs rating. employer-plan.md §18. */
+  quickWorkRequestId: string | null;
   jobTitle: string;
   role: RatingRole;
   score: number;
@@ -60,7 +64,10 @@ export interface UnratedApp {
 }
 
 export interface CreatePayload {
-  applicationId: string;
+  /** Exactly one of applicationId or quickWorkRequestId. */
+  applicationId?: string;
+  /** employer-plan.md §18 — Quick Work rating context. */
+  quickWorkRequestId?: string;
   score: number;
   comment?: string;
   /** Tag slugs from the role's catalogue (max 6). */

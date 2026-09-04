@@ -8,22 +8,32 @@ import * as service from './rating.service';
 export async function create(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const userId = req.user!.id;
-    const { applicationId, score, comment, tags, anonymous } = req.body as {
-      applicationId: string;
+    const { applicationId, quickWorkRequestId, score, comment, tags, anonymous } = req.body as {
+      applicationId?: string;
+      quickWorkRequestId?: string;
       score: number;
       comment?: string;
       tags?: string[];
       anonymous?: boolean;
     };
 
-    const rating = await service.createRating({
-      reviewerId: userId,
-      applicationId,
-      score,
-      comment,
-      tags,
-      anonymous,
-    });
+    const rating = quickWorkRequestId
+      ? await service.createQuickWorkRating({
+          reviewerId: userId,
+          quickWorkRequestId,
+          score,
+          comment,
+          tags,
+          anonymous,
+        })
+      : await service.createRating({
+          reviewerId: userId,
+          applicationId: applicationId!,
+          score,
+          comment,
+          tags,
+          anonymous,
+        });
 
     res.status(201).json({
       ok: true,

@@ -4,3 +4,6 @@ export * from './jobs';
 export * from './applications';
 export * from './marketplace';
 export * from './extras';
+export * from './catalog';
+export * from './quickWork';
+export * from './workerServiceProfiles';

@@ -10,15 +10,22 @@
  * -> jobs -> users (cascades refreshTokens/userLinks/workPhotos).
  */
 import { randomUUID } from 'node:crypto';
-import { inArray } from 'drizzle-orm';
+import { inArray, or } from 'drizzle-orm';
 import { connectPg, disconnectPg, getDb, type Db } from '@/db/client';
 import {
   applications,
+  availabilities,
   conversations,
   jobs,
   notifications,
+  paymentIntents,
+  quickWorkRequests,
+  ratings,
+  serviceCategories,
+  services,
   users,
   walletTransactions,
+  workerServiceProfiles,
   type ApplicationStatus,
   type JobType,
   type PayPeriod,
@@ -138,11 +145,61 @@ export async function createTestApplication(
   return row!;
 }
 
+// ─── Quick Work fixtures ─────────────────────────────────────────────────────
+
+/** A throwaway category+service pair so Quick Work tests don't depend on seeded catalog data. */
+export async function createTestService(
+  overrides: { requiresVerification?: boolean } = {},
+): Promise<{ categoryId: string; serviceId: string }> {
+  const db = ensureDb();
+  const suffix = randomUUID().slice(0, 8);
+  const [category] = await db
+    .insert(serviceCategories)
+    .values({ name: `Test Category ${suffix}`, slug: `test-category-${suffix}`, icon: 'tool' })
+    .returning();
+  const [service] = await db
+    .insert(services)
+    .values({
+      categoryId: category!.id,
+      name: `Test Service ${suffix}`,
+      slug: `test-service-${suffix}`,
+      requiresVerification: overrides.requiresVerification ?? false,
+    })
+    .returning();
+  return { categoryId: category!.id, serviceId: service!.id };
+}
+
+/** Direct insert of a fully-formed quick_work_requests row — bypasses the draft/post flow for setup speed. */
+export async function createTestQuickWorkRequest(
+  employerId: string,
+  serviceId: string,
+  overrides: Partial<typeof quickWorkRequests.$inferInsert> = {},
+): Promise<typeof quickWorkRequests.$inferSelect> {
+  const db = ensureDb();
+  const [row] = await db
+    .insert(quickWorkRequests)
+    .values({
+      employerId,
+      serviceId,
+      title: 'Test Quick Work request',
+      geo: { x: 77.5946, y: 12.9716 }, // Bengaluru — matches createTestJob's fixed point
+      city: 'Bengaluru',
+      status: 'draft',
+      isImmediate: true,
+      ...overrides,
+    })
+    .returning();
+  return row!;
+}
+
 export interface TestDataIds {
   userIds?: string[];
   jobIds?: string[];
   applicationIds?: string[];
   conversationIds?: string[];
+  quickWorkRequestIds?: string[];
+  serviceIds?: string[];
+  categoryIds?: string[];
 }
 
 /** Deletes in FK-safe order. Missing/empty lists are no-ops. */
@@ -152,16 +209,43 @@ export async function cleanupTestData(ids: TestDataIds): Promise<void> {
     await db.delete(conversations).where(inArray(conversations.id, ids.conversationIds));
   }
   if (ids.userIds?.length) {
+    // Ratings/conversations/paymentIntents can reference a Quick Work
+    // request with onDelete: 'restrict' — must go before the request
+    // rows below. Filtering by our own tracked userIds is precise enough
+    // (every rating/conversation/intent a test creates involves a
+    // tracked test user on at least one side).
+    await db.delete(ratings).where(or(inArray(ratings.reviewerId, ids.userIds), inArray(ratings.revieweeId, ids.userIds)));
+    await db
+      .delete(conversations)
+      .where(or(inArray(conversations.employerId, ids.userIds), inArray(conversations.seekerId, ids.userIds)));
+    await db
+      .delete(paymentIntents)
+      .where(or(inArray(paymentIntents.employerId, ids.userIds), inArray(paymentIntents.seekerId, ids.userIds)));
     // Hiring an application credits a wallet_transactions row (userId +
     // applicationId + jobId, all onDelete: 'restrict') as a side effect —
-    // has to go before applications/jobs are deleted below.
+    // has to go before applications/jobs are deleted below. Quick Work
+    // payments land the same way (userId + quickWorkRequestId).
     await db.delete(walletTransactions).where(inArray(walletTransactions.userId, ids.userIds));
+  }
+  if (ids.quickWorkRequestIds?.length) {
+    // Cascades quick_work_offers + quick_work_status_history automatically.
+    await db.delete(quickWorkRequests).where(inArray(quickWorkRequests.id, ids.quickWorkRequestIds));
+  }
+  if (ids.userIds?.length) {
+    await db.delete(availabilities).where(inArray(availabilities.seekerId, ids.userIds));
+    await db.delete(workerServiceProfiles).where(inArray(workerServiceProfiles.workerId, ids.userIds));
   }
   if (ids.applicationIds?.length) {
     await db.delete(applications).where(inArray(applications.id, ids.applicationIds));
   }
   if (ids.jobIds?.length) {
     await db.delete(jobs).where(inArray(jobs.id, ids.jobIds));
+  }
+  if (ids.serviceIds?.length) {
+    await db.delete(services).where(inArray(services.id, ids.serviceIds));
+  }
+  if (ids.categoryIds?.length) {
+    await db.delete(serviceCategories).where(inArray(serviceCategories.id, ids.categoryIds));
   }
   if (ids.userIds?.length) {
     // Employer/hire/reject transitions write an in-app notification row

@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
     "start": "NODE_OPTIONS=--no-deprecation node dist/index.js",
     "seed": "tsx src/scripts/seed.ts",
+    "seed:catalog": "tsx src/scripts/seedServiceCatalog.ts",
     "db:enable-postgis": "tsx src/scripts/enable-postgis.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

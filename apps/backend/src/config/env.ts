@@ -217,6 +217,64 @@ const schema = z.object({
    */
   OFFER_EXPIRY_CRON: z.string().default('*/15 * * * *'),
 
+  // ─── Quick Work offer expiry sweep ─────────────────────────────────────
+  /**
+   * Cron for the Quick Work offer-expiry sweep. Offers themselves have a
+   * short (~90s) window, so this runs every minute — much tighter than the
+   * Jobs offer-expiry cadence above, since a customer waiting for a
+   * worker shouldn't sit past NO_WORKER_FOUND for 15 minutes.
+   */
+  QUICK_WORK_SWEEP_CRON: z.string().default('* * * * *'),
+
+  // ─── Quick Work scheduled-work + no-show sweep ─────────────────────────
+  /**
+   * How long before `scheduledAt` a scheduled (non-immediate) Quick Work
+   * request flips from POSTED to MATCHING. Employer-plan.md §10 specifies
+   * "a scheduler job flips this at scheduledAt - leadTime" but leaves the
+   * exact value to be chosen — 30 minutes is picked so there is enough
+   * runway for a full matching pass (worst case: 4 radius-expansion
+   * rounds x a 90s offer window each ≈ 6 minutes) plus realistic local
+   * travel time (5-20km radius) before the requested time arrives.
+   */
+  QUICK_WORK_SCHEDULE_LEAD_MINUTES: z.coerce.number().int().positive().default(30),
+  /**
+   * How long before `scheduledAt` an already-ACCEPTED scheduled request
+   * sends its one-time "upcoming work" reminder to both parties.
+   */
+  QUICK_WORK_SCHEDULE_REMINDER_MINUTES: z.coerce.number().int().positive().default(45),
+  /**
+   * How far past its own `scheduledAt` a still-POSTED scheduled request
+   * is considered stale and expired rather than matched. Without this a
+   * request that sat unmatched through a scheduler outage would start
+   * hunting for a worker for a job that was due yesterday. 60 minutes is
+   * generous enough to absorb a short outage while never matching
+   * someone to a materially stale booking.
+   */
+  QUICK_WORK_SCHEDULE_STALE_MINUTES: z.coerce.number().int().positive().default(60),
+  /**
+   * Conflict-prevention buffer (minutes) used when matching: a worker who
+   * already has another ACCEPTED-but-not-yet-started Quick Work request
+   * whose own target time falls within this many minutes of the new
+   * request's target time is excluded as a candidate — prevents a worker
+   * being double-booked into two jobs around the same slot, without
+   * blocking them from unrelated work days apart (see
+   * quickWorkMatching.service.ts's getBusyWorkerIds).
+   */
+  QUICK_WORK_SCHEDULE_CONFLICT_BUFFER_MINUTES: z.coerce.number().int().positive().default(120),
+  /**
+   * Grace period (minutes) after a worker accepts before an unarrived
+   * worker is flagged as a potential no-show. On-demand Quick Work is
+   * local by design (see matching's 5-20km radius), so 20 minutes is
+   * generous for even a slow commute.
+   */
+  QUICK_WORK_ARRIVAL_GRACE_MINUTES: z.coerce.number().int().positive().default(20),
+  /**
+   * Minimum minutes a worker must wait after tapping "I've arrived"
+   * before they're allowed to report the customer as a no-show — guards
+   * against a worker reporting no-show the instant they pull up.
+   */
+  QUICK_WORK_CUSTOMER_NOSHOW_MIN_WAIT_MINUTES: z.coerce.number().int().positive().default(10),
+
   // ─── Stalling-job auto-escalation sweep ───────────────────────────────
   /**
    * Cron for the auto-escalation sweep. Default top of every hour — a

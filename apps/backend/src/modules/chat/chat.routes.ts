@@ -39,6 +39,16 @@ router.post(
   validate(ensureConversationFromAppSchema),
   controller.ensureFromApplication,
 );
+router.post(
+  '/from-quick-work',
+  requireAuth,
+  validate(
+    z.object({
+      body: z.object({ quickWorkRequestId: z.string().uuid({ message: 'Invalid id' }) }),
+    }),
+  ),
+  controller.ensureFromQuickWork,
+);
 router.get('/:id', requireAuth, validate(conversationIdParamsSchema), controller.detail);
 router.get('/:id/messages', requireAuth, validate(listMessagesSchema), controller.listMessages);
 router.post('/:id/messages', requireAuth, validate(sendMessageSchema), controller.sendMessage);

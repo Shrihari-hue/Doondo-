@@ -50,7 +50,16 @@ export type ErrorCode =
   // WhatsApp (Twilio)
   | 'WHATSAPP_DISABLED'
   | 'WHATSAPP_INVALID_SIGNATURE'
-  | 'WHATSAPP_SEND_FAILED';
+  | 'WHATSAPP_SEND_FAILED'
+  // Quick Work
+  | 'QUICK_WORK_NOT_FOUND'
+  | 'QUICK_WORK_INVALID_TRANSITION'
+  | 'QUICK_WORK_MISSING_FIELDS'
+  | 'QUICK_WORK_OFFER_NOT_FOUND'
+  | 'QUICK_WORK_ALREADY_TAKEN'
+  | 'QUICK_WORK_NOT_ELIGIBLE'
+  | 'QUICK_WORK_PRICE_NOT_APPROVED'
+  | 'QUICK_WORK_MEDIA_INVALID';
 
 export interface AppErrorOptions {
   code: ErrorCode;
@@ -257,5 +266,55 @@ export const errors = {
       code: 'WHATSAPP_SEND_FAILED',
       message,
       status: 502,
+    }),
+  // ─── Quick Work ─────────────────────────────────────────────────────
+  quickWorkNotFound: () =>
+    new AppError({
+      code: 'QUICK_WORK_NOT_FOUND',
+      message: 'Quick Work request not found.',
+      status: 404,
+    }),
+  quickWorkInvalidTransition: (from: string, to: string) =>
+    new AppError({
+      code: 'QUICK_WORK_INVALID_TRANSITION',
+      message: `Cannot move this request from ${from} to ${to}.`,
+      status: 409,
+    }),
+  quickWorkMissingFields: (details: unknown) =>
+    new AppError({
+      code: 'QUICK_WORK_MISSING_FIELDS',
+      message: 'Add a service, location, and timing before posting.',
+      status: 400,
+      details,
+    }),
+  quickWorkOfferNotFound: () =>
+    new AppError({
+      code: 'QUICK_WORK_OFFER_NOT_FOUND',
+      message: 'Offer not found.',
+      status: 404,
+    }),
+  quickWorkAlreadyTaken: () =>
+    new AppError({
+      code: 'QUICK_WORK_ALREADY_TAKEN',
+      message: 'This job was just taken by another worker.',
+      status: 409,
+    }),
+  quickWorkNotEligible: (message = "You're not eligible for this service.") =>
+    new AppError({
+      code: 'QUICK_WORK_NOT_ELIGIBLE',
+      message,
+      status: 403,
+    }),
+  quickWorkPriceNotApproved: () =>
+    new AppError({
+      code: 'QUICK_WORK_PRICE_NOT_APPROVED',
+      message: 'The customer needs to approve the final price before payment.',
+      status: 409,
+    }),
+  quickWorkMediaInvalid: (message: string) =>
+    new AppError({
+      code: 'QUICK_WORK_MEDIA_INVALID',
+      message,
+      status: 400,
     }),
 };

@@ -398,6 +398,12 @@
       "title_one": "{{count}} नियोक्ता आपको काम पर रखना चाहता है",
       "title_other": "{{count}} नियोक्ता आपको काम पर रखना चाहते हैं",
       "subtitle": "देखने और जवाब देने के लिए टैप करें"
+    },
+    "sort": {
+      "label": "क्रम",
+      "nearest": "नज़दीकी",
+      "pay": "सबसे ज़्यादा भुगतान",
+      "newest": "नए"
     }
   },
   "job_detail": {
@@ -3277,5 +3283,47 @@
     "withdraw_sent_title": "निकासी का अनुरोध किया",
     "withdraw_sent_body": "पैसा आपके बैंक खाते में भेजा जा रहा है।",
     "withdraw_fail": "निकासी विफल। अपना बैलेंस और बैंक खाता जांचें।"
+  },
+  "work_type": {
+    "short_term": "अल्पकालिक",
+    "long_term": "दीर्घकालिक",
+    "both": "दोनों",
+    "urgent": "ज़रूरी",
+    "pay": "भुगतान",
+    "rate": "दर",
+    "type": "प्रकार",
+    "apply": "आवेदन करें",
+    "applying": "आवेदन हो रहा है…",
+    "applied": "आवेदन किया",
+    "accept": "स्वीकार करें",
+    "view_all": "सभी देखें",
+    "edit": "बदलें",
+    "preferred_jobs": "पसंदीदा काम",
+    "nearest_for_you": "आपके लिए नज़दीकी काम",
+    "other_preferences": "अन्य पसंद",
+    "more_jobs": "और काम",
+    "preferred_long_term": "पसंदीदा दीर्घकालिक नौकरियाँ",
+    "other_long_term": "अन्य दीर्घकालिक नौकरियाँ",
+    "section_short": "अल्पकालिक — नज़दीकी काम",
+    "section_long": "दीर्घकालिक — नियमित नौकरी",
+    "posted_just_now": "अभी",
+    "posted_hours": "{{n}} घंटे पहले",
+    "posted_days": "{{n}} दिन पहले",
+    "greeting_sub": "नज़दीकी काम ढूँढें और कमाई शुरू करें",
+    "empty_short_title": "अभी आस-पास कोई काम नहीं",
+    "empty_short_message": "खोज का दायरा बढ़ाएँ, या नीचे दूसरे काम देखें।",
+    "empty_long_title": "आस-पास कोई दीर्घकालिक नौकरी नहीं",
+    "empty_long_message": "नियोक्ता जैसे ही नई नियमित नौकरियाँ डालेंगे, वे यहाँ दिखेंगी।",
+    "empty_preferred_title": "आपके काम में अभी कुछ नहीं",
+    "empty_preferred_message": "नीचे और काम देखें, या अपनी पसंद बदलें।",
+    "edit_preferences": "पसंद बदलें",
+    "browse_more": "और काम देखें",
+    "error_title": "काम लोड नहीं हो सके",
+    "recurring": "साप्ताहिक",
+    "pick_trades": "अपना काम चुनें",
+    "pick_trades_message": "बताएँ आप क्या कर सकते हैं, हम वही काम पहले दिखाएँगे।",
+    "greeting_morning": "सुप्रभात",
+    "greeting_afternoon": "नमस्कार",
+    "greeting_evening": "शुभ संध्या"
   }
 }

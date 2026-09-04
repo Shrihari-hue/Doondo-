@@ -105,4 +105,11 @@ export const chatApi = {
       method: 'POST',
       body: { applicationId },
     }),
+
+  /** Quick Work's chat entry point — employer-plan.md §14. */
+  ensureFromQuickWork: (quickWorkRequestId: string) =>
+    apiRequest<{ conversationId: string }>(`/conversations/from-quick-work`, {
+      method: 'POST',
+      body: { quickWorkRequestId },
+    }),
 };

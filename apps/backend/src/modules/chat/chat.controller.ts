@@ -42,6 +42,35 @@ export async function ensureFromApplication(
   }
 }
 
+/**
+ * Quick Work's chat entry point — employer-plan.md §14. Caller must be
+ * either the request's employer or its matched worker; the conversation
+ * is created (or reused) between exactly those two.
+ */
+export async function ensureFromQuickWork(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const quickWorkRequestId = req.body.quickWorkRequestId as string;
+    const { getById } = await import('@/modules/quickWork/quickWork.service');
+    const request = await getById(quickWorkRequestId, req.user.id); // throws forbidden/not-found for non-participants
+    if (!request.matchedWorkerId) {
+      throw errors.conflict('No worker has been matched on this request yet.');
+    }
+    const conversation = await chatService.getOrCreateForQuickWork({
+      employerId: request.employerId,
+      seekerId: request.matchedWorkerId,
+      quickWorkRequestId: request.id,
+    });
+    ok(req, res, 200, { conversationId: conversation.id });
+  } catch (err) {
+    next(err);
+  }
+}
+
 /** Employer bulk-messages everyone at a stage on a job. */
 export async function bulkMessage(
   req: Request,

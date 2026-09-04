@@ -10,7 +10,7 @@
  * by the next publish (harmless, never returned).
  */
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { getDb } from '@/db/client';
@@ -37,6 +37,8 @@ export interface PublicAvailability {
    * "I'm free" beacon into a full posted open shift. Null on a beacon.
    */
   wage: { amount: number; period: PayPeriod } | null;
+  /** seeker-plan.md §7.1 — paused without withdrawing the beacon. */
+  paused: boolean;
   createdAt: string;
 }
 
@@ -57,6 +59,7 @@ function toPublicJSON(row: AvailabilityRow): PublicAvailability {
     recurringPattern: row.recurringPattern ?? null,
     note: row.note ?? null,
     wage: row.wageAmount != null && row.wagePeriod ? { amount: row.wageAmount, period: row.wagePeriod } : null,
+    paused: row.paused,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -205,6 +208,39 @@ export async function withdraw(seekerId: string): Promise<void> {
   await getDb().delete(availabilities).where(sql`${availabilities.seekerId} = ${seekerId}`);
 }
 
+/**
+ * PATCH /me/availability/pause — a dedicated toggle, not folded into
+ * `publish()`'s upsert. seeker-plan.md §7.1's `paused` is meant to be a
+ * quick "stop sending me Quick Work offers for a bit" flip independent of
+ * the beacon's duration/trades/note — putting it in the full-replace
+ * publish payload would silently un-pause a worker every time they
+ * re-published for an unrelated reason (e.g. extending duration).
+ *
+ * seeker-plan.md §7.3's guard: a worker cannot resume (paused=false)
+ * while genuinely BUSY (an active Quick Work request in
+ * accepted..in_progress) — checked here via a late import to avoid a
+ * hard module-load cycle between availabilities and quickWork.
+ */
+export async function setPaused(seekerId: string, paused: boolean): Promise<PublicAvailability> {
+  const [existing] = await getDb().select().from(availabilities).where(eq(availabilities.seekerId, seekerId)).limit(1);
+  if (!existing) throw errors.notFound('No active availability beacon to pause.');
+
+  if (!paused) {
+    const { isWorkerBusy } = await import('@/modules/quickWork/quickWork.service');
+    if (await isWorkerBusy(seekerId)) {
+      throw errors.conflict('You have an active Quick Work job in progress — finish it before resuming.');
+    }
+  }
+
+  const [updated] = await getDb()
+    .update(availabilities)
+    .set({ paused })
+    .where(eq(availabilities.seekerId, seekerId))
+    .returning();
+  if (!updated) throw errors.internal();
+  return toPublicJSON(updated);
+}
+
 export async function getMine(seekerId: string): Promise<PublicAvailability | null> {
   const [doc] = await getDb()
     .select()
@@ -245,6 +281,8 @@ interface NearbyInput {
   radius: number;
   trade?: string;
   type?: string;
+  /** Exact catalog service id — Quick Work candidate selection (employer-plan.md §11.1.1). */
+  serviceId?: string;
   limit: number;
   /**
    * Optional allow-list of seeker ids. When present, only beacons from
@@ -268,6 +306,7 @@ interface NearbyRow extends Record<string, unknown> {
   note: string | null;
   wage_amount: number | null;
   wage_period: PayPeriod | null;
+  paused: boolean;
   created_at: Date;
   distance_meters: number;
 }
@@ -281,7 +320,7 @@ export async function findNearby(input: NearbyInput): Promise<NearbyAvailability
   const rowsRaw = await db.execute<NearbyRow>(sql`
     SELECT id, seeker_id, trades_available, job_types, city, area,
       ST_X(geo) AS lng, ST_Y(geo) AS lat, until, recurring_pattern, note,
-      wage_amount, wage_period, created_at,
+      wage_amount, wage_period, paused, created_at,
       ST_Distance(
         geo::geography,
         ST_SetSRID(ST_MakePoint(${input.lng}, ${input.lat}), 4326)::geography
@@ -295,6 +334,20 @@ export async function findNearby(input: NearbyInput): Promise<NearbyAvailability
       )
       ${input.trade ? sql`AND ${input.trade} = ANY(trades_available)` : sql``}
       ${input.type ? sql`AND ${input.type} = ANY(job_types)` : sql``}
+      ${
+        // `paused` only gates Quick Work's own automatic matching (a
+        // worker can pause new Quick Work offers while staying manually
+        // discoverable in the general "Available Workers" browse) —
+        // only exclude paused rows / require service eligibility when
+        // this call is specifically a service-id-scoped Quick Work
+        // candidate query. Eligibility itself lives on the persistent
+        // `worker_service_profiles` table, not this ephemeral beacon row.
+        input.serviceId
+          ? sql`AND paused = false AND seeker_id IN (
+              SELECT worker_id FROM worker_service_profiles WHERE service_id = ${input.serviceId}::uuid
+            )`
+          : sql``
+      }
       ${input.seekerIds ? sql`AND seeker_id = ANY(${input.seekerIds})` : sql``}
     ORDER BY distance_meters ASC
     LIMIT ${input.limit}
@@ -324,7 +377,13 @@ export async function findNearby(input: NearbyInput): Promise<NearbyAvailability
       phone: users.phone,
     })
     .from(users)
-    .where(sql`${users.id} = ANY(${seekerIds})`);
+    // Pre-existing bug fixed here: a raw `sql\`ANY(${arr})\`` parameter is
+    // ambiguous to postgres.js when the array has exactly one element
+    // ("malformed array literal") — drizzle's `inArray()` binds it
+    // correctly regardless of length. Found live while smoke-testing
+    // Quick Work matching (the first real exercise of this path with a
+    // single-candidate result set).
+    .where(inArray(users.id, seekerIds));
 
   // Bulk rating lookup — reuse the existing ratings aggregation so the
   // employer card shows consistent "★ 4.6 · 32" badges everywhere.
@@ -346,11 +405,17 @@ export async function findNearby(input: NearbyInput): Promise<NearbyAvailability
         area: r.area ?? null,
         coordinates: [r.lng, r.lat],
       },
-      until: r.until.toISOString(),
+      // Pre-existing bug fixed here, found alongside the inArray() one
+      // above: `db.execute()` (raw SQL, used for this geo query) doesn't
+      // run postgres.js's driver-level date parsing the way drizzle's
+      // `.select()` does, so timestamptz columns can come back as strings
+      // here — `new Date(...)` normalizes either shape before formatting.
+      until: new Date(r.until).toISOString(),
       recurringPattern: r.recurring_pattern ?? null,
       note: r.note ?? null,
       wage: r.wage_amount != null && r.wage_period ? { amount: r.wage_amount, period: r.wage_period } : null,
-      createdAt: r.created_at.toISOString(),
+      paused: r.paused,
+      createdAt: new Date(r.created_at).toISOString(),
       distanceMeters: Math.round(r.distance_meters),
       seeker: seekerInfo
         ? {

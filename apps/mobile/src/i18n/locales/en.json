@@ -414,6 +414,12 @@
       "title_one": "{{count}} employer wants to hire you",
       "title_other": "{{count}} employers want to hire you",
       "subtitle": "Tap to view and respond"
+    },
+    "sort": {
+      "label": "Sort",
+      "nearest": "Nearest",
+      "pay": "Highest pay",
+      "newest": "Newest"
     }
   },
   "job_detail": {
@@ -3488,5 +3494,47 @@
     "withdraw_sent_title": "Withdrawal requested",
     "withdraw_sent_body": "The money is on its way to your bank account.",
     "withdraw_fail": "Withdrawal failed. Check your balance and bank account."
+  },
+  "work_type": {
+    "short_term": "Short Term",
+    "long_term": "Long Term",
+    "both": "Both",
+    "urgent": "Urgent",
+    "pay": "Pay",
+    "rate": "Rate",
+    "type": "Type",
+    "apply": "Apply",
+    "applying": "Applying…",
+    "applied": "Applied",
+    "accept": "Accept",
+    "view_all": "View all",
+    "edit": "Edit",
+    "preferred_jobs": "Preferred jobs",
+    "nearest_for_you": "Nearest jobs for you",
+    "other_preferences": "Other preferences",
+    "more_jobs": "More jobs",
+    "preferred_long_term": "Preferred long-term jobs",
+    "other_long_term": "Other long-term jobs",
+    "section_short": "Short term — nearest jobs",
+    "section_long": "Long term — regular work",
+    "posted_just_now": "Just now",
+    "posted_hours": "{{n}}h ago",
+    "posted_days": "{{n}}d ago",
+    "greeting_sub": "Find nearest jobs and start earning",
+    "empty_short_title": "No nearby jobs right now",
+    "empty_short_message": "Try widening your search, or browse other trades below.",
+    "empty_long_title": "No long-term jobs nearby",
+    "empty_long_message": "New regular roles appear here as employers post them.",
+    "empty_preferred_title": "Nothing in your trades yet",
+    "empty_preferred_message": "Browse more jobs below, or edit your preferences.",
+    "edit_preferences": "Edit preferences",
+    "browse_more": "Browse more jobs",
+    "error_title": "Couldn't load jobs",
+    "recurring": "Weekly",
+    "pick_trades": "Pick your trades",
+    "pick_trades_message": "Tell us what you're good at and we'll put those jobs first.",
+    "greeting_morning": "Good morning",
+    "greeting_afternoon": "Good afternoon",
+    "greeting_evening": "Good evening"
   }
 }

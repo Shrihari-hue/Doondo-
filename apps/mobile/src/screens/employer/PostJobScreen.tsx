@@ -403,6 +403,21 @@ export function PostJobScreen() {
 
   const canSave = validationReason === null && !mutation.isPending;
 
+  // ── Wizard steps ─────────────────────────────────────────────────────────
+  // Purely presentational — no field, validation rule, or the mutation
+  // payload changes. Each "step valid" flag is the same underlying
+  // condition validationReason already checks, just named per step so the
+  // Next button can gate on the fields relevant to that step alone.
+  type Step = 'details' | 'location' | 'review';
+  const STEP_META: Array<{ key: Step; label: string }> = [
+    { key: 'details', label: 'Job Details' },
+    { key: 'location', label: 'Location & Time' },
+    { key: 'review', label: 'Review & Post' },
+  ];
+  const [step, setStep] = useState<Step>('details');
+  const detailsValid = title.trim().length >= 2 && description.trim().length >= 10 && Number(amount) > 0;
+  const locationValid = city.trim().length > 0;
+
   const isLight = scheme !== 'dark';
   const BLUE = theme.brand.primary;
   const BLUE_LIGHT = theme.brand.primarySubtle;
@@ -433,7 +448,16 @@ export function PostJobScreen() {
             borderBottomColor: inputBorder,
           }}
         >
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12} accessibilityRole="button">
+          <Pressable
+            onPress={() => {
+              haptic('selection');
+              if (step === 'location') setStep('details');
+              else if (step === 'review') setStep('location');
+              else navigation.goBack();
+            }}
+            hitSlop={12}
+            accessibilityRole="button"
+          >
             <Feather name="arrow-left" size={22} color={textColor} />
           </Pressable>
           <Text
@@ -459,6 +483,65 @@ export function PostJobScreen() {
           </View>
         </View>
 
+        {/* ── Step indicator ── */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: spacing.xl,
+            paddingBottom: spacing.md,
+            gap: spacing.xs,
+          }}
+        >
+          {STEP_META.map((s, i) => {
+            const activeIdx = STEP_META.findIndex((m) => m.key === step);
+            const isActive = i === activeIdx;
+            const isDone = i < activeIdx;
+            const stepColor = isActive || isDone ? BLUE : theme.text.tertiary;
+            return (
+              <View key={s.key} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                <View
+                  style={{
+                    flex: 1,
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 11,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: isActive || isDone ? BLUE : 'transparent',
+                      borderWidth: isActive || isDone ? 0 : 1,
+                      borderColor: theme.border.default,
+                    }}
+                  >
+                    {isDone ? (
+                      <Feather name="check" size={13} color={theme.text.onBrand} />
+                    ) : (
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: isActive ? theme.text.onBrand : theme.text.tertiary }}>
+                        {i + 1}
+                      </Text>
+                    )}
+                  </View>
+                  <Text
+                    numberOfLines={1}
+                    style={{ fontSize: 10, fontWeight: isActive ? '700' : '500', color: stepColor, textAlign: 'center' }}
+                  >
+                    {s.label}
+                  </Text>
+                </View>
+                {i < STEP_META.length - 1 && (
+                  <View style={{ height: 1, flex: 0.6, backgroundColor: isDone ? BLUE : theme.border.default, marginBottom: 14 }} />
+                )}
+              </View>
+            );
+          })}
+        </View>
+
         <ScrollView
           contentContainerStyle={{
             padding: spacing.xl,
@@ -470,8 +553,9 @@ export function PostJobScreen() {
           <FormError message={error} />
 
           {/* Speak-to-fill — hides if no speech-recognition available */}
-          <VoicePostButton onDraft={applyDraft} />
+          {step === 'details' && <VoicePostButton onDraft={applyDraft} />}
 
+          {step === 'details' && <>
           {/* ── I am hiring for ── */}
           <View style={{ gap: spacing.sm }}>
             <Text style={{ fontSize: 14, fontWeight: '600', color: labelColor }}>
@@ -566,7 +650,9 @@ export function PostJobScreen() {
               <Feather name="chevron-down" size={18} color={placeholderColor} />
             </Pressable>
           </View>
+          </>}
 
+          {step === 'location' && <>
           {/* ── Work Location ── */}
           <View style={{ gap: spacing.xs }}>
             <Text style={{ fontSize: 14, fontWeight: '600', color: labelColor }}>
@@ -614,7 +700,9 @@ export function PostJobScreen() {
               </View>
             )}
           </View>
+          </>}
 
+          {step === 'details' && <>
           {/* ── Job Type ── */}
           <View style={{ gap: spacing.sm }}>
             <Text style={{ fontSize: 14, fontWeight: '600', color: labelColor }}>
@@ -863,7 +951,9 @@ export function PostJobScreen() {
               setAudioError(null);
             }}
           />
+          </>}
 
+          {step === 'location' && <>
           {/* How many to hire */}
           <View style={{ gap: spacing.sm }}>
             <TextField
@@ -1045,7 +1135,9 @@ export function PostJobScreen() {
               </View>
             )}
           </View>
+          </>}
 
+          {step === 'details' && <>
           {/* Skills */}
           <View style={{ gap: spacing.sm }}>
             <Text
@@ -1224,32 +1316,107 @@ export function PostJobScreen() {
 
           {/* Doondo for Women — the employer's women-safety signals. */}
           <WomenSafetyField value={womenSafety} onChange={setWomenSafety} />
+          </>}
 
-          {/* ── Publish Job button ── */}
-          <View style={{ gap: spacing.xs, marginTop: spacing.sm }}>
+          {/* ── Step navigation (Next) ── */}
+          {step !== 'review' && (
             <Pressable
-              onPress={() => { haptic('selection'); mutation.mutate(); }}
-              disabled={!canSave}
+              onPress={() => {
+                haptic('selection');
+                setStep(step === 'details' ? 'location' : 'review');
+              }}
+              disabled={step === 'details' ? !detailsValid : !locationValid}
               style={({ pressed }) => ({
-                backgroundColor: canSave ? BLUE : theme.brand.primaryLight,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: spacing.xs,
+                backgroundColor: (step === 'details' ? detailsValid : locationValid) ? BLUE : theme.brand.primaryLight,
                 borderRadius: radii.lg,
                 paddingVertical: 16,
-                alignItems: 'center',
+                marginTop: spacing.sm,
                 opacity: pressed ? 0.9 : 1,
               })}
             >
               <Text style={{ fontSize: 16, fontWeight: '800', color: theme.text.onBrand }}>
-                {mutation.isPending
-                  ? (routeParams?.editJobId ? 'Saving…' : 'Publishing…')
-                  : (routeParams?.editJobId ? 'Save Changes' : 'Publish Job')}
+                Next: {step === 'details' ? 'Location & Time' : 'Review & Post'}
               </Text>
+              <Feather name="arrow-right" size={18} color={theme.text.onBrand} />
             </Pressable>
-            {validationReason && !mutation.isPending && (
-              <Text style={{ fontSize: 12, color: textSecondary, textAlign: 'center' }}>
-                {validationReason}
-              </Text>
-            )}
-          </View>
+          )}
+
+          {/* ── Review & Post ── */}
+          {step === 'review' && (
+            <View style={{ gap: spacing.md }}>
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: inputBorder,
+                  borderRadius: radii.lg,
+                  backgroundColor: cardBg,
+                  padding: spacing.lg,
+                  gap: spacing.md,
+                }}
+              >
+                <SummaryRow label="Title" value={title.trim() || '—'} labelColor={labelColor} valueColor={textColor} />
+                {category ? (
+                  <SummaryRow label="Category" value={category} labelColor={labelColor} valueColor={textColor} />
+                ) : null}
+                <SummaryRow label="Type" value={type.replace('_', ' ')} labelColor={labelColor} valueColor={textColor} />
+                <SummaryRow
+                  label="Salary"
+                  value={amount ? `₹${amount} / ${period}` : '—'}
+                  labelColor={labelColor}
+                  valueColor={textColor}
+                />
+                <SummaryRow
+                  label="Location"
+                  value={[area, city].filter(Boolean).join(', ') || '—'}
+                  labelColor={labelColor}
+                  valueColor={textColor}
+                />
+                <SummaryRow label="Headcount" value={headcount || '1'} labelColor={labelColor} valueColor={textColor} />
+                {skills.length > 0 ? (
+                  <SummaryRow label="Skills" value={skills.join(', ')} labelColor={labelColor} valueColor={textColor} />
+                ) : null}
+                {recurring ? (
+                  <SummaryRow label="Schedule" value="Recurring weekly shift" labelColor={labelColor} valueColor={textColor} />
+                ) : null}
+                {isProject ? (
+                  <SummaryRow label="Project" value={[projectStart, projectEnd].filter(Boolean).join(' → ') || 'Multi-day'} labelColor={labelColor} valueColor={textColor} />
+                ) : null}
+                {urgent ? (
+                  <SummaryRow label="Urgency" value="Marked urgent" labelColor={labelColor} valueColor={textColor} />
+                ) : null}
+              </View>
+
+              {/* ── Publish Job button ── */}
+              <View style={{ gap: spacing.xs }}>
+                <Pressable
+                  onPress={() => { haptic('selection'); mutation.mutate(); }}
+                  disabled={!canSave}
+                  style={({ pressed }) => ({
+                    backgroundColor: canSave ? BLUE : theme.brand.primaryLight,
+                    borderRadius: radii.lg,
+                    paddingVertical: 16,
+                    alignItems: 'center',
+                    opacity: pressed ? 0.9 : 1,
+                  })}
+                >
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: theme.text.onBrand }}>
+                    {mutation.isPending
+                      ? (routeParams?.editJobId ? 'Saving…' : 'Publishing…')
+                      : (routeParams?.editJobId ? 'Save Changes' : 'Publish Job')}
+                  </Text>
+                </Pressable>
+                {validationReason && !mutation.isPending && (
+                  <Text style={{ fontSize: 12, color: textSecondary, textAlign: 'center' }}>
+                    {validationReason}
+                  </Text>
+                )}
+              </View>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -1430,6 +1597,29 @@ export function PostJobScreen() {
         </Pressable>
       </Modal>
     </Screen>
+  );
+}
+
+// ─── Review step row ─────────────────────────────────────────────────────────
+
+function SummaryRow({
+  label,
+  value,
+  labelColor,
+  valueColor,
+}: {
+  label: string;
+  value: string;
+  labelColor: string;
+  valueColor: string;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', gap: spacing.md }}>
+      <Text style={{ fontSize: 13, color: labelColor, width: 92 }}>{label}</Text>
+      <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: valueColor }} numberOfLines={3}>
+        {value}
+      </Text>
+    </View>
   );
 }
 

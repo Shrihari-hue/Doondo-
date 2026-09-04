@@ -126,6 +126,11 @@ export type AppStackParamList = {
   Roster: undefined;
   /** Modal: employer analytics dashboard. */
   EmployerAnalytics: undefined;
+  /**
+   * Modal: the fork in front of the two hiring flows — Short Job (Quick
+   * Work) vs Long-Term Job (Post a Job). Chooses only; owns no form state.
+   */
+  HiringTypeSelect: undefined;
   /** Modal: post a new job (employer), or edit/duplicate an existing one. */
   PostJob: {
     /** When set, the screen runs in "edit" mode — PATCH instead of POST. */
@@ -174,6 +179,32 @@ export type AppStackParamList = {
   VoiceAgent: undefined;
   /** Modal: employer voice assistant — speak to find workers, view applicants, post jobs. */
   EmployerVoiceAgent: undefined;
+  /**
+   * Modal: Quick Work request creation wizard — Category → Service →
+   * Describe → Location → Timing → Review → Post. employer-plan.md §7.
+   */
+  QuickWorkCreate: { initialImmediate?: boolean } | undefined;
+  /** Modal: a single Quick Work request's live status + cancel. employer-plan.md §7 #10-13. */
+  QuickWorkDetail: { requestId: string };
+  /** Modal: worker's accepted-job execution screen — arrive/start/complete. seeker-plan.md §13-18. */
+  QuickWorkJob: { requestId: string };
+  /** Modal: worker's persistent Quick Work service opt-in. seeker-plan.md §8. */
+  QuickWorkServiceProfile: undefined;
+  /**
+   * Seeker onboarding step 1 — trade multi-select. `mode: 'edit'` reuses
+   * the same screen from Home's Preferred Jobs "Edit" affordance, where
+   * it saves and pops instead of continuing to work-type selection.
+   */
+  JobPreferences: { mode?: 'edit' } | undefined;
+  /** Seeker onboarding step 2 — Short Term / Long Term / Both. */
+  WorkTypeSelect: undefined;
+  /**
+   * Screen: Quick Work history — Active/Completed/Cancelled/Disputed
+   * tabs, shared between employer and worker (role read from useAuth()).
+   * Opening an item reuses QuickWorkDetail (employer) / QuickWorkJob
+   * (worker) — no duplicate detail view.
+   */
+  QuickWorkHistory: undefined;
   /** Screen: employer wallet top-up via UPI. */
   WalletTopUp: undefined;
   /**

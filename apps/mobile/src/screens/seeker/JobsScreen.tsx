@@ -99,6 +99,12 @@ export function JobsScreen() {
     : coords;
   const [type, setType] = useState<JobType | 'all'>('all');
   const [view, setView] = useState<'list' | 'map'>('list');
+  /**
+   * Feed ordering. Applied client-side on the page the API already
+   * returned — the nearby endpoint has no sort parameter, and adding one
+   * would be a backend change for something 50 rows can do locally.
+   */
+  const [sort, setSort] = useState<SortKey>('nearest');
   /** Search radius in km (UI unit). Converted to meters when calling the API. */
   const [radiusKm, setRadiusKm] = useState(5);
   const [search, setSearch] = useState(initialQuery);
@@ -266,7 +272,10 @@ export function JobsScreen() {
     },
   });
 
-  const jobs = query.data?.jobs ?? [];
+  const jobs = useMemo(
+    () => sortJobs(query.data?.jobs ?? [], sort),
+    [query.data?.jobs, sort],
+  );
 
   return (
     <Screen edges={['top']}>
@@ -334,6 +343,8 @@ export function JobsScreen() {
                 haptic('selection');
                 navigation.navigate('JobSwipe');
               }}
+              sort={sort}
+              onChangeSort={setSort}
               safeForWomenOnly={safeForWomenOnly}
               onToggleSafeForWomen={() => {
                 haptic('selection');
@@ -469,6 +480,8 @@ export function JobsScreen() {
                 haptic('selection');
                 navigation.navigate('JobSwipe');
               }}
+              sort={sort}
+              onChangeSort={setSort}
               safeForWomenOnly={safeForWomenOnly}
               onToggleSafeForWomen={() => {
                 haptic('selection');
@@ -495,6 +508,35 @@ export function JobsScreen() {
 
 const RADIUS_OPTIONS_KM = [5, 10, 15, 20, 25, 30, 40, 50, 100] as const;
 
+/** Feed ordering options — design brief §18 "Sort by". */
+export type SortKey = 'nearest' | 'pay' | 'newest';
+
+const SORTS: Array<{ key: SortKey; labelKey: string }> = [
+  { key: 'nearest', labelKey: 'jobs.sort.nearest' },
+  { key: 'pay', labelKey: 'jobs.sort.pay' },
+  { key: 'newest', labelKey: 'jobs.sort.newest' },
+];
+
+/**
+ * Order the page the API already returned.
+ *
+ * "Nearest" is the server's own default ordering, so that branch returns
+ * the list untouched rather than re-sorting on a `distanceMeters` the
+ * endpoint may not have filled in.
+ */
+function sortJobs(jobs: PublicJob[], sort: SortKey): PublicJob[] {
+  if (sort === 'nearest') return jobs;
+  const copy = [...jobs];
+  if (sort === 'pay') {
+    // Compare on the top of each range so a "₹500–900" post isn't ranked
+    // below a flat "₹700" it actually beats.
+    copy.sort((a, b) => (b.pay.amountMax ?? b.pay.amount) - (a.pay.amountMax ?? a.pay.amount));
+  } else {
+    copy.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+  return copy;
+}
+
 interface HeaderProps {
   t: TFn;
   userName: string | null;
@@ -518,6 +560,8 @@ interface HeaderProps {
   onOpenSwipe: () => void;
   safeForWomenOnly: boolean;
   onToggleSafeForWomen: () => void;
+  sort: SortKey;
+  onChangeSort: (s: SortKey) => void;
 }
 
 function timeOfDayCaption(t: TFn): string {
@@ -549,6 +593,8 @@ function Header({
   onOpenSwipe,
   safeForWomenOnly,
   onToggleSafeForWomen,
+  sort,
+  onChangeSort,
 }: HeaderProps) {
   const { theme } = useTheme();
 
@@ -824,6 +870,48 @@ function Header({
             );
           })}
         </HScrollView>
+      </View>
+
+      {/* Sort row — ordering is a different decision from filtering, so it
+          gets its own labelled row above the type chips rather than
+          becoming three more chips in the same pile. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <Text variant="footnote" tone="tertiary">
+          {t('jobs.sort.label')}
+        </Text>
+        <View style={{ flexDirection: 'row', gap: spacing.xs, flex: 1 }}>
+          {SORTS.map((s) => {
+            const active = sort === s.key;
+            return (
+              <Pressable
+                key={s.key}
+                onPress={() => {
+                  if (active) return;
+                  haptic('selection');
+                  onChangeSort(s.key);
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                style={{
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.xs,
+                  borderRadius: radii.pill,
+                  borderWidth: 0.5,
+                  borderColor: active ? theme.brand.primary : theme.border.default,
+                  backgroundColor: active ? theme.brand.primarySubtle : 'transparent',
+                }}
+              >
+                <Text
+                  variant="footnote"
+                  weight={active ? 'medium' : 'regular'}
+                  style={{ color: active ? theme.brand.primary : theme.text.secondary }}
+                >
+                  {t(s.labelKey)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       {/* Filter chips */}

@@ -41,6 +41,10 @@ export interface PublicAvailability {
    * pushed about. Null on a plain beacon.
    */
   wage: { amount: number; period: PayPeriod } | null;
+  /** Quick Work service opt-in — real catalog service ids, not free text. seeker-plan.md §7/§8. */
+  serviceIds: string[];
+  /** seeker-plan.md §7.1 — paused new Quick Work offers without withdrawing the beacon. */
+  paused: boolean;
   createdAt: string;
 }
 
@@ -67,6 +71,15 @@ export interface PublishAvailabilityPayload {
    */
   wageAmount?: number | null;
   wagePeriod?: PayPeriod | null;
+  /**
+   * Quick Work service opt-in (seeker-plan.md §7/§8) — real catalog
+   * service ids. Omitting this on a republish resets it to empty, same
+   * "full replace" semantics as tradesAvailable/note above — a future
+   * service-picker UI should always send the worker's full current list.
+   */
+  serviceIds?: string[];
+  /** seeker-plan.md §7.1 — pause new Quick Work offers without withdrawing the beacon. */
+  paused?: boolean;
 }
 
 export interface NearbyAvailability extends PublicAvailability {

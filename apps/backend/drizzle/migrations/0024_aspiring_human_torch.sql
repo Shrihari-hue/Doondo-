@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "wallet_quick_work_payment_unique" ON "wallet_transactions" USING btree ("user_id","quick_work_request_id","kind");

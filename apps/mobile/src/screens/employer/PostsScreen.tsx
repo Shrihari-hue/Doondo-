@@ -95,7 +95,10 @@ export function PostsScreen() {
 
   const onPostJob = () => {
     haptic('selection');
-    navigation.navigate('PostJob');
+    // The generic "post something" CTA — it can't know which of the two
+    // hiring products the employer wants, so it asks. Edit/duplicate below
+    // still go straight to PostJob: those are already long-term by nature.
+    navigation.navigate('HiringTypeSelect');
   };
 
   return (

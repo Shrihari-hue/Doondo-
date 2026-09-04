@@ -28,6 +28,7 @@ import { sql } from 'drizzle-orm';
 import { geometry } from 'drizzle-orm/pg-core';
 import { applications } from './applications';
 import { jobs, jobTypeEnum, payPeriodEnum } from './jobs';
+import { quickWorkRequests } from './quickWork';
 import { users } from './users';
 import { messageKindEnum } from './marketplace';
 
@@ -108,6 +109,16 @@ export const availabilities = pgTable('availabilities', {
   // employer push fan-out on publish (see availability.service.ts).
   wageAmount: integer('wage_amount'),
   wagePeriod: payPeriodEnum('wage_period'),
+  // seeker-plan.md §7.1 — worker paused new Quick Work offer intake
+  // without tearing the beacon down (duration/trades/note stay intact).
+  // Quick Work SERVICE eligibility itself lives on the separate,
+  // persistent `worker_service_profiles` table (see workerServiceProfiles.ts)
+  // — NOT here. An earlier pass put a `serviceIds` array on this row, but
+  // that conflates "what Quick Work I'm generally willing to do" (a
+  // persistent worker fact) with "am I live right now" (this ephemeral,
+  // expiring beacon row) — a worker's chosen services would vanish every
+  // time their beacon lapsed. Corrected before any real usage depended on it.
+  paused: boolean('paused').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [
@@ -472,6 +483,9 @@ export const paymentIntents = pgTable('payment_intents', {
   employerId: uuid('employer_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
   seekerId: uuid('seeker_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
   applicationId: uuid('application_id').references(() => applications.id, { onDelete: 'restrict' }),
+  // employer-plan.md §17 — nullable, alongside applicationId. A CHECK
+  // below enforces exactly one of the two is set per row.
+  quickWorkRequestId: uuid('quick_work_request_id').references(() => quickWorkRequests.id, { onDelete: 'restrict' }),
   amountPaise: integer('amount_paise').notNull(),
   currency: varchar('currency', { length: 3 }).notNull().default('INR'),
   seekerVpa: varchar('seeker_vpa', { length: 80 }).notNull(),
@@ -485,6 +499,15 @@ export const paymentIntents = pgTable('payment_intents', {
   uniqueIndex('payment_intents_ref_unique').on(t.ref),
   index('payment_intents_employer_created_idx').on(t.employerId, t.createdAt),
   index('payment_intents_seeker_created_idx').on(t.seekerId, t.createdAt),
+  index('payment_intents_quick_work_request_id_idx').on(t.quickWorkRequestId),
+  // NOT "exactly one" — a payment intent with NEITHER set is a legitimate
+  // pre-existing case (a freestanding UPI payment with no tracked
+  // application, e.g. paying an informally-hired worker). Only reject the
+  // case that's actually invalid: both contexts set on one row.
+  check(
+    'payment_intents_not_both_contexts_check',
+    sql`NOT (${t.applicationId} IS NOT NULL AND ${t.quickWorkRequestId} IS NOT NULL)`,
+  ),
 ]);
 
 // ─── siteBriefing ───────────────────────────────────────────────────────────

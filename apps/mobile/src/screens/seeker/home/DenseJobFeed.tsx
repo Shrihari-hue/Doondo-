@@ -30,7 +30,15 @@ import { spacing, radii } from '@doondo/tokens';
 import { Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { jobsApi } from '@/api/jobs.api';
-import { TRADES, tradeShortLabel, tradeEmoji } from '@/lib/trades';
+import { TRADES, tradeShortLabel } from '@/lib/trades';
+import {
+  formatPay,
+  formatPayPrimary,
+  formatPaySuffix,
+  formatType,
+  formatDistance,
+  pickJobIcon,
+} from '@/lib/jobFormat';
 import { useFestival, isFestivalJob, type Festival } from '@/lib/festivals';
 import { haptic } from '@/lib/haptics';
 import { useTranslate } from '@/i18n/useTranslate';
@@ -650,79 +658,6 @@ function StatDivider() {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function pickJobIcon(job: PublicJob): string {
-  // Try the job's first skill — most blue-collar postings tag a trade
-  // slug as the lead skill ("driver_light", "mason", etc).
-  for (const skill of job.skills ?? []) {
-    const e = tradeEmoji(skill);
-    if (e) return e;
-  }
-  // Fall back to matching the title text against trade aliases.
-  const title = job.title.toLowerCase();
-  for (const t of TRADES) {
-    if (title.includes(t.slug.replace(/_/g, ' '))) return t.emoji;
-    if (t.aliases.some((a) => title.includes(a))) return t.emoji;
-  }
-  return '💼';
-}
-
-function formatPay(pay: PublicJob['pay'], t: TFn): string {
-  const min = Math.round(pay.amount / 100);
-  const max = pay.amountMax ? Math.round(pay.amountMax / 100) : null;
-  const range =
-    max && max > min
-      ? `${min.toLocaleString('en-IN')}–${max.toLocaleString('en-IN')}`
-      : min.toLocaleString('en-IN');
-  const suffix =
-    pay.period === 'hour'
-      ? ' ' + t('common.pay_period.suffix_hour')
-      : pay.period === 'day'
-        ? ' ' + t('common.pay_period.suffix_day')
-        : pay.period === 'week'
-          ? ' ' + t('common.pay_period.suffix_week')
-          : pay.period === 'month'
-            ? ' ' + t('common.pay_period.suffix_month')
-            : t('common.pay_period.suffix_fixed');
-  return `₹${range}${suffix}`;
-}
-
-function formatPayPrimary(pay: PublicJob['pay']): string {
-  const min = Math.round(pay.amount / 100);
-  const max = pay.amountMax ? Math.round(pay.amountMax / 100) : null;
-  // 'en-IN' for the lakh/crore grouping every Indian user expects (1,00,000),
-  // regardless of UI language — the digits and ₹ are universal.
-  const range =
-    max && max > min
-      ? `₹${min.toLocaleString('en-IN')}–${max.toLocaleString('en-IN')}`
-      : `₹${min.toLocaleString('en-IN')}`;
-  return range;
-}
-
-function formatPaySuffix(pay: PublicJob['pay'], t: TFn): string {
-  switch (pay.period) {
-    case 'hour':
-      return t('common.pay_period.per_hour');
-    case 'day':
-      return t('common.pay_period.per_day');
-    case 'week':
-      return t('common.pay_period.per_week');
-    case 'month':
-      return t('common.pay_period.per_month');
-    case 'fixed':
-      return t('common.pay_period.one_time');
-  }
-}
-
-function formatType(type: PublicJob['type'], t: TFn): string {
-  // Map the raw job-type enum onto the shared common.job_type translation keys.
-  return t(`common.job_type.${type}`);
-}
-
-function formatDistance(meters: number, t: TFn): string {
-  if (meters < 1000) return t('common.units.meters_short', { n: meters });
-  return t('common.units.kilometers_short', { n: (meters / 1000).toFixed(1) });
-}
 
 function prettifyRequirement(skill: string, t: TFn): string {
   const trimmed = skill.trim();

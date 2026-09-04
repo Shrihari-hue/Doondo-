@@ -15,6 +15,8 @@ export interface PaymentIntent {
   employerId: string;
   seekerId: string;
   applicationId: string | null;
+  /** employer-plan.md §17 — Quick Work payment context. */
+  quickWorkRequestId: string | null;
   amountPaise: number;
   currency: string;
   seekerVpa: string;
@@ -40,9 +42,11 @@ export interface PaymentReceipt {
 
 export const paymentsApi = {
   create: (input: {
-    seekerId: string;
+    seekerId?: string;
     applicationId?: string;
-    amountPaise: number;
+    /** employer-plan.md §17 — when set, the server derives seekerId/amount from the request itself, never trusting these from the client. */
+    quickWorkRequestId?: string;
+    amountPaise?: number;
     note?: string;
   }) =>
     apiRequest<{ intent: PaymentIntent }>('/payments/intent', {

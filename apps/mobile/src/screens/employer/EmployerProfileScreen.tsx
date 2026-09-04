@@ -310,6 +310,27 @@ export function EmployerProfileScreen() {
           </Card>
         </AnimatedPressable>
 
+        <AnimatedPressable
+          onPress={() => {
+            haptic('selection');
+            navigation.navigate('QuickWorkHistory');
+          }}
+        >
+          <Card>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ gap: 2, flex: 1 }}>
+                <Text variant="bodyLarge" weight="medium">
+                  Quick Work history
+                </Text>
+                <Text variant="footnote" tone="secondary">
+                  Requests you've posted — active, completed, cancelled
+                </Text>
+              </View>
+              <Pill label="View" tone="info" />
+            </View>
+          </Card>
+        </AnimatedPressable>
+
         <LaborBudgetCard t={t} />
 
         <ResponseSettingsCard t={t} />

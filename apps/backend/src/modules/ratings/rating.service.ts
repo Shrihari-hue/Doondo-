@@ -21,10 +21,12 @@
 
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
-import { applications, jobs, ratings, users, type RatingRole } from '@/db/schema';
-import { AppError } from '@/lib/errors';
+import { applications, jobs, quickWorkRequests, ratings, services, users, type RatingRole } from '@/db/schema';
+import { AppError, errors } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { sendRatingReceivedPush } from '@/lib/push';
+import { emitToUser } from '@/sockets/bus';
+import * as notifications from '@/modules/notifications/notification.service';
 import {
   allowedTagsFor,
   validateTagsForRole,
@@ -42,8 +44,13 @@ export interface PublicRating {
   /** Null when anonymous. */
   reviewerPhotoUrl: string | null;
   revieweeId: string;
-  applicationId: string;
-  jobId: string;
+  /** Null for a Quick Work rating — see quickWorkRequestId instead. */
+  applicationId: string | null;
+  /** Null for a Quick Work rating. */
+  jobId: string | null;
+  /** Null for a Jobs rating — see applicationId/jobId instead. employer-plan.md §18. */
+  quickWorkRequestId: string | null;
+  /** The job title, or the Quick Work service name — whichever context this rating belongs to. */
   jobTitle: string;
   role: RatingRole;
   score: number;
@@ -59,13 +66,20 @@ export interface RatingSummary {
   count: number;
 }
 
+/**
+ * True for a Postgres unique-violation (23505). drizzle-orm >=0.44 wraps
+ * the driver's PostgresError in a DrizzleQueryError, moving the real
+ * `.code` to `.cause.code` — checking only the outer error's `.code` (the
+ * pre-wrap shape) silently missed every unique violation, which meant a
+ * duplicate rating attempt fell through to the generic 500 handler
+ * instead of the intended 409 "already rated" response. Found live while
+ * testing Quick Work ratings; the same bug (and the same fix) already
+ * exists in chat.service.ts's `isUnique()`.
+ */
 function isUniqueViolation(err: unknown): boolean {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    'code' in err &&
-    (err as { code?: string }).code === '23505'
-  );
+  const code = (err as { code?: string } | null)?.code;
+  const causeCode = (err as { cause?: { code?: string } } | null)?.cause?.code;
+  return code === '23505' || causeCode === '23505';
 }
 
 /**
@@ -90,6 +104,7 @@ function toPublicRating(
     revieweeId: row.revieweeId,
     applicationId: row.applicationId,
     jobId: row.jobId,
+    quickWorkRequestId: row.quickWorkRequestId,
     jobTitle: populated.jobTitle,
     role: row.role,
     score: row.score,
@@ -250,6 +265,134 @@ export async function createRating(input: CreateInput): Promise<PublicRating> {
   }
 }
 
+interface CreateQuickWorkRatingInput {
+  reviewerId: string;
+  quickWorkRequestId: string;
+  score: number;
+  comment?: string;
+  tags?: string[];
+  anonymous?: boolean;
+}
+
+/**
+ * Create a Quick Work rating — employer-plan.md §18 (Option A, resolved).
+ * Mirrors `createRating()`'s validation shape exactly, scoped to a
+ * `quick_work_requests` row instead of an `application`. Direction is
+ * inferred from whether the reviewer is the request's employer or its
+ * matched worker. Either party's first rating moves the request
+ * PAID -> RATED; the other party can still rate afterward (same rule
+ * Jobs ratings already follow — both sides rate independently).
+ */
+export async function createQuickWorkRating(input: CreateQuickWorkRatingInput): Promise<PublicRating> {
+  const [qw] = await getDb()
+    .select()
+    .from(quickWorkRequests)
+    .where(eq(quickWorkRequests.id, input.quickWorkRequestId))
+    .limit(1);
+  if (!qw) throw errors.quickWorkNotFound();
+  if (qw.status !== 'paid' && qw.status !== 'rated') {
+    throw new AppError({
+      code: 'CONFLICT',
+      message: 'You can only rate after payment is complete.',
+      status: 409,
+    });
+  }
+  if (!qw.matchedWorkerId) throw errors.quickWorkInvalidTransition(qw.status, 'rated');
+
+  let revieweeId: string;
+  let role: RatingRole;
+  if (input.reviewerId === qw.employerId) {
+    revieweeId = qw.matchedWorkerId;
+    role = 'seeker'; // reviewee is the worker
+  } else if (input.reviewerId === qw.matchedWorkerId) {
+    revieweeId = qw.employerId;
+    role = 'employer'; // reviewee is the customer
+  } else {
+    throw errors.forbidden('Only the customer or the worker on this request can rate.');
+  }
+
+  const requestedTags = Array.isArray(input.tags)
+    ? [...new Set(input.tags.map((t) => t.trim()).filter(Boolean))]
+    : [];
+  if (requestedTags.length > 0) {
+    const check = validateTagsForRole(role, requestedTags);
+    if (!check.ok) {
+      throw new AppError({
+        code: 'VALIDATION_FAILED',
+        message: `Unknown review tag(s): ${check.invalid.join(', ')}`,
+        status: 400,
+        details: { invalidTags: check.invalid },
+      });
+    }
+  }
+
+  try {
+    const [created] = await getDb()
+      .insert(ratings)
+      .values({
+        reviewerId: input.reviewerId,
+        revieweeId,
+        applicationId: null,
+        jobId: null,
+        quickWorkRequestId: qw.id,
+        role,
+        score: input.score,
+        comment: input.comment?.trim() || null,
+        tags: requestedTags,
+        anonymous: Boolean(input.anonymous),
+      })
+      .returning();
+    const rating = created!;
+
+    // PAID -> RATED on the first rating; a no-op compare-and-swap if the
+    // other party already rated first (row is already 'rated').
+    await getDb()
+      .update(quickWorkRequests)
+      .set({ status: 'rated', ratedAt: new Date() })
+      .where(and(eq(quickWorkRequests.id, qw.id), eq(quickWorkRequests.status, 'paid')));
+
+    const [reviewerRows, svcRows] = await Promise.all([
+      getDb().select({ name: users.name, photoUrl: users.photoUrl }).from(users).where(eq(users.id, input.reviewerId)).limit(1),
+      qw.serviceId
+        ? getDb().select({ name: services.name }).from(services).where(eq(services.id, qw.serviceId)).limit(1)
+        : Promise.resolve([]),
+    ]);
+    const reviewer = reviewerRows[0];
+    const serviceName = svcRows[0]?.name ?? qw.title ?? 'Quick Work';
+
+    void sendRatingReceivedPush({
+      recipientId: revieweeId,
+      reviewerName: reviewer?.name ?? 'Someone',
+      score: input.score,
+      jobTitle: serviceName,
+    });
+    emitToUser(revieweeId, 'quick_work:rated', { requestId: qw.id });
+    await notifications.record({
+      recipientId: revieweeId,
+      kind: 'rating_received',
+      title: 'You received a rating',
+      body: `${reviewer?.name ?? 'Someone'} rated your Quick Work — ${input.score}★`,
+      deeplink: { screen: 'QuickWorkDetail', params: { requestId: qw.id } },
+    });
+
+    return toPublicRating(rating, {
+      reviewerName: reviewer?.name ?? 'Doondo user',
+      reviewerPhotoUrl: reviewer?.photoUrl ?? null,
+      jobTitle: serviceName,
+    });
+  } catch (err: unknown) {
+    if (isUniqueViolation(err)) {
+      throw new AppError({
+        code: 'CONFLICT',
+        message: "You've already rated this request",
+        status: 409,
+      });
+    }
+    logger.error({ err }, 'quick work rating create failed');
+    throw err;
+  }
+}
+
 /**
  * Compute summary for a user. Returns 0/0 if no ratings yet — caller
  * should render "No ratings yet" rather than "0.0 ⭐".
@@ -379,29 +522,47 @@ export async function listForUser(input: ListForUserInput): Promise<PublicRating
 
   if (ratingRows.length === 0) return [];
 
-  // Bulk-load reviewer + job names.
+  // Bulk-load reviewer + job/Quick Work context names.
   const reviewerIds = [...new Set(ratingRows.map((r) => r.reviewerId))];
-  const jobIds = [...new Set(ratingRows.map((r) => r.jobId))];
+  const jobIds = [...new Set(ratingRows.map((r) => r.jobId).filter((id): id is string => id != null))];
+  const quickWorkIds = [
+    ...new Set(ratingRows.map((r) => r.quickWorkRequestId).filter((id): id is string => id != null)),
+  ];
 
-  const [reviewers, jobRows] = await Promise.all([
+  const [reviewers, jobRows, quickWorkRows] = await Promise.all([
     getDb()
       .select({ id: users.id, name: users.name, photoUrl: users.photoUrl })
       .from(users)
       .where(inArray(users.id, reviewerIds)),
-    getDb().select({ id: jobs.id, title: jobs.title }).from(jobs).where(inArray(jobs.id, jobIds)),
+    jobIds.length > 0
+      ? getDb().select({ id: jobs.id, title: jobs.title }).from(jobs).where(inArray(jobs.id, jobIds))
+      : Promise.resolve([]),
+    quickWorkIds.length > 0
+      ? getDb()
+          .select({ id: quickWorkRequests.id, title: quickWorkRequests.title, serviceName: services.name })
+          .from(quickWorkRequests)
+          .leftJoin(services, eq(services.id, quickWorkRequests.serviceId))
+          .where(inArray(quickWorkRequests.id, quickWorkIds))
+      : Promise.resolve([]),
   ]);
 
   const reviewerMap = new Map(
     reviewers.map((u) => [u.id, { name: u.name, photoUrl: u.photoUrl ?? null }]),
   );
   const jobMap = new Map(jobRows.map((j) => [j.id, j.title]));
+  const quickWorkMap = new Map(quickWorkRows.map((q) => [q.id, q.title || q.serviceName || 'Quick Work']));
 
   return ratingRows.map((r) => {
     const reviewerInfo = reviewerMap.get(r.reviewerId);
+    const jobTitle = r.jobId
+      ? (jobMap.get(r.jobId) ?? 'a job')
+      : r.quickWorkRequestId
+        ? (quickWorkMap.get(r.quickWorkRequestId) ?? 'Quick Work')
+        : 'a job';
     return toPublicRating(r, {
       reviewerName: reviewerInfo?.name ?? 'Doondo user',
       reviewerPhotoUrl: reviewerInfo?.photoUrl ?? null,
-      jobTitle: jobMap.get(r.jobId) ?? 'a job',
+      jobTitle,
     });
   });
 }

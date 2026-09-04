@@ -23,6 +23,12 @@ export async function isBlocked(employerId: string, workerId: string): Promise<b
   return Boolean(row);
 }
 
+/** Bulk form of isBlocked — every worker id this employer has blocked, for filtering a candidate pool (e.g. Quick Work matching). */
+export async function listBlockedWorkerIds(employerId: string): Promise<Set<string>> {
+  const rows = await getDb().select({ workerId: blockedWorkers.workerId }).from(blockedWorkers).where(eq(blockedWorkers.employerId, employerId));
+  return new Set(rows.map((r) => r.workerId));
+}
+
 export async function reportUser(input: { reporterId: string; reportedUserId: string; reason: UserReportReason; note?: string }): Promise<void> {
   await getDb().insert(userReports).values({
     reporterId: input.reporterId,

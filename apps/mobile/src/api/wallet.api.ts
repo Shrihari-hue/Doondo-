@@ -29,6 +29,10 @@ export interface EarningsSummary {
   cashLogCount: number;
   /** Sum of self-reported cash earnings, in paise. */
   cashLogPaise: number;
+  /** Number of settled Quick Work payments. employer-plan.md §17. */
+  quickWorkCount: number;
+  /** Sum of settled Quick Work payments, in paise. */
+  quickWorkPaise: number;
   currency: 'INR';
 }
 

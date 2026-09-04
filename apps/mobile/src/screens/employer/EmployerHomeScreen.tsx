@@ -11,7 +11,7 @@
  *   - Why Employers love Doondo
  */
 
-import { useMemo, useCallback, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -28,12 +28,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 
 import { spacing, radii, blue } from '@doondo/tokens';
-import { Screen, Text, AnimatedPressable, BlurOverlay } from '@/components';
+import { Screen, Text, BlurOverlay } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { haptic } from '@/lib/haptics';
 import { jobsApi } from '@/api/jobs.api';
 import { applicationsApi } from '@/api/applications.api';
+import { servicesApi } from '@/api/services.api';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
@@ -61,8 +62,18 @@ const WHY_EMPLOYERS_FEATURES: ReadonlyArray<{
 ];
 
 export function EmployerHomeScreen() {
-  const { theme, scheme } = useTheme();
-  const isLight = scheme !== 'dark';
+  const { theme } = useTheme();
+  // Shadow the module-level hex constants with real semantic tokens now
+  // that `theme` is in scope — every existing BLUE/ORANGE/etc. usage below
+  // becomes theme-driven without touching each call site individually.
+  const BLUE = theme.brand.primary;
+  const BLUE_DARK = theme.brand.primaryDark;
+  const BLUE_LIGHT = theme.brand.primarySubtle;
+  const GREEN_DARK = theme.status.success;
+  const AMBER = theme.status.warning;
+  const ORANGE = theme.accent.voice;
+  const CORAL = theme.brand.accent;
+  const CORAL_LIGHT = theme.brand.accentSubtle;
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -74,22 +85,42 @@ export function EmployerHomeScreen() {
     staleTime: 30_000,
   });
 
+  // "Finished" = filled (hiring complete) — the closest real status to
+  // "done" that the Jobs API exposes; no new backend field invented.
+  const finishedJobsQuery = useQuery({
+    queryKey: ['jobs', 'mine', 'filled'],
+    queryFn: () => jobsApi.listMine({ status: 'filled', limit: 10 }),
+    staleTime: 30_000,
+  });
+  const [jobsTab, setJobsTab] = useState<'ongoing' | 'finished'>('ongoing');
+
   const appsQuery = useQuery({
     queryKey: ['applicants', 'employer', 'all'],
     queryFn: () => applicationsApi.listForEmployer({ limit: 100 }),
     staleTime: 30_000,
   });
 
+  // ── Popular Services — real catalog data, no new backend/table ──────────
+  const categoriesQuery = useQuery({
+    queryKey: ['service-categories'],
+    queryFn: () => servicesApi.listCategories(),
+    staleTime: 5 * 60_000,
+  });
+  const homeCategoryId = categoriesQuery.data?.find((c) => c.slug === 'home-and-property-services')?.id
+    ?? categoriesQuery.data?.[0]?.id;
+  const popularServicesQuery = useQuery({
+    queryKey: ['services', 'popular', homeCategoryId],
+    queryFn: () => servicesApi.listServices({ categoryId: homeCategoryId }),
+    enabled: !!homeCategoryId,
+    staleTime: 5 * 60_000,
+  });
+  const popularServices = (popularServicesQuery.data ?? []).slice(0, 8);
+
   const activeJobs = jobsQuery.data?.jobs ?? [];
+  const finishedJobs = finishedJobsQuery.data?.jobs ?? [];
+  const jobsForTab = jobsTab === 'ongoing' ? activeJobs : finishedJobs;
   const applications = useMemo(() => appsQuery.data?.applications ?? [], [appsQuery.data]);
   const hiredCount = useMemo(() => applications.filter((a) => a.status === 'hired').length, [applications]);
-
-  // Hired "this week" — compare appliedAt to 7 days ago
-  const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const hiredThisWeek = useMemo(
-    () => applications.filter((a) => a.status === 'hired' && new Date(a.timeline.appliedAt).getTime() > oneWeekAgo).length,
-    [applications],
-  );
 
   const counts = useMemo(() => ({
     pending:     applications.filter((a) => a.status === 'pending').length,
@@ -126,93 +157,15 @@ export function EmployerHomeScreen() {
     return alerts.slice(0, 3); // cap at 3 alerts
   }, [applications]);
 
-  // ── Live activity feed — derived from applications cache ──────────────────
-  type FeedEvent = {
-    key: string;
-    icon: React.ComponentProps<typeof Feather>['name'];
-    color: string;
-    text: string;
-    time: string;
-    bg: string;
-  };
-
-  const feedEvents = useMemo<FeedEvent[]>(() => {
-    const events: FeedEvent[] = [];
-
-    for (const a of applications) {
-      const name = a.seeker?.name ?? 'A worker';
-      const job  = a.job?.title ?? 'a job';
-
-      if (a.status === 'hired' && a.timeline.hiredAt) {
-        events.push({
-          key:  `hire-${a.id}`,
-          icon: 'check-circle',
-          color: GREEN_DARK,
-          text: `${name} hired for ${job}`,
-          time: a.timeline.hiredAt,
-          bg:   theme.status.successSubtle,
-        });
-      }
-      if (a.status === 'shortlisted' && a.timeline.shortlistedAt) {
-        events.push({
-          key:  `short-${a.id}`,
-          icon: 'star',
-          color: BLUE,
-          text: `${name} shortlisted for ${job}`,
-          time: a.timeline.shortlistedAt,
-          bg:   theme.brand.primarySubtle,
-        });
-      }
-      if (a.status === 'pending' && a.timeline.appliedAt) {
-        events.push({
-          key:  `apply-${a.id}`,
-          icon: 'user',
-          color: AMBER,
-          text: `${name} applied for ${job}`,
-          time: a.timeline.appliedAt,
-          bg:   theme.status.warningSubtle,
-        });
-      }
-      if (a.interview && a.interview.scheduledAt) {
-        events.push({
-          key:  `intv-${a.id}`,
-          icon: 'calendar',
-          color: CORAL,
-          text: `Interview with ${name} scheduled`,
-          time: a.interview.scheduledAt,
-          bg:   CORAL_LIGHT,
-        });
-      }
-    }
-
-    // Sort newest first, cap at 6
-    return events
-      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-      .slice(0, 6);
-  }, [applications]);
-
-  const formatEventTime = useCallback((iso: string): string => {
-    const d = new Date(iso);
-    const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
-    const diffMins = Math.floor(diffMs / 60_000);
-    if (diffMins < 1)   return 'Just now';
-    if (diffMins < 60)  return `${diffMins}m ago`;
-    const diffHrs = Math.floor(diffMins / 60);
-    if (diffHrs < 24)   return `${diffHrs}h ago`;
-    const diffDays = Math.floor(diffHrs / 24);
-    if (diffDays === 1) return 'Yesterday';
-    return `${diffDays}d ago`;
-  }, []);
-
   function newAppsForJob(jobId: string) {
     return applications.filter((a) => a.jobId === jobId && a.status === 'pending').length;
   }
 
-  const refreshing = jobsQuery.isRefetching || appsQuery.isRefetching;
+  const refreshing = jobsQuery.isRefetching || appsQuery.isRefetching || finishedJobsQuery.isRefetching;
   function refetch() {
     void jobsQuery.refetch();
     void appsQuery.refetch();
+    void finishedJobsQuery.refetch();
   }
 
   function timeGreeting() {
@@ -243,14 +196,6 @@ export function EmployerHomeScreen() {
   const cardBorder = theme.border.default;
   const textPrimary = theme.text.primary;
   const textSecondary = theme.text.secondary;
-
-  // "Why Employers ❤️ Doondo" section — follows the system/app theme like
-  // the rest of the screen, just with a slightly distinct card surface.
-  const whySectionBg = theme.bg.muted;
-  const whyCardBg = theme.bg.surface;
-  const whyCardBorder = theme.border.default;
-  const whyTitleColor = theme.text.primary;
-  const whyDescColor = textSecondary;
 
   return (
     <Screen edges={[]}>
@@ -322,36 +267,17 @@ export function EmployerHomeScreen() {
           {/* ── Greeting Row ── */}
           <View
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
               paddingHorizontal: spacing.xl,
               paddingVertical: spacing.sm,
-              gap: spacing.md,
+              gap: 2,
             }}
           >
-            <Text
-              style={{ flexShrink: 1, fontSize: 17, fontWeight: '700', color: textPrimary }}
-              numberOfLines={1}
-            >
+            <Text style={{ fontSize: 17, fontWeight: '700', color: textPrimary }}>
               {timeGreeting()}, {(user?.name ?? 'there').split(' ')[0]} 👋
             </Text>
-            <Pressable
-              onPress={() => haptic('selection')}
-              style={{
-                flexShrink: 1,
-                backgroundColor: cardBg,
-                borderWidth: 1,
-                borderColor: cardBorder,
-                borderRadius: 20,
-                paddingHorizontal: spacing.md,
-                paddingVertical: 6,
-              }}
-            >
-              <Text style={{ fontSize: 11, fontWeight: '600', color: BLUE }} numberOfLines={1}>
-                Switch to Household
-              </Text>
-            </Pressable>
+            <Text style={{ fontSize: 13, color: textSecondary }}>
+              Here's what you need today.
+            </Text>
           </View>
 
           {/* ── Profile completeness nudge ── */}
@@ -389,598 +315,300 @@ export function EmployerHomeScreen() {
             </Pressable>
           )}
 
-          {/* ── Hero Gradient Summary Card ── */}
-          <LinearGradient
-            colors={theme.brand.primaryImmersiveGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              marginHorizontal: spacing.xl, marginBottom: spacing.md,
-              borderRadius: 20, padding: spacing.lg,
-              shadowColor: theme.brand.primary, shadowOpacity: 0.35,
-              shadowRadius: 16, shadowOffset: { width: 0, height: 6 },
-              elevation: 10,
-            }}
-          >
-            {/* Top row: heading + greeting */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
-              <View style={{ gap: 2 }}>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.75)', letterSpacing: 0.2 }}>
-                  Dashboard Overview
-                </Text>
-                <Text style={{ fontSize: 18, fontWeight: '800', color: theme.text.onBrand }}>
-                  {appsQuery.isLoading ? 'Loading...' : `${counts.openRoles} active role${counts.openRoles !== 1 ? 's' : ''}`}
-                </Text>
-              </View>
-              <View style={{
-                width: 40, height: 40, borderRadius: 12,
-                backgroundColor: 'rgba(255,255,255,0.2)',
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Feather name="briefcase" size={20} color={theme.text.onBrand} />
-              </View>
+          {/* ── What do you need today? — Short Job (Quick Work) vs
+              Long-Term Job (Post a Job). Two genuinely different flows;
+              each card is a direct, unambiguous entry point. ── */}
+          <View style={{ paddingHorizontal: spacing.xl, marginBottom: spacing.lg, gap: spacing.md }}>
+            <View>
+              <Text style={{ fontSize: 17, fontWeight: '700', color: textPrimary }}>What do you need today?</Text>
+              <Text style={{ fontSize: 13, color: textSecondary, marginTop: 2 }}>
+                Choose the type of work you want to hire.
+              </Text>
             </View>
 
-            {/* Divider */}
-            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginBottom: spacing.md }} />
+            <View style={{ flexDirection: 'row', gap: spacing.md }}>
+              {/* Short Job → Quick Work (existing flow, untouched) */}
+              <Pressable
+                onPress={() => { haptic('selection'); navigation.navigate('QuickWorkCreate', { initialImmediate: true }); }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  backgroundColor: theme.brand.primarySubtle,
+                  borderWidth: 1,
+                  borderColor: theme.brand.primaryBorder,
+                  borderRadius: radii.lg,
+                  padding: spacing.md,
+                  gap: spacing.sm,
+                  opacity: pressed ? 0.9 : 1,
+                })}
+              >
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center' }}>
+                  <Feather name="zap" size={19} color={theme.text.onBrand} />
+                </View>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>Short Job</Text>
+                <Text style={{ fontSize: 12, color: textSecondary, lineHeight: 16 }}>
+                  Get someone for a quick task or small work.
+                </Text>
+                <View style={{ gap: 4 }}>
+                  {['Instant matching', 'One-time tasks', 'Quick & easy'].map((line) => (
+                    <View key={line} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Feather name="check-circle" size={12} color={BLUE} />
+                      <Text style={{ fontSize: 11, color: textSecondary, flexShrink: 1 }}>{line}</Text>
+                    </View>
+                  ))}
+                </View>
+                <View style={{ backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: spacing.sm + 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: spacing.xs }}>
+                  <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 13 }}>Find Worker Now</Text>
+                  <Feather name="chevron-right" size={14} color={theme.text.onBrand} />
+                </View>
+              </Pressable>
 
-            {/* Stats row — 3 equal-width columns, never touching/overlapping */}
-            <View style={{ flexDirection: 'row', width: '100%' }}>
-              {[
-                { value: counts.pending, label: 'New Apps', icon: 'users' as const, onPress: () => navigation.navigate('EmployerJobs' as never) },
-                { value: counts.shortlisted, label: 'Shortlisted', icon: 'bookmark' as const, onPress: () => navigation.navigate('EmployerJobs' as never) },
-                { value: hiredThisWeek, label: 'Hired/wk', icon: 'user-check' as const, onPress: () => navigation.navigate('Workers' as never) },
-              ].map((stat, i) => (
+              {/* Long-Term Job → Post a Job (existing flow, untouched) */}
+              <Pressable
+                onPress={() => { haptic('selection'); navigation.navigate('PostJob'); }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  backgroundColor: CORAL_LIGHT,
+                  borderWidth: 1,
+                  borderColor: theme.brand.accentBorder,
+                  borderRadius: radii.lg,
+                  padding: spacing.md,
+                  gap: spacing.sm,
+                  opacity: pressed ? 0.9 : 1,
+                })}
+              >
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: CORAL, alignItems: 'center', justifyContent: 'center' }}>
+                  <Feather name="calendar" size={19} color={theme.text.onBrand} />
+                </View>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>Long-Term Job</Text>
+                <Text style={{ fontSize: 12, color: textSecondary, lineHeight: 16 }}>
+                  Hire for a job, shift, or ongoing work.
+                </Text>
+                <View style={{ gap: 4 }}>
+                  {['Receive applications', 'Hire for days/months', 'Build your team'].map((line) => (
+                    <View key={line} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Feather name="check-circle" size={12} color={CORAL} />
+                      <Text style={{ fontSize: 11, color: textSecondary, flexShrink: 1 }}>{line}</Text>
+                    </View>
+                  ))}
+                </View>
+                <View style={{ backgroundColor: CORAL, borderRadius: radii.lg, paddingVertical: spacing.sm + 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: spacing.xs }}>
+                  <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 13 }}>Post a Job</Text>
+                  <Feather name="chevron-right" size={14} color={theme.text.onBrand} />
+                </View>
+              </Pressable>
+            </View>
+          </View>
+
+          {/* ── Popular Services — real service catalog, tap → Quick Work ── */}
+          {popularServices.length > 0 && (
+            <View style={{ paddingHorizontal: spacing.xl, marginBottom: spacing.lg }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary }}>Popular Services</Text>
                 <Pressable
-                  key={stat.label}
-                  onPress={() => { haptic('selection'); stat.onPress(); }}
-                  style={({ pressed }) => ({
-                    flex: 1,
-                    alignItems: 'center',
-                    borderLeftWidth: i > 0 ? 1 : 0,
-                    borderLeftColor: 'rgba(255,255,255,0.2)',
-                    opacity: pressed ? 0.75 : 1,
-                    paddingVertical: spacing.xs,
-                    paddingHorizontal: spacing.xs,
-                  })}
+                  hitSlop={8}
+                  onPress={() => { haptic('selection'); navigation.navigate('QuickWorkCreate', { initialImmediate: true }); }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
                 >
-                  <Text style={{ fontSize: 26, fontWeight: '900', color: theme.text.onBrand, lineHeight: 32, textAlign: 'center' }}>
-                    {appsQuery.isLoading ? '—' : String(stat.value)}
-                  </Text>
-                  <View style={{ alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs }}>
-                    <Feather name={stat.icon} size={12} color="rgba(255,255,255,0.7)" />
-                    <Text
-                      style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.1, textAlign: 'center' }}
-                      numberOfLines={1}
-                    >
-                      {stat.label}
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: BLUE }}>View all</Text>
+                  <Feather name="chevron-right" size={14} color={BLUE} />
+                </Pressable>
+              </View>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+                {popularServices.map((svc) => (
+                  <Pressable
+                    key={svc.id}
+                    onPress={() => { haptic('selection'); navigation.navigate('QuickWorkCreate', { initialImmediate: true }); }}
+                    style={({ pressed }) => ({
+                      width: '23%',
+                      alignItems: 'center',
+                      gap: spacing.xs,
+                      backgroundColor: cardBg,
+                      borderWidth: 1,
+                      borderColor: cardBorder,
+                      borderRadius: radii.lg,
+                      paddingVertical: spacing.md,
+                      paddingHorizontal: spacing.xs,
+                      opacity: pressed ? 0.85 : 1,
+                    })}
+                  >
+                    <Feather name={(svc.icon as React.ComponentProps<typeof Feather>['name']) ?? 'tool'} size={20} color={BLUE} />
+                    <Text numberOfLines={2} style={{ fontSize: 11, fontWeight: '600', color: textPrimary, textAlign: 'center', lineHeight: 14 }}>
+                      {svc.name}
                     </Text>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
-          </LinearGradient>
-
-          {/* ── Document Expiry Alerts ── */}
-          {expiringDocs.length > 0 && (
-            <View style={{
-              marginHorizontal: spacing.xl, marginBottom: spacing.md,
-              backgroundColor: theme.status.warningSubtle, borderRadius: 14, borderWidth: 1, borderColor: theme.status.warningBorder,
-              padding: spacing.md, gap: spacing.sm,
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                <Text style={{ fontSize: 16 }}>⚠️</Text>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: theme.warning }}>
-                  Documents expiring soon
-                </Text>
+                  </Pressable>
+                ))}
               </View>
-              {expiringDocs.map((alert, i) => (
-                <Pressable
-                  key={i}
-                  onPress={() => { haptic('selection'); navigation.navigate('WorkerDocuments', { applicationId: alert.applicationId, workerName: alert.workerName }); }}
-                  style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm })}
-                >
-                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: AMBER }} />
-                  <Text style={{ flex: 1, fontSize: 13, color: theme.warning }} numberOfLines={1}>
-                    {alert.workerName} — {alert.docTitle}
-                  </Text>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: theme.warning }}>
-                    {alert.daysLeft}d left
-                  </Text>
-                </Pressable>
-              ))}
             </View>
           )}
 
-          {/* ── Time-Off Requests shortcut ── */}
-          <AnimatedPressable
-            onPress={() => { haptic('selection'); navigation.navigate('TimeOffRequests' as never); }}
-            style={{
-              marginHorizontal: spacing.xl, marginBottom: spacing.md,
-              backgroundColor: theme.brand.primarySubtle,
-              borderRadius: 14, borderWidth: 1,
-              borderColor: isLight ? 'rgba(37,99,235,0.14)' : 'rgba(96,165,250,0.18)',
-              padding: spacing.md,
-              flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-            }}
-          >
-            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: BLUE + '22', alignItems: 'center', justifyContent: 'center' }}>
-              <Feather name="calendar" size={18} color={BLUE} />
-            </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: theme.brand.primary }}>Time-Off Requests</Text>
-              <Text style={{ fontSize: 12, color: theme.brand.primary }}>Review leave requests from your crew</Text>
-            </View>
-            <Feather name="chevron-right" size={16} color={BLUE} />
-          </AnimatedPressable>
-
-          {/* ── Hire More Workers ── */}
-          <AnimatedPressable onPress={() => { haptic('selection'); navigation.navigate('AvailableWorkers' as never); }}
-            style={{
-              marginHorizontal: spacing.xl, marginBottom: spacing.md,
-              backgroundColor: BLUE, borderRadius: radii.lg, paddingVertical: 13,
-              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-            }}>
-            <Feather name="plus" size={18} color={theme.text.onBrand} />
-            <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text.onBrand }}>Hire More Workers</Text>
-          </AnimatedPressable>
-
-          {/* ── Business Card ── */}
-          <AnimatedPressable
-            onPress={() => { haptic('selection'); navigation.navigate('EmployerProfile' as never); }}
-            style={{
-              marginHorizontal: spacing.xl,
-              marginBottom: spacing.md,
-              backgroundColor: cardBg,
-              borderWidth: 1,
-              borderColor: cardBorder,
-              borderRadius: radii.lg,
-              padding: spacing.md,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: spacing.md,
-              shadowColor: '#000',
-              shadowOpacity: 0.06,
-              shadowRadius: 6,
-              shadowOffset: { width: 0, height: 2 },
-              elevation: 2,
-            }}
-          >
-            <View
-              style={{
-                width: 50,
-                height: 50,
-                borderRadius: 12,
-                backgroundColor: BLUE_LIGHT,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Feather name="briefcase" size={24} color={BLUE} />
-            </View>
-            <View style={{ flex: 1, gap: 3, justifyContent: 'center' }}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>
-                {(user as any)?.businessName ?? user?.name ?? 'My Business'}
-              </Text>
-              <Text style={{ fontSize: 12, color: textSecondary }}>
-                Business Account
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Text style={{ color: AMBER, fontSize: 13 }}>★</Text>
-                <Text style={{ fontSize: 12, color: textSecondary }}>
-                  {(user as any)?.rating
-                    ? `${(user as any).rating} (${(user as any).reviewCount ?? 0} reviews)`
-                    : '4.7 (128 reviews)'}
-                </Text>
-              </View>
-            </View>
-            <Feather name="chevron-right" size={18} color={textSecondary} />
-          </AnimatedPressable>
-
-          {/* ── Wallet Card ── */}
-          <AnimatedPressable
-            onPress={() => { haptic('selection'); navigation.navigate('WalletTopUp'); }}
-            style={{ marginHorizontal: spacing.xl, marginBottom: spacing.lg }}
-          >
-            <LinearGradient
-              colors={theme.brand.primaryImmersiveGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{
-                borderRadius: radii.lg,
-                padding: spacing.lg,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1 }}>
-                <View
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 8,
-                    backgroundColor: 'rgba(255,255,255,0.2)',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Feather name="credit-card" size={18} color={theme.text.onBrand} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text.onBrand }}>
-                    Wallet Balance
-                  </Text>
-                  <Text
-                    numberOfLines={1}
-                    style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 1 }}
-                  >
-                    Manage your wallet and transactions
-                  </Text>
-                </View>
-              </View>
+          {/* ── Active Jobs — real per-employer data (jobsApi.listMine is
+              scoped server-side to WHERE employerId = authenticatedUser.id,
+              verified in job.service.ts). Ongoing = status 'active',
+              Finished = status 'filled' (the closest real "done" status
+              the Jobs API exposes — no new backend field invented). ── */}
+          <View style={{ paddingHorizontal: spacing.xl, marginBottom: spacing.md }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary }}>Active Jobs</Text>
               <Pressable
-                style={{
-                  backgroundColor: theme.bg.inverse,
-                  borderRadius: 8,
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm,
-                }}
-                onPress={() => {
-                  haptic('selection');
-                  navigation.navigate('WalletTopUp');
-                }}
-              >
-                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.text.inverse }}>
-                  Add Money
-                </Text>
-              </Pressable>
-            </LinearGradient>
-          </AnimatedPressable>
-
-          {/* ── Quick Actions ── */}
-          <View
-            style={{
-              flexDirection: 'row',
-              width: '100%',
-              paddingHorizontal: spacing.xl,
-              marginBottom: spacing.lg,
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-            }}
-          >
-            {([
-              { icon: 'calendar', label: 'Attendance', bg: BLUE_LIGHT, color: BLUE, onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
-              { icon: 'dollar-sign', label: 'Salary', bg: theme.status.successSubtle, color: GREEN_DARK, onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
-              { icon: 'clipboard', label: 'Assign Task', bg: CORAL_LIGHT, color: CORAL, onPress: () => { haptic('selection'); navigation.navigate('Workers' as never); } },
-              { icon: 'bar-chart-2', label: 'Analytics', bg: theme.status.warningSubtle, color: ORANGE, onPress: () => { haptic('selection'); navigation.navigate('EmployerAnalytics' as never); } },
-            ] as const).map((item) => (
-              <Pressable
-                key={item.label}
-                onPress={() => { haptic('selection'); item.onPress(); }}
-                accessibilityRole="button"
-                style={({ pressed }) => ({
-                  flex: 1,
-                  alignItems: 'center',
-                  minWidth: 0,
-                  gap: spacing.sm,
-                  opacity: pressed ? 0.75 : 1,
-                })}
-              >
-                <View
-                  style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 16,
-                    backgroundColor: item.bg,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Feather name={item.icon} size={22} color={item.color} />
-                </View>
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.8}
-                  style={{
-                    fontSize: 11,
-                    fontWeight: '600',
-                    color: textPrimary,
-                    textAlign: 'center',
-                    lineHeight: 14,
-                  }}
-                >
-                  {item.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {/* ── Recent Activity (live) ── */}
-          <View style={{ paddingHorizontal: spacing.xl, marginBottom: spacing.lg }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary }}>Recent Activity</Text>
-              <Pressable
-                hitSlop={8}
-                onPress={() => navigation.navigate('Applicants' as never)}
+                onPress={() => navigation.navigate('EmployerJobs' as never)}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
               >
                 <Text style={{ fontSize: 13, fontWeight: '600', color: BLUE }}>View all</Text>
                 <Feather name="chevron-right" size={14} color={BLUE} />
               </Pressable>
             </View>
-            <View style={{ backgroundColor: cardBg, borderRadius: radii.lg, borderWidth: 1, borderColor: cardBorder, overflow: 'hidden' }}>
-              {feedEvents.length === 0 ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg }}>
-                  <View
+
+            {/* Ongoing / Finished tabs */}
+            <View style={{ flexDirection: 'row', backgroundColor: theme.bg.muted, borderRadius: radii.lg, padding: 3, gap: 3 }}>
+              {([
+                { key: 'ongoing' as const, label: 'Ongoing', count: activeJobs.length },
+                { key: 'finished' as const, label: 'Finished', count: finishedJobs.length },
+              ]).map((tab) => {
+                const isActive = jobsTab === tab.key;
+                return (
+                  <Pressable
+                    key={tab.key}
+                    onPress={() => { haptic('selection'); setJobsTab(tab.key); }}
                     style={{
-                      width: 40, height: 40, borderRadius: 20,
-                      backgroundColor: BLUE_LIGHT,
-                      alignItems: 'center', justifyContent: 'center',
+                      flex: 1,
+                      alignItems: 'center',
+                      paddingVertical: spacing.sm,
+                      borderRadius: radii.md,
+                      backgroundColor: isActive ? cardBg : 'transparent',
                     }}
                   >
-                    <Feather name="clock" size={18} color={BLUE} />
-                  </View>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary }}>No activity yet</Text>
-                    <Text style={{ fontSize: 12, color: textSecondary }}>Post a job to get started.</Text>
-                  </View>
-                  <View
-                    style={{
-                      width: 40, height: 40, borderRadius: 12,
-                      backgroundColor: theme.bg.muted,
-                      alignItems: 'center', justifyContent: 'center',
-                    }}
-                  >
-                    <Feather name="search" size={18} color={textSecondary} />
-                  </View>
-                </View>
-              ) : (
-                feedEvents.map((event, i) => (
-                  <View key={event.key} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-                    padding: spacing.md, borderBottomWidth: i < feedEvents.length - 1 ? 1 : 0, borderBottomColor: cardBorder }}>
-                    <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: event.bg,
-                      alignItems: 'center', justifyContent: 'center' }}>
-                      <Feather name={event.icon} size={16} color={event.color} />
-                    </View>
-                    <Text style={{ flex: 1, fontSize: 13, color: textPrimary }} numberOfLines={2}>{event.text}</Text>
-                    <Text style={{ fontSize: 12, color: textSecondary, flexShrink: 0 }}>{formatEventTime(event.time)}</Text>
-                  </View>
-                ))
-              )}
+                    <Text style={{ fontSize: 13, fontWeight: isActive ? '700' : '500', color: isActive ? textPrimary : textSecondary }}>
+                      {tab.label} ({tab.count})
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
 
-          {/* ── Active Jobs ── */}
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              paddingHorizontal: spacing.xl,
-              marginBottom: spacing.md,
-            }}
-          >
-            <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary }}>
-              Active Jobs
-            </Text>
-            <Pressable
-              onPress={() => navigation.navigate('EmployerJobs' as never)}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
-            >
-              <Text style={{ fontSize: 13, fontWeight: '600', color: BLUE }}>View all</Text>
-              <Feather name="chevron-right" size={14} color={BLUE} />
-            </Pressable>
-          </View>
-
-          {activeJobs.length === 0 ? (
+          {jobsForTab.length === 0 ? (
             <View
               style={{
                 marginHorizontal: spacing.xl,
+                marginBottom: spacing.lg,
                 padding: spacing.xl,
                 borderRadius: radii.lg,
                 borderWidth: 1,
                 borderColor: cardBorder,
                 backgroundColor: cardBg,
                 alignItems: 'center',
-                gap: spacing.md,
+                gap: spacing.xs,
               }}
             >
-              <View
-                style={{
-                  width: 56, height: 56, borderRadius: 28,
-                  backgroundColor: BLUE_LIGHT,
-                  alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                <Feather name="clipboard" size={26} color={BLUE} />
-              </View>
-              <View style={{ alignItems: 'center', gap: 2 }}>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary, textAlign: 'center' }}>
-                  No active jobs yet.
-                </Text>
-                <Text style={{ fontSize: 13, color: textSecondary, textAlign: 'center' }}>
-                  Post one to start receiving applicants.
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => { haptic('selection'); navigation.navigate('PostJob'); }}
-                style={{
-                  backgroundColor: BLUE,
-                  borderRadius: radii.lg,
-                  paddingHorizontal: spacing.xl,
-                  paddingVertical: 13,
-                  marginTop: spacing.xs,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text style={{ color: theme.text.onBrand, fontWeight: '700', fontSize: 14 }}>Post a Job</Text>
-              </Pressable>
+              <Feather name="briefcase" size={22} color={textSecondary} style={{ marginBottom: spacing.xs }} />
+              <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary, textAlign: 'center' }}>
+                {jobsTab === 'ongoing' ? 'No active jobs yet.' : 'No finished jobs yet.'}
+              </Text>
+              <Text style={{ fontSize: 12, color: textSecondary, textAlign: 'center' }}>
+                {jobsTab === 'ongoing' ? 'Post a job to start hiring.' : 'Completed jobs will show up here.'}
+              </Text>
             </View>
           ) : (
-            activeJobs.slice(0, 5).map((job) => {
-              const newCount = newAppsForJob(job.id);
-              return (
-                <Pressable
-                  key={job.id}
-                  onPress={() => {
-                    haptic('selection');
-                    navigation.navigate('JobDetail', { jobId: job.id });
-                  }}
-                  accessibilityRole="button"
-                  style={({ pressed }) => ({
-                    marginHorizontal: spacing.xl,
-                    marginBottom: spacing.sm,
+            <View style={{ marginBottom: spacing.lg }}>
+              {jobsForTab.slice(0, 5).map((job) => {
+                const newCount = newAppsForJob(job.id);
+                return (
+                  <Pressable
+                    key={job.id}
+                    onPress={() => {
+                      haptic('selection');
+                      navigation.navigate('JobDetail', { jobId: job.id });
+                    }}
+                    accessibilityRole="button"
+                    style={({ pressed }) => ({
+                      marginHorizontal: spacing.xl,
+                      marginBottom: spacing.sm,
+                      backgroundColor: cardBg,
+                      borderWidth: 1,
+                      borderColor: cardBorder,
+                      borderRadius: radii.lg,
+                      padding: spacing.md,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: spacing.md,
+                      opacity: pressed ? 0.85 : 1,
+                    })}
+                  >
+                    <View
+                      style={{
+                        width: 46,
+                        height: 46,
+                        borderRadius: 23,
+                        backgroundColor: theme.bg.muted,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Feather name="briefcase" size={22} color={textSecondary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary }} numberOfLines={1}>
+                        {job.title}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: textSecondary, marginTop: 2 }} numberOfLines={1}>
+                        {job.type === 'full_time' ? 'Full time' : job.type === 'part_time' ? 'Part time' : 'One time'}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: textSecondary, marginTop: 3 }}>
+                        {(job as any).applicationCount ?? 0} applications
+                      </Text>
+                    </View>
+                    {newCount > 0 && (
+                      <View
+                        style={{
+                          backgroundColor: theme.status.successSubtle,
+                          borderRadius: 20,
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
+                        }}
+                      >
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: GREEN_DARK }}>
+                          {newCount} New
+                        </Text>
+                      </View>
+                    )}
+                    <Feather name="chevron-right" size={16} color={textSecondary} />
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
+          {/* ── Why Employers ❤️ Doondo — compact, below Active Jobs ── */}
+          <View style={{ paddingHorizontal: spacing.xl, marginBottom: spacing.lg }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary, marginBottom: spacing.sm }}>
+              Why Employers ❤️ Doondo
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+              {WHY_EMPLOYERS_FEATURES.map((item) => (
+                <View
+                  key={item.title}
+                  style={{
+                    width: '31.5%',
                     backgroundColor: cardBg,
                     borderWidth: 1,
                     borderColor: cardBorder,
-                    borderRadius: radii.lg,
-                    padding: spacing.md,
-                    flexDirection: 'row',
+                    borderRadius: radii.md,
+                    paddingVertical: spacing.sm,
+                    paddingHorizontal: spacing.xs,
                     alignItems: 'center',
-                    gap: spacing.md,
-                    shadowColor: '#000',
-                    shadowOpacity: 0.05,
-                    shadowRadius: 4,
-                    shadowOffset: { width: 0, height: 1 },
-                    elevation: 1,
-                    opacity: pressed ? 0.85 : 1,
-                  })}
+                    gap: 3,
+                  }}
                 >
-                  <View
-                    style={{
-                      width: 46,
-                      height: 46,
-                      borderRadius: 23,
-                      backgroundColor: theme.bg.muted,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Feather name="briefcase" size={22} color={textSecondary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary }}>
-                      {job.title}
-                    </Text>
-                    <Text style={{ fontSize: 12, color: textSecondary, marginTop: 2 }}>
-                      {job.type === 'full_time' ? 'Full time' : job.type === 'part_time' ? 'Part time' : 'One time'}
-                    </Text>
-                    <Text style={{ fontSize: 12, color: textSecondary, marginTop: 3 }}>
-                      {(job as any).applicationCount ?? 0} applications
-                    </Text>
-                  </View>
-                  {newCount > 0 && (
-                    <View
-                      style={{
-                        backgroundColor: theme.status.successSubtle,
-                        borderRadius: 20,
-                        paddingHorizontal: 8,
-                        paddingVertical: 3,
-                      }}
-                    >
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: GREEN_DARK }}>
-                        {newCount} New
-                      </Text>
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })
-          )}
-
-          {/* ── Why Employers Love Doondo ── */}
-          <View
-            style={{
-              backgroundColor: whySectionBg,
-              marginTop: spacing.lg,
-              paddingVertical: spacing.xl,
-              paddingHorizontal: spacing.xl,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 19,
-                fontWeight: '800',
-                color: whyTitleColor,
-                textAlign: 'center',
-                marginBottom: spacing.xl,
-              }}
-            >
-              Why Employers ❤️ Doondo
-            </Text>
-
-            {[0, 1].map((rowIndex) => (
-              <View
-                key={rowIndex}
-                style={{
-                  flexDirection: 'row',
-                  gap: spacing.sm,
-                  marginBottom: rowIndex === 0 ? spacing.sm : 0,
-                }}
-              >
-                {WHY_EMPLOYERS_FEATURES.slice(rowIndex * 3, rowIndex * 3 + 3).map((item) => (
-                  <View
-                    key={item.title}
-                    style={{
-                      flex: 1,
-                      minHeight: 150,
-                      backgroundColor: whyCardBg,
-                      borderWidth: 1,
-                      borderColor: whyCardBorder,
-                      borderRadius: radii.lg,
-                      paddingVertical: spacing.lg,
-                      paddingHorizontal: spacing.xs,
-                      alignItems: 'center',
-                    }}
-                  >
-                    {/* Fixed-height icon area — keeps titles aligned across every card */}
-                    <View
-                      style={{
-                        height: 32,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginBottom: spacing.sm,
-                      }}
-                    >
-                      <Feather name={item.icon} size={22} color={BLUE} />
-                    </View>
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        fontWeight: '700',
-                        color: whyTitleColor,
-                        textAlign: 'center',
-                      }}
-                    >
-                      {item.title}
-                    </Text>
-                    <View
-                      style={{
-                        width: 24,
-                        height: 3,
-                        borderRadius: 2,
-                        backgroundColor: ORANGE,
-                        marginTop: spacing.xs,
-                        marginBottom: spacing.xs,
-                      }}
-                    />
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        color: whyDescColor,
-                        textAlign: 'center',
-                        lineHeight: 15,
-                      }}
-                    >
-                      {item.desc}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            ))}
+                  <Feather name={item.icon} size={16} color={BLUE} />
+                  <Text numberOfLines={2} style={{ fontSize: 10, fontWeight: '700', color: textPrimary, textAlign: 'center', lineHeight: 12 }}>
+                    {item.title}
+                  </Text>
+                  <Text numberOfLines={2} style={{ fontSize: 9, color: textSecondary, textAlign: 'center', lineHeight: 11 }}>
+                    {item.desc}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
         </ScrollView>
       </View>

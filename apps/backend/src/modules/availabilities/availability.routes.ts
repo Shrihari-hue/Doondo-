@@ -13,6 +13,7 @@ import { validate } from '@/middleware/validate';
 import * as controller from './availability.controller';
 import {
   nearbyAvailabilitiesQuerySchema,
+  pauseAvailabilitySchema,
   upsertAvailabilitySchema,
 } from './availability.schemas';
 
@@ -36,6 +37,14 @@ seekerAvailabilityRouter.delete(
   requireAuth,
   requireRole('seeker'),
   controller.withdraw,
+);
+// seeker-plan.md §7.1 — pause/resume new Quick Work offers without withdrawing the beacon.
+seekerAvailabilityRouter.patch(
+  '/availability/pause',
+  requireAuth,
+  requireRole('seeker'),
+  validate(pauseAvailabilitySchema),
+  controller.pause,
 );
 
 // Employer-side reads mounted under /availabilities.

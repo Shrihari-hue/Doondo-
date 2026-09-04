@@ -9,13 +9,14 @@
  * EditProfile) stack on top of whichever tab host is active.
  */
 
-import { useEffect } from 'react';
-import { AppState } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AppState, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTheme } from '@/theme/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useApplicationSocket } from '@/hooks/useApplicationSocket';
 import { useChatSocket } from '@/hooks/useChatSocket';
+import { useQuickWorkSocket } from '@/hooks/useQuickWorkSocket';
 import { useOfflineQueueSync } from '@/hooks/useOfflineQueue';
 import {
   attachTapHandler,
@@ -30,6 +31,11 @@ import { EditProfileScreen } from '@/screens/seeker/EditProfileScreen';
 import { VoiceAgentScreen } from '@/screens/seeker/VoiceAgentScreen';
 import { EmployerVoiceAgentScreen } from '@/screens/employer/EmployerVoiceAgentScreen';
 import { WalletTopUpScreen } from '@/screens/employer/WalletTopUpScreen';
+import { QuickWorkCreateScreen } from '@/screens/employer/quick-work/QuickWorkCreateScreen';
+import { QuickWorkDetailScreen } from '@/screens/employer/quick-work/QuickWorkDetailScreen';
+import { QuickWorkJobScreen } from '@/screens/seeker/QuickWorkJobScreen';
+import { QuickWorkServiceProfileScreen } from '@/screens/seeker/QuickWorkServiceProfileScreen';
+import { QuickWorkHistoryScreen } from '@/screens/QuickWorkHistoryScreen';
 import { WomenHubScreen } from '@/screens/seeker/WomenHubScreen';
 import { RecordReelScreen } from '@/screens/seeker/RecordReelScreen';
 import { ReelFeedScreen } from '@/screens/employer/ReelFeedScreen';
@@ -108,9 +114,13 @@ import { RosterScreen } from '@/screens/employer/RosterScreen';
 import { TimeOffRequestsScreen } from '@/screens/employer/TimeOffRequestsScreen';
 import { EmployerAnalyticsScreen } from '@/screens/employer/EmployerAnalyticsScreen';
 import { PostJobScreen } from '@/screens/employer/PostJobScreen';
+import { HiringTypeSelectScreen } from '@/screens/employer/HiringTypeSelectScreen';
+import { JobPreferencesScreen } from '@/screens/seeker/onboarding/JobPreferencesScreen';
+import { WorkTypeSelectScreen } from '@/screens/seeker/onboarding/WorkTypeSelectScreen';
 import { ConversationScreen } from '@/screens/chat/ConversationScreen';
 import { VerificationFlowScreen } from '@/screens/verification/VerificationFlowScreen';
 import { AddRecoveryPhoneScreen } from '@/screens/settings/AddRecoveryPhoneScreen';
+import { getSecure } from '@/lib/secureStore';
 import type { AppStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -120,10 +130,47 @@ export function AppNavigator() {
   const { user } = useAuth();
   const isEmployer = user?.role === 'employer';
 
+  /**
+   * Seeker onboarding gate — a worker who has never picked their trades
+   * lands on Job Preferences, not Home. A worker who already has
+   * preferences (or deliberately skipped) goes straight to Home.
+   *
+   * `initialRouteName` can't be decided synchronously because the
+   * "skipped" flag lives on disk, so we read it once and hold the
+   * navigator for that single SecureStore read — the same pattern (and
+   * for the same reason) as AuthNavigator's onboarding check. Every hook
+   * below still mounts unconditionally; only the JSX waits.
+   */
+  const [seekerInitialRoute, setSeekerInitialRoute] = useState<
+    'SeekerTabs' | 'JobPreferences' | null
+  >(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (isEmployer) {
+      setSeekerInitialRoute('SeekerTabs');
+      return;
+    }
+    void (async () => {
+      const onboarded = await getSecure('seekerPrefsOnboarded').catch(() => null);
+      if (cancelled) return;
+      const hasTrades = (user?.skills ?? []).length > 0;
+      setSeekerInitialRoute(onboarded === '1' || hasTrades ? 'SeekerTabs' : 'JobPreferences');
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Only the role and the trade count can change this decision, and
+    // re-running on every `user` identity change would bounce a worker
+    // back into onboarding mid-session after any profile save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEmployer]);
+
   // Live application status updates + chat events over Socket.IO.
   // Mounted here so the listeners follow the full authenticated session.
   useApplicationSocket();
   useChatSocket();
+  useQuickWorkSocket();
 
   // Flush any applications queued while offline — on mount and every
   // time the app returns to the foreground.
@@ -151,8 +198,15 @@ export function AppNavigator() {
     };
   }, []);
 
+  // Hold on the canvas for the one-shot preference read above rather than
+  // mounting Home and yanking it away a frame later.
+  if (seekerInitialRoute === null) {
+    return <View style={{ flex: 1, backgroundColor: theme.bg.canvas }} />;
+  }
+
   return (
     <Stack.Navigator
+      initialRouteName={isEmployer ? 'EmployerTabs' : seekerInitialRoute}
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: theme.bg.canvas },
@@ -170,6 +224,16 @@ export function AppNavigator() {
         name="JobDetail"
         component={JobDetailScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="JobPreferences"
+        component={JobPreferencesScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="WorkTypeSelect"
+        component={WorkTypeSelectScreen}
+        options={{ animation: 'slide_from_right' }}
       />
 
       {/* Employer modals */}
@@ -249,6 +313,11 @@ export function AppNavigator() {
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen
+        name="HiringTypeSelect"
+        component={HiringTypeSelectScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
         name="PostJob"
         component={PostJobScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
@@ -293,6 +362,31 @@ export function AppNavigator() {
         name="WalletTopUp"
         component={WalletTopUpScreen}
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="QuickWorkCreate"
+        component={QuickWorkCreateScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="QuickWorkDetail"
+        component={QuickWorkDetailScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="QuickWorkJob"
+        component={QuickWorkJobScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="QuickWorkServiceProfile"
+        component={QuickWorkServiceProfileScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="QuickWorkHistory"
+        component={QuickWorkHistoryScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
       />
       <Stack.Screen
         name="WomenHub"

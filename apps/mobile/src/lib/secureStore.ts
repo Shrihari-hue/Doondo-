@@ -87,6 +87,19 @@ export type SecureKey =
    * capped at 5. Powers the spotlight search overlay.
    */
   | 'recentSearches'
+  /**
+   * Seeker work-type preference — JSON `{ shortTerm: boolean, longTerm:
+   * boolean }`. Decides which feeds Home renders: Short Term (default),
+   * Long Term, or Both. On-device only, exactly like `homeMode` — it is a
+   * view preference, not account state, so it needs no server round-trip.
+   */
+  | 'workTypePref'
+  /**
+   * "1" once the seeker has been through the Job Preferences → Work Type
+   * onboarding. Keeps a worker who deliberately skipped trade selection
+   * from being re-prompted on every launch.
+   */
+  | 'seekerPrefsOnboarded'
   /** "1" once the employer has dismissed/used the mic FAB discovery bubble. */
   | 'micBubbleSeen';
 

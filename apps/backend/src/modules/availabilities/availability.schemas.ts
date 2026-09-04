@@ -65,6 +65,11 @@ export const upsertAvailabilitySchema = z.object({
     }),
 });
 
+/** PATCH /me/availability/pause — a dedicated toggle, see availability.service.ts#setPaused. */
+export const pauseAvailabilitySchema = z.object({
+  body: z.object({ paused: z.boolean() }).strict(),
+});
+
 export const nearbyAvailabilitiesQuerySchema = z.object({
   query: z.object({
     lat: z.coerce.number().min(-90).max(90),
@@ -74,6 +79,8 @@ export const nearbyAvailabilitiesQuerySchema = z.object({
     radius: z.coerce.number().int().min(100).max(50_000).default(10_000),
     /** Filter by single trade slug. Optional. */
     trade: z.string().trim().min(1).max(40).optional(),
+    /** Filter by exact catalog service id (Quick Work eligibility). Optional. */
+    serviceId: z.string().uuid().optional(),
     /** Filter by job type. Optional. */
     type: z.enum(JOB_TYPES).optional(),
     limit: z.coerce.number().int().min(1).max(50).default(20),

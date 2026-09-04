@@ -54,6 +54,26 @@ export const NOTIFICATION_KINDS = [
   'mentor_session_cancelled', // the other side cancelled a booked mentor session
   'cohort_invite',            // someone invited you into a peer cohort
   'cohort_message',           // a new message landed in one of your cohorts
+  // Quick Work — employer-plan.md §23 / seeker-plan.md §27.
+  'quick_work_offer_received',    // worker: a new Quick Work offer arrived
+  'quick_work_offer_expiring',    // worker: an offer is about to lapse
+  'quick_work_offer_closed',      // worker: lost the race, another worker accepted
+  'quick_work_matched',           // employer: a worker accepted the request
+  'quick_work_worker_arriving',   // employer: worker is on the way
+  'quick_work_worker_arrived',    // employer: worker has arrived
+  'quick_work_started',           // employer: work has started
+  'quick_work_completed',         // employer: work is complete, review before paying
+  'quick_work_price_approved',    // worker: employer approved a revised price
+  'quick_work_payment_pending',   // employer: ready to pay
+  'quick_work_paid',              // worker: payment received
+  'quick_work_cancelled',         // the other party cancelled the request
+  'quick_work_customer_cancelled',// worker: employer cancelled
+  'quick_work_expired',           // employer: request timed out with nobody accepting
+  'quick_work_no_worker_found',   // employer: no eligible worker after full radius expansion
+  'quick_work_disputed',          // both parties: a dispute was raised
+  'quick_work_scheduled_confirmed', // employer: scheduled request posted, matching will start closer to the time
+  'quick_work_scheduled_reminder',  // both parties: scheduled work is coming up soon
+  'quick_work_no_show',             // both parties: a no-show was flagged (worker or customer)
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

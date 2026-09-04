@@ -39,6 +39,9 @@ import { runOfferExpirySweep } from '@/modules/applications/offerExpiry.service'
 import { runEscalationSweep } from '@/modules/jobs/escalation.service';
 import { runReengagementSweep } from '@/modules/notifications/reengagement.service';
 import { runPushReceiptSweep } from './pushReceiptSweep.service';
+import { sweepExpiredOffers } from '@/modules/quickWork/quickWorkOffers.service';
+import { runScheduledWorkSweep } from '@/modules/quickWork/quickWorkScheduling.service';
+import { runWorkerNoShowSweep } from '@/modules/quickWork/quickWorkNoShow.service';
 
 let registered: ScheduledTask[] = [];
 
@@ -75,6 +78,7 @@ export function bootScheduler(): void {
   const escalationValid = cron.validate(env.ESCALATION_CRON);
   const reengagementValid = cron.validate(env.REENGAGEMENT_CRON);
   const pushReceiptSweepValid = cron.validate(env.PUSH_RECEIPT_SWEEP_CRON);
+  const quickWorkSweepValid = cron.validate(env.QUICK_WORK_SWEEP_CRON);
   if (!digestValid) {
     logger.error(
       { cron: env.DIGEST_CRON },
@@ -121,6 +125,12 @@ export function bootScheduler(): void {
     logger.error(
       { cron: env.PUSH_RECEIPT_SWEEP_CRON },
       'PUSH_RECEIPT_SWEEP_CRON is not a valid cron expression — dead-token sweep disabled',
+    );
+  }
+  if (!quickWorkSweepValid) {
+    logger.error(
+      { cron: env.QUICK_WORK_SWEEP_CRON },
+      'QUICK_WORK_SWEEP_CRON is not a valid cron expression — Quick Work offer sweep disabled',
     );
   }
 
@@ -296,6 +306,56 @@ export function bootScheduler(): void {
     );
     registered.push(pushReceiptSweepTask);
     logger.info({ cron: env.PUSH_RECEIPT_SWEEP_CRON }, 'scheduler: push receipt sweep registered');
+  }
+
+  // ─── Quick Work offer expiry sweep (Postgres-native) ───────────────────
+  // Not gated behind PG_APPLICATION_SCHEDULERS_ENABLED — Quick Work's
+  // offer window is ~90s, short enough that leaving stale 'offered' rows
+  // around for a Jobs-scale sweep interval would visibly break the
+  // "someone else took it" UX. Registers whenever SCHEDULER_ENABLED is on.
+  if (quickWorkSweepValid) {
+    const quickWorkSweepTask = cron.schedule(
+      env.QUICK_WORK_SWEEP_CRON,
+      () => {
+        sweepExpiredOffers().catch((err) => {
+          logger.error({ err }, 'quick work offer sweep run failed');
+        });
+      },
+      {
+        timezone: 'UTC',
+      },
+    );
+    registered.push(quickWorkSweepTask);
+    logger.info({ cron: env.QUICK_WORK_SWEEP_CRON }, 'scheduler: quick work offer sweep registered');
+
+    // Same cadence, same validated cron — Scheduled Work's matching
+    // kickoff + reminder sweep, and the worker no-show sweep, both need
+    // the same tight (every-minute-by-default) responsiveness as the
+    // offer sweep above, and none of them warrant a separate scheduling
+    // system (see quickWorkScheduling.service.ts / quickWorkNoShow.service.ts).
+    const scheduledWorkTask = cron.schedule(
+      env.QUICK_WORK_SWEEP_CRON,
+      () => {
+        runScheduledWorkSweep().catch((err) => {
+          logger.error({ err }, 'quick work scheduled-work sweep run failed');
+        });
+      },
+      { timezone: 'UTC' },
+    );
+    registered.push(scheduledWorkTask);
+    logger.info({ cron: env.QUICK_WORK_SWEEP_CRON }, 'scheduler: quick work scheduled-work sweep registered');
+
+    const noShowTask = cron.schedule(
+      env.QUICK_WORK_SWEEP_CRON,
+      () => {
+        runWorkerNoShowSweep().catch((err) => {
+          logger.error({ err }, 'quick work no-show sweep run failed');
+        });
+      },
+      { timezone: 'UTC' },
+    );
+    registered.push(noShowTask);
+    logger.info({ cron: env.QUICK_WORK_SWEEP_CRON }, 'scheduler: quick work no-show sweep registered');
   }
 
   logger.info({ tasks: registered.length }, 'scheduler booted');

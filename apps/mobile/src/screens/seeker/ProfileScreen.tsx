@@ -949,6 +949,42 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
+              icon="sliders"
+              iconColor="#2563EB"
+              tint="#DBEAFE"
+              label="Job preferences"
+              subtitle="The trades we put first in your feed"
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('JobPreferences', { mode: 'edit' });
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="zap"
+              iconColor="#2563EB"
+              tint="#DBEAFE"
+              label="Quick Work services"
+              subtitle="Pick the services you can take on-demand"
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('QuickWorkServiceProfile');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="clock"
+              iconColor="#2563EB"
+              tint="#DBEAFE"
+              label="Quick Work history"
+              subtitle="Jobs you've taken — active, completed, cancelled"
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('QuickWorkHistory');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
               icon="bar-chart-2"
               iconColor="#4F46E5"
               tint="#C7D2FE"

@@ -6,6 +6,8 @@ import {
   conversations,
   jobs,
   messages,
+  quickWorkRequests,
+  services,
   users,
   type ApplicationStatus,
 } from '@/db/schema';
@@ -34,6 +36,8 @@ interface ParticipantSummary {
 export interface PublicConversationWithCounterpart extends PublicConversation {
   counterpart?: ParticipantSummary;
   job?: { id: string; title: string };
+  /** Set instead of `job` when this is a Quick Work conversation. employer-plan.md §14. */
+  quickWork?: { id: string; title: string };
 }
 type ConversationRow = typeof conversations.$inferSelect;
 type MessageRow = typeof messages.$inferSelect;
@@ -46,6 +50,7 @@ function publicConversation(row: ConversationRow, unread = 0): PublicConversatio
     employerId: row.employerId,
     seekerId: row.seekerId,
     jobId: row.jobId,
+    quickWorkRequestId: row.quickWorkRequestId,
     lastMessageAt: row.lastMessageAt.toISOString(),
     lastMessagePreview: row.lastMessagePreview ?? null,
     lastSenderId: row.lastSenderId ?? null,
@@ -145,6 +150,56 @@ export async function getOrCreateForApplication(input: {
     throw err;
   }
 }
+/**
+ * Quick Work's chat entry point — employer-plan.md §14. Reuses this exact
+ * same `conversations`/`messages` system (not a second chat), scoped by
+ * `quickWorkRequestId` instead of `jobId`. Same upsert-with-race-recovery
+ * shape as `getOrCreateForApplication` above.
+ */
+export async function getOrCreateForQuickWork(input: {
+  employerId: string;
+  seekerId: string;
+  quickWorkRequestId: string;
+}): Promise<ConversationRow> {
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(conversations)
+    .where(
+      and(
+        eq(conversations.employerId, input.employerId),
+        eq(conversations.seekerId, input.seekerId),
+        eq(conversations.quickWorkRequestId, input.quickWorkRequestId),
+      ),
+    )
+    .limit(1);
+  if (existing[0]) return existing[0];
+  try {
+    const [created] = await db
+      .insert(conversations)
+      .values({ ...input, jobId: null, lastMessageAt: new Date() })
+      .returning();
+    logger.info({ conversationId: created!.id, ...input }, 'quick work conversation created');
+    return created!;
+  } catch (err) {
+    if (isUnique(err)) {
+      const [recovered] = await db
+        .select()
+        .from(conversations)
+        .where(
+          and(
+            eq(conversations.employerId, input.employerId),
+            eq(conversations.seekerId, input.seekerId),
+            eq(conversations.quickWorkRequestId, input.quickWorkRequestId),
+          ),
+        )
+        .limit(1);
+      if (recovered) return recovered;
+    }
+    throw err;
+  }
+}
+
 export async function ensureConversationFromApplication(
   userId: string,
   applicationId: string,
@@ -208,18 +263,34 @@ export async function listMine(
     .limit(filter.limit);
   if (!rows.length) return [];
   const people = await counterpartsAndJobs(rows, userId);
-  const jobRows = await getDb()
-    .select({ id: jobs.id, title: jobs.title })
-    .from(jobs)
-    .where(inArray(jobs.id, [...new Set(rows.map((r) => r.jobId))]));
+  const jobIds = [...new Set(rows.map((r) => r.jobId).filter((id): id is string => id != null))];
+  const quickWorkIds = [
+    ...new Set(rows.map((r) => r.quickWorkRequestId).filter((id): id is string => id != null)),
+  ];
+  const [jobRows, quickWorkRows] = await Promise.all([
+    jobIds.length > 0
+      ? getDb().select({ id: jobs.id, title: jobs.title }).from(jobs).where(inArray(jobs.id, jobIds))
+      : Promise.resolve([]),
+    quickWorkIds.length > 0
+      ? getDb()
+          .select({ id: quickWorkRequests.id, title: quickWorkRequests.title, serviceName: services.name })
+          .from(quickWorkRequests)
+          .leftJoin(services, eq(services.id, quickWorkRequests.serviceId))
+          .where(inArray(quickWorkRequests.id, quickWorkIds))
+      : Promise.resolve([]),
+  ]);
   const jobMap = new Map(jobRows.map((j) => [j.id, j]));
+  const quickWorkMap = new Map(
+    quickWorkRows.map((q) => [q.id, { id: q.id, title: q.title || q.serviceName || 'Quick Work' }]),
+  );
   return rows.map((c) => {
     const employer = c.employerId === userId;
     const other = employer ? c.seekerId : c.employerId;
     return {
       ...publicConversation(c, employer ? c.unreadEmployer : c.unreadSeeker),
       counterpart: people.get(other),
-      job: jobMap.get(c.jobId),
+      job: c.jobId ? jobMap.get(c.jobId) : undefined,
+      quickWork: c.quickWorkRequestId ? quickWorkMap.get(c.quickWorkRequestId) : undefined,
     };
   });
 }
@@ -230,7 +301,7 @@ export async function findById(
   const c = await assertParticipant(userId, conversationId);
   const employer = c.employerId === userId;
   const other = employer ? c.seekerId : c.employerId;
-  const [personRows, jobRows] = await Promise.all([
+  const [personRows, jobRows, quickWorkRows] = await Promise.all([
     getDb()
       .select({
         id: users.id,
@@ -243,14 +314,21 @@ export async function findById(
       .from(users)
       .where(eq(users.id, other))
       .limit(1),
-    getDb()
-      .select({ id: jobs.id, title: jobs.title })
-      .from(jobs)
-      .where(eq(jobs.id, c.jobId))
-      .limit(1),
+    c.jobId
+      ? getDb().select({ id: jobs.id, title: jobs.title }).from(jobs).where(eq(jobs.id, c.jobId)).limit(1)
+      : Promise.resolve([]),
+    c.quickWorkRequestId
+      ? getDb()
+          .select({ id: quickWorkRequests.id, title: quickWorkRequests.title, serviceName: services.name })
+          .from(quickWorkRequests)
+          .leftJoin(services, eq(services.id, quickWorkRequests.serviceId))
+          .where(eq(quickWorkRequests.id, c.quickWorkRequestId))
+          .limit(1)
+      : Promise.resolve([]),
   ]);
   const person = personRows[0];
   const job = jobRows[0];
+  const quickWorkRow = quickWorkRows[0];
   return {
     ...publicConversation(c, employer ? c.unreadEmployer : c.unreadSeeker),
     counterpart: person
@@ -261,6 +339,7 @@ export async function findById(
         }
       : undefined,
     job: job ?? undefined,
+    quickWork: quickWorkRow ? { id: quickWorkRow.id, title: quickWorkRow.title || quickWorkRow.serviceName || 'Quick Work' } : undefined,
   };
 }
 export async function listMessages(

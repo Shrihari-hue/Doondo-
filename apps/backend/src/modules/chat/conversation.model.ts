@@ -9,7 +9,10 @@ export interface PublicConversation {
   id: string;
   employerId: string;
   seekerId: string;
-  jobId: string;
+  /** Null for a Quick Work conversation — see quickWorkRequestId instead. */
+  jobId: string | null;
+  /** Null for a Jobs conversation. employer-plan.md §14. */
+  quickWorkRequestId: string | null;
   lastMessageAt: string;
   lastMessagePreview: string | null;
   lastSenderId: string | null;

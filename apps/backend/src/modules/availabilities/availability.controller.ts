@@ -55,6 +55,20 @@ export async function getMine(
   }
 }
 
+export async function pause(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.user) throw errors.unauthorized();
+    const availability = await service.setPaused(req.user.id, req.body.paused as boolean);
+    ok(req, res, 200, { availability });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function nearby(
   req: Request,
   res: Response,

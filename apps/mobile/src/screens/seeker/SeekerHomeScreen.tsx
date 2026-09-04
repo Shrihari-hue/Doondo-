@@ -1,30 +1,30 @@
 /**
- * SeekerHomeScreen — the worker's tab-1 dashboard, premium blue palette.
+ * SeekerHomeScreen — the worker's Home, organised around one question:
+ * what kind of work are you looking for right now?
  *
- * Sections, top to bottom:
- *   1. Header — Doondo wordmark + notification bell with live badge,
- *      sits below the system status bar with proper safe-area padding
- *   2. Location pill — current city + nearby-jobs count (real, from API)
- *   3. Voice search card — gradient blue CTA → VoiceAgent (the
- *      conversational voice agent; this card replaced the old center
- *      mic FAB when the tab bar moved to six tabs)
- *   4. Job categories — 5 tile shortcuts with colored emoji backgrounds
- *   5. Nearby jobs — real /jobs/nearby data, capped to 6 here; full list
- *      lives in the Jobs tab.
+ * Structure, top to bottom (design/layout.md §1–§3 — one gutter, one
+ * left edge, 24px between sections):
+ *   1. Header      — Doondo wordmark, language toggle, notification bell
+ *   2. Location    — current area + live nearby-job count
+ *   3. Greeting    — time-aware, by name
+ *   4. Work type   — [Short Term] [Long Term] [Both]. Persistent, and the
+ *                    feed below re-sections the instant it changes.
+ *   5. Beacon      — broadcast availability (orthogonal to work type)
+ *   6. Feed        — Quick Work offers → preferred trades → nearest for
+ *                    you → other preferences → more jobs
+ *   7. Below the feed — voice search, browse by category, and the
+ *      supplementary rails (Pulse, wage band, recommended, hired nearby)
  *
- * Premium touches:
- *   - Safe-area aware top padding so nothing collides with the status bar
- *   - LinearGradient on the voice card (blue → deeper blue) for depth
- *   - Subtle drop shadow + hairline border on every job card
- *   - Tightened typography hierarchy (display title is heavier)
- *   - Champagne-gold pay amount for premium money-feel
+ * The old Today / This week / Career mode toggle is gone: its two
+ * short-horizon modes are what Short Term now means, and every widget
+ * that used to live behind "Career" is still rendered here, below the
+ * job feed, where it supplements rather than competes with it.
  *
  * Every data point is real. No mock numbers, no hardcoded job cards.
  */
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -46,35 +46,23 @@ import { useAuth } from '@/hooks/useAuth';
 import { jobsApi } from '@/api/jobs.api';
 import { resolveCoords, type ResolvedCoords } from '@/lib/location';
 import { haptic } from '@/lib/haptics';
-import { getSecure, setSecure } from '@/lib/secureStore';
 import { useTranslate } from '@/i18n/useTranslate';
-import { DenseJobFeed } from './home/DenseJobFeed';
+import { useWorkTypeStore, useWorkTypeMode, type WorkTypeMode } from '@/stores/workType.store';
 import { AvailabilityBeaconChip } from './home/AvailabilityBeacon';
 import { LocalWageWidget } from './home/LocalWageWidget';
 import { RecommendedForYouRail } from './home/RecommendedForYouRail';
 import { HiredNearbyRail } from './home/HiredNearbyRail';
 import { DoondoPulse } from './home/DoondoPulse';
-import type { PublicJob } from '@/api/types';
+import { WorkTypeSelector } from './home/WorkTypeSelector';
+import { WorkTypeFeed } from './home/WorkTypeFeed';
+import {
+  SEEKER_GUTTER,
+  SEEKER_SECTION_GAP,
+  SEEKER_TAB_SCROLL_INSET,
+} from './onboarding/layout';
 import type { AppStackParamList } from '@/navigation/types';
 
-type HomeMode = 'today' | 'this_week' | 'career';
-const HOME_MODES: HomeMode[] = ['today', 'this_week', 'career'];
-// Each mode maps to a translation key in `home.modes.*`. Resolved at render
-// time so the segmented control follows the active locale.
-const HOME_MODE_I18N_KEYS: Record<HomeMode, string> = {
-  today: 'home.modes.today',
-  this_week: 'home.modes.this_week',
-  career: 'home.modes.career',
-};
-
-/** Local alias matching the one in home/DenseJobFeed for helper signatures. */
-type TFn = (key: string, opts?: Record<string, unknown>) => string;
-
 type Nav = NativeStackNavigationProp<AppStackParamList>;
-
-// Bengaluru fallback so the screen never feels broken on permission denial.
-// Tagged `manual` because it isn't device GPS — the UI uses `source` to show
-// a "Detected your area" hint vs. a "Showing default city" hint.
 
 interface Category {
   key: string;
@@ -100,39 +88,23 @@ export function SeekerHomeScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const t = useTranslate();
-  // Festival Mode — tints the wordmark during a festival window.
   const festival = useFestival();
 
   const [coords, setCoords] = useState<ResolvedCoords | null>(null);
 
-  // Mode toggle — Today / This week / Career. Default is 'today' for fresh
-  // installs (the blue-collar-first experience) but we honour whatever the
-  // seeker last picked. Hydrate async so the toggle doesn't flicker.
-  const [mode, setMode] = useState<HomeMode>('today');
-  const [modeHydrated, setModeHydrated] = useState(false);
+  // Work type — Short Term by default, persisted on-device. Hydrate once
+  // so a returning Long Term worker never sees a flash of the Short Term
+  // feed before their preference loads.
+  const workTypeMode = useWorkTypeMode();
+  const workTypeHydrated = useWorkTypeStore((s) => s.hydrated);
+  const setWorkTypeMode = useWorkTypeStore((s) => s.setMode);
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const stored = await getSecure('homeMode');
-      if (cancelled) return;
-      if (stored && (HOME_MODES as string[]).includes(stored)) {
-        setMode(stored as HomeMode);
-      }
-      setModeHydrated(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (!workTypeHydrated) void useWorkTypeStore.getState().hydrate();
+  }, [workTypeHydrated]);
 
-  function pickMode(next: HomeMode) {
-    if (next === mode) return;
-    haptic('selection');
-    setMode(next);
-    // Best-effort persistence; failure just means next launch is back to
-    // the default, which is fine.
-    void setSecure('homeMode', next).catch(() => undefined);
+  function pickWorkType(next: WorkTypeMode) {
+    void setWorkTypeMode(next);
   }
 
   // Prefer live GPS → the worker's saved location → a flagged default, so
@@ -151,51 +123,44 @@ export function SeekerHomeScreen() {
     };
   }, [savedCoords]);
 
-  // Real nearby-jobs query for the home preview.
-  const jobsQuery = useQuery({
+  // Small, separate count query for the location pill — the feed's own
+  // query is scoped to its sections, and this line just needs a number.
+  const countQuery = useQuery({
     queryKey: ['jobs', 'nearby', coords?.lat, coords?.lng],
-    queryFn: () =>
-      jobsApi.nearby({
-        lat: coords!.lat,
-        lng: coords!.lng,
-        radius: 10_000,
-        limit: 6,
-      }),
+    queryFn: () => jobsApi.nearby({ lat: coords!.lat, lng: coords!.lng, radius: 10_000, limit: 20 }),
     enabled: coords !== null,
     staleTime: 60_000,
   });
+  const nearbyCount = countQuery.data?.jobs.length ?? 0;
 
-  const jobs: PublicJob[] = jobsQuery.data?.jobs ?? [];
-  const nearbyCount = jobs.length;
-
-  const cityLabel = useMemo(() => {
-    return (
+  const cityLabel = useMemo(
+    () =>
       user?.location?.city ??
       user?.location?.area ??
-      (coords ? t('home.location.your_area') : t('home.location.locating'))
-    );
-  }, [user?.location, coords, t]);
+      (coords ? t('home.location.your_area') : t('home.location.locating')),
+    [user?.location, coords, t],
+  );
+
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return t('work_type.greeting_morning');
+    if (hour < 17) return t('work_type.greeting_afternoon');
+    return t('work_type.greeting_evening');
+  }, [t]);
+
+  const trades = user?.skills ?? [];
 
   function openVoice() {
     haptic('selection');
     navigation.navigate('VoiceAgent');
   }
 
-  function openCategory(c: Category) {
+  function openJobsTab(initialQuery?: string) {
     haptic('selection');
     navigation.navigate('SeekerTabs', {
       screen: 'Jobs',
-      params: { initialQuery: c.query },
+      ...(initialQuery ? { params: { initialQuery } } : {}),
     } as never);
-  }
-
-  function openJob(j: PublicJob) {
-    haptic('selection');
-    navigation.navigate('JobDetail', { jobId: j.id });
-  }
-
-  function openNotifications() {
-    navigation.navigate('Notifications');
   }
 
   // Top inset that respects the status bar. On Android, expo-status-bar's
@@ -203,75 +168,36 @@ export function SeekerHomeScreen() {
   // pad. On iOS the safe-area inset gives us what we need.
   const topPad = Math.max(insets.top, RNStatusBar.currentHeight ?? 0) + spacing.sm;
 
-  // ─── Today / This week branch ─────────────────────────────────────────────
-  // Premium redesign: navy hero card → availability beacon → browse by
-  // trade strip → premium job cards. The Career path below is untouched
-  // so existing deep-links and the Jobs tab keep behaving as they did.
-  if (modeHydrated && mode !== 'career') {
-    return (
-      <Screen edges={[]}>
-        <View
-          style={{
-            paddingHorizontal: spacing.xl,
-            paddingTop: topPad,
-            gap: spacing.md,
-          }}
-        >
-          <PremiumHomeHeader
-            theme={theme}
-            onNotificationsPress={openNotifications}
-            cityLabel={cityLabel}
-          />
-          <ModeToggle value={mode} onChange={pickMode} t={t} />
-        </View>
-        <View
-          style={{ flex: 1, paddingHorizontal: spacing.xl, paddingTop: spacing.md }}
-        >
-          <DenseJobFeed
-            coords={coords}
-            mode={mode}
-            user={user ?? null}
-            onExploreJobs={() =>
-              navigation.navigate('SeekerTabs', { screen: 'Jobs' } as never)
-            }
-          />
-        </View>
-      </Screen>
-    );
-  }
-
   return (
     <Screen edges={[]}>
       <ScrollView
         contentContainerStyle={{
-          paddingHorizontal: spacing.xl,
+          paddingHorizontal: SEEKER_GUTTER,
           paddingTop: topPad,
-          paddingBottom: spacing['5xl'],
-          gap: spacing.xl,
+          paddingBottom: SEEKER_TAB_SCROLL_INSET,
+          gap: SEEKER_SECTION_GAP,
         }}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={jobsQuery.isRefetching}
-            onRefresh={() => void jobsQuery.refetch()}
+            refreshing={countQuery.isRefetching}
+            onRefresh={() => void countQuery.refetch()}
             tintColor={theme.brand.primary}
           />
         }
       >
-        {/* Header — Doondo wordmark + bell */}
+        {/* 1 — Header */}
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            paddingTop: spacing.sm,
-            paddingBottom: spacing.xs,
           }}
         >
           <Text
+            variant="titleLarge"
+            weight="semibold"
             style={{
-              fontSize: 26,
-              lineHeight: 30,
-              fontWeight: '700',
               // Festival Mode gives the wordmark a seasonal tint.
               color: festival ? festival.accent : theme.brand.primary,
               letterSpacing: -0.5,
@@ -281,40 +207,17 @@ export function SeekerHomeScreen() {
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <LanguageToggle />
-            <NotificationsBell onPress={openNotifications} />
+            <NotificationsBell onPress={() => navigation.navigate('Notifications')} />
           </View>
         </View>
 
-        {/* Mode toggle — Today / This week / Career. Renders inline above
-           the existing Career sections so a worker who prefers same-day
-           gigs can switch with one tap and never see Career again. */}
-        <ModeToggle value={mode} onChange={pickMode} t={t} />
-
-        {/* Availability beacon — always available across all three modes
-           because broadcasting is orthogonal to which feed the worker is
-           browsing. Sits between the toggle and the location pill so it
-           reads as a top-priority action. */}
-        <AvailabilityBeaconChip coords={coords} user={user ?? null} />
-
-        {/* Festival Mode — a themed banner during festival windows (Diwali,
-           Onam, …) linking to the festival job board. Self-hides the rest
-           of the year. */}
-        <FestivalBanner />
-
-        {/* Location pill */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: spacing.sm,
-            paddingHorizontal: spacing.xs,
-          }}
-        >
+        {/* 2 — Location + live nearby count */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <View
             style={{
               width: 32,
               height: 32,
-              borderRadius: 16,
+              borderRadius: radii.pill,
               backgroundColor: theme.brand.primarySubtle,
               alignItems: 'center',
               justifyContent: 'center',
@@ -323,21 +226,11 @@ export function SeekerHomeScreen() {
             <Feather name="map-pin" size={16} color={theme.brand.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text
-              style={{
-                fontSize: 18,
-                lineHeight: 22,
-                fontWeight: '600',
-                color: theme.text.primary,
-              }}
-            >
+            <Text variant="bodyLarge" weight="medium" numberOfLines={1}>
               {cityLabel}
             </Text>
-            <Text
-              variant="footnote"
-              style={{ color: theme.text.secondary, marginTop: 1 }}
-            >
-              {jobsQuery.isLoading
+            <Text variant="footnote" tone="secondary">
+              {countQuery.isLoading
                 ? t('home.location.finding_jobs')
                 : t(
                     nearbyCount === 1
@@ -349,26 +242,46 @@ export function SeekerHomeScreen() {
           </View>
         </View>
 
-        {/* Doondo Pulse — the worker's momentum snapshot (Doondo Score,
-            apply streak, applications in play) + a single next-step
-            nudge. Self-hides until the snapshot loads. */}
-        <DoondoPulse />
+        {/* 3 — Greeting */}
+        <View style={{ gap: spacing.xs }}>
+          <Text variant="title" weight="semibold" numberOfLines={1}>
+            {user?.name ? `${greeting}, ${user.name} 👋` : `${greeting} 👋`}
+          </Text>
+          <Text variant="footnote" tone="secondary">
+            {t('work_type.greeting_sub')}
+          </Text>
+        </View>
 
-        {/* Local wage band — renders only when we have a trade + city +
-            sample size ≥ 5; otherwise self-hides so the home doesn't
-            grow placeholder cards. */}
-        <LocalWageWidget user={user ?? null} />
+        {/* 4 — Work type. The one control that changes what Home is. */}
+        <WorkTypeSelector value={workTypeMode} onChange={pickWorkType} t={t} />
 
-        {/* Personalised "for you" rail — driven by /jobs/recommended.
-            Self-hides when no scoreable matches exist. */}
-        <RecommendedForYouRail />
+        {/* 5 — Availability beacon. Broadcasting is orthogonal to which
+            feed the worker is browsing, so it sits above both. */}
+        <AvailabilityBeaconChip coords={coords} user={user ?? null} />
 
-        {/* "Hired near you today" — anonymised social-proof rail.
-            Self-hides when the feed is empty (new city, dormant area). */}
-        <HiredNearbyRail />
+        {/* Festival Mode — self-hides outside festival windows. */}
+        <FestivalBanner />
 
-        {/* Voice search hero card — gradient + shadow for premium depth */}
-        <Pressable onPress={openVoice}>
+        {/* 6 — The feed. Waits for the stored work-type preference so the
+            worker never sees the wrong sections flash first. */}
+        {workTypeHydrated ? (
+          <WorkTypeFeed
+            mode={workTypeMode}
+            coords={coords}
+            trades={trades}
+            t={t}
+            gutter={SEEKER_GUTTER}
+            onEditPreferences={() => {
+              haptic('selection');
+              navigation.navigate('JobPreferences', { mode: 'edit' });
+            }}
+            onSelectTrade={(slug) => openJobsTab(slug.replace(/_/g, ' '))}
+            onSeeAll={() => openJobsTab()}
+          />
+        ) : null}
+
+        {/* 7 — Below the feed: everything supplementary. */}
+        <Pressable onPress={openVoice} accessibilityRole="button">
           <LinearGradient
             colors={[blue[600], blue[700], blue[800]]}
             start={{ x: 0, y: 0 }}
@@ -379,41 +292,22 @@ export function SeekerHomeScreen() {
               flexDirection: 'row',
               alignItems: 'center',
               gap: spacing.md,
-              shadowColor: blue[700],
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.32,
-              shadowRadius: 22,
-              elevation: 10,
               overflow: 'hidden',
             }}
           >
-            <View style={{ flex: 1, gap: 6 }}>
-              <Text
-                style={{
-                  fontSize: 19,
-                  lineHeight: 24,
-                  fontWeight: '600',
-                  color: theme.text.onBrand,
-                  letterSpacing: -0.2,
-                }}
-              >
+            <View style={{ flex: 1, gap: spacing.xs }}>
+              <Text variant="bodyLarge" weight="semibold" tone="onBrand">
                 {t('home.voice_card.title')}
               </Text>
-              <Text
-                style={{
-                  fontSize: 13,
-                  lineHeight: 18,
-                  color: 'rgba(255,255,255,0.82)',
-                }}
-              >
+              <Text variant="footnote" style={{ color: 'rgba(255,255,255,0.82)' }}>
                 {t('home.voice_card.hint')}
               </Text>
             </View>
             <View
               style={{
-                width: 60,
-                height: 60,
-                borderRadius: 30,
+                width: 56,
+                height: 56,
+                borderRadius: radii.pill,
                 backgroundColor: 'rgba(255,255,255,0.22)',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -426,37 +320,15 @@ export function SeekerHomeScreen() {
           </LinearGradient>
         </Pressable>
 
-        {/* Categories */}
+        {/* Browse by category — the generic counterpart to the personalised
+            preferred-trades rail inside the feed. */}
         <View style={{ gap: spacing.md }}>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 11,
-                lineHeight: 14,
-                fontWeight: '600',
-                letterSpacing: 1.6,
-                color: theme.text.tertiary,
-              }}
-            >
-              {t('home.categories_section_label').toUpperCase()}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text variant="body" weight="semibold" style={{ flex: 1 }}>
+              {t('home.categories_section_label')}
             </Text>
-            <Pressable
-              hitSlop={6}
-              onPress={() => navigation.navigate('SeekerTabs', { screen: 'Jobs' } as never)}
-            >
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: '600',
-                  color: theme.brand.primary,
-                }}
-              >
+            <Pressable hitSlop={8} onPress={() => openJobsTab()} accessibilityRole="button">
+              <Text variant="footnote" weight="medium" style={{ color: theme.brand.primary }}>
                 {t('home.view_all')}
               </Text>
             </Pressable>
@@ -465,38 +337,25 @@ export function SeekerHomeScreen() {
             {CATEGORIES.map((c) => (
               <Pressable
                 key={c.key}
-                onPress={() => openCategory(c)}
-                style={{
-                  flex: 1,
-                  alignItems: 'center',
-                  gap: 8,
-                }}
+                onPress={() => openJobsTab(c.query)}
+                accessibilityRole="button"
+                accessibilityLabel={t(c.labelKey)}
+                // Five equal columns — design/layout.md §5.
+                style={{ flex: 1, alignItems: 'center', gap: spacing.sm }}
               >
                 <View
                   style={{
-                    width: 60,
-                    height: 60,
-                    borderRadius: 16,
+                    width: 56,
+                    height: 56,
+                    borderRadius: radii.lg,
                     backgroundColor: c.tint.bg,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    shadowColor: c.tint.fg,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.12,
-                    shadowRadius: 6,
-                    elevation: 2,
                   }}
                 >
-                  <Text style={{ fontSize: 28 }}>{c.emoji}</Text>
+                  <Text style={{ fontSize: 26 }}>{c.emoji}</Text>
                 </View>
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontWeight: '500',
-                    color: theme.text.primary,
-                  }}
-                  numberOfLines={1}
-                >
+                <Text variant="caption" weight="medium" numberOfLines={1}>
                   {t(c.labelKey)}
                 </Text>
               </Pressable>
@@ -504,403 +363,18 @@ export function SeekerHomeScreen() {
           </View>
         </View>
 
-        {/* Nearby jobs */}
-        <View style={{ gap: spacing.md }}>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 11,
-                lineHeight: 14,
-                fontWeight: '600',
-                letterSpacing: 1.6,
-                color: theme.text.tertiary,
-              }}
-            >
-              {t('home.nearby_jobs').toUpperCase()}
-            </Text>
-            <Pressable
-              hitSlop={6}
-              onPress={() => navigation.navigate('SeekerTabs', { screen: 'Jobs' } as never)}
-            >
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: '600',
-                  color: theme.brand.primary,
-                }}
-              >
-                {t('home.see_more')}
-              </Text>
-            </Pressable>
-          </View>
+        {/* Momentum snapshot — self-hides until it loads. */}
+        <DoondoPulse />
 
-          {jobsQuery.isLoading && (
-            <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
-              <ActivityIndicator color={theme.brand.primary} />
-            </View>
-          )}
+        {/* Local wage band — self-hides without a trade + city + sample. */}
+        <LocalWageWidget user={user ?? null} />
 
-          {!jobsQuery.isLoading && jobs.length === 0 && (
-            <View
-              style={{
-                padding: spacing.lg,
-                borderRadius: radii.lg,
-                backgroundColor: theme.bg.surface,
-                borderWidth: 0.5,
-                borderColor: theme.border.default,
-              }}
-            >
-              <Text variant="body" tone="secondary">
-                {t('home.jobs.empty_no_jobs_nearby')}
-              </Text>
-            </View>
-          )}
+        {/* Personalised "for you" rail — self-hides when empty. */}
+        <RecommendedForYouRail />
 
-          {jobs.map((j) => (
-            <Pressable key={j.id} onPress={() => openJob(j)}>
-              <View
-                style={{
-                  padding: spacing.lg,
-                  borderRadius: radii.lg,
-                  backgroundColor: theme.bg.surface,
-                  borderWidth: 0.5,
-                  borderColor: theme.border.subtle,
-                  gap: spacing.md,
-                  shadowColor: '#0F172A',
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.06,
-                  shadowRadius: 12,
-                  elevation: 2,
-                }}
-              >
-                {/* Title row */}
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'flex-start',
-                    gap: spacing.md,
-                  }}
-                >
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <Text
-                      style={{
-                        fontSize: 17,
-                        lineHeight: 22,
-                        fontWeight: '600',
-                        color: theme.text.primary,
-                      }}
-                      numberOfLines={1}
-                    >
-                      {j.title}
-                    </Text>
-                    <Text
-                      variant="footnote"
-                      style={{ color: theme.text.secondary }}
-                      numberOfLines={1}
-                    >
-                      {j.employer?.companyName ?? j.employer?.name ?? t('home.jobs.default_employer')}
-                      {j.employer?.isVerified ? '  ✓' : ''}
-                    </Text>
-                    <Text
-                      variant="caption"
-                      style={{ color: theme.text.tertiary, marginTop: 2 }}
-                      numberOfLines={1}
-                    >
-                      {j.location.city}
-                      {j.distanceMeters != null
-                        ? ` · ${formatDistance(j.distanceMeters, t)}`
-                        : ''}
-                    </Text>
-                  </View>
-                  <View
-                    style={{
-                      paddingHorizontal: spacing.sm,
-                      paddingVertical: 4,
-                      borderRadius: radii.pill,
-                      backgroundColor: theme.bg.muted,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontWeight: '500',
-                        color: theme.text.secondary,
-                      }}
-                    >
-                      {formatType(j.type, t)}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Pay + apply */}
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 18,
-                      lineHeight: 22,
-                      fontWeight: '700',
-                      color: theme.accent.amber,
-                    }}
-                  >
-                    {formatPay(j.pay, t)}
-                  </Text>
-                  <View
-                    style={{
-                      paddingHorizontal: spacing.md,
-                      paddingVertical: 8,
-                      borderRadius: radii.pill,
-                      backgroundColor: theme.brand.primary,
-                      shadowColor: theme.brand.primary,
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.28,
-                      shadowRadius: 8,
-                      elevation: 3,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        fontWeight: '600',
-                        color: theme.text.onBrand,
-                      }}
-                    >
-                      {t('home.jobs.apply_now')}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </Pressable>
-          ))}
-        </View>
+        {/* "Hired near you today" social proof — self-hides when empty. */}
+        <HiredNearbyRail />
       </ScrollView>
     </Screen>
   );
-}
-
-// ─── Mode toggle + shared header ─────────────────────────────────────────────
-
-/**
- * The Today / This week / Career segmented control. Renders identically
- * in both branches of the screen (Career ScrollView header and the
- * non-Career fixed top), so the user sees no jump when they switch.
- */
-function ModeToggle({
-  value,
-  onChange,
-  t,
-}: {
-  value: HomeMode;
-  onChange: (next: HomeMode) => void;
-  t: TFn;
-}) {
-  const { theme } = useTheme();
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        backgroundColor: theme.brand.primarySubtle,
-        borderRadius: radii.pill,
-        padding: 4,
-        gap: 4,
-      }}
-    >
-      {HOME_MODES.map((m) => {
-        const active = m === value;
-        const label = t(HOME_MODE_I18N_KEYS[m]);
-        // The blue pill background lives on a wrapper View — not on the
-        // Pressable's dynamic style function — so RN can't drop it during
-        // state transitions the way it was doing previously, leaving
-        // white-on-pale-blue text. The Pressable is now transparent and
-        // only handles the press feedback.
-        return (
-          <View
-            key={m}
-            style={{
-              flex: 1,
-              borderRadius: radii.pill,
-              backgroundColor: active ? theme.brand.primary : 'transparent',
-              shadowColor: active ? theme.brand.primary : 'transparent',
-              shadowOpacity: active ? 0.3 : 0,
-              shadowRadius: active ? 8 : 0,
-              shadowOffset: { width: 0, height: 3 },
-              elevation: active ? 3 : 0,
-            }}
-          >
-            <Pressable
-              onPress={() => onChange(m)}
-              accessibilityRole="button"
-              accessibilityLabel={label}
-              accessibilityState={{ selected: active }}
-              style={({ pressed }) => ({
-                paddingVertical: 8,
-                paddingHorizontal: 6,
-                borderRadius: radii.pill,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: pressed ? 0.85 : 1,
-              })}
-            >
-              <Text
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.85}
-                style={{
-                  fontSize: 13,
-                  fontWeight: '700',
-                  color: active ? theme.text.onBrand : theme.brand.primary,
-                  letterSpacing: 0.1,
-                  textAlign: 'center',
-                }}
-              >
-                {label}
-              </Text>
-            </Pressable>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
-/**
- * Premium header for the Today/This week branch.
- *
- *   ┌──────────────────────────────────────────┐
- *   │ Doondo                            🔔     │  ← bell in white pill
- *   │ ⌖ Ujire ⌄                                │  ← outline pin + chevron
- *   └──────────────────────────────────────────┘
- *
- * The Career branch keeps its own inline header so its tree is untouched.
- */
-function PremiumHomeHeader({
-  theme,
-  onNotificationsPress,
-  cityLabel,
-}: {
-  theme: ReturnType<typeof useTheme>['theme'];
-  onNotificationsPress: () => void;
-  cityLabel: string;
-}) {
-  return (
-    <View style={{ gap: spacing.xs }}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingTop: spacing.sm,
-          paddingBottom: 2,
-        }}
-      >
-        <Text
-          style={{
-            fontSize: 30,
-            lineHeight: 34,
-            fontWeight: '700',
-            color: theme.brand.primary,
-            letterSpacing: -0.8,
-          }}
-        >
-          Doondo
-        </Text>
-        {/* Language toggle + bell. The bell is wrapped in a white pill so
-           it pops off the canvas the way the mockup shows; the red-dot
-           badge already lives inside the NotificationsBell component. */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <LanguageToggle />
-          <View
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              backgroundColor: theme.bg.surface,
-              alignItems: 'center',
-              justifyContent: 'center',
-              shadowColor: '#0F172A',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.08,
-              shadowRadius: 10,
-              elevation: 2,
-            }}
-          >
-            <NotificationsBell onPress={onNotificationsPress} />
-          </View>
-        </View>
-      </View>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 6,
-          paddingBottom: spacing.xs,
-        }}
-      >
-        <Feather name="map-pin" size={15} color={theme.text.secondary} />
-        <Text
-          style={{
-            fontSize: 17,
-            lineHeight: 21,
-            fontWeight: '600',
-            color: theme.text.primary,
-          }}
-          numberOfLines={1}
-        >
-          {cityLabel}
-        </Text>
-        <Feather
-          name="chevron-down"
-          size={15}
-          color={theme.text.secondary}
-          style={{ marginLeft: 2 }}
-        />
-      </View>
-    </View>
-  );
-}
-
-// ─── Format helpers ──────────────────────────────────────────────────────────
-
-function formatDistance(m: number, t: TFn): string {
-  return m < 1000
-    ? t('common.units.meters_short', { n: m })
-    : t('common.units.kilometers_short', { n: (m / 1000).toFixed(1) });
-}
-
-function formatType(type: PublicJob['type'], t: TFn): string {
-  return t(`common.job_type.${type}`);
-}
-
-function formatPay(pay: PublicJob['pay'], t: TFn): string {
-  const minor = 100;
-  const symbol = pay.currency === 'INR' ? '₹' : pay.currency === 'USD' ? '$' : '';
-  // 'en-IN' for lakh/crore grouping — see DenseJobFeed.formatPayPrimary.
-  const lo = (pay.amount / minor).toLocaleString('en-IN', { maximumFractionDigits: 0 });
-  const hi = pay.amountMax
-    ? (pay.amountMax / minor).toLocaleString('en-IN', { maximumFractionDigits: 0 })
-    : null;
-  const periodKey =
-    pay.period === 'hour'
-      ? 'common.pay_period.suffix_hour'
-      : pay.period === 'day'
-        ? 'common.pay_period.suffix_day'
-        : pay.period === 'week'
-          ? 'common.pay_period.suffix_week'
-          : pay.period === 'month'
-            ? 'common.pay_period.suffix_month'
-            : 'common.pay_period.suffix_fixed';
-  return hi
-    ? `${symbol}${lo}–${hi}${t(periodKey)}`
-    : `${symbol}${lo}${t(periodKey)}`;
 }

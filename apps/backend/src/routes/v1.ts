@@ -73,6 +73,9 @@ import siteBriefingRouter from '@/modules/siteBriefing/siteBriefing.routes';
 import reelsRouter from '@/modules/reels/reel.routes';
 import communityRouter from '@/modules/community/post.routes';
 import hiringRequestsRouter from '@/modules/hiringRequests/hiringRequest.routes';
+import { serviceCategoriesRouter, servicesRouter } from '@/modules/serviceCatalog/serviceCatalog.routes';
+import quickWorkRouter from '@/modules/quickWork/quickWork.routes';
+import workerServiceProfileRouter from '@/modules/quickWork/workerServiceProfile.routes';
 import accountActivityRouter from '@/modules/accountActivity/accountActivity.routes';
 import whatsappRouter from '@/modules/whatsapp/whatsapp.routes';
 import * as employerInterestController from '@/modules/employerInterest/employerInterest.controller';
@@ -169,6 +172,15 @@ v1.use('/community', communityRouter);
 // Two-way discovery — the employer→worker outbound invite flow.
 v1.use('/hiring-requests', hiringRequestsRouter);
 v1.use('/accounts', accountActivityRouter);
+// Shared Service Catalog (Quick Work / Scheduled Work foundation) — one
+// catalog, read by both employer request-creation and worker
+// service-eligibility pickers. See employer-plan.md §8 / seeker-plan.md §8.
+v1.use('/service-categories', serviceCategoriesRouter);
+v1.use('/services', servicesRouter);
+// Quick Work — on-demand service request lifecycle. employer-plan.md / seeker-plan.md.
+v1.use('/quick-work', quickWorkRouter);
+// Worker Quick Work service opt-in — seeker-plan.md §8/§29.
+v1.use('/me/quick-work-services', workerServiceProfileRouter);
 // WhatsApp (Twilio) — inbound webhook + admin send/inbox.
 v1.use('/whatsapp', whatsappRouter);
 
