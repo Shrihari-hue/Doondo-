@@ -86,6 +86,7 @@ export function UpiPaymentPanel({
       setIntent(null);
       setAmountRupees('');
       void queryClient.invalidateQueries({ queryKey: ['payments', 'mine'] });
+      void queryClient.invalidateQueries({ queryKey: ['workforce'] });
       Alert.alert(t('employer.upi.marked_paid_title'), t('employer.upi.marked_paid_body'));
     },
   });

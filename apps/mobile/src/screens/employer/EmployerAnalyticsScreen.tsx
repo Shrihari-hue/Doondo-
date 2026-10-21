@@ -137,13 +137,16 @@ export function EmployerAnalyticsScreen() {
     return c;
   }, [apps]);
 
-  // Hired per week — derive from applicationId hash as a stable proxy
+  // Hired per week — bucketed by the real hire timestamp (index 5 = this week).
   const weeklyHires = useMemo(() => {
     const buckets = [0, 0, 0, 0, 0, 0]; // 5w ago … now
+    const WEEK = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
     apps.filter((a) => a.status === 'hired').forEach((a) => {
-      const hash = [...a.id].reduce((s, c) => s + c.charCodeAt(0), 0);
-      const bucket = Math.min(hash % 6, 5);
-      buckets[bucket]++;
+      const at = a.timeline?.hiredAt ? new Date(a.timeline.hiredAt).getTime() : null;
+      if (at == null) return;
+      const weeksAgo = Math.floor((now - at) / WEEK);
+      if (weeksAgo >= 0 && weeksAgo <= 5) buckets[5 - weeksAgo]!++;
     });
     return buckets;
   }, [apps]);

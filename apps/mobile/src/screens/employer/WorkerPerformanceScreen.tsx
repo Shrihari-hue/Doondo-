@@ -4,8 +4,8 @@
  * Employer rates a worker on three dimensions for the current month:
  *   Punctuality · Work Quality · Attitude
  * Each dimension is 1–5 stars. An optional notes field. Reviews are
- * persisted locally via secureStore (keyed by applicationId + month)
- * and can be exported as a PDF via expo-print.
+ * saved on the server (/workforce/:applicationId/reviews, private to the
+ * employer) and can be exported as a PDF via expo-print.
  *
  * Task 48.
  */
@@ -24,6 +24,7 @@ import { Screen, Text, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { getSecure, setSecure } from '@/lib/secureStore';
+import { workforceApi } from '@/api/workforce.api';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav   = NativeStackNavigationProp<AppStackParamList>;
@@ -46,9 +47,6 @@ const DIMS: Array<{ key: Dimension; label: string; icon: string; desc: string }>
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-function storageKey(applicationId: string, month: string): string {
-  return `review_${applicationId}_${month}`;
-}
 
 interface ReviewData {
   ratings: Ratings;
@@ -81,39 +79,49 @@ export function WorkerPerformanceScreen() {
   const [saved, setSaved]     = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  // Load existing review for current month
+  // Load this month's review from the server. Reviews used to live on the
+  // device inside the 'notifPrefs' secure-store map; migrate any such entry
+  // for this worker up to the server once, then drop it locally.
   useEffect(() => {
-    const key = storageKey(applicationId, currentMonth);
-    getSecure('jobTemplates') // reusing secureStore but with a composite key embedded in value
-      .then(() => {
-        // Use a separate approach — store as a flat JSON in notifPrefs key area
-        // Actually we'll call secureStore with notifPrefs key and a unique value map
-      })
-      .catch(() => {});
-
-    // Load via a generic key approach: store all reviews under 'notifPrefs' is wrong.
-    // Instead, read from expo-file-system style via the key embedded in jobTemplates
-    // Better: we store reviews in a single JSON object keyed by applicationId+month
-    // We'll use the 'jobTemplates' key as a workaround — but that would conflict.
-    // Clean solution: store review data in `notifPrefs` as a JSON map of key→ReviewData
-    loadReview(key);
+    let cancelled = false;
+    (async () => {
+      try {
+        const remote = await workforceApi.review(applicationId, currentMonth);
+        if (cancelled) return;
+        if (remote) {
+          setRatings({ punctuality: remote.punctuality, quality: remote.quality, attitude: remote.attitude });
+          setNotes(remote.notes);
+          setSaved(true);
+        }
+        await migrateLocalReviews(remote == null);
+      } catch {
+        // offline — leave the form empty
+      }
+    })();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicationId, currentMonth]);
 
-  async function loadReview(key: string) {
-    try {
-      const raw = await getSecure('notifPrefs');
-      if (!raw) return;
-      const map = JSON.parse(raw) as Record<string, ReviewData | undefined>;
-      const existing = map[key];
-      if (existing) {
-        setRatings(existing.ratings);
-        setNotes(existing.notes);
+  async function migrateLocalReviews(fillForm: boolean) {
+    const raw = await getSecure('notifPrefs');
+    if (!raw) return;
+    const map = JSON.parse(raw) as Record<string, unknown>;
+    const prefix = `review_${applicationId}_`;
+    const keys = Object.keys(map).filter((k) => k.startsWith(prefix));
+    if (keys.length === 0) return;
+    for (const k of keys) {
+      const r = map[k] as ReviewData | undefined;
+      const month = k.slice(prefix.length);
+      if (!r?.ratings || !/^\d{4}-\d{2}$/.test(month)) continue;
+      await workforceApi.saveReview(applicationId, { month, ...r.ratings, notes: r.notes ?? '' });
+      if (fillForm && month === currentMonth) {
+        setRatings(r.ratings);
+        setNotes(r.notes ?? '');
         setSaved(true);
       }
-    } catch {
-      // ignore
+      delete map[k];
     }
+    await setSecure('notifPrefs', JSON.stringify(map));
   }
 
   async function saveReview() {
@@ -121,19 +129,14 @@ export function WorkerPerformanceScreen() {
       Alert.alert('Rate all dimensions', 'Please give a rating for each dimension before saving.');
       return;
     }
-    const key = storageKey(applicationId, currentMonth);
-    const review: ReviewData = { ratings, notes, savedAt: new Date().toISOString() };
     try {
-      const raw = await getSecure('notifPrefs');
-      const map = raw ? (JSON.parse(raw) as Record<string, ReviewData>) : {};
-      map[key] = review;
-      await setSecure('notifPrefs', JSON.stringify(map));
+      await workforceApi.saveReview(applicationId, { month: currentMonth, ...ratings, notes });
       haptic('success');
       setSaved(true);
       Alert.alert('Saved', `Review for ${workerName} saved.`);
     } catch {
       haptic('error');
-      Alert.alert('Error', 'Could not save review. Please try again.');
+      Alert.alert('Error', 'Could not save review. Please check your connection and try again.');
     }
   }
 

@@ -203,9 +203,11 @@ export function ApplicantDetailScreen() {
     const applicant = query.data;
     const name = applicant.seeker?.name ?? 'Candidate';
     const role = applicant.job?.title ?? 'Staff';
-    const hash = [...applicant.id].reduce((a, c) => a + c.charCodeAt(0), 0);
-    const basePaise = applicant.job?.pay?.amount ?? (15000 + (hash % 5000)) * 100;
-    const salary = `₹${Math.round(basePaise / 100).toLocaleString('en-IN')} per month`;
+    const pay = applicant.job?.pay;
+    const periodWord: Record<string, string> = { hour: 'per hour', day: 'per day', week: 'per week', month: 'per month', fixed: 'fixed, for the job' };
+    const salary = pay?.amount
+      ? `₹${Math.round(pay.amount / 100).toLocaleString('en-IN')} ${periodWord[pay.period] ?? ''}`.trim()
+      : 'As mutually agreed';
     const startDate = new Date();
     startDate.setDate(startDate.getDate() + 14);
     const start = startDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });

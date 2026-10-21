@@ -1317,6 +1317,8 @@ export async function listApplicantsForEmployer(
     employerId: new Types.ObjectId(employerId),
   };
   if (filter.status) q.status = filter.status;
+  // Ended employments drop out of the active "hired" lists (workers tab, payroll).
+  if (filter.status === 'hired') q.endedAt = null;
 
   const apps = await ApplicationModel.find(q).sort({ createdAt: -1 }).limit(filter.limit);
   if (apps.length === 0) return [];
@@ -1390,6 +1392,8 @@ export async function listApplicantsForJob(
     employerId: new Types.ObjectId(employerId),
   };
   if (filter.status) q.status = filter.status;
+  // Ended employments drop out of the active "hired" lists (workers tab, payroll).
+  if (filter.status === 'hired') q.endedAt = null;
 
   const apps = await ApplicationModel.find(q).sort({ createdAt: -1 }).limit(filter.limit);
   if (apps.length === 0) return [];

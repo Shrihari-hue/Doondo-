@@ -25,6 +25,7 @@ import { useTranslate } from '@/i18n/useTranslate';
 import { haptic } from '@/lib/haptics';
 import { applicationsApi } from '@/api/applications.api';
 import { workerJobApi } from '@/api/workerJob.api';
+import { MyTasksSection } from './MyTasksSection';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
@@ -196,6 +197,7 @@ export function MyJobScreen() {
             ))}
           </View>
         )}
+        <MyTasksSection />
       </ScrollView>
     </Screen>
   );

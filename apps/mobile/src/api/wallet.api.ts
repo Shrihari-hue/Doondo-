@@ -4,7 +4,7 @@
 
 import { apiRequest } from './client';
 
-export type WalletKind = 'hire_payment' | 'adjustment' | 'cash_log';
+export type WalletKind = 'hire_payment' | 'wage_payment' | 'adjustment' | 'cash_log';
 export type WalletStatus = 'pending' | 'settled' | 'reversed';
 
 export interface PublicWalletTransaction {

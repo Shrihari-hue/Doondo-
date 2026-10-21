@@ -1117,6 +1117,7 @@ export function formatRawJob(r: Record<string, unknown>): PublicJob {
     ),
     escalationStage:
       ((r.escalation as { stage?: number } | null | undefined)?.stage as number | undefined) ?? 0,
+    viewsCount: (r.viewsCount as number | undefined) ?? 0,
     boostedUntil: (() => {
       const v = (r.escalation as { boostedUntil?: Date | string | null } | null | undefined)?.boostedUntil;
       return v && new Date(v).getTime() > Date.now() ? new Date(v).toISOString() : null;

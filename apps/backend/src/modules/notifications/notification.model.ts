@@ -60,6 +60,7 @@ export const NOTIFICATION_KINDS = [
   'job_escalated',            // a stalling job was auto-boosted / needs attention
   'reached_home_safe',        // a worker confirmed they got home safely (to circle)
   'profile_viewed',           // an employer viewed this seeker's profile
+  'task_assigned',             // an employer assigned this worker a task
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

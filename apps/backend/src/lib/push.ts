@@ -1344,3 +1344,32 @@ export async function sendTrustCircleHirePush(input: {
     })),
   );
 }
+
+/** Worker was assigned a task by their employer. */
+export async function sendTaskAssignedPush(input: {
+  recipientId: string;
+  employerName: string;
+  taskTitle: string;
+}): Promise<void> {
+  const title = 'New task';
+  const body = `${input.employerName}: ${input.taskTitle}`.slice(0, 160);
+  void notifications.record({
+    recipientId: input.recipientId,
+    kind: 'task_assigned',
+    title,
+    body,
+    deeplink: { screen: 'MyJob' },
+  });
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to,
+      title,
+      body,
+      sound: 'default',
+      channelId: 'applications',
+      data: { type: 'task_assigned', deeplink: { screen: 'MyJob' } },
+    })),
+  );
+}

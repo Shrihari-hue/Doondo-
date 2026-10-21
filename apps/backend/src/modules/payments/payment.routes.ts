@@ -15,7 +15,9 @@ import {
   type PaymentIntent,
 } from './payment.model';
 import { UserModel } from '@/modules/users/user.model';
-import { WalletTransactionModel } from '@/modules/wallet/walletTransaction.model';
+import { creditWagePayment } from '@/modules/wallet/wallet.service';
+import { ApplicationModel } from '@/modules/applications/application.model';
+import { logger } from '@/lib/logger';
 
 const router = Router();
 
@@ -136,23 +138,19 @@ router.post(
       p.status = 'paid';
       p.paidAt = new Date();
       await p.save();
-      // Record a wallet credit on the worker's side so the payment shows
-      // up in their earnings ledger. Wrap in try/catch — the model has a
-      // partial unique index on (userId, applicationId, kind: hire_payment)
-      // so re-marking a paid intent twice would otherwise 500.
+      // Credit the worker's earnings ledger (first payment replaces the
+      // hire placeholder; later ones add wage rows). Never fail the request.
       try {
-        await WalletTransactionModel.create({
-          userId: p.seekerId,
-          amount: p.amountPaise,
-          currency: p.currency,
-          kind: 'hire_payment',
-          status: 'settled',
-          description: `UPI payment from employer · ref ${p.ref}`,
-          applicationId: p.applicationId,
-          settledAt: p.paidAt,
-        } as unknown as Parameters<typeof WalletTransactionModel.create>[0]);
-      } catch {
-        // Duplicate or transient — payment intent itself is still marked paid.
+        await creditWagePayment({
+          userId: p.seekerId.toString(),
+          applicationId: p.applicationId ? p.applicationId.toString() : null,
+          amountPaise: p.amountPaise,
+          paymentRef: p.ref,
+          paidAt: p.paidAt,
+          method: 'UPI',
+        });
+      } catch (err) {
+        logger.warn({ err, ref: p.ref }, 'wage credit failed');
       }
       res.json({ intent: toPublic(p.toObject() as PaymentIntent & { _id: unknown }) });
     } catch (err) {
@@ -160,6 +158,73 @@ router.post(
     }
   },
 );
+
+/**
+ * POST /payments/record — record a wage the employer already paid outside
+ * the UPI deep-link (cash, bank transfer, or UPI from another app). Used by
+ * Run Payroll. Creates a settled intent and credits the worker's ledger.
+ * Doesn't require the worker to have a UPI ID.
+ */
+router.post('/record', requireAuth, requireRole('employer'), async (req, res, next) => {
+  try {
+    const body = (req.body ?? {}) as {
+      seekerId?: string;
+      applicationId?: string;
+      amountPaise?: number;
+      method?: string;
+    };
+    const method = ['cash', 'bank', 'upi'].includes(String(body.method)) ? String(body.method) : 'cash';
+    const amount = Number(body.amountPaise);
+    if (!body.seekerId || !Types.ObjectId.isValid(body.seekerId) || !Number.isFinite(amount) || amount < 100 || amount > 10_000_000) {
+      res.status(400).json({ error: 'seekerId and a valid amountPaise are required' });
+      return;
+    }
+    if (body.applicationId) {
+      if (!Types.ObjectId.isValid(body.applicationId)) {
+        res.status(400).json({ error: 'Invalid applicationId' });
+        return;
+      }
+      const app = await ApplicationModel.findById(body.applicationId).select('employerId seekerId').lean();
+      if (!app || app.employerId.toString() !== req.user!.id || app.seekerId.toString() !== body.seekerId) {
+        res.status(404).json({ error: 'Hire not found' });
+        return;
+      }
+    }
+    const seeker = await UserModel.findById(body.seekerId).select('upiVpa').lean();
+    if (!seeker) {
+      res.status(404).json({ error: 'Worker not found' });
+      return;
+    }
+    const ref = `DDR${randomBytes(5).toString('hex').toUpperCase()}`;
+    const paidAt = new Date();
+    const created = await PaymentIntentModel.create({
+      employerId: new Types.ObjectId(req.user!.id),
+      seekerId: new Types.ObjectId(body.seekerId),
+      applicationId: body.applicationId ? new Types.ObjectId(body.applicationId) : null,
+      amountPaise: Math.round(amount),
+      seekerVpa: ((seeker as { upiVpa?: string | null }).upiVpa ?? `offline-${method}`).toLowerCase(),
+      upiUri: `offline:${method}`,
+      ref,
+      status: 'paid',
+      paidAt,
+    });
+    try {
+      await creditWagePayment({
+        userId: body.seekerId,
+        applicationId: body.applicationId ?? null,
+        amountPaise: Math.round(amount),
+        paymentRef: ref,
+        paidAt,
+        method: method === 'bank' ? 'bank transfer' : method.toUpperCase() === 'UPI' ? 'UPI' : 'cash',
+      });
+    } catch (err) {
+      logger.warn({ err, ref }, 'wage credit failed');
+    }
+    res.json({ intent: toPublic(created.toObject() as PaymentIntent & { _id: unknown }) });
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.post('/:id/cancel', requireAuth, requireRole('employer'), async (req, res, next) => {
   try {

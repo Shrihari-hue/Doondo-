@@ -1,22 +1,22 @@
 /**
- * WorkerAttendanceScreen — monthly attendance calendar backed by timesheetApi.
- * Falls back to an "Attendance tracking coming soon" empty state when the API
- * returns no shift data for this worker.
+ * WorkerAttendanceScreen — monthly attendance calendar built from the
+ * worker's real shift check-ins, leave days and the job's schedule
+ * (via /workforce/:applicationId?month=YYYY-MM).
  */
 
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { spacing } from '@doondo/tokens';
-import { Screen, Text, AnimatedPressable } from '@/components';
+import { Screen, Text } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
-import { timesheetApi } from '@/api/timesheet.api';
+import { workforceApi, clockTime } from '@/api/workforce.api';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
@@ -33,41 +33,10 @@ const DAYS   = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 type DayStatus = 'present' | 'late' | 'absent' | 'leave' | 'weekly_off' | 'future';
 
-interface CalDay { day: number; status: DayStatus; isToday: boolean; }
+interface CalDay { day: number; date: string; status: DayStatus; isToday: boolean; }
 
-/**
- * Build calendar grid.
- * Uses worker applicationId hash for deterministic present/late/absent distribution
- * when per-day API data isn't available yet.
- */
-function buildCalendar(year: number, month: number, today: Date, workerId: string): { offset: number; days: CalDay[] } {
-  const firstDow    = new Date(year, month, 1).getDay();
-  const offset      = firstDow === 0 ? 6 : firstDow - 1;
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const baseHash    = [...workerId].reduce((a, c) => a + c.charCodeAt(0), 0);
-  const days: CalDay[] = [];
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dow      = new Date(year, month, d).getDay();
-    const cellDate = new Date(year, month, d);
-    const isToday  = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
-    let status: DayStatus;
-
-    if (dow === 0 || dow === 6) {
-      status = 'weekly_off';
-    } else if (cellDate > today) {
-      status = 'future';
-    } else {
-      // Deterministic per-day status from hash
-      const roll = (baseHash * 31 + d * 17) % 100;
-      if (roll < 72) status = 'present';      // ~72% present
-      else if (roll < 85) status = 'late';    // ~13% late
-      else if (roll < 90) status = 'leave';   //  ~5% leave
-      else status = 'absent';                 // ~10% absent
-    }
-    days.push({ day: d, status, isToday });
-  }
-  return { offset, days };
+function ymd(y: number, m: number, d: number): string {
+  return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
 export function WorkerAttendanceScreen() {
@@ -76,18 +45,30 @@ export function WorkerAttendanceScreen() {
   const insets       = useSafeAreaInsets();
   const { scheme }   = useTheme();
   const isLight      = scheme !== 'dark';
+  const queryClient  = useQueryClient();
 
   const today   = new Date();
   const [year,  setYear]  = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
-
-  // Build YYYY-MM string for the API
   const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
 
-  const tsQuery = useQuery({
-    queryKey: ['timesheet', monthStr],
-    queryFn:  () => timesheetApi.get(monthStr),
-    staleTime: 5 * 60_000,
+  const query = useQuery({
+    queryKey: ['workforce', 'detail', route.params.applicationId, monthStr],
+    queryFn:  () => workforceApi.detail(route.params.applicationId, { month: monthStr }),
+    staleTime: 60_000,
+  });
+
+  const toggleLeave = useMutation({
+    mutationFn: async (cell: CalDay) =>
+      cell.status === 'leave'
+        ? workforceApi.cancelLeave(route.params.applicationId, cell.date)
+        : workforceApi.markLeave(route.params.applicationId, { date: cell.date }),
+    onSuccess: () => {
+      haptic('success');
+      void queryClient.invalidateQueries({ queryKey: ['workforce'] });
+    },
+    onError: () => Alert.alert('Could not update leave', 'Please try again.'),
   });
 
   const surface       = isLight ? '#FFFFFF' : '#0D0D0D';
@@ -96,21 +77,58 @@ export function WorkerAttendanceScreen() {
   const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
   const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
 
-  // Find this worker's timesheet row
-  const workerRow = tsQuery.data?.workers.find(
-    (w) => w.workerId === route.params.applicationId,
-  );
-  const hasRealData = !!workerRow && workerRow.days > 0;
+  const data = query.data;
+  const byDate = new Map((data?.calendar ?? []).map((c) => [c.date, c.status]));
+  const firstDow    = new Date(year, month, 1).getDay();
+  const offset      = firstDow === 0 ? 6 : firstDow - 1;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayStr    = ymd(today.getFullYear(), today.getMonth(), today.getDate());
+  const days: CalDay[] = Array.from({ length: daysInMonth }, (_, i) => {
+    const date = ymd(year, month, i + 1);
+    const api = byDate.get(date);
+    const status: DayStatus =
+      api === 'present' || api === 'late' || api === 'absent' || api === 'leave'
+        ? api
+        : api === 'off' || api === 'before_hire'
+          ? 'weekly_off'
+          : 'future';
+    return { day: i + 1, date, status, isToday: date === todayStr };
+  });
 
-  const { offset, days } = buildCalendar(year, month, today, route.params.applicationId);
-  const workDays  = days.filter((d) => d.status !== 'weekly_off' && d.status !== 'future');
-  const present   = hasRealData ? workerRow!.days : days.filter((d) => d.status === 'present').length;
-  const late      = days.filter((d) => d.status === 'late').length;
-  const absent    = days.filter((d) => d.status === 'absent').length;
-  const leave     = days.filter((d) => d.status === 'leave').length;
-  const weeklyOff = days.filter((d) => d.status === 'weekly_off').length;
-  const attendancePct = workDays.length > 0
-    ? Math.round(((present + late) / workDays.length) * 100) : 0;
+  const stats     = data?.attendance;
+  const present   = stats?.present ?? 0;
+  const late      = stats?.late ?? 0;
+  const absent    = stats?.absent ?? 0;
+  const leave     = stats?.leave ?? 0;
+  const workDays  = stats?.workingDays ?? 0;
+  const attendancePct = stats?.percent ?? 0;
+  const hasShifts = (data?.shifts.length ?? 0) > 0;
+  const monthMinutes = (data?.shifts ?? []).reduce((sum, s) => sum + (s.minutes ?? 0), 0);
+  const monthShiftDays = new Set((data?.shifts ?? []).map((s) => s.date)).size;
+
+  function onCellPress(cell: CalDay) {
+    if (cell.status === 'future' && !cell.isToday) return;
+    if (cell.status === 'present' || cell.status === 'late') {
+      const shift = data?.shifts.find((s) => s.date === cell.date);
+      Alert.alert(
+        `${cell.day} ${MONTHS[month]}`,
+        shift
+          ? `In ${clockTime(shift.checkInAt)}${shift.checkOutAt ? ` · Out ${clockTime(shift.checkOutAt)}` : ' · not checked out'}`
+          : 'Checked in',
+      );
+      return;
+    }
+    if (cell.status === 'weekly_off' && !cell.isToday) return;
+    const marking = cell.status !== 'leave';
+    Alert.alert(
+      marking ? 'Mark leave' : 'Remove leave',
+      `${marking ? 'Mark' : 'Un-mark'} ${route.params.workerName.split(' ')[0]} as on leave on ${cell.day} ${MONTHS[month]}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: marking ? 'Mark leave' : 'Remove', onPress: () => toggleLeave.mutate(cell) },
+      ],
+    );
+  }
 
   const cellBg: Record<DayStatus, string> = {
     present:    GREEN + '25',
@@ -143,6 +161,7 @@ export function WorkerAttendanceScreen() {
     else setMonth((m) => m - 1);
   }
   function nextMonth() {
+    if (isCurrentMonth) return;
     haptic('selection');
     if (month === 11) { setYear((y) => y + 1); setMonth(0); }
     else setMonth((m) => m + 1);
@@ -167,31 +186,38 @@ export function WorkerAttendanceScreen() {
       <ScrollView style={{ flex: 1, backgroundColor: bg }}
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg, paddingBottom: insets.bottom + 32 }}>
 
-        {/* "Coming soon" banner when per-day API data isn't available yet */}
-        {!hasRealData && !tsQuery.isLoading && (
+        {query.isError && (
+          <View style={{ backgroundColor: isLight ? '#FEF2F2' : '#2A0A0A', borderRadius: 12, padding: spacing.md,
+            flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: RED + '40' }}>
+            <Feather name="alert-circle" size={16} color={RED} />
+            <Text style={{ flex: 1, fontSize: 13, color: RED, lineHeight: 18 }}>
+              Couldn't load attendance. Pull back and open this screen again.
+            </Text>
+          </View>
+        )}
+        {!hasShifts && !query.isLoading && !query.isError && (
           <View style={{ backgroundColor: isLight ? '#FFFBEB' : '#2A1A00', borderRadius: 12, padding: spacing.md,
             flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
             borderWidth: 1, borderColor: isLight ? '#FDE68A' : '#78350F' }}>
             <Feather name="info" size={16} color={AMBER} />
             <Text style={{ flex: 1, fontSize: 13, color: isLight ? '#92400E' : '#FCD34D', lineHeight: 18 }}>
-              Detailed per-day attendance will appear here once the worker starts logging shifts via the Doondo app.
+              No shift check-ins this month. Days fill in automatically when the worker checks in on the Doondo app. Tap a day to mark leave.
             </Text>
           </View>
         )}
 
-        {/* Monthly summary from timesheet API */}
-        {workerRow && (
+        {hasShifts && (
           <View style={{ backgroundColor: surface, borderRadius: 16, borderWidth: 1, borderColor: border, overflow: 'hidden' }}>
             <View style={{ padding: spacing.md, borderBottomWidth: 1, borderBottomColor: border }}>
               <Text style={{ fontSize: 13, fontWeight: '700', color: textSecondary, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                This Month · From Shifts
+                {MONTHS[month]} · From Shifts{data?.pattern.startTime ? ` · starts ${data.pattern.startTime}` : ''}
               </Text>
             </View>
             <View style={{ flexDirection: 'row' }}>
               {[
-                { label: 'Days Worked', value: String(workerRow.days) },
-                { label: 'Total Shifts', value: String(workerRow.shifts) },
-                { label: 'Hours Logged', value: `${Math.floor(workerRow.totalMinutes / 60)}h` },
+                { label: 'Days Worked', value: String(monthShiftDays) },
+                { label: 'Total Shifts', value: String(data?.shifts.length ?? 0) },
+                { label: 'Hours Logged', value: `${Math.floor(monthMinutes / 60)}h` },
               ].map((s, i) => (
                 <View key={s.label} style={{ flex: 1, alignItems: 'center', paddingVertical: spacing.md,
                   borderRightWidth: i < 2 ? 1 : 0, borderRightColor: border }}>
@@ -208,9 +234,11 @@ export function WorkerAttendanceScreen() {
           padding: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ gap: 2 }}>
             <Text style={{ fontSize: 22, fontWeight: '900', color: textPrimary }}>
-              {present + late}/{workDays.length} days
+              {present + late}/{workDays} days
             </Text>
-            <Text style={{ fontSize: 13, color: textSecondary }}>{attendancePct}% attendance this month</Text>
+            <Text style={{ fontSize: 13, color: textSecondary }}>
+              {stats?.percent == null ? 'No working days yet' : `${attendancePct}% attendance · ${MONTHS[month]}`}
+            </Text>
           </View>
           <View style={{ width: 56, height: 56, borderRadius: 28,
             backgroundColor: attendancePct >= 85 ? GREEN + '20' : attendancePct >= 70 ? AMBER + '20' : RED + '20',
@@ -232,10 +260,10 @@ export function WorkerAttendanceScreen() {
             </Pressable>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: textPrimary }}>{MONTHS[month]} {year}</Text>
-              {tsQuery.isFetching && <ActivityIndicator size="small" color={BLUE} />}
+              {(query.isFetching || toggleLeave.isPending) && <ActivityIndicator size="small" color={BLUE} />}
             </View>
             <Pressable hitSlop={12} onPress={nextMonth}>
-              <Feather name="chevron-right" size={22} color={textPrimary} />
+              <Feather name="chevron-right" size={22} color={isCurrentMonth ? border : textPrimary} />
             </Pressable>
           </View>
 
@@ -261,7 +289,8 @@ export function WorkerAttendanceScreen() {
                 const isWeekend = cell.status === 'weekly_off';
                 const isFuture  = cell.status === 'future';
                 return (
-                  <View key={colIdx} style={{ flex: 1, height: 38, alignItems: 'center', justifyContent: 'center' }}>
+                  <Pressable key={colIdx} onPress={() => onCellPress(cell)}
+                    style={{ flex: 1, height: 38, alignItems: 'center', justifyContent: 'center' }}>
                     <View style={{
                       width: 34, height: 34,
                       borderRadius: 8,
@@ -283,7 +312,7 @@ export function WorkerAttendanceScreen() {
                         {cell.day}
                       </Text>
                     </View>
-                  </View>
+                  </Pressable>
                 );
               })}
             </View>
@@ -326,12 +355,9 @@ export function WorkerAttendanceScreen() {
           </View>
         </View>
 
-        <AnimatedPressable style={{
-          backgroundColor: surface, borderRadius: 12, borderWidth: 1.5, borderColor: BLUE,
-          paddingVertical: 14, alignItems: 'center',
-        }}>
-          <Text style={{ fontSize: 15, fontWeight: '700', color: BLUE }}>View Attendance History</Text>
-        </AnimatedPressable>
+        <Text style={{ fontSize: 12, color: textSecondary, textAlign: 'center' }}>
+          Tap a day to see check-in times or to mark / remove leave.
+        </Text>
       </ScrollView>
     </Screen>
   );

@@ -25,6 +25,9 @@ import { Schema, model, type Model, type HydratedDocument, type Types } from 'mo
 
 export const WALLET_KINDS = [
   'hire_payment',
+  // A real wage payment (UPI / cash / bank) recorded by the employer after
+  // the first one — the first payment for a hire replaces the hire credit.
+  'wage_payment',
   'adjustment',
   'cash_log',
   // Doondo Collect: a QR payment credited net of commission, and a
@@ -55,6 +58,8 @@ export interface WalletTransaction {
   grossPaise?: number | null;
   /** For qr_collection: Doondo's commission withheld (paise). */
   feePaise?: number | null;
+  /** PaymentIntent ref this row settles (wage credits). */
+  paymentRef?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -94,12 +99,19 @@ const walletSchema = new Schema<WalletTransaction, WalletTransactionModelType, W
     settledAt: { type: Date, default: null },
     grossPaise: { type: Number, default: null },
     feePaise: { type: Number, default: null },
+    /** PaymentIntent ref this row settles — makes wage credits idempotent. */
+    paymentRef: { type: String, default: null },
   },
   { timestamps: true },
 );
 
 // "My ledger, newest first" — primary read.
 walletSchema.index({ userId: 1, createdAt: -1 });
+// One wallet row per settled payment intent.
+walletSchema.index(
+  { paymentRef: 1 },
+  { unique: true, partialFilterExpression: { paymentRef: { $type: 'string' } } },
+);
 // Prevent double-credit: at most one hire_payment per (user, application).
 walletSchema.index(
   { userId: 1, applicationId: 1, kind: 1 },

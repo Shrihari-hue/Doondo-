@@ -105,6 +105,8 @@ async function main(): Promise<void> {
       import('@/lib/paymentAggregator'),
       import('@/lib/qrMatrix'),
       import('@/lib/transactionalSms'),
+      import('@/modules/workforce/workforceExtras.service'),
+      import('@/modules/workforce/workforce.service'),
     ]);
   });
   await check('all new models register', async () => {
@@ -128,6 +130,9 @@ async function main(): Promise<void> {
       import('@/modules/homeSafe/homeSafe.model'),
       import('@/modules/maskedCall/maskedCall.model'),
       import('@/modules/collect/collect.model'),
+      import('@/modules/workforce/workerReview.model'),
+      import('@/modules/workforce/workerTask.model'),
+      import('@/modules/workforce/workerLeave.model'),
     ]);
   });
 

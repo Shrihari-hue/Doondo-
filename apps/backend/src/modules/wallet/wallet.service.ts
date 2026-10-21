@@ -77,6 +77,64 @@ export async function creditOnHire(input: CreditOnHireInput): Promise<boolean> {
   }
 }
 
+interface WageCreditInput {
+  userId: string;
+  applicationId: string | null;
+  amountPaise: number;
+  /** PaymentIntent ref — the idempotency key. */
+  paymentRef: string;
+  paidAt: Date;
+  method: string;
+}
+
+/**
+ * Record a real wage payment in the worker's ledger.
+ *
+ * The hire flow pre-credits a `hire_payment` row (the job's pay) the
+ * moment someone is hired. The FIRST real payment for that hire replaces
+ * that placeholder's amount, so a one-off gig isn't counted twice; every
+ * later payment (monthly salary, weekly wage) adds a `wage_payment` row.
+ * Idempotent per payment ref.
+ */
+export async function creditWagePayment(input: WageCreditInput): Promise<void> {
+  const userId = new Types.ObjectId(input.userId);
+  if (await WalletTransactionModel.exists({ paymentRef: input.paymentRef })) return;
+  const description = `Wage paid via ${input.method} · ref ${input.paymentRef}`;
+  if (input.applicationId) {
+    const applicationId = new Types.ObjectId(input.applicationId);
+    const placeholder = await WalletTransactionModel.findOneAndUpdate(
+      { userId, applicationId, kind: 'hire_payment', paymentRef: null },
+      {
+        $set: {
+          amount: input.amountPaise,
+          description,
+          paymentRef: input.paymentRef,
+          status: 'settled',
+          settledAt: input.paidAt,
+        },
+      },
+      { new: true },
+    );
+    if (placeholder) return;
+  }
+  try {
+    await WalletTransactionModel.create({
+      userId,
+      applicationId: input.applicationId ? new Types.ObjectId(input.applicationId) : null,
+      amount: input.amountPaise,
+      currency: 'INR',
+      kind: input.applicationId ? 'wage_payment' : 'hire_payment',
+      status: 'settled',
+      description,
+      paymentRef: input.paymentRef,
+      settledAt: input.paidAt,
+    });
+  } catch (err: unknown) {
+    if (err && typeof err === 'object' && 'code' in err && (err as { code: number }).code === 11000) return;
+    throw err;
+  }
+}
+
 interface RecordCashLogInput {
   userId: string;
   /** Paise — convert rupees → paise on the mobile side. */
@@ -252,7 +310,7 @@ export async function summarize(userId: string): Promise<EarningsSummary> {
     {
       $match: {
         userId: new Types.ObjectId(userId),
-        kind: { $in: ['hire_payment', 'cash_log'] },
+        kind: { $in: ['hire_payment', 'wage_payment', 'cash_log'] },
       },
     },
     {

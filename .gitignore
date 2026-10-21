@@ -72,3 +72,9 @@ temp/
 # user-generated runtime data, never source.
 apps/backend/storage/
 storage/reels/
+
+# Android bug reports / crash captures — may contain device logs & PII
+bugreport-*.zip
+*.zip
+doondo-crash*.txt
+.playwright-mcp/

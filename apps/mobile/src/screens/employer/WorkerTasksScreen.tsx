@@ -1,13 +1,16 @@
 /**
- * WorkerTasksScreen — task list with Pending/In Progress/Completed tabs.
- * Tasks are managed via local state + a simple add-task bottom sheet.
- * Seeded with example tasks so the screen is never empty on first open.
+ * WorkerTasksScreen — tasks assigned to one hired worker, with
+ * Pending / In Progress / Completed tabs. Saved on the server
+ * (/workforce/:applicationId/tasks); the worker sees the same tasks
+ * on their side and can move them along.
  */
 
 import { useState } from 'react';
 import {
   Alert, Modal, Pressable, ScrollView, TextInput, View,
 } from 'react-native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { workforceApi, type WorkerTask } from '@/api/workforce.api';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,16 +43,24 @@ interface Task {
   icon: React.ComponentProps<typeof Feather>['name'];
 }
 
-const SEED_TASKS: Task[] = [
-  { id: '1', title: 'Fix electrical wiring in Office', location: 'Koramangala, Bengaluru',
-    date: 'Due: 20 Jun', priority: 'High',   status: 'in_progress', icon: 'zap' },
-  { id: '2', title: 'Install new MCB in main board',  location: 'HSR Layout, Bengaluru',
-    date: 'Due: 22 Jun', priority: 'Medium', status: 'pending',     icon: 'tool' },
-  { id: '3', title: 'Check light fitting in Cabin 3', location: 'Koramangala, Bengaluru',
-    date: 'Due: 25 Jun', priority: 'Low',    status: 'pending',     icon: 'sun' },
-  { id: '4', title: 'Replace fan motor in Conference',location: 'Indiranagar, Bengaluru',
-    date: 'Done: 10 Jun',priority: 'Medium', status: 'completed',   icon: 'wind' },
-];
+const PRI_FROM_API: Record<WorkerTask['priority'], TaskPriority> = { high: 'High', medium: 'Medium', low: 'Low' };
+const PRI_TO_API: Record<TaskPriority, WorkerTask['priority']> = { High: 'high', Medium: 'medium', Low: 'low' };
+
+function toTask(t: WorkerTask): Task {
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  const date = t.status === 'completed' && t.completedAt
+    ? `Done: ${fmt(t.completedAt)}`
+    : t.dueDate ? `Due: ${fmt(`${t.dueDate}T00:00:00`)}` : 'No due date';
+  return {
+    id: t.id,
+    title: t.title,
+    location: t.location ?? '—',
+    date,
+    priority: PRI_FROM_API[t.priority],
+    status: t.status,
+    icon: t.status === 'completed' ? 'check-square' : 'clipboard',
+  };
+}
 
 function getPriorityStyle(isLight: boolean): Record<TaskPriority, { bg: string; fg: string }> {
   return {
@@ -74,7 +85,30 @@ export function WorkerTasksScreen() {
   const { scheme }  = useTheme();
   const isLight     = scheme !== 'dark';
 
-  const [tasks, setTasks]       = useState<Task[]>(SEED_TASKS);
+  const queryClient = useQueryClient();
+  const tasksKey = ['workforce', 'tasks', route.params.applicationId];
+  const tasksQuery = useQuery({
+    queryKey: tasksKey,
+    queryFn: () => workforceApi.tasks(route.params.applicationId),
+  });
+  const tasks: Task[] = (tasksQuery.data ?? []).map(toTask);
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: tasksKey });
+  const onFail = () => { haptic('error'); Alert.alert('Could not save', 'Please check your connection and try again.'); };
+  const createMut = useMutation({
+    mutationFn: (body: Parameters<typeof workforceApi.createTask>[1]) => workforceApi.createTask(route.params.applicationId, body),
+    onSuccess: () => { haptic('success'); refresh(); },
+    onError: onFail,
+  });
+  const updateMut = useMutation({
+    mutationFn: (v: { id: string; status: TaskStatus }) => workforceApi.updateTask(v.id, { status: v.status }),
+    onSuccess: refresh,
+    onError: onFail,
+  });
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => workforceApi.deleteTask(id),
+    onSuccess: refresh,
+    onError: onFail,
+  });
   const [tab, setTab]           = useState<TaskStatus>('pending');
   const [showAdd, setShowAdd]     = useState(false);
   const [newTitle, setNewTitle]   = useState('');
@@ -117,30 +151,24 @@ export function WorkerTasksScreen() {
     if (!newTitle.trim()) { Alert.alert('Title required'); return; }
     const due = new Date();
     due.setDate(due.getDate() + newDueDays);
-    const dateStr = `Due: ${due.getDate()} ${due.toLocaleString('en-IN', { month: 'short' })}`;
-    setTasks((prev) => [...prev, {
-      id: String(Date.now()), title: newTitle.trim(),
-      location: newLoc.trim() || '—', date: dateStr,
-      priority: newPri, status: 'pending', icon: 'clipboard',
-    }]);
+    const dueDate = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}-${String(due.getDate()).padStart(2, '0')}`;
+    createMut.mutate({ title: newTitle.trim(), location: newLoc.trim() || null, dueDate, priority: PRI_TO_API[newPri] });
     setNewTitle(''); setNewLoc(''); setNewDueDays(0);
     setShowAdd(false);
-    haptic('success');
   }
 
   function advanceTask(id: string) {
     haptic('selection');
-    setTasks((prev) => prev.map((t) => {
-      if (t.id !== id) return t;
-      const next: TaskStatus = t.status === 'pending' ? 'in_progress'
-        : t.status === 'in_progress' ? 'completed' : 'completed';
-      return { ...t, status: next };
-    }));
+    const t = tasks.find((x) => x.id === id);
+    if (!t || t.status === 'completed') return;
+    updateMut.mutate({ id, status: t.status === 'pending' ? 'in_progress' : 'completed' });
   }
 
   function deleteTask(id: string) {
-    haptic('selection');
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+    Alert.alert('Delete task', 'Remove this task for both you and the worker?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => { haptic('selection'); deleteMut.mutate(id); } },
+    ]);
   }
 
   return (
@@ -180,7 +208,10 @@ export function WorkerTasksScreen() {
 
       <ScrollView style={{ flex: 1, backgroundColor: bg }}
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.md, paddingBottom: 60 }}>
-        {visible.length === 0 && (
+        {tasksQuery.isError && (
+          <Text style={{ color: '#EF4444', fontSize: 13 }}>Couldn't load tasks. Pull back and reopen.</Text>
+        )}
+        {!tasksQuery.isLoading && visible.length === 0 && (
           <EmptyState
             illustration="calendar"
             tone="hero"

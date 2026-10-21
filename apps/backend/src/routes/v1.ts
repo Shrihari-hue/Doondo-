@@ -70,6 +70,7 @@ import hiringRequestsRouter from '@/modules/hiringRequests/hiringRequest.routes'
 import accountActivityRouter from '@/modules/accountActivity/accountActivity.routes';
 import whatsappRouter from '@/modules/whatsapp/whatsapp.routes';
 import * as employerInterestController from '@/modules/employerInterest/employerInterest.controller';
+import workforceRouter from '@/modules/workforce/workforce.routes';
 import {
   expressInterestSchema,
   employerIdParamSchema,
@@ -659,5 +660,7 @@ v1.get(
 // v1.use('/wallet', walletRouter);       // Phase 6
 // v1.use('/training', trainingRouter);   // Phase 6
 // v1.use('/safety', safetyRouter);       // Phase 7
+// Workforce — real attendance, leave, end-of-employment, pay history (employer).
+v1.use('/workforce', workforceRouter);
 
 export default v1;

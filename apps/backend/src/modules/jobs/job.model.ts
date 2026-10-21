@@ -291,6 +291,8 @@ export interface PublicJob {
    * "Needs attention" badge on a stalling post. stage 0 = none.
    */
   escalationStage: number;
+  /** How many times the job detail has been opened. */
+  viewsCount: number;
   /** ISO time the feed-boost is active until, or null. */
   boostedUntil: string | null;
   schedule: Schedule | null;
@@ -507,6 +509,7 @@ jobSchema.method('toPublicJSON', function (this: JobDocument): PublicJob {
     prepChecklist: [...(this.prepChecklist ?? [])],
     project: buildProject(this.projectStartDate ?? null, this.projectEndDate ?? null),
     escalationStage: this.escalation?.stage ?? 0,
+    viewsCount: this.viewsCount ?? 0,
     boostedUntil:
       this.escalation?.boostedUntil && this.escalation.boostedUntil.getTime() > Date.now()
         ? this.escalation.boostedUntil.toISOString()

@@ -1,14 +1,16 @@
 /**
- * RunPayrollScreen — batch payroll summary for all active workers.
- * Shows a table of workers + salary with checkbox per row.
- * "Mark All as Paid" triggers a confetti-style celebration.
+ * RunPayrollScreen — batch payroll for all active workers.
+ * Each row's amount is what's DUE this month: the job's pay rate × real
+ * attendance / hours, minus payments already made this month.
+ * "Mark as Paid" records a real payment (cash / bank / UPI) per worker,
+ * which also credits the worker's earnings ledger.
  */
 
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
@@ -17,6 +19,9 @@ import { Screen, Text, SkeletonCard, BlurOverlay, AnimatedPressable } from '@/co
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
 import { haptic } from '@/lib/haptics';
+import { workforceApi } from '@/api/workforce.api';
+import { paymentsApi } from '@/api/payments.api';
+import { computeMonthEarnings, currentMonth } from '@/lib/payroll';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
@@ -30,9 +35,11 @@ function formatINR(paise: number) {
 
 type WorkerRow = {
   id: string;
+  seekerId: string;
   name: string;
   jobTitle: string;
   salaryPaise: number;
+  basis: string;
   checked: boolean;
   paid: boolean;
 };
@@ -57,29 +64,47 @@ export function RunPayrollScreen() {
     staleTime: 60_000,
   });
 
+  const month = currentMonth();
+  const hired = useMemo(
+    () => (query.data?.applications ?? []).filter((a) => a.status === 'hired'),
+    [query.data],
+  );
+  const details = useQueries({
+    queries: hired.map((a) => ({
+      queryKey: ['workforce', 'detail', a.id, month],
+      queryFn: () => workforceApi.detail(a.id, { month }),
+      staleTime: 60_000,
+    })),
+  });
+  const detailsReady = details.every((d) => !d.isLoading);
+  const detailsKey = details.map((d) => d.dataUpdatedAt).join(',');
+
   const [rows, setRows] = useState<WorkerRow[]>([]);
+  const [method, setMethod] = useState<'cash' | 'bank' | 'upi'>('upi');
+  const [paying, setPaying] = useState(false);
   const [celebrated, setCelebrated] = useState(false);
+  const [paidTotal, setPaidTotal] = useState(0);
   const celebScale = useRef(new Animated.Value(0)).current;
   const celebOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (!query.data) return;
-    const workers = query.data.applications.filter((a) => a.status === 'hired');
-    setRows(workers.map((a) => {
-      const hash = [...a.id].reduce((s, c) => s + c.charCodeAt(0), 0);
-      const basePaise = a.job?.pay?.amount ?? (15000 + (hash % 5000)) * 100;
-      const bonus = Math.round(basePaise * 0.1 + (hash % 5) * 100);
-      const allowance = Math.round(basePaise * 0.07 + (hash % 3) * 100);
+    if (!detailsReady) return;
+    setRows(hired.map((a, i) => {
+      const e = computeMonthEarnings(a.job?.pay ?? null, details[i]?.data, month);
       return {
         id: a.id,
+        seekerId: a.seeker?.id ?? '',
         name: a.seeker?.name ?? 'Worker',
         jobTitle: a.job?.title ?? 'Staff',
-        salaryPaise: basePaise + bonus + allowance,
+        salaryPaise: e.duePaise,
+        basis: e.basis,
         checked: false,
-        paid: false,
+        // Nothing due (already paid / no work yet) → show as settled.
+        paid: e.duePaise === 0 && e.earnedPaise > 0,
       };
     }));
-  }, [query.data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hired, detailsReady, detailsKey, month]);
 
   const totalSelected = rows.filter((r) => r.checked && !r.paid).reduce((s, r) => s + r.salaryPaise, 0);
   const allChecked = rows.length > 0 && rows.every((r) => r.checked);
@@ -97,12 +122,36 @@ export function RunPayrollScreen() {
     setRows((prev) => prev.map((r) => ({ ...r, checked: next })));
   }
 
-  function markPaid() {
-    if (!anyChecked) return;
+  async function markPaid() {
+    const selected = rows.filter((r) => r.checked && !r.paid);
+    if (selected.length === 0 || paying) return;
+    const payable = selected.filter((r) => r.salaryPaise >= 100 && r.seekerId);
+    if (payable.length === 0) {
+      Alert.alert('Nothing due', 'The selected workers have nothing due this month.');
+      return;
+    }
+    setPaying(true);
+    const results = await Promise.allSettled(
+      payable.map((r) =>
+        paymentsApi.record({ seekerId: r.seekerId, applicationId: r.id, amountPaise: r.salaryPaise, method }),
+      ),
+    );
+    setPaying(false);
+    const okIds = new Set(payable.filter((_, i) => results[i]!.status === 'fulfilled').map((r) => r.id));
+    const failed = payable.length - okIds.size;
+    const total = payable.filter((r) => okIds.has(r.id)).reduce((s, r) => s + r.salaryPaise, 0);
+    setPaidTotal((t) => t + total);
+    void qc.invalidateQueries({ queryKey: ['workforce'] });
+    void qc.invalidateQueries({ queryKey: ['payments'] });
+    const nextRows = rows.map((r) => (okIds.has(r.id) ? { ...r, paid: true, checked: false } : r));
+    setRows(nextRows);
+    if (failed > 0) {
+      haptic('error');
+      Alert.alert('Some payments not recorded', `${failed} of ${payable.length} failed. Check your connection and try again.`);
+      return;
+    }
     haptic('success');
-    setRows((prev) => prev.map((r) => r.checked ? { ...r, paid: true, checked: false } : r));
-    if (rows.filter((r) => !r.paid).every((r) => r.checked)) {
-      // All workers being paid — celebrate
+    if (nextRows.every((r) => r.paid)) {
       setCelebrated(true);
       Animated.sequence([
         Animated.parallel([
@@ -140,7 +189,7 @@ export function RunPayrollScreen() {
       <ScrollView style={{ flex: 1, backgroundColor: bg }}
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg, paddingBottom: insets.bottom + 100 }}>
 
-        {query.isLoading ? (
+        {query.isLoading || !detailsReady ? (
           <><SkeletonCard lines={3} /><SkeletonCard lines={3} /></>
         ) : rows.length === 0 ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing['2xl'], gap: spacing.md }}>
@@ -155,13 +204,13 @@ export function RunPayrollScreen() {
             {/* Summary card */}
             <View style={{ backgroundColor: BLUE, borderRadius: 16, padding: spacing.lg, gap: spacing.xs }}>
               <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: '600' }}>
-                Total Payout — {rows.length} worker{rows.length !== 1 ? 's' : ''}
+                Due this month — {rows.length} worker{rows.length !== 1 ? 's' : ''}
               </Text>
               <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: '900', letterSpacing: -1 }}>
-                {formatINR(rows.reduce((s, r) => s + r.salaryPaise, 0))}
+                {formatINR(rows.filter((r) => !r.paid).reduce((s, r) => s + r.salaryPaise, 0))}
               </Text>
               <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
-                {rows.filter((r) => r.paid).length}/{rows.length} paid this month
+                {rows.filter((r) => r.paid).length}/{rows.length} settled · pay rate × real attendance
               </Text>
             </View>
 
@@ -224,6 +273,9 @@ export function RunPayrollScreen() {
                     <Text style={{ fontSize: 12, color: textSecondary }} numberOfLines={1}>
                       {row.jobTitle}
                     </Text>
+                    <Text style={{ fontSize: 11, color: textSecondary }} numberOfLines={2}>
+                      {row.basis}
+                    </Text>
                   </View>
 
                   <Text style={{ fontSize: 15, fontWeight: '800', color: row.paid ? GREEN : textPrimary }}>
@@ -258,6 +310,18 @@ export function RunPayrollScreen() {
           padding: spacing.xl, paddingBottom: insets.bottom + spacing.lg,
           gap: spacing.md,
         }}>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            {(['upi', 'cash', 'bank'] as const).map((m) => (
+              <Pressable key={m} onPress={() => { haptic('selection'); setMethod(m); }}
+                style={{ flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center',
+                  borderWidth: 1.5, borderColor: method === m ? BLUE : border,
+                  backgroundColor: method === m ? BLUE + '14' : 'transparent' }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: method === m ? BLUE : textSecondary }}>
+                  {m === 'upi' ? 'Paid by UPI' : m === 'cash' ? 'Paid cash' : 'Bank transfer'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
           {anyChecked && (
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={{ fontSize: 14, color: textSecondary }}>
@@ -269,15 +333,15 @@ export function RunPayrollScreen() {
             </View>
           )}
           <AnimatedPressable
-            onPress={markPaid}
-            disabled={!anyChecked}
+            onPress={() => void markPaid()}
+            disabled={!anyChecked || paying}
             style={{
               backgroundColor: anyChecked ? GREEN : isLight ? '#D1D5DB' : '#374151',
               borderRadius: 14, paddingVertical: 15, alignItems: 'center',
               flexDirection: 'row', justifyContent: 'center', gap: 8,
             }}
           >
-            <Feather name="check-circle" size={20} color="#FFFFFF" />
+            {paying ? <ActivityIndicator color="#FFFFFF" /> : <Feather name="check-circle" size={20} color="#FFFFFF" />}
             <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
               {anyChecked
                 ? `Mark ${rows.filter((r) => r.checked && !r.paid).length === rows.filter((r) => !r.paid).length ? 'All' : 'Selected'} as Paid`
@@ -309,7 +373,7 @@ export function RunPayrollScreen() {
             <View style={{ paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20,
               backgroundColor: GREEN + '20', borderWidth: 1, borderColor: GREEN + '40' }}>
               <Text style={{ fontSize: 14, fontWeight: '700', color: GREEN }}>
-                {formatINR(rows.reduce((s, r) => s + r.salaryPaise, 0))} disbursed
+                {formatINR(paidTotal)} recorded
               </Text>
             </View>
           </Animated.View>

@@ -133,6 +133,9 @@ export interface Application {
   rejectedAt?: Date | null;
   hiredAt?: Date | null;
   withdrawnAt?: Date | null;
+  /** Set when an employer ends a hired worker's employment (status stays 'hired' for history). */
+  endedAt?: Date | null;
+  endReason?: string | null;
   /**
    * Skill slugs the seeker was missing relative to the job at the moment
    * of rejection. Computed server-side as `job.skills \ seeker.skills` —
@@ -261,6 +264,7 @@ export interface PublicApplication {
     rejectedAt: string | null;
     hiredAt: string | null;
     withdrawnAt: string | null;
+    endedAt: string | null;
   };
   /** Computed missing-skill slugs at rejection time. Null until rejected. */
   rejectionReasons: string[] | null;
@@ -370,6 +374,8 @@ const applicationSchema = new Schema<Application, ApplicationModel, ApplicationM
     rejectedAt: { type: Date, default: null },
     hiredAt: { type: Date, default: null },
     withdrawnAt: { type: Date, default: null },
+    endedAt: { type: Date, default: null },
+    endReason: { type: String, default: null, maxlength: 300 },
     rejectionReasons: { type: [String], default: null },
     flaggedAsGhostedAt: { type: Date, default: null, index: true },
     interview: {
@@ -505,6 +511,7 @@ applicationSchema.method('toPublicJSON', function (
       rejectedAt: this.rejectedAt ? this.rejectedAt.toISOString() : null,
       hiredAt: this.hiredAt ? this.hiredAt.toISOString() : null,
       withdrawnAt: this.withdrawnAt ? this.withdrawnAt.toISOString() : null,
+      endedAt: this.endedAt ? this.endedAt.toISOString() : null,
     },
     rejectionReasons:
       Array.isArray(this.rejectionReasons) && this.rejectionReasons.length > 0

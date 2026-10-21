@@ -456,6 +456,8 @@ export interface PublicJob {
   project: { startDate: string; endDate: string; totalDays: number } | null;
   /** Auto-escalation stage (0 = none, 1 = boosted, 2/3 = needs attention). */
   escalationStage: number;
+  /** How many times the job detail has been opened. */
+  viewsCount?: number;
   /** ISO time the auto-escalation feed-boost is live until, or null. */
   boostedUntil: string | null;
   /** Where the role is performed — defaults to onsite. */
@@ -725,6 +727,8 @@ export interface PublicApplication {
     rejectedAt: string | null;
     hiredAt: string | null;
     withdrawnAt: string | null;
+    /** Set when the employer ended this hire's employment. */
+    endedAt?: string | null;
   };
   /**
    * Skills the seeker was missing relative to the job at the moment of

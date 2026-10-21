@@ -272,7 +272,7 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
   const queryClient = useQueryClient();
   const [showBoost, setShowBoost] = useState(false);
 
-  const views = 10 + ([...job.id].reduce((a, c) => a + c.charCodeAt(0), 0)) % 91;
+  const views = job.viewsCount ?? 0;
 
   const transition = useMutation({
     mutationFn: (next: Exclude<JobStatus, 'expired'> | 'expired') => {

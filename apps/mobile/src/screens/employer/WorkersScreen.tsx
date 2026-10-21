@@ -9,7 +9,6 @@ import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
-  Linking,
   Modal,
   Pressable,
   RefreshControl,
@@ -28,6 +27,9 @@ import { Screen, Text, Avatar, SkeletonCard, EmptyState, OfflineBanner, BlurOver
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { applicationsApi, type ApplicantEntry } from '@/api/applications.api';
+import { workforceApi, clockTime, type WorkerSummary } from '@/api/workforce.api';
+import { doondoScoreApi } from '@/api/doondoScore.api';
+import { callViaDoondo } from '@/lib/callWorker';
 import { chatApi } from '@/api/chat.api';
 import type { AppStackParamList } from '@/navigation/types';
 
@@ -40,36 +42,24 @@ const RED = '#EF4444';
 
 type WorkerFilter = 'all' | 'active' | 'on_leave' | 'absent' | 'past';
 
-function workerFilter(entry: ApplicantEntry): WorkerFilter {
-  if (entry.status !== 'hired') return 'past';
-  const hash = [...entry.id].reduce((a, c) => a + c.charCodeAt(0), 0);
-  const r = hash % 10;
-  if (r === 7) return 'on_leave';
-  if (r === 8) return 'absent';
+/** Status from real data: ended hire → past; leave today → on leave; no check-in by noon on a weekday → absent. */
+function workerFilter(entry: ApplicantEntry, summary: WorkerSummary | undefined): WorkerFilter {
+  if (entry.timeline?.endedAt) return 'past';
+  if (!summary) return 'active';
+  if (summary.today.onLeave) return 'on_leave';
+  const now = new Date();
+  if (!summary.today.checkInAt && now.getDay() !== 0 && now.getHours() >= 12) return 'absent';
   return 'active';
 }
 
-function trustScore(entry: ApplicantEntry): number {
-  const hash = [...entry.id].reduce((a, c) => a + c.charCodeAt(0), 0);
-  return 80 + (hash % 19); // 80–98
-}
-
-function attendancePct(entry: ApplicantEntry): number {
-  const hash = [...(entry.seeker?.id ?? entry.id)].reduce((a, c) => a + c.charCodeAt(0), 0);
-  return 90 + (hash % 10); // 90–99%
-}
-
-function checkInTime(entry: ApplicantEntry): string {
-  const hash = [...entry.id].reduce((a, c) => a + c.charCodeAt(0), 0);
-  const h = 8 + (hash % 3); // 8–10
-  const m = (hash % 4) * 15; // :00, :15, :30, :45
-  return `${h}:${m.toString().padStart(2, '0')} AM`;
-}
-
-function monthsAgo(entry: ApplicantEntry): string {
-  const hash = [...entry.id].reduce((a, c) => a + c.charCodeAt(0), 0);
-  const n = 1 + (hash % 11);
-  return `${n} Month${n > 1 ? 's' : ''} Ago`;
+function joinedLabel(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const months = Math.floor((Date.now() - new Date(iso).getTime()) / (30 * 24 * 60 * 60 * 1000));
+  if (months < 1) {
+    const days = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000)));
+    return days === 0 ? 'Today' : `${days} Day${days > 1 ? 's' : ''} Ago`;
+  }
+  return `${months} Month${months > 1 ? 's' : ''} Ago`;
 }
 
 export function WorkersScreen() {
@@ -101,8 +91,25 @@ export function WorkersScreen() {
       queryClient.getQueryState(['applicants', 'employer', 'tab-badge'])?.dataUpdatedAt,
   });
 
-  const all = query.data?.applications ?? [];
-  const allWithStatus = useMemo(() => all.map((e) => ({ entry: e, wf: workerFilter(e) })), [all]);
+  const summariesQuery = useQuery({
+    queryKey: ['workforce', 'list'],
+    queryFn: () => workforceApi.list(),
+    staleTime: 60_000,
+  });
+  const summaryById = useMemo(
+    () => new Map((summariesQuery.data ?? []).map((s) => [s.applicationId, s])),
+    [summariesQuery.data],
+  );
+
+  // Only real hires belong on the Workers tab (applicants live on Applicants).
+  const all = useMemo(
+    () => (query.data?.applications ?? []).filter((e) => e.status === 'hired'),
+    [query.data],
+  );
+  const allWithStatus = useMemo(
+    () => all.map((e) => ({ entry: e, wf: workerFilter(e, summaryById.get(e.id)) })),
+    [all, summaryById],
+  );
 
   const counts = useMemo(() => ({
     all: all.length,
@@ -255,13 +262,26 @@ export function WorkersScreen() {
               title={filter === 'all' ? 'No hired workers yet' : `No ${filter.replace('_', ' ')} workers`}
               message="Workers you hire will appear here." tall />
           ) : (
-            visible.map((entry) => (
+            visible.map((entry) => {
+              const sm = summaryById.get(entry.id);
+              return (
               <WorkerCard key={entry.id} entry={entry}
-                wf={workerFilter(entry)}
-                score={trustScore(entry)}
-                attendance={attendancePct(entry)}
-                checkIn={checkInTime(entry)}
-                joined={monthsAgo(entry)}
+                wf={workerFilter(entry, sm)}
+                score={sm?.score ?? null}
+                attendance={sm?.attendance.percent ?? null}
+                checkIn={sm?.today.checkInAt ? clockTime(sm.today.checkInAt) : null}
+                joined={joinedLabel(entry.timeline?.hiredAt)}
+                onMarkLeave={async () => {
+                  try {
+                    if (sm?.today.onLeave) await workforceApi.cancelLeave(entry.id, sm.today.date);
+                    else await workforceApi.markLeave(entry.id);
+                    haptic('success');
+                    void queryClient.invalidateQueries({ queryKey: ['workforce'] });
+                  } catch {
+                    Alert.alert('Could not update leave', 'Please try again.');
+                  }
+                }}
+                onLeaveToday={Boolean(sm?.today.onLeave)}
                 surface={surface} border={border}
                 textPrimary={textPrimary} textSecondary={textSecondary}
                 onPress={() => { haptic('selection'); navigation.navigate('WorkerDetail', { applicationId: entry.id }); }}
@@ -274,16 +294,10 @@ export function WorkersScreen() {
                     navigation.navigate('Conversation', { conversationId });
                   } catch { Alert.alert('Could not open chat'); }
                 }}
-                onCall={() => {
-                  const phone = (entry.seeker as any)?.phone;
-                  if (!phone) { Alert.alert('No number', 'Worker hasn\'t shared a number.'); return; }
-                  haptic('selection');
-                  void Linking.openURL(`tel:${String(phone).replace(/\s/g, '')}`).catch(() =>
-                    Alert.alert('Cannot call', 'Unable to open the dialer.')
-                  );
-                }}
+                onCall={() => void callViaDoondo(entry.id)}
               />
-            ))
+              );
+            })
           )}
         </ScrollView>
       </View>
@@ -292,15 +306,18 @@ export function WorkersScreen() {
 }
 
 function WorkerCard({
-  entry, wf, score, attendance, checkIn, joined,
+  entry, wf, score, attendance, checkIn, joined, onMarkLeave, onLeaveToday,
   surface, border, textPrimary, textSecondary, onPress, onMessage, onCall, onViewDetails, onAssignTask,
 }: {
   entry: ApplicantEntry;
   wf: WorkerFilter;
-  score: number;
-  attendance: number;
-  checkIn: string;
+  /** Real Doondo Score — null while loading / unavailable. */
+  score: number | null;
+  attendance: number | null;
+  checkIn: string | null;
   joined: string;
+  onMarkLeave: () => void;
+  onLeaveToday: boolean;
   surface: string; border: string; textPrimary: string; textSecondary: string;
   onPress: () => void;
   onMessage: () => void;
@@ -324,8 +341,14 @@ function WorkerCard({
 
   // Trust score ring — SVG-like with a View + border trick
   const ringSize = 52;
-  const circumference = Math.PI * (ringSize - 6);
-  const filled = (score / 100) * circumference;
+  const scoreNum = score ?? 0;
+  const ringColor = score == null ? '#D1D5DB' : scoreNum >= 80 ? GREEN : scoreNum >= 60 ? BLUE : AMBER;
+  const breakdownQuery = useQuery({
+    queryKey: ['doondo-score', entry.seeker?.id],
+    queryFn: () => doondoScoreApi.forUser(entry.seeker!.id),
+    enabled: showTrust && Boolean(entry.seeker?.id),
+    staleTime: 5 * 60_000,
+  });
 
   return (
     <AnimatedPressable onPress={onPress} style={{
@@ -353,7 +376,7 @@ function WorkerCard({
               <View style={{ width: 7, height: 7, borderRadius: 3.5,
                 backgroundColor: wf === 'active' ? GREEN : AMBER }} />
               <Text style={{ fontSize: 12, color: textSecondary }}>
-                {wf === 'active' ? `Checked In ● ${checkIn}` : 'On Leave Today'}
+                {wf === 'on_leave' ? 'On Leave Today' : checkIn ? `Checked In ● ${checkIn}` : 'Not checked in yet'}
               </Text>
             </View>
           ) : wf === 'absent' ? (
@@ -372,10 +395,10 @@ function WorkerCard({
             borderWidth: 3, borderColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center',
             backgroundColor: 'transparent' }}>
             <View style={{ width: ringSize - 10, height: ringSize - 10, borderRadius: (ringSize - 10) / 2,
-              borderWidth: 3, borderColor: score >= 90 ? GREEN : score >= 75 ? BLUE : AMBER,
+              borderWidth: 3, borderColor: ringColor,
               alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ fontSize: 13, fontWeight: '800', color: textSecondary === '#6B7280' ? '#111827' : '#F9FAFB' }}>
-                {score}
+                {score ?? '—'}
               </Text>
             </View>
           </View>
@@ -387,7 +410,7 @@ function WorkerCard({
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xl,
         paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: border }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Text style={{ fontSize: 13, fontWeight: '700', color: textPrimary }}>{attendance}%</Text>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: textPrimary }}>{attendance == null ? '—' : `${attendance}%`}</Text>
           <Text style={{ fontSize: 12, color: textSecondary }}>Attendance</Text>
         </View>
         <Text style={{ color: border, fontSize: 16 }}>|</Text>
@@ -418,45 +441,46 @@ function WorkerCard({
             {/* Header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <View style={{ gap: 2 }}>
-                <Text style={{ fontSize: 18, fontWeight: '800', color: textPrimary }}>Trust Score · {score}</Text>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: textPrimary }}>Trust Score · {score ?? '—'}</Text>
                 <Text style={{ fontSize: 13, color: textSecondary }}>How {name.split(' ')[0]}'s score is calculated</Text>
               </View>
               <View style={{ width: 48, height: 48, borderRadius: 24,
-                borderWidth: 3, borderColor: score >= 90 ? GREEN : score >= 75 ? BLUE : AMBER,
+                borderWidth: 3, borderColor: ringColor,
                 alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 16, fontWeight: '900', color: score >= 90 ? GREEN : score >= 75 ? BLUE : AMBER }}>
+                <Text style={{ fontSize: 16, fontWeight: '900', color: ringColor }}>
                   {score}
                 </Text>
               </View>
             </View>
 
-            {/* Breakdown rows — deterministic from score */}
-            {(() => {
-              const h = [...entry.id].reduce((a, c) => a + c.charCodeAt(0), 0);
-              const verifiedId   = 20 + (h % 6);           // 20–25
-              const onTimeRate   = 25 + (h % 6);           // 25–30
-              const reviews      = 20 + ((h * 3) % 6);    // 20–25
-              const tenure       = score - verifiedId - onTimeRate - reviews; // remainder
+            {/* Breakdown rows — the real Doondo Score components */}
+            {breakdownQuery.isLoading ? (
+              <Text style={{ fontSize: 13, color: textSecondary }}>Loading…</Text>
+            ) : !breakdownQuery.data ? (
+              <Text style={{ fontSize: 13, color: textSecondary }}>Score breakdown isn't available right now.</Text>
+            ) : (() => {
+              const b = breakdownQuery.data.breakdown;
               const components = [
-                { label: 'Verified ID', pts: verifiedId,  icon: '🪪', desc: 'Government-issued ID verified via Doondo' },
-                { label: 'On-time rate', pts: onTimeRate, icon: '⏱', desc: 'Punctuality across past jobs' },
-                { label: 'Reviews',     pts: reviews,     icon: '⭐', desc: 'Average rating from past employers' },
-                { label: 'Tenure',      pts: tenure,      icon: '📅', desc: 'Length of past employment history' },
+                { label: 'Ratings',      pts: b.ratings.points,      max: b.ratings.max,      icon: '⭐', desc: b.ratings.count ? `${b.ratings.avg?.toFixed(1)} avg from ${b.ratings.count} employer rating${b.ratings.count > 1 ? 's' : ''}` : 'No ratings yet' },
+                { label: 'Hires',        pts: b.hires.points,        max: b.hires.max,        icon: '💼', desc: `${b.hires.count} completed hire${b.hires.count === 1 ? '' : 's'} on Doondo` },
+                { label: 'Endorsements', pts: b.endorsements.points, max: b.endorsements.max, icon: '🤝', desc: `${b.endorsements.uniqueTrades} trade${b.endorsements.uniqueTrades === 1 ? '' : 's'} endorsed by peers` },
+                { label: 'Verified ID',  pts: b.verification.points, max: b.verification.max, icon: '🪪', desc: b.verification.isVerified ? 'ID verified via Doondo' : 'Not verified yet' },
+                { label: 'Profile',      pts: b.profile.points,      max: b.profile.max,      icon: '📝', desc: `${b.profile.completion}% complete` },
               ];
               return components.map((c) => (
                 <View key={c.label} style={{ gap: 4 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
                       <Text style={{ fontSize: 16 }}>{c.icon}</Text>
-                      <View style={{ gap: 1 }}>
+                      <View style={{ gap: 1, flex: 1 }}>
                         <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary }}>{c.label}</Text>
                         <Text style={{ fontSize: 12, color: textSecondary }}>{c.desc}</Text>
                       </View>
                     </View>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: GREEN }}>+{c.pts}</Text>
+                    <Text style={{ fontSize: 15, fontWeight: '800', color: GREEN }}>{c.pts}/{c.max}</Text>
                   </View>
                   <View style={{ height: 6, borderRadius: 3, backgroundColor: border, overflow: 'hidden' }}>
-                    <View style={{ width: `${(c.pts / 30) * 100}%`, height: 6, borderRadius: 3, backgroundColor: GREEN }} />
+                    <View style={{ width: `${c.max ? (c.pts / c.max) * 100 : 0}%`, height: 6, borderRadius: 3, backgroundColor: GREEN }} />
                   </View>
                 </View>
               ));
@@ -491,7 +515,7 @@ function WorkerCard({
               { icon: 'user' as const, label: 'View Details', action: () => { setShowMore(false); onViewDetails(); } },
               { icon: 'clipboard' as const, label: 'Assign Task', action: () => { setShowMore(false); onAssignTask(); } },
               { icon: 'message-square' as const, label: 'Message', action: () => { setShowMore(false); onMessage(); } },
-              { icon: 'moon' as const, label: 'Mark as On Leave', action: () => { setShowMore(false); haptic('medium'); Alert.alert('On Leave', `${name} has been marked as On Leave.`); } },
+              { icon: 'moon' as const, label: onLeaveToday ? 'Undo Leave Today' : 'Mark as On Leave', action: () => { setShowMore(false); onMarkLeave(); } },
             ].map((item) => (
               <Pressable key={item.label} onPress={item.action}
                 style={({ pressed }) => ({

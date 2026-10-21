@@ -49,6 +49,17 @@ export const paymentsApi = {
       method: 'POST',
       body: input,
     }),
+  /** Record a wage already paid in cash / bank / another UPI app. */
+  record: (input: {
+    seekerId: string;
+    applicationId?: string;
+    amountPaise: number;
+    method: 'cash' | 'bank' | 'upi';
+  }) =>
+    apiRequest<{ intent: PaymentIntent }>('/payments/record', {
+      method: 'POST',
+      body: input,
+    }),
   markPaid: (id: string) =>
     apiRequest<{ intent: PaymentIntent }>(`/payments/${id}/mark-paid`, {
       method: 'POST',

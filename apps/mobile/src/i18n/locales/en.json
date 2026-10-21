@@ -3307,5 +3307,14 @@
     "withdraw_sent_title": "Withdrawal requested",
     "withdraw_sent_body": "The money is on its way to your bank account.",
     "withdraw_fail": "Withdrawal failed. Check your balance and bank account."
+  },
+  "my_tasks": {
+    "title": "Tasks from your employer ({{n}} open)",
+    "due": "Due {{date}}",
+    "urgent": "Urgent",
+    "start": "Start",
+    "done": "Mark done",
+    "completed": "Done",
+    "save_failed": "Couldn't update the task. Check your connection."
   }
 }

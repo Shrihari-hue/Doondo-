@@ -148,24 +148,6 @@ export function ApplicantsScreen() {
 
   const allApplicants = query.data?.applications ?? [];
 
-  /** Compute a 0–100 fit score for an applicant against their job. */
-  function computeFitScore(a: ApplicantEntry): number {
-    let score = 40; // base
-    // Skills overlap: each matching skill adds points (max 40)
-    const jobSkills = (a.job?.skills ?? []).map((s) => s.toLowerCase());
-    const seekerSkills = (a.seeker?.skills ?? []).map((s) => s.toLowerCase());
-    if (jobSkills.length > 0) {
-      const overlap = seekerSkills.filter((s) => jobSkills.some((j) => j.includes(s) || s.includes(j))).length;
-      score += Math.min(40, Math.round((overlap / jobSkills.length) * 40));
-    }
-    // Trust/verification bonus (max 15)
-    if (a.seeker?.isVerified) score += 10;
-    if ((a.seeker as any)?.trustScore >= 80) score += 5;
-    // Experience bonus (max 5)
-    if ((a.seeker as any)?.yearsOfExperience >= 2) score += 5;
-    return Math.min(100, score);
-  }
-
   const counts = useMemo(() => ({
     all:         allApplicants.length,
     pending:     allApplicants.filter((a) => a.status === 'pending').length,
@@ -682,10 +664,7 @@ export function ApplicantsScreen() {
         const a = allApplicants.find((x) => x.id === idA);
         const b = allApplicants.find((x) => x.id === idB);
         if (!a || !b) return null;
-        function score(e: ApplicantEntry) {
-          const h = [...e.id].reduce((s, c) => s + c.charCodeAt(0), 0);
-          return 80 + (h % 19);
-        }
+        const score = computeFitScore;
         const cols = [a, b];
         return (
           <Modal visible animationType="slide" onRequestClose={() => setShowCompare(false)}>
@@ -717,8 +696,8 @@ export function ApplicantsScreen() {
                       </Text>
                       {/* Trust score */}
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: score(ap) >= 90 ? GREEN : BLUE }} />
-                        <Text style={{ fontSize: 13, fontWeight: '700', color: textPrimary }}>Score {score(ap)}</Text>
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: score(ap) >= 75 ? GREEN : BLUE }} />
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: textPrimary }}>Fit {score(ap)}%</Text>
                       </View>
                     </View>
                   ))}
@@ -1137,6 +1116,25 @@ function SwipeableRow({
   );
 }
 
+/** Compute a 0–100 fit score for an applicant against their job. */
+function computeFitScore(a: ApplicantEntry): number {
+  let score = 40; // base
+  // Skills overlap: each matching skill adds points (max 40)
+  const jobSkills = (a.job?.skills ?? []).map((s) => s.toLowerCase());
+  const seekerSkills = (a.seeker?.skills ?? []).map((s) => s.toLowerCase());
+  if (jobSkills.length > 0) {
+    const overlap = seekerSkills.filter((s) => jobSkills.some((j) => j.includes(s) || s.includes(j))).length;
+    score += Math.min(40, Math.round((overlap / jobSkills.length) * 40));
+  }
+  // Trust/verification bonus (max 15)
+  if (a.seeker?.isVerified) score += 10;
+  if ((a.seeker as any)?.trustScore >= 80) score += 5;
+  // Experience bonus (max 5)
+  if ((a.seeker as any)?.yearsOfExperience >= 2) score += 5;
+  return Math.min(100, score);
+}
+
+
 // ── Kanban mini card ─────────────────────────────────────────────────────────
 const AMBER = '#F59E0B';
 
@@ -1154,8 +1152,7 @@ function KanbanCard({ applicant, colKey, isLight, border, textPrimary, textSecon
   const surface = isLight ? '#FFFFFF' : '#0D0D0D';
   const name = applicant.seeker?.name ?? 'Applicant';
   const role = applicant.job?.title ?? applicant.seeker?.skills?.[0] ?? '—';
-  const hash = [...applicant.id].reduce((a, c) => a + c.charCodeAt(0), 0);
-  const score = 80 + (hash % 19);
+  const score = computeFitScore(applicant);
 
   const moveTargets: Array<{ to: 'shortlisted' | 'hired' | 'rejected'; label: string; color: string }> = [
     ...(colKey !== 'shortlisted' ? [{ to: 'shortlisted' as const, label: 'Shortlist', color: BLUE }] : []),
@@ -1182,8 +1179,8 @@ function KanbanCard({ applicant, colKey, isLight, border, textPrimary, textSecon
         {/* Score + location */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: score >= 90 ? GREEN : BLUE }} />
-            <Text style={{ fontSize: 11, color: textSecondary }}>{score}</Text>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: score >= 75 ? GREEN : BLUE }} />
+            <Text style={{ fontSize: 11, color: textSecondary }}>Fit {score}%</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
             <Feather name="map-pin" size={10} color={textSecondary} />

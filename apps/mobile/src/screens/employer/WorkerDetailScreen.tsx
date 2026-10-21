@@ -4,8 +4,8 @@
  * when the cache is warm from WorkersScreen.
  */
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Linking, Pressable, ScrollView, View } from 'react-native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +18,8 @@ import { haptic } from '@/lib/haptics';
 import { applicationsApi } from '@/api/applications.api';
 import { rosterApi } from '@/api/roster.api';
 import { chatApi } from '@/api/chat.api';
+import { workforceApi, clockTime } from '@/api/workforce.api';
+import { callViaDoondo } from '@/lib/callWorker';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav   = NativeStackNavigationProp<AppStackParamList>;
@@ -66,6 +68,36 @@ export function WorkerDetailScreen() {
     staleTime: 5 * 60_000,
   });
 
+  // Real attendance / score / pay numbers for this hire.
+  const statsQuery = useQuery({
+    queryKey: ['workforce', 'detail', route.params.applicationId],
+    queryFn: () => workforceApi.detail(route.params.applicationId),
+    staleTime: 60_000,
+  });
+
+  const invalidateTeam = () => {
+    void queryClient.invalidateQueries({ queryKey: ['workforce'] });
+    void queryClient.invalidateQueries({ queryKey: ['applicants'] });
+  };
+
+  const leaveMutation = useMutation({
+    mutationFn: () => workforceApi.markLeave(route.params.applicationId),
+    onSuccess: () => { haptic('success'); invalidateTeam(); },
+    onError: () => Alert.alert('Could not mark leave', 'Please check your connection and try again.'),
+  });
+
+  const cancelLeaveMutation = useMutation({
+    mutationFn: (date: string) => workforceApi.cancelLeave(route.params.applicationId, date),
+    onSuccess: () => { haptic('success'); invalidateTeam(); },
+    onError: () => Alert.alert('Could not undo leave', 'Please try again.'),
+  });
+
+  const endMutation = useMutation({
+    mutationFn: () => workforceApi.endEmployment(route.params.applicationId),
+    onSuccess: () => { haptic('warning'); invalidateTeam(); navigation.goBack(); },
+    onError: () => Alert.alert('Could not remove worker', 'Please check your connection and try again.'),
+  });
+
   if (workerQuery.isLoading) {
     return <Screen><ScrollView contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg }}>
       <SkeletonCard lines={4} /><SkeletonCard lines={3} /><SkeletonCard lines={5} />
@@ -82,7 +114,7 @@ export function WorkerDetailScreen() {
   const role = w.job?.title ?? w.seeker?.skills?.[0] ?? 'Worker';
 
   const location = [w.seeker?.location?.area, w.seeker?.location?.city].filter(Boolean).join(', ') || '—';
-  const phone    = (w.seeker as any)?.phone ?? '—';
+  const phone    = 'Call via Doondo';
   const salary   = w.job?.pay?.amount
     ? `₹${Math.round(w.job.pay.amount / 100).toLocaleString('en-IN')} / ${w.job.pay.period ?? 'month'}`
     : '—';
@@ -95,17 +127,32 @@ export function WorkerDetailScreen() {
     ? `${rosterEntry.startTime} (${rosterEntry.days.length} days/week)`
     : '—';
 
-  const hash       = [...w.id].reduce((a, c) => a + c.charCodeAt(0), 0);
-  const trustScore = 80 + (hash % 19);
-  const attendance = 90 + (hash % 10);
-  const workerId   = `DW${10000 + (hash % 90000)}`;
+  const stats      = statsQuery.data;
+  const trustScore = stats?.score ?? null;
+  const attendance = stats?.attendance.percent ?? null;
+  const workerId   = stats?.displayId ?? '—';
+  const onLeaveToday = Boolean(stats?.today.onLeave);
+  const trustLabel =
+    trustScore == null ? 'Not enough data' : trustScore >= 80 ? 'Excellent' : trustScore >= 60 ? 'Good' : trustScore >= 40 ? 'Building' : 'New';
+  const trustColor = trustScore == null ? textSecondary : trustScore >= 60 ? GREEN : '#D97706';
+  const nextPayment = stats?.totals.pendingPaise
+    ? `₹${Math.round(stats.totals.pendingPaise / 100).toLocaleString('en-IN')} pending`
+    : stats?.lastPaidAt
+      ? `Last paid ${new Date(stats.lastPaidAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
+      : '—';
+  const todayLine = onLeaveToday
+    ? 'On leave today'
+    : stats?.today.checkInAt
+      ? `Checked in ${clockTime(stats.today.checkInAt)}${stats.today.checkOutAt ? ` · out ${clockTime(stats.today.checkOutAt)}` : ''}`
+      : 'Not checked in today';
 
   const INFO_ROWS = [
     { icon: 'phone'       as const, label: 'Phone',         value: phone },
     { icon: 'map-pin'     as const, label: 'Location',      value: location },
     { icon: 'dollar-sign' as const, label: 'Salary',        value: salary },
     { icon: 'clock'       as const, label: 'Working Hours', value: workingHours },
-    { icon: 'calendar'    as const, label: 'Next Payment',  value: '—' },
+    { icon: 'calendar'    as const, label: 'Next Payment',  value: nextPayment },
+    { icon: 'log-in'      as const, label: 'Today',         value: stats ? todayLine : '—' },
   ];
 
   const QUICK_NAV = [
@@ -155,35 +202,31 @@ export function WorkerDetailScreen() {
                     }
                   },
                 },
-                {
-                  text: 'Mark on Leave',
-                  onPress: () =>
-                    Alert.alert('Mark on Leave', `Mark ${name} as on leave for today?`, [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Confirm',
-                        onPress: () => {
-                          haptic('notification');
-                          Alert.alert('Done', `${name} has been marked on leave.`);
-                        },
-                      },
-                    ]),
-                },
+                onLeaveToday
+                  ? {
+                      text: 'Undo Leave Today',
+                      onPress: () => cancelLeaveMutation.mutate(stats!.today.date),
+                    }
+                  : {
+                      text: 'Mark on Leave',
+                      onPress: () =>
+                        Alert.alert('Mark on Leave', `Mark ${name} as on leave for today?`, [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Confirm', onPress: () => leaveMutation.mutate() },
+                        ]),
+                    },
                 {
                   text: 'Remove from Team',
                   style: 'destructive',
                   onPress: () =>
-                    Alert.alert('Remove from Team', `Are you sure you want to remove ${name} from your team? This cannot be undone.`, [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Remove',
-                        style: 'destructive',
-                        onPress: () => {
-                          haptic('notification');
-                          navigation.goBack();
-                        },
-                      },
-                    ]),
+                    Alert.alert(
+                      'Remove from Team',
+                      `Remove ${name} from your team? Their attendance and pay history stay in your records, and you can re-hire them from My crew later.`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Remove', style: 'destructive', onPress: () => endMutation.mutate() },
+                      ],
+                    ),
                 },
                 { text: 'Cancel', style: 'cancel' },
               ]);
@@ -211,7 +254,7 @@ export function WorkerDetailScreen() {
                   </View>
                 )}
                 <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20, backgroundColor: isLight ? '#F0FDF4' : '#052E16' }}>
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: GREEN }}>Active</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: onLeaveToday ? '#D97706' : GREEN }}>{onLeaveToday ? 'On leave' : 'Active'}</Text>
                 </View>
               </View>
               <Text style={{ fontSize: 14, color: textSecondary }}>{role}</Text>
@@ -225,31 +268,33 @@ export function WorkerDetailScreen() {
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={{ fontSize: 11, color: textSecondary, fontWeight: '600' }}>Trust Score</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={{ fontSize: 24, fontWeight: '900', color: textPrimary }}>{trustScore}/100</Text>
+                <Text style={{ fontSize: 24, fontWeight: '900', color: textPrimary }}>{trustScore == null ? '—' : `${trustScore}/100`}</Text>
                 <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: GREEN,
                   alignItems: 'center', justifyContent: 'center' }}>
                   <Feather name="shield" size={13} color="#FFFFFF" />
                 </View>
               </View>
-              <Text style={{ fontSize: 12, color: GREEN, fontWeight: '600' }}>Excellent</Text>
+              <Text style={{ fontSize: 12, color: trustColor, fontWeight: '600' }}>{trustLabel}</Text>
             </View>
             <View style={{ width: 1, backgroundColor: border }} />
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={{ fontSize: 11, color: textSecondary, fontWeight: '600' }}>Attendance</Text>
-              <Text style={{ fontSize: 24, fontWeight: '900', color: textPrimary }}>{attendance}%</Text>
-              <Text style={{ fontSize: 12, color: textSecondary }}>This Month</Text>
+              <Text style={{ fontSize: 24, fontWeight: '900', color: textPrimary }}>{attendance == null ? '—' : `${attendance}%`}</Text>
+              <Text style={{ fontSize: 12, color: textSecondary }}>
+                {stats ? `${stats.attendance.present}/${stats.attendance.workingDays} days · last 30` : 'Last 30 days'}
+              </Text>
             </View>
           </View>
         </View>
 
         {/* "—" values banner */}
-        {(phone === '—' || workingHours === '—') && (
+        {workingHours === '—' && (
           <View style={{ backgroundColor: isLight ? '#F8FAFF' : '#1E2A3A', borderRadius: 10, padding: spacing.md,
             flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
             borderWidth: 1, borderColor: isLight ? '#DBEAFE' : '#1E3A5F' }}>
             <Feather name="info" size={14} color={BLUE} />
             <Text style={{ flex: 1, fontSize: 12, color: '#1D4ED8', lineHeight: 17 }}>
-              Some details show "—" because the worker hasn't filled their profile or started shifts yet.
+              Some details show "—" because the job has no fixed shift time or the worker hasn't started shifts yet.
             </Text>
           </View>
         )}
@@ -293,25 +338,13 @@ export function WorkerDetailScreen() {
             <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>Message</Text>
           </AnimatedPressable>
           <AnimatedPressable
-            onPress={() => {
-              if (phone === '—') { Alert.alert('No number', 'This worker hasn\'t shared a phone number yet.'); return; }
-              haptic('selection');
-              void Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() =>
-                Alert.alert('Cannot call', 'Unable to open the dialer.')
-              );
-            }}
+            onPress={() => void callViaDoondo(w.id)}
             style={{
               flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
               borderRadius: 12, paddingVertical: 13, borderWidth: 1.5, borderColor: BLUE,
             }}>
             <Feather name="phone" size={18} color={BLUE} />
             <Text style={{ fontSize: 15, fontWeight: '700', color: BLUE }}>Call</Text>
-          </AnimatedPressable>
-          <AnimatedPressable style={{
-            width: 48, height: 48, borderRadius: 12, borderWidth: 1.5, borderColor: border,
-            alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Feather name="more-horizontal" size={18} color={textSecondary} />
           </AnimatedPressable>
         </View>
 

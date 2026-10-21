@@ -1,7 +1,7 @@
 /**
- * WorkerSalaryScreen — salary breakdown + payment history.
- * Derives basic pay from job.pay.amount, generates payment history
- * from a deterministic hash so each worker has consistent dates.
+ * WorkerSalaryScreen — what this worker has earned this month (job pay
+ * rate × real attendance / hours), what's been paid, what's due, and the
+ * real UPI payment history. "Pay" opens the shared UPI payment panel.
  */
 
 import { useState } from 'react';
@@ -19,6 +19,9 @@ import { spacing } from '@doondo/tokens';
 import { Screen, Text, SkeletonCard, AnimatedPressable } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { applicationsApi } from '@/api/applications.api';
+import { workforceApi } from '@/api/workforce.api';
+import { computeMonthEarnings, currentMonth, formatINR, paidByMonth } from '@/lib/payroll';
+import { UpiPaymentPanel } from './UpiPaymentPanel';
 import type { AppStackParamList } from '@/navigation/types';
 
 type Nav   = NativeStackNavigationProp<AppStackParamList>;
@@ -26,28 +29,13 @@ type Route = RouteProp<AppStackParamList, 'WorkerSalary'>;
 
 const BLUE  = '#2563EB';
 const GREEN = '#16A34A';
+const AMBER = '#D97706';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-function formatINR(paise: number) {
-  const rupees = Math.round(paise / 100);
-  return `₹${rupees.toLocaleString('en-IN')}`;
-}
-
-/** Generate deterministic payment history rows going backwards from today */
-function makeHistory(basePaise: number, hash: number) {
-  const bonus      = Math.round(basePaise * 0.1 + (hash % 5) * 100);    // 10% + small variance
-  const allowance  = Math.round(basePaise * 0.07 + (hash % 3) * 100);
-  const total      = basePaise + bonus + allowance;
-  const now = new Date();
-  return Array.from({ length: 5 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    return {
-      date: `1 ${MONTHS[d.getMonth()]} ${d.getFullYear()}`,
-      amount: formatINR(total),
-      status: 'Paid' as const,
-    };
-  });
+function monthLabel(key: string): string {
+  const [y, m] = key.split('-').map(Number);
+  return `${MONTHS[(m ?? 1) - 1]} ${y}`;
 }
 
 export function WorkerSalaryScreen() {
@@ -80,9 +68,20 @@ export function WorkerSalaryScreen() {
     staleTime: 60_000,
   });
 
+  const month = currentMonth();
+  const detailQuery = useQuery({
+    queryKey: ['workforce', 'detail', route.params.applicationId, month],
+    queryFn: () => workforceApi.detail(route.params.applicationId, { month }),
+    staleTime: 60_000,
+  });
+
+  // Hooks must run before any early return.
+  const [sharing, setSharing] = useState(false);
+  const [showPay, setShowPay] = useState(false);
+
   const name = route.params.workerName;
 
-  if (workerQuery.isLoading) {
+  if (workerQuery.isLoading || detailQuery.isLoading) {
     return <Screen><ScrollView contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg }}>
       <SkeletonCard lines={3} /><SkeletonCard lines={5} />
     </ScrollView></Screen>;
@@ -90,36 +89,27 @@ export function WorkerSalaryScreen() {
 
   const w = workerQuery.data;
 
-  // Derive pay — fall back to sensible defaults if job has no pay data
-  const hash         = w ? [...w.id].reduce((a, c) => a + c.charCodeAt(0), 0) : 9999;
-  const basePaise    = w?.job?.pay?.amount ?? (15000 + (hash % 5000)) * 100; // ₹15k–20k default
-  const bonus        = Math.round(basePaise * 0.1 + (hash % 5) * 100);
-  const allowance    = Math.round(basePaise * 0.07 + (hash % 3) * 100);
-  const totalPaise   = basePaise + bonus + allowance;
-  const payPeriod    = w?.job?.pay?.period ?? 'month';
+  const detail = detailQuery.data;
+  const earnings = computeMonthEarnings(w?.job?.pay ?? null, detail, month);
+  const payPeriod = earnings.period ?? '—';
+  const history = (detail?.payments ?? []).filter((p) => p.status !== 'cancelled');
+  const months3 = paidByMonth(detail, 3);
+  const hiredOn = detail?.hiredAt
+    ? new Date(detail.hiredAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+    : '—';
 
   const BREAKDOWN = [
-    { label: 'Basic Salary',     amount: formatINR(basePaise),  bold: false },
-    { label: 'Attendance Bonus', amount: formatINR(bonus),       bold: false },
-    { label: 'Other Allowances', amount: formatINR(allowance),   bold: false },
-    { label: 'Total Salary',     amount: formatINR(totalPaise),  bold: true  },
+    { label: `Pay rate (${payPeriod})`, amount: earnings.ratePaise != null ? formatINR(earnings.ratePaise) : '—', bold: false },
+    { label: 'Worked this month',       amount: earnings.unitLabel || '—',                                       bold: false },
+    { label: 'Earned so far',           amount: formatINR(earnings.earnedPaise),                                 bold: false },
+    { label: 'Paid this month',         amount: `− ${formatINR(earnings.paidThisMonthPaise)}`,                    bold: false },
+    { label: 'Due now',                 amount: formatINR(earnings.duePaise),                                    bold: true  },
   ];
-
-  const HISTORY = makeHistory(basePaise, hash);
-
-  // Effective date: 3–14 months ago, deterministic
-  const startMonthsAgo = 3 + (hash % 12);
-  const startDate = new Date();
-  startDate.setMonth(startDate.getMonth() - startMonthsAgo);
-  const effectiveDate = `${startDate.getDate()} ${MONTHS[startDate.getMonth()]} ${startDate.getFullYear()}`;
-
-  const [sharing, setSharing] = useState(false);
 
   async function sharePayslip() {
     setSharing(true);
     try {
-      const now = new Date();
-      const monthLabel = `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+      const thisMonth = monthLabel(month);
       const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
@@ -134,15 +124,16 @@ export function WorkerSalaryScreen() {
   .footer { margin-top: 40px; font-size: 12px; color: #9CA3AF; text-align: center; }
 </style></head><body>
 <h1>Payslip — ${name}</h1>
-<p class="subtitle">Month: ${monthLabel} &nbsp;|&nbsp; Effective From: ${effectiveDate}</p>
+<p class="subtitle">Month: ${thisMonth} &nbsp;|&nbsp; Working since: ${hiredOn}</p>
+<p class="subtitle">${earnings.basis}</p>
 <table>
   <tr><th>Component</th><th>Amount</th></tr>
   ${BREAKDOWN.map((r) => `<tr${r.bold ? ' class="total"' : ''}><td>${r.label}</td><td>${r.amount}</td></tr>`).join('')}
 </table>
 <h2 style="font-size:16px;margin-bottom:12px;">Payment History</h2>
 <table>
-  <tr><th>Month</th><th>Amount</th><th>Status</th></tr>
-  ${HISTORY.map((h) => `<tr><td>${h.date}</td><td>${h.amount}</td><td><span class="badge">Paid</span></td></tr>`).join('')}
+  <tr><th>Date</th><th>Amount</th><th>Status</th></tr>
+  ${history.length === 0 ? '<tr><td colspan="3">No payments recorded yet</td></tr>' : history.map((h) => `<tr><td>${new Date(h.paidAt ?? h.createdAt).toLocaleDateString('en-IN')}</td><td>${formatINR(h.amountPaise)}</td><td><span class="badge">${h.status === 'paid' ? 'Paid' : h.status}</span></td></tr>`).join('')}
 </table>
 <p class="footer">Generated by Doondo · ${new Date().toLocaleDateString()}</p>
 </body></html>`;
@@ -183,76 +174,47 @@ export function WorkerSalaryScreen() {
         <LinearGradient colors={[BLUE, '#1D4ED8']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={{ borderRadius: 20, padding: spacing.xl, gap: 4 }}>
           <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600' }}>
-            Monthly Salary ({payPeriod})
+            Due for {monthLabel(month)}
           </Text>
           <Text style={{ color: '#FFFFFF', fontSize: 36, fontWeight: '900', letterSpacing: -1 }}>
-            {formatINR(totalPaise)}
+            {formatINR(earnings.duePaise)}
           </Text>
-          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
-            Effective from {effectiveDate}
-          </Text>
+          <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13 }}>{earnings.basis}</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Working since {hiredOn}</Text>
         </LinearGradient>
 
-        {/* 3-month earnings bar chart */}
+        {/* 3-month paid chart — real settled UPI payments */}
         {(() => {
-          const now = new Date();
-          // Generate 3 months of deterministic totals: base + small variance per month
-          const months3 = Array.from({ length: 3 }, (_, i) => {
-            const d = new Date(now.getFullYear(), now.getMonth() - (2 - i), 1);
-            const variance = ((hash * (i + 1)) % 7) - 3; // –3 … +3 %
-            const paise = Math.round(totalPaise * (1 + variance / 100));
-            return {
-              label: MONTHS[d.getMonth()]!,
-              paise,
-              rupees: Math.round(paise / 100),
-              isCurrent: i === 2,
-            };
-          });
-          const maxPaise = Math.max(...months3.map((m) => m.paise));
+          const maxPaise = Math.max(1, ...months3.map((m) => m.paise));
           return (
             <View style={{
               backgroundColor: surface, borderRadius: 16,
               borderWidth: 1, borderColor: border, padding: spacing.md, gap: spacing.md,
             }}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>3-Month Earnings</Text>
-              {/* Amount labels — above bars so they never clip */}
+              <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>Paid — last 3 months</Text>
               <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                {months3.map((m) => (
-                  <Text key={m.label} style={{
-                    flex: 1, textAlign: 'center',
-                    fontSize: 11, fontWeight: '600',
-                    color: m.isCurrent ? BLUE : textSecondary,
-                  }}>
-                    ₹{m.rupees >= 1000 ? `${Math.round(m.rupees / 1000)}k` : m.rupees}
+                {months3.map((m, i) => (
+                  <Text key={m.month} style={{ flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '600',
+                    color: i === 2 ? BLUE : textSecondary }}>
+                    {m.paise === 0 ? '₹0' : formatINR(m.paise)}
                   </Text>
                 ))}
               </View>
-              {/* Bars — fixed-height container, bars align to bottom */}
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, height: 72 }}>
-                {months3.map((m) => {
-                  const barHeight = Math.round((m.paise / maxPaise) * 72);
-                  return (
-                    <View key={m.label} style={{
-                      flex: 1, height: barHeight, borderRadius: 6,
-                      backgroundColor: m.isCurrent ? BLUE : (isLight ? '#BFDBFE' : '#1E3A5F'),
-                    }} />
-                  );
-                })}
+                {months3.map((m, i) => (
+                  <View key={m.month} style={{
+                    flex: 1, height: Math.max(3, Math.round((m.paise / maxPaise) * 72)), borderRadius: 6,
+                    backgroundColor: i === 2 ? BLUE : (isLight ? '#BFDBFE' : '#1E3A5F'),
+                  }} />
+                ))}
               </View>
-              {/* Month labels — below bars */}
               <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                 {months3.map((m) => (
-                  <Text key={m.label} style={{
-                    flex: 1, textAlign: 'center',
-                    fontSize: 12, color: textSecondary,
-                  }}>
-                    {m.label}
+                  <Text key={m.month} style={{ flex: 1, textAlign: 'center', fontSize: 12, color: textSecondary }}>
+                    {monthLabel(m.month).split(' ')[0]}
                   </Text>
                 ))}
               </View>
-              <Text style={{ fontSize: 12, color: textSecondary, textAlign: 'center' }}>
-                Gross pay (incl. bonus & allowances)
-              </Text>
             </View>
           );
         })()}
@@ -279,27 +241,42 @@ export function WorkerSalaryScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
             padding: spacing.md, borderBottomWidth: 1, borderBottomColor: border }}>
             <Text style={{ fontSize: 15, fontWeight: '700', color: textPrimary }}>Payment History</Text>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: textSecondary }}>Last 5 months</Text>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: textSecondary }}>
+              {formatINR(detail?.totals.paidPaise ?? 0)} paid total
+            </Text>
           </View>
-          {HISTORY.map((row, i) => (
-            <View key={row.date} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-              paddingHorizontal: spacing.md, paddingVertical: 14,
-              borderTopWidth: i > 0 ? 1 : 0, borderTopColor: border }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: isLight ? '#F0FDF4' : '#052E16',
-                  alignItems: 'center', justifyContent: 'center' }}>
-                  <Feather name="check-circle" size={16} color={GREEN} />
+          {history.length === 0 && (
+            <Text style={{ padding: spacing.md, fontSize: 13, color: textSecondary }}>
+              No payments yet. Payments you make through Doondo UPI show up here.
+            </Text>
+          )}
+          {history.map((row, i) => {
+            const paid = row.status === 'paid';
+            const tint = paid ? GREEN : AMBER;
+            return (
+              <View key={row.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                paddingHorizontal: spacing.md, paddingVertical: 14,
+                borderTopWidth: i > 0 ? 1 : 0, borderTopColor: border }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                  <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: tint + '1A',
+                    alignItems: 'center', justifyContent: 'center' }}>
+                    <Feather name={paid ? 'check-circle' : 'clock'} size={16} color={tint} />
+                  </View>
+                  <Text style={{ fontSize: 14, color: textPrimary }}>
+                    {new Date(row.paidAt ?? row.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </Text>
                 </View>
-                <Text style={{ fontSize: 14, color: textPrimary }}>{row.date}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary }}>{row.amount}</Text>
-                <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20, backgroundColor: isLight ? '#F0FDF4' : '#052E16' }}>
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: GREEN }}>Paid</Text>
+                <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: textPrimary }}>{formatINR(row.amountPaise)}</Text>
+                  <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20, backgroundColor: tint + '1A' }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: tint }}>
+                      {paid ? 'Paid' : row.status === 'failed' ? 'Failed' : 'Pending'}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
 
         {/* Download Payslip */}
@@ -319,12 +296,26 @@ export function WorkerSalaryScreen() {
           </Text>
         </AnimatedPressable>
 
-        {/* Pay now */}
-        <AnimatedPressable style={{ backgroundColor: BLUE, borderRadius: 12, paddingVertical: 15, alignItems: 'center' }}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
-            Pay {name.split(' ')[0]} — {formatINR(totalPaise)}
-          </Text>
-        </AnimatedPressable>
+        {/* Pay now — real UPI intent via the shared panel */}
+        {showPay && w?.seeker?.id ? (
+          <UpiPaymentPanel
+            seekerId={w.seeker.id}
+            seekerName={name}
+            applicationId={route.params.applicationId}
+            suggestedAmountPaise={earnings.duePaise || earnings.ratePaise}
+          />
+        ) : (
+          <AnimatedPressable
+            onPress={() => {
+              if (!w?.seeker?.id) { Alert.alert('Cannot pay', 'Worker details are missing.'); return; }
+              setShowPay(true);
+            }}
+            style={{ backgroundColor: BLUE, borderRadius: 12, paddingVertical: 15, alignItems: 'center' }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+              Pay {name.split(' ')[0]}{earnings.duePaise > 0 ? ` — ${formatINR(earnings.duePaise)}` : ''}
+            </Text>
+          </AnimatedPressable>
+        )}
       </ScrollView>
     </Screen>
   );
