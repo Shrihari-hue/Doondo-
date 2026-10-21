@@ -1156,3 +1156,44 @@ export function formatRawJob(r: Record<string, unknown>): PublicJob {
     createdAt: (r.createdAt as Date).toISOString(),
   };
 }
+
+// ─── Boosts (built now, priced later — free during beta) ───────────────────
+
+export const BOOST_PLANS = ['urgent', 'featured', 'sponsored'] as const;
+export type BoostPlan = (typeof BOOST_PLANS)[number];
+
+/** Tracks the last "sponsored" re-notify so a job can't blast workers repeatedly. */
+const lastSponsoredAt = new Map<string, number>();
+
+/**
+ * Apply a boost:
+ *   urgent    — marks the job urgent + feed boost for 7 days
+ *   featured  — feed boost for 14 days
+ *   sponsored — feed boost for 7 days + one re-notification of nearby
+ *               workers (at most once per 3 days per job)
+ */
+export async function boostJob(employerId: string, jobId: string, plan: BoostPlan): Promise<PublicJob> {
+  const job = await JobModel.findById(jobId);
+  if (!job) throw errors.jobNotFound();
+  if ((job.employerId as unknown as Types.ObjectId).toString() !== employerId) throw errors.forbidden();
+  if (job.status !== 'active') throw errors.conflict('Only active jobs can be boosted.');
+  const days = plan === 'featured' ? 14 : 7;
+  const until = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  const current = job.escalation?.boostedUntil?.getTime() ?? 0;
+  job.escalation = {
+    stage: job.escalation?.stage ?? 0,
+    lastEscalatedAt: job.escalation?.lastEscalatedAt ?? null,
+    boostedUntil: new Date(Math.max(current, until.getTime())),
+  };
+  if (plan === 'urgent') job.urgent = true;
+  await job.save();
+  const pub = job.toPublicJSON();
+  if (plan === 'sponsored') {
+    const last = lastSponsoredAt.get(jobId) ?? 0;
+    if (Date.now() - last > 3 * 24 * 60 * 60 * 1000) {
+      lastSponsoredAt.set(jobId, Date.now());
+      void notifySeekersOfNewJob(pub).catch((err) => logger.warn({ err, jobId }, 'sponsored boost fan-out failed'));
+    }
+  }
+  return pub;
+}

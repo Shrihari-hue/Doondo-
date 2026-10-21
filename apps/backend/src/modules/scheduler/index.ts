@@ -31,6 +31,7 @@ import { runShiftConfirmationSweep } from '@/modules/applications/shiftConfirmat
 import { runOfferExpirySweep } from '@/modules/applications/offerExpiry.service';
 import { runEscalationSweep } from '@/modules/jobs/escalation.service';
 import { runReengagementSweep } from '@/modules/notifications/reengagement.service';
+import { closeExpired } from '@/modules/auctions/auction.service';
 import { runWageWatchSweep } from '@/modules/wageWatch/wageWatch.service';
 import { runAbsenceSweep, runPayrollDueSweep } from '@/modules/workforce/workforceAlerts.service';
 import { runPushReceiptSweep } from '@/lib/pushReceipts';
@@ -294,6 +295,23 @@ export function bootScheduler(): void {
     logger.info({ cron: env.WAGE_WATCH_CRON }, 'scheduler: wage watch sweep registered');
   } else {
     logger.error({ cron: env.WAGE_WATCH_CRON }, 'scheduler: invalid WAGE_WATCH_CRON, wage watch sweep not registered');
+  }
+
+  // ─── auction close sweep ───
+  if (cron.validate(env.AUCTION_CLOSE_CRON)) {
+    const task = cron.schedule(
+      env.AUCTION_CLOSE_CRON,
+      () => {
+        closeExpired().catch((err) => {
+          logger.error({ err }, 'auction close sweep run failed');
+        });
+      },
+      { timezone: 'UTC' },
+    );
+    registered.push(task);
+    logger.info({ cron: env.AUCTION_CLOSE_CRON }, 'scheduler: auction close sweep registered');
+  } else {
+    logger.error({ cron: env.AUCTION_CLOSE_CRON }, 'scheduler: invalid AUCTION_CLOSE_CRON, auction close sweep not registered');
   }
 
   // ─── Dormant-user re-engagement sweep ──────────────────────────────────

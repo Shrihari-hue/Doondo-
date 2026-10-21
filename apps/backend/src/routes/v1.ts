@@ -76,6 +76,9 @@ import rejectionExplainerRouter from '@/modules/rejectionExplainer/rejectionExpl
 import womenSafetyRouter from '@/modules/womenSafety/womenSafety.routes';
 import wageWatchRouter from '@/modules/wageWatch/wageWatch.routes';
 import cohortsRouter from '@/modules/cohorts/cohort.routes';
+import auctionsRouter from '@/modules/auctions/auction.routes';
+import shiftCoachRouter from '@/modules/shiftCoach/shiftCoach.routes';
+import diasporaRouter from '@/modules/diaspora/diaspora.routes';
 import {
   expressInterestSchema,
   employerIdParamSchema,
@@ -678,5 +681,11 @@ v1.use('/women-safety', womenSafetyRouter);
 v1.use('/wage-watch', wageWatchRouter);
 // Peer cohorts — 5-person course groups with progress + message board (seeker).
 v1.use('/cohorts', cohortsRouter);
+// Live Job Auction — urgent gigs, time-boxed bids, award → offer.
+v1.use('/auctions', auctionsRouter);
+// Live in-shift AI coaching (seeker, during an active check-in).
+v1.use('/shift-coach', shiftCoachRouter);
+// Doondo Diaspora — hiring from abroad: local contact SMS on check-in/out (employer).
+v1.use('/diaspora', diasporaRouter);
 
 export default v1;

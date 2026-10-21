@@ -82,6 +82,11 @@ const schema = z.object({
   //   messages to (configured in the Twilio console). Defaults to the
   //   v1 router path; override only if you mount it elsewhere.
   TWILIO_WHATSAPP_FROM: z.string().optional(),
+  // Transactional SMS (new-applicant alerts, diaspora updates). Either a
+  // Messaging Service SID (preferred — handles India DLT sender rules) or
+  // an SMS-capable From number. Unset → console fallback.
+  TWILIO_MESSAGING_SERVICE_SID: z.string().optional(),
+  TWILIO_SMS_FROM: z.string().optional(),
   TWILIO_WHATSAPP_ENABLED: z
     .union([z.literal('true'), z.literal('false')])
     .default('false')
@@ -205,6 +210,7 @@ const schema = z.object({
    * stalling post is detected and boosted within the hour, cheaply.
    */
   ESCALATION_CRON: z.string().default('5 * * * *'),
+  AUCTION_CLOSE_CRON: z.string().default('*/5 * * * *'),
   WAGE_WATCH_CRON: z.string().default('30 3 * * 1'),
   PAYROLL_DUE_CRON: z.string().default('30 4 * * *'),
   ABSENCE_CRON: z.string().default('*/15 * * * *'),

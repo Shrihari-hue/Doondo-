@@ -1616,3 +1616,25 @@ export async function sendCohortPush(input: {
     })),
   );
 }
+
+/** Live Job Auction events. */
+export async function sendAuctionPush(input: {
+  recipientId: string;
+  auctionId: string;
+  title: string;
+  body: string;
+  type: 'auction:started' | 'auction:bid' | 'auction:won' | 'auction:cancelled';
+}): Promise<void> {
+  const deeplink = input.type === 'auction:bid'
+    ? { screen: 'AuctionDetail', params: { auctionId: input.auctionId } }
+    : { screen: 'Auctions' };
+  void notifications.record({ recipientId: input.recipientId, kind: 'auction_update', title: input.title, body: input.body, deeplink });
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to, title: input.title, body: input.body, sound: 'default', channelId: 'applications',
+      data: { type: input.type, deeplink },
+    })),
+  );
+}

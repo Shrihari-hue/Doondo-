@@ -92,6 +92,10 @@ import { WorkerActivityScreen } from '@/screens/employer/WorkerActivityScreen';
 import { WorkerDocumentsScreen } from '@/screens/employer/WorkerDocumentsScreen';
 import { RunPayrollScreen } from '@/screens/employer/RunPayrollScreen';
 import { WorkerPerformanceScreen } from '@/screens/employer/WorkerPerformanceScreen';
+import { DiasporaScreen } from '@/screens/employer/DiasporaScreen';
+import { AuctionDetailScreen } from '@/screens/employer/AuctionDetailScreen';
+import { AuctionsScreen } from '@/screens/seeker/AuctionsScreen';
+import { ArJobVisionScreen } from '@/screens/seeker/ArJobVisionScreen';
 import { TradeToolsScreen } from '@/screens/seeker/TradeToolsScreen';
 import { CohortScreen } from '@/screens/seeker/CohortScreen';
 import { CohortsScreen } from '@/screens/seeker/CohortsScreen';
@@ -201,6 +205,26 @@ export function AppNavigator() {
       <Stack.Screen
         name="WorkerPerformance"
         component={WorkerPerformanceScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="Diaspora"
+        component={DiasporaScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="AuctionDetail"
+        component={AuctionDetailScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="Auctions"
+        component={AuctionsScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="ArJobVision"
+        component={ArJobVisionScreen}
         options={{ presentation: 'card', animation: 'slide_from_right' }}
       />
       <Stack.Screen

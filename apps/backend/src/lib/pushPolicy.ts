@@ -27,7 +27,8 @@ export function categoryFor(type: string | undefined): PushCategory {
     t.startsWith('streak:') ||
     t.startsWith('profile:') ||
     t.startsWith('wage_alert') ||
-    t.startsWith('cohort:')
+    t.startsWith('cohort:') ||
+    t === 'auction:started'
   ) {
     return 'jobs';
   }

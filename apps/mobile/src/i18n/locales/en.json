@@ -417,7 +417,9 @@
       "title_other": "{{count}} employers want to hire you",
       "subtitle": "Tap to view and respond"
     },
-    "my_applications_link": "My applications"
+    "my_applications_link": "My applications",
+    "ar_link": "Look around for jobs (AR)",
+    "auctions_link": "Urgent jobs — bid now"
   },
   "job_detail": {
     "apply_now": "Apply Now",
@@ -3604,5 +3606,36 @@
       "lights": "Lights checked",
       "handover": "Handover to next shift"
     }
+  },
+  "ar": {
+    "finding": "Finding where you are and which way you're facing…",
+    "hint": "{{n}} of {{total}} nearby jobs are in the direction you're pointing. Turn slowly to see more.",
+    "location_needed": "Turn on location to see jobs around you.",
+    "no_camera": "camera off"
+  },
+  "auctions": {
+    "title": "Urgent jobs",
+    "intro": "Employers who need someone fast. Bid your price (up to their limit) and how soon you can be there. If you're picked you get a 1-hour offer.",
+    "ends_in": "{{n}} min left",
+    "late_cancels": "This employer cancelled {{n}} time(s) after picking a worker",
+    "up_to": "Up to {{max}}",
+    "bids": "{{n}} bid(s)",
+    "lowest": "lowest {{v}}",
+    "place_bid": "Place bid",
+    "update_bid": "Update bid",
+    "your_bid": "Your bid: {{v}} · {{eta}} min",
+    "bid_failed": "Couldn't place bid",
+    "location_needed": "Turn on location to see urgent jobs near you.",
+    "empty_title": "No urgent jobs right now",
+    "empty_message": "We'll notify you when an employer nearby needs someone fast."
+  },
+  "shift_coach": {
+    "title": "Ask Coach",
+    "hint": "On shift and stuck? Ask a quick question — e.g. \"tap still dripping after new washer\" or \"customer wants extra work, what do I charge?\"",
+    "placeholder": "Type your question…",
+    "ask": "Ask",
+    "failed": "Coach couldn't answer",
+    "open_sos": "Open SOS now",
+    "remaining": "{{n}} questions left today"
   }
 }

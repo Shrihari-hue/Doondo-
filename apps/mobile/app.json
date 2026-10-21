@@ -112,6 +112,13 @@
             }
           ]
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Doondo uses your camera to show nearby jobs in the direction you point your phone (AR Job View).",
+          "recordAudioAndroid": false
+        }
       ]
     ],
     "experiments": {

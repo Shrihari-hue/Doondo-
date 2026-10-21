@@ -864,6 +864,7 @@ export function EmployerHomeScreen() {
                   { icon: 'dollar-sign' as const, label: 'Run Payroll',             color: '#16A34A',   onPress: () => navigation.navigate('RunPayroll') },
                   { icon: 'clock'       as const, label: 'Time-Off Requests',       color: AMBER,       onPress: () => navigation.navigate('TimeOffRequests') },
                   { icon: 'bell'        as const, label: 'Notification Settings',   color: '#6B7280',   onPress: () => navigation.navigate('NotifPreferences') },
+                  { icon: 'globe'       as const, label: 'Hiring from abroad',      color: '#0EA5E9',   onPress: () => navigation.navigate('Diaspora') },
                   { icon: 'settings'    as const, label: 'Settings',                color: '#6B7280',   onPress: () => navigation.navigate('Settings') },
                 ] as { icon: React.ComponentProps<typeof Feather>['name']; label: string; color: string; onPress: () => void }[]).map((item) => (
                   <Pressable

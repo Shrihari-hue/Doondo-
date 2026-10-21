@@ -126,6 +126,19 @@ export async function createCheckIn(input: CreateInput): Promise<PublicShiftChec
     logger.warn({ err, applicationId: app.id }, 'shift check-in push failed'),
   );
 
+  // Doondo Diaspora: SMS the employer's local contact in India.
+  void import('@/modules/diaspora/diaspora.service')
+    .then(({ notifyLocalContact }) =>
+      notifyLocalContact({
+        employerId: app.employerId.toString(),
+        workerName: seeker?.name ?? 'Your worker',
+        jobTitle: (job as { title?: string }).title ?? 'the job',
+        kind: input.kind,
+        at: row.timestamp,
+      }),
+    )
+    .catch(() => undefined);
+
   // Trust Circle shift ping — when the worker has opted in, notify the
   // contacts in their circle who are themselves Doondo users (push
   // only, matched by phone hash, same as the SOS fan-out). This is the

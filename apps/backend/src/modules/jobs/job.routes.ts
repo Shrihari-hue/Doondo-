@@ -134,6 +134,27 @@ router.post(
 
 // ─── Public detail + seeker save ────────────────────────────────────────────
 router.get('/:id', validate(jobIdParamsSchema), controller.detail);
+// Boost a job (free during beta): urgent / featured / sponsored.
+router.post(
+  '/:id/boost',
+  requireAuth,
+  requireRole('employer'),
+  validate(jobIdParamsSchema),
+  async (req, res, next) => {
+    try {
+      const plan = String((req.body ?? {}).plan ?? '');
+      const { boostJob, BOOST_PLANS } = await import('./job.service');
+      if (!(BOOST_PLANS as readonly string[]).includes(plan)) {
+        res.status(400).json({ ok: false, error: { code: 'VALIDATION_FAILED', message: 'Unknown boost plan.' } });
+        return;
+      }
+      const job = await boostJob(req.user!.id, req.params.id!, plan as (typeof BOOST_PLANS)[number]);
+      res.json({ ok: true, data: { job }, requestId: req.id });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 router.post('/:id/save', requireAuth, validate(jobIdParamsSchema), controller.save);
 router.delete('/:id/save', requireAuth, validate(jobIdParamsSchema), controller.unsave);
 

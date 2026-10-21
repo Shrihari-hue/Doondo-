@@ -316,6 +316,17 @@ export interface User {
    * the server can ask for workplace-safety confirmations.
    */
   privacy?: { maskLocation?: boolean; womenMode?: boolean };
+  /**
+   * Doondo Diaspora (employer): hiring from abroad for family in India.
+   * `localContact` gets SMS updates on shift check-in/out; `timezone`
+   * localises times shown to the employer.
+   */
+  diaspora?: {
+    enabled?: boolean;
+    country?: string | null;
+    timezone?: string | null;
+    localContact?: { name?: string | null; phone?: string | null; relation?: string | null } | null;
+  };
   notificationPrefs?: {
     jobs?: boolean;
     applications?: boolean;
@@ -812,6 +823,28 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
         { _id: false },
       ),
       default: null,
+    },
+    diaspora: {
+      type: new Schema(
+        {
+          enabled: { type: Boolean, default: false },
+          country: { type: String, default: null, maxlength: 60 },
+          timezone: { type: String, default: null, maxlength: 60 },
+          localContact: {
+            type: new Schema(
+              {
+                name: { type: String, default: null, maxlength: 80 },
+                phone: { type: String, default: null, maxlength: 20 },
+                relation: { type: String, default: null, maxlength: 40 },
+              },
+              { _id: false },
+            ),
+            default: null,
+          },
+        },
+        { _id: false },
+      ),
+      default: () => ({}),
     },
     privacy: {
       type: new Schema(

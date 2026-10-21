@@ -67,6 +67,7 @@ export const NOTIFICATION_KINDS = [
   'worker_available',          // a worker near you posted an open shift (to employer)
   'wage_alert',                // the going rate for your trade in your city changed (Wage Watch)
   'cohort_update',             // your course group got a new message / member
+  'auction_update',            // live job auction: started nearby / new bid / you won
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

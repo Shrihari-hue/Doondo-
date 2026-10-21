@@ -98,6 +98,9 @@ export const jobsApi = {
       { auth: false },
     ),
 
+  /** Boost a job (free during beta). */
+  boost: (jobId: string, plan: 'urgent' | 'featured' | 'sponsored') =>
+    apiRequest<{ job: PublicJob }>(`/jobs/${jobId}/boost`, { method: 'POST', body: { plan } }),
   nearby: (p: NearbyParams) =>
     apiRequest<NearbyResponse>(
       `/jobs/nearby${qs({

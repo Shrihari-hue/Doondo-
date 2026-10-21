@@ -18,6 +18,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { ShiftCoachCard } from './ShiftCoachCard';
 import { Alert, Linking, Pressable, ScrollView, View } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -339,6 +340,9 @@ export function MyEmployerJobScreen() {
             onPress={() => navigation.navigate('MyEarnings')}
           />
         </View>
+
+        {/* Live in-shift coaching — only while checked in */}
+        {primary ? <ShiftCoachCard applicationId={primary.id} /> : null}
 
         {/* Dispute */}
         {primary ? <DisputeSection applicationId={primary.id} /> : null}

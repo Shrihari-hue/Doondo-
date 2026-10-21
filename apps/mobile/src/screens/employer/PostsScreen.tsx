@@ -327,6 +327,14 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
           onPress: () => setShowBoost(true),
         },
         {
+          text: 'Urgent auction 🔨',
+          onPress: () =>
+            navigation.navigate('AuctionDetail', {
+              jobId: job.id,
+              suggestedMaxRupees: job.pay?.amount ? Math.round(job.pay.amount / 100) : undefined,
+            }),
+        },
+        {
           text: 'Close Job',
           style: 'destructive',
           onPress: () =>
@@ -504,14 +512,24 @@ function PostCard({ job, t, stats }: { job: PublicJob; t: TFn; stats?: JobStats 
                 <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? '#D1D5DB' : '#374151', alignSelf: 'center' }} />
                 <View style={{ gap: spacing.xs }}>
                   <Text style={{ fontSize: 22, fontWeight: '800', color: isLight ? '#111827' : '#F9FAFB' }}>⚡ Boost this job</Text>
-                  <Text style={{ fontSize: 14, color: isLight ? '#6B7280' : '#9CA3AF' }}>Reach more qualified workers faster.</Text>
+                  <Text style={{ fontSize: 14, color: isLight ? '#6B7280' : '#9CA3AF' }}>Reach more qualified workers faster. Free during beta.</Text>
                 </View>
                 {[
-                  { emoji: '🔥', tag: 'Urgent Hire', desc: 'Top of search results for 7 days', price: '₹299', color: '#EF4444' },
-                  { emoji: '⭐', tag: 'Featured', desc: 'Highlighted card for 14 days', price: '₹499', color: AMBER },
-                  { emoji: '🚀', tag: 'Sponsored', desc: 'Push notification to 500+ matched workers', price: '₹899', color: BLUE },
+                  { plan: 'urgent' as const, emoji: '🔥', tag: 'Urgent Hire', desc: 'Marked urgent + boosted in the feed for 7 days', price: 'Free', color: '#EF4444' },
+                  { plan: 'featured' as const, emoji: '⭐', tag: 'Featured', desc: 'Boosted in the feed for 14 days', price: 'Free', color: AMBER },
+                  { plan: 'sponsored' as const, emoji: '🚀', tag: 'Sponsored', desc: 'Boost for 7 days + notify nearby workers again', price: 'Free', color: BLUE },
                 ].map((opt) => (
-                  <Pressable key={opt.tag} onPress={() => { haptic('selection'); setShowBoost(false); }}
+                  <Pressable key={opt.tag} onPress={() => {
+                    haptic('selection');
+                    setShowBoost(false);
+                    jobsApi.boost(job.id, opt.plan)
+                      .then(() => {
+                        haptic('success');
+                        void queryClient.invalidateQueries({ queryKey: ['jobs'] });
+                        Alert.alert('Boosted ⚡', `${opt.tag} is on for "${job.title}".`);
+                      })
+                      .catch((e: unknown) => Alert.alert("Couldn't boost", e instanceof Error ? e.message : undefined));
+                  }}
                     style={({ pressed }) => ({
                       flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md,
                       borderRadius: 14, backgroundColor: opt.color + '12',

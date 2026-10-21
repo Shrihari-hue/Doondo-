@@ -36,6 +36,7 @@ export const NOTIFICATION_KINDS = [
   'worker_available',
   'wage_alert',
   'cohort_update',
+  'auction_update',
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

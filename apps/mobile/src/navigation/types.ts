@@ -111,6 +111,10 @@ export type AppStackParamList = {
   WorkerDocuments: { applicationId: string; workerName: string };
   /** Modal: monthly performance review form for a hired worker. */
   WorkerPerformance: { applicationId: string; workerName: string };
+  Diaspora: undefined;
+  AuctionDetail: { auctionId?: string; jobId?: string; suggestedMaxRupees?: number };
+  Auctions: undefined;
+  ArJobVision: undefined;
   TradeTools: undefined;
   Cohort: { cohortId: string };
   Cohorts: undefined;
