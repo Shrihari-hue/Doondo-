@@ -1,106 +1,80 @@
 # Doondo V2 — Punch List
 
-What's left before a wider release. Generated 2026-05-22, updated 2026-05-24,
-by cross-checking `DOONDO_V2_ROADMAP.md` and `Doondo-Profile-Redesign-Spec.md`
-against the actual `apps/backend` + `apps/mobile` source tree and commit history.
+Updated 2026-10-21. Supersedes the 2026-05-24 version, which predated the
+June redesign and the 2026-10-21 commits (d5c2076 → edf1289).
 
-Tick items as they land. Status legend: `[ ]` not started · `[~]` partial · `[x]` done.
+Status legend: `[ ]` to do · `[~]` partial · `[x]` done.
 
 ---
 
 ## Snapshot
 
-- **Roadmap:** 28 of 36 numbered features shipped · 2 partial · 6 not started · 8 "bets" untouched (by design).
-- **Latest build (2026-05-24, uncommitted):** in-chat auto-translate (#24), Smart Resume (#21), Festival Mode (#32), and the Doondo Score QR credential — backend + mobile, both packages typecheck clean.
-- **Beta-ready today** in English and Hindi.
+- Backend typecheck: **0 errors**. Mobile: **0 errors once `pnpm install` is run**
+  (the only error is the not-yet-installed `expo-camera`).
+- Android app ID / iOS bundle ID: **`com.shrihari23.doondov2`** everywhere
+  (root `app.json`, `apps/mobile/app.json`, `capture-crash.sh`, push docs).
+- Roadmap features: all core + "Later" items built; moonshots built as v1
+  except voice biometric ID (provider interface only).
 
 ---
 
-## 1. Profile / navigation redesign — highest priority
+## 1. Do next (on your Mac)
 
-Source: `Doondo-Profile-Redesign-Spec.md` v3.0 (dated 2026-05-21, still "Draft for
-review").
+- [ ] `pnpm install` at the repo root (adds `expo-camera`, `react-native-android-widget`).
+- [ ] Commit the working tree: app-ID change + the Tamil / Telugu / Kannada / Hindi
+      locale additions (≈2,300 lines, uncommitted).
+- [ ] `git push` — `main` is 6 commits ahead of `origin/main`.
+- [ ] Redeploy the backend on Fly (`fly deploy` in `apps/backend`) so the
+      always-on machine + new crons (receipt sweep, auction close, escalation,
+      worker-absent, payroll-due, Wage Watch) go live.
 
-> **UPDATE 2026-05-24:** the 6-tab navigation has since shipped — the app now
-> runs Home / Jobs / Community / Chat / Earnings / Profile, and the Earnings tab
-> has been rebuilt with the card layout. This section predates that work and
-> needs a fresh audit; treat the checkboxes below as stale.
+## 2. Accounts & credentials (no code)
 
-Resolve before building — the 5 open questions in spec §12:
+- [ ] **Firebase / FCM** — create project, add Android app `com.shrihari23.doondov2`,
+      upload `google-services.json` via `eas credentials`.
+- [ ] **Apple** — Developer Program ($99/yr), APNs `.p8` key → `eas credentials`.
+- [ ] **Dev build on a real Android phone** (`eas build --profile development
+      --platform android`) and run the 8-step checklist in
+      `DOONDO_PUSH_NOTIFICATIONS_STATUS.md`.
+- [ ] **Masked calling** — set `MASKED_CALL_PROVIDER` (Exotel/Twilio) and wire
+      the hook in `apps/backend/src/lib/maskedCall.ts`.
+- [ ] **Transactional SMS** — set `TWILIO_MESSAGING_SERVICE_SID` or `TWILIO_SMS_FROM`.
+- [ ] **AI text** — set `AI_TEXT_PROVIDER` (rejection explainer, coach); falls
+      back to templates/mock until then.
+- [ ] **Google Maps key** in `apps/mobile/app.json` is committed in plain text —
+      restrict it to the app's package + SHA-1 in Google Cloud Console.
 
-- [ ] Confirm the 6-tab bar survives 320 dp width + all supported languages, or fall back to 5 tabs.
-- [ ] Decide: application tracking as a segmented view inside Jobs, or its own screen from Home.
-- [ ] Decide: Worker insurance in Earnings vs Profile → Account & settings.
-- [ ] Confirm whether Chat is new or an existing messaging feature to migrate (it exists — migrate it).
-- [ ] Choose the 3 metrics for the new stats row (replacing the duplicated completion figure).
+## 3. Release verification
 
-Phase 1 — Navigation:
+- [ ] Native-speaker QA of Tamil / Telugu / Kannada (newly filled) and Hindi.
+- [ ] On-device boot against the real MongoDB: offline mode, stay-signed-in,
+      app lock, Pulse widget, AR Job View (camera + compass fallback).
+- [ ] Run the wallet backfill script once against production (see d5c2076).
 
-- [ ] Add `Community` and `Earnings` tabs; expand `SeekerTabNavigator` from 4 to 6 tabs.
-- [ ] Build the 6-tab bottom bar to spec §8.1 (equal width, single-word labels, badges don't widen tabs, tested at 320 dp).
-- [ ] Move Jobs / Community / Chat / Earnings content out of the old Profile list.
-- [ ] Wire the migration map (spec §10) — every current Profile row to its new home.
+## 4. Still open / out of scope
 
-Phase 2 — Profile groups:
-
-- [ ] Replace the flat Profile list with two collapsible groups: "Grow your career" and "Account & settings".
-- [ ] Apply the new copy (spec §6): "Skills hub" merges Skill tests + Skill Passport; "Work preferences" replaces "Your Work Rules"; "Find work buddies" merges Find friends + Trade buddies; remove ALL-CAPS headers.
-- [ ] Persist each worker's expand/collapse choice; default-expand "Grow your career" on first visit.
-
-Phase 3 — Polish:
-
-- [ ] Fix the duplicate profile-completion figure — one progress bar as the single source of truth (spec §7).
-- [ ] Redesign the stats row with the 3 chosen metrics.
-- [ ] Add bottom-bar badges (Chat unread, Home alert dot).
-- [ ] Complete regional-language coverage for all new nav/profile strings (design for ~30% text expansion).
-
----
-
-## 2. Roadmap — partially done
-
-- [~] **#28 Bookable 1:1 mentor sessions** — mentor discovery + request lifecycle work (`mentors` module); calendar slots and payment are missing.
-- [~] **#31 Hire Celebration** — an apply-moment 3D celebration exists (`apply-moment/ApplyCelebration`); the hire-moment celebration does not.
+- [~] **Voice biometric identity** — interface only; needs a licensed on-device
+      engine (e.g. Picovoice Eagle).
+- [~] **Doondo Diaspora** — local-contact SMS only; foreign billing / KYC not built.
+- [~] **Pulse widget** — Android only; no iOS widget.
+- [ ] Boosts are free during beta — pricing not set.
 
 ---
 
-## 3. Roadmap — not started (Later, Q2)
+## Done (for reference)
 
-- [ ] **#19 "Why was I rejected?" AI explainer** — skill-gap diff (#3) is done; the generative one-paragraph explanation is not. Effort M / Risk Med.
-- [ ] **#27 Peer cohorts via Find Friends (5-person course groups)** — Effort M / Risk Low.
-- [ ] **#33 Doondo for Women** — needs verifier model + location masking; mockup only. Effort L / Risk High.
-- [ ] **#34 Predictive availability** — needs usage data first. Effort L / Risk Med.
-- [ ] **#35 Hire Reels (30-sec video resume)** — mockup only. Effort L / Risk High.
-- [ ] **#36 Trade-specific micro-apps** — Effort L / Risk Low.
-
----
-
-## 4. Roadmap — "bets" (explore, don't commit yet)
-
-Untouched by design — validate before building.
-
-- [ ] #37 AR Job Vision
-- [ ] #38 Doondo Coach (voice-first AI agent)
-- [ ] #39 Live in-shift AI coaching
-- [ ] #40 3D craft showcase
-- [ ] #41 Live Job Auction
-- [ ] #42 Doondo Diaspora
-- [ ] #43 Voice biometric identity
-- [ ] #44 Wage Strike Alerts
-
----
-
-## 5. Release / verification work
-
-- [ ] Native-speaker QA on the Tamil / Telugu / Kannada translations.
-- [ ] On-device boot against a real MongoDB — verify the Session 24–25 native-module behaviour (offline mode, stay-signed-in / app lock).
-- [ ] Commit or discard the working-tree change to `pnpm-lock.yaml`.
-
----
-
-## Done — for reference (28 of 36)
-
-- **Now-5 (#1–5):** 60-sec first match · anti-ghost engine · skill gap on rejection · morning digest · Doondo Score — plus the `node-cron` scheduler, `Course.skills[]` metadata, and new notification kinds.
-- **Next (#6–17):** one-photo OCR profile · quick-reply templates + language toggle · voice-note auto-transcription · live shift check-in · interview scheduler · anonymous employer reviews · SOS upgrade · streaks · refer-a-friend · re-engagement flow · "hired near you today" · Skill Passport.
-- **Later (#18, 20, 22, 23, 25, 26, 29, 30):** Crew Apply · Reverse Interview · Doondo Constitution · open-shift from seeker side · PF/ESI/tax explainer · career-path map · Trust Circle · Doondo Pulse.
-- **2026-05-24 build (#21, #24, #32):** Smart Resume (per-job AI rewrite) · in-chat auto-translate · Festival Mode — plus the Doondo Score QR credential (signed, scannable, public verification page), which finishes the #5 Doondo Score moonshot.
-- **Beyond the roadmap:** offline mode (queued applications), stay-signed-in + app lock, cash-paid confirmation, recurring availability beacons, Sentry integration.
+- **2026-10-21 d5c2076** — TS fixes, junk/bug-report zips removed, Fly always-on,
+  real workforce data (attendance, leave, end employment, tasks), real payroll
+  payments, wallet fix, masked-call routing.
+- **51f33fe Push** — enforced per-category prefs, quiet hours, Hindi copy, Expo
+  receipts + dead-token pruning, rich chat images, employer applicant / absent /
+  payroll alerts.
+- **5ee290f Partials** — mentor slots + UPI pay, "Why wasn't I picked?", signed
+  Skill Passport QR, seeker open shifts, Coach voice intents, Pulse widget.
+- **eb697fe Profile redesign** — §12 questions decided (see spec §13), tab badges,
+  320 dp labels, persisted groups, copy pass.
+- **151ef5e** — Doondo for Women privacy + peer safety verification, Wage Watch,
+  peer cohorts, predictive availability, trade tools.
+- **edf1289 Moonshots v1** — Live Job Auction, AR Job View, in-shift coach,
+  Diaspora v1, real boosts, real Twilio SMS.
+- Earlier: see `FEATURE_STATUS_REPORT.md` (May) and `WHATS_NEW.md`.

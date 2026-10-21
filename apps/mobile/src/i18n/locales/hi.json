@@ -304,7 +304,14 @@
     "email": "ईमेल",
     "password": "पासवर्ड",
     "phone": "फ़ोन",
-    "submit": "खाता बनाएं"
+    "submit": "खाता बनाएं",
+    "name_for_worker": "कारीगर का नाम",
+    "phone_for_worker": "कारीगर का फ़ोन",
+    "phone_helper": "पासवर्ड भूलने पर उसे रीसेट करने के काम आएगा।",
+    "phone_for_worker_helper": "कारीगर का नंबर — मालिक इसी पर कॉल करेंगे।",
+    "assisted_toggle_label": "किसी और के लिए बना रहे हैं?",
+    "assisted_toggle_hint": "अक्सर परिवार वाले उस कारीगर की मदद करते हैं जो अकेले ऐप नहीं चला पाता।",
+    "submitting": "खाता बन रहा है…"
   },
   "jobs": {
     "greeting": {
@@ -1511,7 +1518,23 @@
       "err_password_required": "पासवर्ड ज़रूरी है",
       "err_invalid_credentials": "ईमेल या पासवर्ड ग़लत है।",
       "err_rate_limited": "बहुत बार कोशिश हुई। एक मिनट बाद कोशिश करें।",
-      "err_generic": "कुछ ग़लत हुआ। फिर कोशिश करें।"
+      "err_generic": "कुछ ग़लत हुआ। फिर कोशिश करें।",
+      "eyebrow_seeker": "नौकरी ढूँढने वाले के रूप में साइन इन",
+      "eyebrow_employer": "मालिक के रूप में साइन इन",
+      "title_seeker": "फिर से स्वागत है",
+      "title_employer": "फिर से स्वागत है",
+      "role_toggle_seeker": "नौकरी ढूँढने वाला",
+      "role_toggle_employer": "मालिक",
+      "cta_signin_seeker": "नौकरी ढूँढने वाले के रूप में साइन इन करें",
+      "cta_signin_employer": "मालिक के रूप में साइन इन करें",
+      "role_picker_eyebrow": "एक ईमेल, दो खाते",
+      "role_picker_title": "कौन-सा खाता?",
+      "role_picker_subtitle": "इस ईमेल पर आपका नौकरी ढूँढने वाला और मालिक, दोनों खाते हैं। चुनें किसमें साइन इन करना है।",
+      "role_picker_option_seeker": "नौकरी ढूँढने वाला",
+      "role_picker_option_seeker_subtitle": "काम खोजें, आवेदन करें, प्रोफ़ाइल बनाएँ",
+      "role_picker_option_employer": "मालिक",
+      "role_picker_option_employer_subtitle": "नौकरी डालें, आवेदन देखें, कारीगर रखें",
+      "role_picker_cancel": "वापस"
     },
     "forgot": {
       "eyebrow": "पासवर्ड रीसेट",
@@ -1673,7 +1696,18 @@
       "have_account_cta": "साइन इन करें",
       "no_account_q": "नया खाता चाहिए?",
       "no_account_cta": "एक बनाएं",
-      "err_invalid_credentials": "ईमेल या पासवर्ड गलत है"
+      "err_invalid_credentials": "ईमेल या पासवर्ड गलत है",
+      "cta_forgot": "पासवर्ड भूल गए?",
+      "recovery_eyebrow": "खाता पहले से है",
+      "recovery_title_employer": "आपका मालिक खाता पहले से है",
+      "recovery_title_default": "आपका खाता पहले से है",
+      "recovery_subtitle": "{{email}} पर पहले से एक खाता है। चुनें कैसे आगे बढ़ना है।",
+      "recovery_card_title": "वापस आने के दो तरीके",
+      "recovery_card_body": "पासवर्ड याद है तो साइन इन करके इस फ़ोन पर खाता जोड़ें। नहीं तो रीसेट करें — हम आपके फ़ोन पर कोड भेजेंगे।",
+      "recovery_signin_employer": "मेरे मालिक खाते में साइन इन करें",
+      "recovery_signin_default": "उस खाते में साइन इन करें",
+      "recovery_forgot": "पासवर्ड भूल गए? रीसेट करें",
+      "recovery_back": "दूसरा ईमेल इस्तेमाल करें"
     }
   },
   "role_picker": {
@@ -3599,5 +3633,9 @@
     "failed": "कोच जवाब नहीं दे पाया",
     "open_sos": "अभी SOS खोलें",
     "remaining": "आज {{n}} सवाल बाकी"
+  },
+  "account_pill": {
+    "switch_to": "{{name}} पर जाएँ",
+    "open_switcher": "खाता बदलें"
   }
 }

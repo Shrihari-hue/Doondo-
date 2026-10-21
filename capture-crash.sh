@@ -13,7 +13,7 @@
 #
 set -u
 
-APP_ID="com.doondo.app"     # from app.json -> android.package
+APP_ID="com.shrihari23.doondov2"     # from app.json -> android.package
 # Save inside the project folder so Claude can read it directly.
 OUT="$(cd "$(dirname "$0")" && pwd)/doondo-crash.txt"
 

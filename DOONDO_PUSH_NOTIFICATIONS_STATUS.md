@@ -124,7 +124,7 @@ Once that's done, iOS pushes work automatically — no code changes needed.
 For Play Store builds, Expo needs an **FCM Server Key**:
 
 1. Go to the [Firebase Console](https://console.firebase.google.com), create a project named `doondo` (or reuse an existing one).
-2. Add an Android app with package name `com.doondo.app` (matches `app.json`).
+2. Add an Android app with package name `com.shrihari23.doondov2` (matches `app.json`).
 3. Download the `google-services.json` file.
 4. In your terminal: `eas credentials` → select Android → upload `google-services.json`. Expo wires it into the next build.
 

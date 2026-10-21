@@ -23,7 +23,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.doondo.app",
+      "bundleIdentifier": "com.shrihari23.doondov2",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Doondo uses your location to find work near you.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Doondo uses your location to share live location with safety contacts when you choose to.",
@@ -34,7 +34,7 @@
       }
     },
     "android": {
-      "package": "com.doondo.app",
+      "package": "com.shrihari23.doondov2",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0C0A0E"
