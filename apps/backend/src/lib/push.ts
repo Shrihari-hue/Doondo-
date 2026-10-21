@@ -1,10 +1,14 @@
 /**
  * push — minimal Expo push notification helper.
  *
- * Posts to https://exp.host/--/api/v2/push/send. We avoid the official
- * `expo-server-sdk` for now so we don't add a dep — the API is tiny and
- * stable, and we don't yet need batching/receipts. Phase 5 swaps to the
- * official SDK when receipts + topic-rules become useful.
+ * Posts to https://exp.host/--/api/v2/push/send directly (no SDK dep).
+ * Every send goes through `sendRaw`, which applies the delivery policy
+ * (category toggles, quiet hours, Hindi copy — see pushPolicy.ts), batches
+ * at 100, records tickets for receipt checking and prunes dead tokens
+ * (see pushReceipts.ts).
+ *
+ * Helpers attach their `input` as `data._vars` so the policy can render
+ * localized copy; it's stripped before the payload leaves the server.
  *
  * Errors are caught and logged here. Callers should always `void` these
  * helpers so a failed push never blocks the request that triggered it.
@@ -12,6 +16,8 @@
 
 import { logger } from './logger';
 import { UserModel } from '@/modules/users/user.model';
+import { shouldDeliver, localize, type RecipientPolicy } from './pushPolicy';
+import { recordTickets, type ExpoTicket } from './pushReceipts';
 import * as notifications from '@/modules/notifications/notification.service';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
@@ -25,28 +31,83 @@ interface PushPayload {
   badge?: number;
   /** Channel for Android notification grouping. */
   channelId?: string;
+  /** Rich notification image (sender photo etc.). Needs mutableContent on iOS. */
+  richContent?: { image?: string };
+  mutableContent?: boolean;
 }
 
-async function sendRaw(payloads: PushPayload[]): Promise<void> {
-  if (payloads.length === 0) return;
-  try {
-    const res = await fetch(EXPO_PUSH_URL, {
+/** Map every token in the batch to its owner's delivery policy. */
+async function policiesFor(tokens: string[]): Promise<Map<string, RecipientPolicy>> {
+  const out = new Map<string, RecipientPolicy>();
+  if (tokens.length === 0) return out;
+  const users = await UserModel.find({ expoPushTokens: { $in: tokens } })
+    .select('expoPushTokens notificationPrefs locale')
+    .lean();
+  const wanted = new Set(tokens);
+  for (const u of users) {
+    for (const t of (u.expoPushTokens ?? []) as string[]) {
+      if (wanted.has(t)) out.set(t, u as unknown as RecipientPolicy);
+    }
+  }
+  return out;
+}
+
+async function postBatch(batch: PushPayload[]): Promise<void> {
+  const send = (msgs: PushPayload[]) =>
+    fetch(EXPO_PUSH_URL, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
         'Accept-encoding': 'gzip, deflate',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payloads),
+      body: JSON.stringify(msgs),
     });
-    if (!res.ok) {
-      logger.warn(
-        { status: res.status, count: payloads.length },
-        'expo push: non-2xx response',
-      );
-      return;
+  let msgs = batch;
+  let res = await send(msgs);
+  if (!res.ok && res.status === 400 && msgs.some((m) => m.richContent)) {
+    // Older Expo push API versions reject richContent — retry plain.
+    msgs = msgs.map(({ richContent: _r, mutableContent: _m, ...rest }) => rest);
+    res = await send(msgs);
+  }
+  if (!res.ok) {
+    logger.warn({ status: res.status, count: msgs.length }, 'expo push: non-2xx response');
+    return;
+  }
+  try {
+    const json = (await res.json()) as { data?: ExpoTicket[] };
+    if (Array.isArray(json.data)) {
+      await recordTickets(json.data, msgs.map((m) => (Array.isArray(m.to) ? m.to[0]! : m.to)));
     }
-    // We don't read the response body — receipts are a Phase 5 concern.
+  } catch (err) {
+    logger.warn({ err }, 'expo push: could not read tickets');
+  }
+}
+
+async function sendRaw(payloads: PushPayload[]): Promise<void> {
+  if (payloads.length === 0) return;
+  try {
+    // One message per token so policy/locale can differ per recipient.
+    const flat = payloads.flatMap((p) =>
+      (Array.isArray(p.to) ? p.to : [p.to]).map((to) => ({ ...p, to })),
+    );
+    const policies = await policiesFor(flat.map((p) => p.to as string));
+    const now = new Date();
+    const ready: PushPayload[] = [];
+    for (const p of flat) {
+      const { _vars, ...data } = (p.data ?? {}) as Record<string, unknown> & { _vars?: Record<string, unknown> };
+      const type = typeof data.type === 'string' ? data.type : undefined;
+      const policy = policies.get(p.to as string);
+      if (!shouldDeliver(type, policy, now)) continue;
+      const loc = localize(type, policy?.locale, _vars);
+      ready.push({ ...p, data, ...(loc ? { title: loc.title, body: loc.body } : {}) });
+    }
+    if (ready.length < flat.length) {
+      logger.debug({ suppressed: flat.length - ready.length }, 'expo push: suppressed by prefs / quiet hours');
+    }
+    for (let i = 0; i < ready.length; i += 100) {
+      await postBatch(ready.slice(i, i + 100));
+    }
   } catch (err) {
     logger.warn({ err, count: payloads.length }, 'expo push: send failed');
   }
@@ -97,6 +158,7 @@ export async function sendApplicationStatusPush(input: {
       channelId: 'applications',
       data: {
         type: 'application:status_changed',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
         status: input.status,
@@ -172,6 +234,7 @@ export async function sendInterviewPush(input: {
       channelId: 'applications',
       data: {
         type: `interview:${input.kind}`,
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
       },
@@ -220,6 +283,7 @@ export async function sendNewJobPush(input: {
     channelId: 'jobs',
     data: {
       type: 'job:new',
+      _vars: input as unknown as Record<string, unknown>,
       deeplink: { screen: 'JobDetail', params: { jobId: input.jobId } },
       jobId: input.jobId,
     },
@@ -269,8 +333,12 @@ export async function sendChatMessagePush(input: {
       body: truncatedBody,
       sound: 'default',
       channelId: 'chat',
+      ...(sender?.photoUrl && /^https:\/\//.test(sender.photoUrl)
+        ? { richContent: { image: sender.photoUrl }, mutableContent: true }
+        : {}),
       data: {
         type: 'chat:message_received',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'Conversation', params: { conversationId: input.conversationId } },
         conversationId: input.conversationId,
       },
@@ -316,6 +384,7 @@ export async function sendJobAlertMatchPush(input: {
       channelId: 'jobs',
       data: {
         type: 'job_alert:match',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'JobDetail', params: { jobId: input.jobId } },
         jobId: input.jobId,
       },
@@ -369,6 +438,7 @@ export async function sendInterviewReminderPush(input: {
       channelId: 'applications',
       data: {
         type: 'interview:reminder',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
       },
@@ -416,6 +486,7 @@ export async function sendShiftConfirmationPush(input: {
       channelId: 'applications',
       data: {
         type: 'shift:confirmation',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
       },
@@ -453,6 +524,7 @@ export async function sendOfferMadePush(input: {
       channelId: 'applications',
       data: {
         type: 'offer:made',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
       },
@@ -489,6 +561,7 @@ export async function sendOfferResolvedPush(input: {
       channelId: 'applications',
       data: {
         type: 'offer:resolved',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
       },
@@ -530,6 +603,7 @@ export async function sendCrewShiftPush(input: {
       channelId: 'jobs',
       data: {
         type: 'crew:shift',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'JobDetail', params: { jobId: input.jobId } },
         jobId: input.jobId,
       },
@@ -570,6 +644,7 @@ export async function sendBackfillPush(input: {
       channelId: 'applications',
       data: {
         type: 'shift:backfilled',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
       },
@@ -605,6 +680,7 @@ export async function sendWorkerOnTheWayPush(input: {
       channelId: 'applications',
       data: {
         type: 'worker:on_the_way',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
       },
@@ -639,6 +715,7 @@ export async function sendOfferCounteredPush(input: {
       channelId: 'applications',
       data: {
         type: 'offer:countered',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
       },
@@ -671,6 +748,7 @@ export async function sendOfferExpiredPush(input: {
       channelId: 'applications',
       data: {
         type: 'offer:expired',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
       },
@@ -722,6 +800,7 @@ export async function sendSkillGapPush(input: {
       channelId: 'applications',
       data: {
         type: 'application:skill_gap',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'CourseDetail', params: { courseId: input.courseId } },
         applicationId: input.applicationId,
         courseId: input.courseId,
@@ -769,6 +848,7 @@ export async function sendGhostedPush(input: {
       channelId: 'applications',
       data: {
         type: 'application:ghosted',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
       },
@@ -811,6 +891,7 @@ export async function sendMorningDigestPush(input: {
       channelId: 'jobs',
       data: {
         type: 'morning_digest',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'Home' },
         topJobIds: input.topJobIds.slice(0, 5),
       },
@@ -855,6 +936,7 @@ export async function sendReengagementPush(input: {
       channelId: 'jobs',
       data: {
         type: 'reengagement',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink,
       },
     })),
@@ -901,6 +983,7 @@ export async function sendStreakMilestonePush(input: {
       channelId: 'jobs',
       data: {
         type: 'streak:milestone',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'Profile' },
         kind: input.kind,
         days: input.days,
@@ -943,6 +1026,7 @@ export async function sendReferralBonusPush(input: {
       channelId: 'jobs',
       data: {
         type: 'referral:bonus',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'MyEarnings' },
         bonusPaise: input.bonusPaise,
       },
@@ -986,6 +1070,7 @@ export async function sendHiredNearbyPush(input: {
       channelId: 'jobs',
       data: {
         type: 'hired:nearby',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'Home' },
       },
     })),
@@ -1035,6 +1120,7 @@ export async function sendSosAlertPush(input: {
       channelId: 'applications',
       data: {
         type: 'sos:alert',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'Sos', params: { alertId: input.alertId } },
         alertId: input.alertId,
         fromName: input.fromName,
@@ -1086,6 +1172,7 @@ export async function sendShiftCheckinPush(input: {
       channelId: 'applications',
       data: {
         type: input.kind === 'check_in' ? 'shift:check_in' : 'shift:check_out',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'Applications', params: { applicationId: input.applicationId } },
         applicationId: input.applicationId,
       },
@@ -1136,6 +1223,7 @@ export async function sendTrustCircleShiftPush(input: {
       channelId: 'default',
       data: {
         type: started ? 'trust_circle:shift_start' : 'trust_circle:shift_end',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'Home' },
       },
     })),
@@ -1172,7 +1260,7 @@ export async function sendHomeSafeCirclePush(input: {
       body,
       sound: 'default',
       channelId: 'default',
-      data: { type: 'trust_circle:home_safe', deeplink: { screen: 'Home' } },
+      data: { type: 'trust_circle:home_safe', deeplink: { screen: 'Home' }, _vars: input as unknown as Record<string, unknown> },
     })),
   );
 }
@@ -1210,7 +1298,7 @@ export async function sendRatingReceivedPush(input: {
       body,
       sound: 'default',
       channelId: 'ratings',
-      data: { type: 'rating:received', deeplink: { screen: 'Ratings' } },
+      data: { type: 'rating:received', deeplink: { screen: 'Ratings' }, _vars: input as unknown as Record<string, unknown> },
     })),
   );
 }
@@ -1251,6 +1339,7 @@ export async function sendHireCelebrationPush(input: {
       channelId: 'applications',
       data: {
         type: 'hire:celebration',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'MyApplications' },
         applicationId: input.applicationId,
       },
@@ -1296,6 +1385,7 @@ export async function sendProfileViewPush(input: {
       channelId: 'jobs',
       data: {
         type: 'profile:viewed',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'Profile' },
       },
     })),
@@ -1339,6 +1429,7 @@ export async function sendTrustCircleHirePush(input: {
       channelId: 'default',
       data: {
         type: 'trust_circle:hire',
+        _vars: input as unknown as Record<string, unknown>,
         deeplink: { screen: 'Home' },
       },
     })),
@@ -1369,7 +1460,69 @@ export async function sendTaskAssignedPush(input: {
       body,
       sound: 'default',
       channelId: 'applications',
-      data: { type: 'task_assigned', deeplink: { screen: 'MyJob' } },
+      data: { type: 'task_assigned', deeplink: { screen: 'MyJob' }, _vars: input as unknown as Record<string, unknown> },
+    })),
+  );
+}
+
+/** Employer: someone applied to one of your jobs. */
+export async function sendNewApplicantPush(input: {
+  recipientId: string;
+  applicantName: string;
+  jobTitle: string;
+  applicationId: string;
+}): Promise<void> {
+  const title = 'New applicant';
+  const body = `${input.applicantName} applied for "${input.jobTitle}".`;
+  const deeplink = { screen: 'ApplicantDetail', params: { applicationId: input.applicationId } };
+  void notifications.record({ recipientId: input.recipientId, kind: 'application_received', title, body, deeplink });
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to, title, body, sound: 'default', channelId: 'applications',
+      data: { type: 'application:received', deeplink, _vars: input as unknown as Record<string, unknown> },
+    })),
+  );
+}
+
+/** Employer: a hired worker hasn't checked in for today's shift. */
+export async function sendWorkerAbsentPush(input: {
+  recipientId: string;
+  workerName: string;
+  jobTitle: string;
+  startTime: string;
+  applicationId: string;
+}): Promise<void> {
+  const title = 'Worker not checked in';
+  const body = `${input.workerName} hasn't checked in for "${input.jobTitle}" (shift started ${input.startTime}).`;
+  const deeplink = { screen: 'WorkerDetail', params: { applicationId: input.applicationId } };
+  void notifications.record({ recipientId: input.recipientId, kind: 'worker_absent', title, body, deeplink });
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to, title, body, sound: 'default', channelId: 'applications',
+      data: { type: 'worker:absent', deeplink, _vars: input as unknown as Record<string, unknown> },
+    })),
+  );
+}
+
+/** Employer: month-end reminder to pay the team. */
+export async function sendPayrollDuePush(input: {
+  recipientId: string;
+  workerCount: number;
+}): Promise<void> {
+  const title = 'Payroll due';
+  const body = `Month ends today — ${input.workerCount} worker${input.workerCount === 1 ? '' : 's'} to pay. Open Run Payroll to see what's due.`;
+  const deeplink = { screen: 'RunPayroll' };
+  void notifications.record({ recipientId: input.recipientId, kind: 'payroll_due', title, body, deeplink });
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to, title, body, sound: 'default', channelId: 'applications',
+      data: { type: 'payroll:due', deeplink, _vars: input as unknown as Record<string, unknown> },
     })),
   );
 }

@@ -100,7 +100,7 @@ function SettingsInner() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['notification-prefs'] }),
   });
 
-  function toggleType(k: keyof NotificationPrefs) {
+  function toggleType(k: Exclude<keyof NotificationPrefs, 'quietHours'>) {
     haptic('selection');
     saveMut.mutate({ [k]: !prefs[k] });
   }
@@ -299,9 +299,20 @@ function SettingsInner() {
               value={prefs.referrals}
               onChange={() => toggleType('referrals')}
             />
+            <Divider color={theme.border.subtle} />
+            <PrefRow
+              icon="moon"
+              label={t('settings.quiet_hours')}
+              hint={t('settings.quiet_hours_hint', { start: prefs.quietHours.start, end: prefs.quietHours.end })}
+              value={prefs.quietHours.enabled}
+              onChange={() => {
+                haptic('selection');
+                saveMut.mutate({ quietHours: { ...prefs.quietHours, enabled: !prefs.quietHours.enabled } });
+              }}
+            />
           </View>
           <Hint icon="info" theme={theme}>
-            Turning a category off stops both push and in-app banners for that type.
+            Turning a category off stops push notifications for that type. You'll still see them in the bell.
           </Hint>
         </Section>
 

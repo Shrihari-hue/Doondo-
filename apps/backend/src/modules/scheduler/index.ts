@@ -31,6 +31,8 @@ import { runShiftConfirmationSweep } from '@/modules/applications/shiftConfirmat
 import { runOfferExpirySweep } from '@/modules/applications/offerExpiry.service';
 import { runEscalationSweep } from '@/modules/jobs/escalation.service';
 import { runReengagementSweep } from '@/modules/notifications/reengagement.service';
+import { runAbsenceSweep, runPayrollDueSweep } from '@/modules/workforce/workforceAlerts.service';
+import { runPushReceiptSweep } from '@/lib/pushReceipts';
 
 let registered: ScheduledTask[] = [];
 
@@ -223,6 +225,57 @@ export function bootScheduler(): void {
       { cron: env.ESCALATION_CRON, stallHours: env.ESCALATION_STALL_HOURS },
       'scheduler: job auto-escalation sweep registered',
     );
+  }
+
+  // ─── push receipt sweep ───
+  if (cron.validate(env.PUSH_RECEIPTS_CRON)) {
+    const task = cron.schedule(
+      env.PUSH_RECEIPTS_CRON,
+      () => {
+        runPushReceiptSweep().catch((err) => {
+          logger.error({ err }, 'push receipt sweep run failed');
+        });
+      },
+      { timezone: 'UTC' },
+    );
+    registered.push(task);
+    logger.info({ cron: env.PUSH_RECEIPTS_CRON }, 'scheduler: push receipt sweep registered');
+  } else {
+    logger.error({ cron: env.PUSH_RECEIPTS_CRON }, 'scheduler: invalid PUSH_RECEIPTS_CRON, push receipt sweep not registered');
+  }
+
+  // ─── worker absence sweep ───
+  if (cron.validate(env.ABSENCE_CRON)) {
+    const task = cron.schedule(
+      env.ABSENCE_CRON,
+      () => {
+        runAbsenceSweep().catch((err) => {
+          logger.error({ err }, 'worker absence sweep run failed');
+        });
+      },
+      { timezone: 'UTC' },
+    );
+    registered.push(task);
+    logger.info({ cron: env.ABSENCE_CRON }, 'scheduler: worker absence sweep registered');
+  } else {
+    logger.error({ cron: env.ABSENCE_CRON }, 'scheduler: invalid ABSENCE_CRON, worker absence sweep not registered');
+  }
+
+  // ─── payroll due sweep ───
+  if (cron.validate(env.PAYROLL_DUE_CRON)) {
+    const task = cron.schedule(
+      env.PAYROLL_DUE_CRON,
+      () => {
+        runPayrollDueSweep().catch((err) => {
+          logger.error({ err }, 'payroll due sweep run failed');
+        });
+      },
+      { timezone: 'UTC' },
+    );
+    registered.push(task);
+    logger.info({ cron: env.PAYROLL_DUE_CRON }, 'scheduler: payroll due sweep registered');
+  } else {
+    logger.error({ cron: env.PAYROLL_DUE_CRON }, 'scheduler: invalid PAYROLL_DUE_CRON, payroll due sweep not registered');
   }
 
   // ─── Dormant-user re-engagement sweep ──────────────────────────────────

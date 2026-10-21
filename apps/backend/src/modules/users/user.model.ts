@@ -315,6 +315,17 @@ export interface User {
     messages?: boolean;
     ratings?: boolean;
     referrals?: boolean;
+    /** Employer-side toggles. */
+    newApplicant?: boolean;
+    interviewReminder?: boolean;
+    workerAbsent?: boolean;
+    payrollDue?: boolean;
+    /**
+     * Quiet hours (IST, "HH:MM"). Non-urgent pushes inside the window are
+     * suppressed — the in-app notification row is still written. SOS,
+     * safety and time-critical pushes always go through.
+     */
+    quietHours?: { enabled?: boolean; start?: string; end?: string };
   };
   /**
    * High-level "is this account verified" flag. Flipped to `true` once the
@@ -803,6 +814,21 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
           messages: { type: Boolean, default: true },
           ratings: { type: Boolean, default: true },
           referrals: { type: Boolean, default: true },
+          newApplicant: { type: Boolean, default: true },
+          interviewReminder: { type: Boolean, default: true },
+          workerAbsent: { type: Boolean, default: true },
+          payrollDue: { type: Boolean, default: true },
+          quietHours: {
+            type: new Schema(
+              {
+                enabled: { type: Boolean, default: true },
+                start: { type: String, default: '22:00', match: /^\d{2}:\d{2}$/ },
+                end: { type: String, default: '07:00', match: /^\d{2}:\d{2}$/ },
+              },
+              { _id: false },
+            ),
+            default: () => ({}),
+          },
         },
         { _id: false },
       ),
@@ -921,7 +947,8 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
       type: [{ type: Schema.Types.ObjectId, ref: 'Job' }],
       default: [],
     },
-    expoPushTokens: { type: [String], default: [] },
+    // Indexed so the push gate can map a token back to its owner's prefs.
+    expoPushTokens: { type: [String], default: [], index: true },
     lastDigestSentAt: { type: Date, default: null },
     lastReengagedAt: { type: Date, default: null },
     reengagementAttempts: { type: Number, default: 0, min: 0 },

@@ -105,6 +105,9 @@ async function main(): Promise<void> {
       import('@/lib/paymentAggregator'),
       import('@/lib/qrMatrix'),
       import('@/lib/transactionalSms'),
+      import('@/modules/workforce/workforceAlerts.service'),
+      import('@/lib/pushPolicy'),
+      import('@/lib/pushReceipts'),
       import('@/modules/workforce/workforceExtras.service'),
       import('@/modules/workforce/workforce.service'),
     ]);
@@ -151,6 +154,9 @@ async function main(): Promise<void> {
       ['SHIFT_CONFIRM_CRON', env.SHIFT_CONFIRM_CRON],
       ['OFFER_EXPIRY_CRON', env.OFFER_EXPIRY_CRON],
       ['ESCALATION_CRON', env.ESCALATION_CRON],
+      ['PAYROLL_DUE_CRON', env.PAYROLL_DUE_CRON],
+      ['ABSENCE_CRON', env.ABSENCE_CRON],
+      ['PUSH_RECEIPTS_CRON', env.PUSH_RECEIPTS_CRON],
     ] as const) {
       assert(cron.validate(expr), `${name} is not a valid cron expression: "${expr}"`);
     }

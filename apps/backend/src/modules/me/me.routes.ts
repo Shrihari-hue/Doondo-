@@ -87,14 +87,24 @@ router.get('/notification-prefs', requireAuth, async (req, res, next) => {
     const { UserModel } = await import('@/modules/users/user.model');
     const u = await UserModel.findById(req.user!.id).select('notificationPrefs').lean();
     const prefs =
-      (u as { notificationPrefs?: Record<string, boolean> } | null)?.notificationPrefs ?? {};
+      (u as { notificationPrefs?: Record<string, boolean> & { quietHours?: { enabled?: boolean; start?: string; end?: string } } } | null)
+        ?.notificationPrefs ?? {};
     sendOk(res, {
       prefs: {
         jobs: prefs.jobs ?? true,
         applications: prefs.applications ?? true,
         messages: prefs.messages ?? true,
         ratings: prefs.ratings ?? true,
+        quietHours: {
+          enabled: prefs.quietHours?.enabled ?? true,
+          start: prefs.quietHours?.start ?? '22:00',
+          end: prefs.quietHours?.end ?? '07:00',
+        },
         referrals: prefs.referrals ?? true,
+        newApplicant: prefs.newApplicant ?? true,
+        interviewReminder: prefs.interviewReminder ?? true,
+        workerAbsent: prefs.workerAbsent ?? true,
+        payrollDue: prefs.payrollDue ?? true,
       },
     });
   } catch (err) {
@@ -266,10 +276,21 @@ router.put('/constitution', requireAuth, async (req, res, next) => {
 router.post('/notification-prefs', requireAuth, async (req, res, next) => {
   try {
     const body = (req.body ?? {}) as Record<string, unknown>;
-    const allowed = ['jobs', 'applications', 'messages', 'ratings', 'referrals'];
-    const update: Record<string, boolean> = {};
+    const allowed = [
+      'jobs', 'applications', 'messages', 'ratings', 'referrals',
+      'newApplicant', 'interviewReminder', 'workerAbsent', 'payrollDue',
+    ];
+    const update: Record<string, boolean | string> = {};
     for (const k of allowed) {
       if (typeof body[k] === 'boolean') update[`notificationPrefs.${k}`] = body[k] as boolean;
+    }
+    const qh = body.quietHours as { enabled?: unknown; start?: unknown; end?: unknown } | undefined;
+    if (qh && typeof qh === 'object') {
+      if (typeof qh.enabled === 'boolean') update['notificationPrefs.quietHours.enabled'] = qh.enabled;
+      for (const k of ['start', 'end'] as const) {
+        const v = qh[k];
+        if (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) update[`notificationPrefs.quietHours.${k}`] = v;
+      }
     }
     if (Object.keys(update).length === 0) {
       sendErr(res, 400, 'VALIDATION_FAILED', 'No valid prefs supplied.');

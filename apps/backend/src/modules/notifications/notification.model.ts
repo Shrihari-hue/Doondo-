@@ -61,6 +61,8 @@ export const NOTIFICATION_KINDS = [
   'reached_home_safe',        // a worker confirmed they got home safely (to circle)
   'profile_viewed',           // an employer viewed this seeker's profile
   'task_assigned',             // an employer assigned this worker a task
+  'worker_absent',             // a hired worker hasn't checked in for today's shift (to employer)
+  'payroll_due',               // month-end reminder to pay the team (to employer)
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

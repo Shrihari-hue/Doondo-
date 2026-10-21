@@ -284,7 +284,9 @@
     "delete_confirm_title": "Delete your account?",
     "delete_confirm_body": "This is permanent — all your applications, ratings, and chats will be erased. We're still building the in-app delete; email support@doondo.app to delete your account today.",
     "email_support": "Email support",
-    "email_support_body": "Send a delete request to support@doondo.app from the address on your account."
+    "email_support_body": "Send a delete request to support@doondo.app from the address on your account.",
+    "quiet_hours": "Quiet hours",
+    "quiet_hours_hint": "Job suggestions, digests and streaks wait until morning ({{start}}–{{end}}). Messages, offers and safety alerts still come through."
   },
   "signup": {
     "header": "Create account",

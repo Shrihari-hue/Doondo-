@@ -284,7 +284,9 @@
     "delete_confirm_title": "अपना खाता हटाएं?",
     "delete_confirm_body": "यह स्थायी है — आपके सभी आवेदन, रेटिंग और चैट मिट जाएंगे। फिलहाल खाता हटाने के लिए support@doondo.app पर ईमेल करें।",
     "email_support": "सपोर्ट को ईमेल करें",
-    "email_support_body": "अपने खाते के पते से support@doondo.app पर खाता हटाने का अनुरोध भेजें।"
+    "email_support_body": "अपने खाते के पते से support@doondo.app पर खाता हटाने का अनुरोध भेजें।",
+    "quiet_hours": "शांत समय",
+    "quiet_hours_hint": "नौकरी के सुझाव और रोज़ की खबर सुबह तक रुकेंगे ({{start}}–{{end}})। मैसेज, ऑफ़र और सुरक्षा अलर्ट फिर भी आएँगे।"
   },
   "signup": {
     "header": "खाता बनाएं",

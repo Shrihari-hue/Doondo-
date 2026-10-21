@@ -30,6 +30,8 @@ export const NOTIFICATION_KINDS = [
   'reengagement',
   'hire_celebration',
   'task_assigned',
+  'worker_absent',
+  'payroll_due',
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

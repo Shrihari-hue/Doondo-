@@ -217,6 +217,22 @@ export async function apply(input: ApplyInput): Promise<PublicApplication> {
       }
     })();
 
+    // New-applicant push to the employer (respects their newApplicant toggle).
+    void (async () => {
+      try {
+        const seeker = await UserModel.findById(input.seekerId).select('name').lean();
+        const { sendNewApplicantPush } = await import('@/lib/push');
+        await sendNewApplicantPush({
+          recipientId: job.employerId.toString(),
+          applicantName: (seeker as { name?: string } | null)?.name ?? 'Someone',
+          jobTitle: job.title,
+          applicationId: app.id,
+        });
+      } catch (err) {
+        logger.warn({ err, jobId: input.jobId }, 'new-applicant push failed');
+      }
+    })();
+
     // New-applicant SMS alert — only for employers who opted in. Indian
     // local employers often live in SMS, not app notifications, so this is
     // their reliable channel. Fire-and-forget; SMS is best-effort and must

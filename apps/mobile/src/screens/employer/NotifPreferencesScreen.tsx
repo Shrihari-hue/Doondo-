@@ -4,14 +4,14 @@
  * Four event categories:
  *   New Applicant · Interview Reminder · Worker Absent · Payroll Due
  *
- * Each persisted to secureStore ('notifPrefs') as a JSON map so they
- * survive app restarts. Expo push-notification scheduling is wired in
- * outline only (commented); the toggles are the UX deliverable here.
- *
- * Task 50.
+ * Saved on the server (/me/notification-prefs) — the backend push gate
+ * checks them before every send. Older builds kept these on the device
+ * under the 'notifPrefs' secure-store key; we migrate that once.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { notificationPrefsApi, DEFAULT_PREFS as SERVER_DEFAULTS, type NotificationPrefs } from '@/api/notificationPrefs.api';
 import { Pressable, ScrollView, Switch, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -98,50 +98,53 @@ export function NotifPreferencesScreen() {
   const textSecondary = isLight ? '#6B7280' : '#9CA3AF';
   const bg            = isLight ? '#F9FAFB' : '#0C0A0E';
 
-  const [prefs, setPrefs]   = useState<NotifPrefs>(DEFAULT_PREFS);
-  const [loaded, setLoaded] = useState(false);
+  const queryClient = useQueryClient();
+  const query = useQuery({ queryKey: ['notification-prefs'], queryFn: () => notificationPrefsApi.get() });
+  const server: NotificationPrefs = query.data?.prefs ?? SERVER_DEFAULTS;
+  const prefs: NotifPrefs = {
+    newApplicant: server.newApplicant,
+    interviewReminder: server.interviewReminder,
+    workerAbsent: server.workerAbsent,
+    payrollDue: server.payrollDue,
+  };
+  const saveMut = useMutation({
+    mutationFn: (patch: Partial<NotifPrefs>) => notificationPrefsApi.save(patch),
+    onMutate: (patch) => {
+      queryClient.setQueryData(['notification-prefs'], (old: { prefs: NotificationPrefs } | undefined) => ({
+        prefs: { ...(old?.prefs ?? SERVER_DEFAULTS), ...patch },
+      }));
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['notification-prefs'] }),
+  });
 
+  // One-time migration of toggles saved on-device by older builds.
   useEffect(() => {
     getSecure('notifPrefs')
-      .then((raw) => {
-        if (!raw) { setLoaded(true); return; }
+      .then(async (raw) => {
+        if (!raw) return;
         const map = JSON.parse(raw) as Record<string, unknown>;
-        const saved = map[PREFS_KEY] as NotifPrefs | undefined;
-        if (saved) setPrefs({ ...DEFAULT_PREFS, ...saved });
+        const saved = map[PREFS_KEY] as Partial<NotifPrefs> | undefined;
+        if (!saved) return;
+        await notificationPrefsApi.save({ ...DEFAULT_PREFS, ...saved });
+        delete map[PREFS_KEY];
+        await setSecure('notifPrefs', JSON.stringify(map));
+        void queryClient.invalidateQueries({ queryKey: ['notification-prefs'] });
       })
-      .catch(() => {})
-      .finally(() => setLoaded(true));
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function toggle(key: PrefKey) {
+  function toggle(key: PrefKey) {
     haptic('selection');
-    const next = { ...prefs, [key]: !prefs[key] };
-    setPrefs(next);
-    try {
-      const raw = await getSecure('notifPrefs');
-      const map = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-      map[PREFS_KEY] = next;
-      await setSecure('notifPrefs', JSON.stringify(map));
-    } catch {
-      // best effort
-    }
+    saveMut.mutate({ [key]: !prefs[key] });
   }
 
   const allOn  = Object.values(prefs).every(Boolean);
   const allOff = Object.values(prefs).every((v) => !v);
 
-  async function toggleAll() {
+  function toggleAll() {
     haptic('selection');
-    const next = { newApplicant: !allOn, interviewReminder: !allOn, workerAbsent: !allOn, payrollDue: !allOn };
-    setPrefs(next);
-    try {
-      const raw = await getSecure('notifPrefs');
-      const map = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-      map[PREFS_KEY] = next;
-      await setSecure('notifPrefs', JSON.stringify(map));
-    } catch {
-      // best effort
-    }
+    saveMut.mutate({ newApplicant: !allOn, interviewReminder: !allOn, workerAbsent: !allOn, payrollDue: !allOn });
   }
 
   return (
@@ -205,7 +208,7 @@ export function NotifPreferencesScreen() {
 
               {/* Toggle */}
               <Switch
-                value={loaded ? prefs[item.key] : false}
+                value={query.isSuccess ? prefs[item.key] : false}
                 onValueChange={() => void toggle(item.key)}
                 trackColor={{ false: '#D1D5DB', true: item.color + '80' }}
                 thumbColor={prefs[item.key] ? item.color : '#9CA3AF'}

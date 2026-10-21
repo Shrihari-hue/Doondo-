@@ -61,6 +61,16 @@ export async function setupNotificationHandlers(): Promise<void> {
       sound: 'default',
       vibrationPattern: [0, 200, 100, 200],
     });
+    // The backend also sends on 'jobs' and 'ratings' — without these
+    // channels Android files those pushes under "Miscellaneous".
+    void Notifications.setNotificationChannelAsync('jobs', {
+      name: 'Job suggestions',
+      importance: Notifications.AndroidImportance.DEFAULT,
+    });
+    void Notifications.setNotificationChannelAsync('ratings', {
+      name: 'Ratings & reviews',
+      importance: Notifications.AndroidImportance.DEFAULT,
+    });
     void Notifications.setNotificationChannelAsync('applications', {
       name: 'Application updates',
       importance: Notifications.AndroidImportance.HIGH,
