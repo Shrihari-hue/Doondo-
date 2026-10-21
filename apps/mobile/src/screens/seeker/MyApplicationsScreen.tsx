@@ -556,6 +556,20 @@ function MyApplicationsInner() {
                     />
                   )}
 
+                {item.status === 'rejected' && (
+                  <Pressable
+                    onPress={() => {
+                      haptic('selection');
+                      navigation.navigate('RejectionExplainer', { applicationId: item.id });
+                    }}
+                    style={{ paddingVertical: 8 }}
+                  >
+                    <Text variant="footnote" tone="hero" weight="medium">
+                      {t('why_rejected.cta')} ›
+                    </Text>
+                  </Pressable>
+                )}
+
                 {/* Rate-now prompt — only when the application is hired
                     AND the seeker hasn't yet rated. Tap pushes the
                     LeaveRating modal with the employer pre-filled. */}

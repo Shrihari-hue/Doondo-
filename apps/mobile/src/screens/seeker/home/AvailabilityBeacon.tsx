@@ -270,6 +270,7 @@ function AvailabilityBeaconSheet({
     existing?.tradesAvailable ?? user?.skills ?? [],
   );
   const [note, setNote] = useState<string>(existing?.note ?? '');
+  const [rate, setRate] = useState<string>(existing?.dailyRateRupees ? String(existing.dailyRateRupees) : '');
   // Recurring schedule — when on, this beacon also goes live every week
   // during the picked days+window. Off = one-shot beacon.
   const [recurring, setRecurring] = useState<boolean>(
@@ -326,6 +327,7 @@ function AvailabilityBeaconSheet({
         area: user?.location?.area ?? null,
         tradesAvailable: tradeSlugs,
         note: note.trim() || null,
+        dailyRateRupees: rate ? Number(rate) : null,
         recurringPattern: recurringPayload,
       });
     },
@@ -655,6 +657,30 @@ function AvailabilityBeaconSheet({
                 }}
                 maxLength={240}
               />
+            </View>
+
+            {/* Open shift: day rate — nearby employers get a ping with it */}
+            <View style={{ gap: spacing.sm }}>
+              <SectionLabel theme={theme}>{t('home.beacon.sheet.rate_title')}</SectionLabel>
+              <TextInput
+                value={rate}
+                onChangeText={(v) => setRate(v.replace(/[^0-9]/g, '').slice(0, 5))}
+                keyboardType="number-pad"
+                placeholder={t('home.beacon.sheet.rate_placeholder')}
+                placeholderTextColor={theme.text.tertiary}
+                style={{
+                  backgroundColor: theme.bg.surface,
+                  borderWidth: 1,
+                  borderColor: theme.border.default,
+                  borderRadius: radii.lg,
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.md,
+                  fontSize: 15,
+                  color: theme.text.primary,
+                  minHeight: 48,
+                }}
+              />
+              <Text variant="caption" tone="tertiary">{t('home.beacon.sheet.rate_hint')}</Text>
             </View>
 
             {/* Recurring weekly schedule */}

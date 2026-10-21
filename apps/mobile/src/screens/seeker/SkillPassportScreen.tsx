@@ -16,12 +16,14 @@
  * passport with a clear path to fill it.
  */
 
+import { useState } from 'react';
 import { Pressable, ScrollView, Share, View } from 'react-native';
+import { skillPassportApi, type PassportCredential } from '@/api/skillPassport.api';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, Button, Avatar, LoadingSpinner, ErrorPanel } from '@/components';
+import { Screen, Text, Button, Avatar, LoadingSpinner, ErrorPanel, QrCode } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { SeekerThemeOverride } from '@/theme/SeekerThemeOverride';
 import { useAuth } from '@/hooks/useAuth';
@@ -41,6 +43,21 @@ function SkillPassportInner() {
   const t = useTranslate();
   const { user } = useAuth();
   const { data, isLoading, isError, refetch, isRefetching } = useSkillPassport();
+  const [credential, setCredential] = useState<PassportCredential | null>(null);
+  const [issuing, setIssuing] = useState(false);
+
+  async function issueQr() {
+    haptic('selection');
+    setIssuing(true);
+    try {
+      setCredential(await skillPassportApi.issueCredential());
+      haptic('success');
+    } catch {
+      haptic('error');
+    } finally {
+      setIssuing(false);
+    }
+  }
 
   function onShare(passport: SkillPassport) {
     haptic('selection');
@@ -68,6 +85,7 @@ function SkillPassportInner() {
         `${t('skill_passport.stat_rating')}: ${passport.ratings.avg}/5 (${passport.ratings.count})`,
       );
     }
+    if (credential) lines.push(`${t('skill_passport.verify_at')}: ${credential.verifyUrl}`);
     void Share.share({ message: lines.join('\n') }).catch(() => undefined);
   }
 
@@ -106,6 +124,25 @@ function SkillPassportInner() {
           <TestsSection tests={data.skillTests} t={t} />
 
           <StatsRow passport={data} t={t} />
+
+          {credential ? (
+            <View style={{ alignItems: 'center', gap: spacing.md }}>
+              <QrCode matrix={credential.qr} />
+              <Text variant="footnote" tone="secondary" style={{ textAlign: 'center' }}>
+                {t('skill_passport.qr_caption', {
+                  n: credential.skillsVerified,
+                  date: new Date(credential.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+                })}
+              </Text>
+            </View>
+          ) : (
+            <Button
+              label={issuing ? '…' : t('skill_passport.qr_cta')}
+              variant="secondary"
+              onPress={() => void issueQr()}
+              disabled={issuing}
+            />
+          )}
 
           <Button label={t('skill_passport.share')} onPress={() => onShare(data)} />
 

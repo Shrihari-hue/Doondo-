@@ -63,6 +63,8 @@ export const NOTIFICATION_KINDS = [
   'task_assigned',             // an employer assigned this worker a task
   'worker_absent',             // a hired worker hasn't checked in for today's shift (to employer)
   'payroll_due',               // month-end reminder to pay the team (to employer)
+  'mentor_session',            // a mentor session was booked / cancelled / paid
+  'worker_available',          // a worker near you posted an open shift (to employer)
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

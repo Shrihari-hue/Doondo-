@@ -100,6 +100,9 @@ function Inner() {
               {t('mentors.subtitle', { trade: trade ? prettifySkill(trade) : t('mentors.fallback_trade') })}
             </Text>
           </View>
+          <Pressable onPress={() => { haptic('selection'); navigation.navigate('MentorSessions'); }} hitSlop={8}>
+            <Text style={{ color: theme.brand.hero, fontSize: 13, fontWeight: '700' }}>{t('mentor_sessions.short')}</Text>
+          </Pressable>
         </View>
 
         {!trade || !city ? (
@@ -234,6 +237,7 @@ function Inner() {
             <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text.primary }}>
               {t('mentors.modal_title', { name: activeRequestMentor.name })}
             </Text>
+            <MentorSlotPicker mentorUserId={activeRequestMentor.userId} onBooked={() => setActiveRequestMentor(null)} />
             <Text style={{ fontSize: 13, color: theme.text.secondary }}>
               {t('mentors.modal_hint')}
             </Text>
@@ -300,6 +304,48 @@ function Inner() {
         </View>
       )}
     </Screen>
+  );
+}
+
+/** Open time slots for one mentor — tap to book. */
+function MentorSlotPicker({ mentorUserId, onBooked }: { mentorUserId: string; onBooked: () => void }) {
+  const { theme } = useTheme();
+  const t = useTranslate();
+  const qc = useQueryClient();
+  const navigation = useNavigation<Nav>();
+  const slots = useQuery({ queryKey: ['mentor-slots', mentorUserId], queryFn: () => mentorsApi.slotsFor(mentorUserId) });
+  const book = useMutation({
+    mutationFn: (id: string) => mentorsApi.book(id),
+    onSuccess: () => {
+      haptic('success');
+      void qc.invalidateQueries({ queryKey: ['mentor-slots', mentorUserId] });
+      void qc.invalidateQueries({ queryKey: ['mentor-sessions'] });
+      onBooked();
+      navigation.navigate('MentorSessions');
+    },
+    onError: (e) => Alert.alert(t('mentor_sessions.failed'), e instanceof Error ? e.message : undefined),
+  });
+  const list = slots.data ?? [];
+  if (list.length === 0) return null;
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Text style={{ fontSize: 13, fontWeight: '700', color: theme.text.primary }}>{t('mentor_sessions.book_title')}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+        {list.map((s) => (
+          <Pressable key={s.id} disabled={book.isPending}
+            onPress={() => Alert.alert(t('mentor_sessions.book_title'), `${new Date(s.startAt).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · ${s.durationMinutes} min${s.priceRupees ? ` · ₹${s.priceRupees}` : ''}`, [
+              { text: t('common.cancel'), style: 'cancel' },
+              { text: t('mentor_sessions.book_cta'), onPress: () => book.mutate(s.id) },
+            ])}
+            style={{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: radii.md, backgroundColor: theme.brand.heroSubtle }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: theme.brand.hero }}>
+              {new Date(s.startAt).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+            </Text>
+            <Text style={{ fontSize: 11, color: theme.text.secondary }}>{s.priceRupees ? `₹${s.priceRupees}` : t('mentor_sessions.free')}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
   );
 }
 

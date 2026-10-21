@@ -285,6 +285,14 @@ const schema = z.object({
    */
   ANTHROPIC_TEXT_MODEL: z.string().default('claude-sonnet-4-6'),
 
+  // ─── Shared AI text generation (lib/llm.ts) ───────────────────────────
+  /**
+   * Provider for newer AI text features (rejection explainer, Doondo Coach
+   * replies, in-shift tips, job-post coach). 'mock' returns deterministic
+   * template text so every flow works with no key.
+   */
+  AI_TEXT_PROVIDER: z.enum(['anthropic', 'openai', 'mock']).default('mock'),
+
   // ─── Smart Resume — per-job AI resume rewrite ─────────────────────────
   /**
    * 'anthropic' rewrites the worker's resume to target a specific job via

@@ -38,6 +38,7 @@ export const upsertAvailabilitySchema = z.object({
       tradesAvailable: z.array(z.string().trim().min(1).max(40)).max(8).default([]),
       jobTypes: z.array(z.enum(JOB_TYPES)).max(5).default([]),
       note: z.string().trim().max(240).nullable().optional(),
+      dailyRateRupees: z.number().int().min(0).max(100000).nullable().optional(),
       /**
        * Optional weekly recurring window. When provided, the doc lives
        * for 30 days (the rolling TTL) instead of just `durationMinutes`,

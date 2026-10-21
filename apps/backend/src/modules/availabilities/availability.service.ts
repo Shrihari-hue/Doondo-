@@ -53,6 +53,7 @@ interface PublishInput {
   jobTypes?: string[];
   note?: string | null;
   recurringPattern?: RecurringPattern | null;
+  dailyRateRupees?: number | null;
 }
 
 export async function publish(input: PublishInput): Promise<PublicAvailability> {
@@ -82,6 +83,7 @@ export async function publish(input: PublishInput): Promise<PublicAvailability> 
         until,
         recurringPattern: input.recurringPattern ?? null,
         note: input.note?.trim() || null,
+        dailyRateRupees: input.dailyRateRupees ?? null,
       },
       $setOnInsert: {
         seekerId: new Types.ObjectId(input.seekerId),
@@ -91,6 +93,10 @@ export async function publish(input: PublishInput): Promise<PublicAvailability> 
   );
 
   if (!doc) throw errors.internal();
+  // Open shift: tell nearby employers who hire this trade. Fire-and-forget.
+  void import('./openShiftNotify.service')
+    .then(({ notifyNearbyEmployers }) => notifyNearbyEmployers(doc))
+    .catch(() => undefined);
   return doc.toPublicJSON();
 }
 
@@ -245,6 +251,7 @@ export async function findNearby(input: NearbyInput): Promise<NearbyAvailability
       until: (r.until as Date).toISOString(),
       recurringPattern: r.recurringPattern ?? null,
       note: r.note ?? null,
+      dailyRateRupees: (r as { dailyRateRupees?: number | null }).dailyRateRupees ?? null,
       createdAt: (r.createdAt as Date).toISOString(),
       distanceMeters: Math.round(r.distanceMeters as number),
       seeker: seekerInfo

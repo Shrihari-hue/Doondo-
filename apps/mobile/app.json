@@ -91,7 +91,26 @@
         {
           "microphonePermission": "Doondo uses your microphone for voice job search.",
           "speechRecognitionPermission": "Doondo uses speech recognition so you can search for jobs by voice.",
-          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "Pulse",
+              "label": "Doondo Pulse",
+              "description": "Your Doondo Score, streak and next step",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "updatePeriodMillis": 1800000
+            }
+          ]
         }
       ]
     ],

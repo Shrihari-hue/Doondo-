@@ -30,6 +30,7 @@ import * as profileViewService from '@/modules/me/profileView.service';
 import { sendProfileViewPush } from '@/lib/push';
 import * as doondoScoreService from '@/modules/users/doondoScore.service';
 import * as scoreCredentialController from '@/modules/users/scoreCredential.controller';
+import * as passportCredential from '@/modules/me/passportCredential';
 import * as resumeRewriteService from '@/modules/resumeRewrite/resumeRewrite.service';
 import * as festivalService from '@/modules/festivals/festival.service';
 import * as skillDocumentService from '@/modules/me/skillDocument.service';
@@ -71,6 +72,7 @@ import accountActivityRouter from '@/modules/accountActivity/accountActivity.rou
 import whatsappRouter from '@/modules/whatsapp/whatsapp.routes';
 import * as employerInterestController from '@/modules/employerInterest/employerInterest.controller';
 import workforceRouter from '@/modules/workforce/workforce.routes';
+import rejectionExplainerRouter from '@/modules/rejectionExplainer/rejectionExplainer.routes';
 import {
   expressInterestSchema,
   employerIdParamSchema,
@@ -395,6 +397,9 @@ v1.get(
 // score is authentic.
 v1.post('/me/score-credential', requireAuth, scoreCredentialController.issue);
 v1.get('/score/verify/:code', scoreCredentialController.verify);
+// Skill Passport credential — signed skills snapshot + QR; verify is PUBLIC.
+v1.post('/me/passport-credential', requireAuth, passportCredential.issueHandler);
+v1.get('/passport/verify/:code', passportCredential.verifyHandler);
 
 // ─── Festival Mode ──────────────────────────────────────────────────────────
 // The festival calendar lives server-side (festival.config) so lunar
@@ -662,5 +667,7 @@ v1.get(
 // v1.use('/safety', safetyRouter);       // Phase 7
 // Workforce — real attendance, leave, end-of-employment, pay history (employer).
 v1.use('/workforce', workforceRouter);
+// "Why wasn't I picked?" — grounded rejection explanation + next steps (seeker).
+v1.use('/rejection-explainer', rejectionExplainerRouter);
 
 export default v1;

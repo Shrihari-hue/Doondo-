@@ -23,6 +23,8 @@
  */
 
 import { Pressable, View } from 'react-native';
+import { useEffect } from 'react';
+import { syncPulseWidget } from '@/widgets/syncPulseWidget';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -44,6 +46,10 @@ export function DoondoPulse() {
   const query = usePulse();
 
   const pulse = query.data;
+  // Keep the Android home-screen widget in step with what Home shows.
+  useEffect(() => {
+    if (pulse) void syncPulseWidget(pulse, t(pulse.nudge.key));
+  }, [pulse, t]);
   // Self-hide before the first load resolves or on error — never show
   // a broken shell on the Home screen.
   if (!pulse) return null;

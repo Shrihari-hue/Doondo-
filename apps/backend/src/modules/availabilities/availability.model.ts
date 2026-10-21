@@ -66,6 +66,8 @@ export interface Availability {
   recurringPattern?: RecurringPattern | null;
   /** Optional free-text note ("Have my own bike", "Can lift heavy"). */
   note?: string | null;
+  /** Open shift: the day rate the worker is asking for (₹), optional. */
+  dailyRateRupees?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -83,6 +85,7 @@ export interface PublicAvailability {
   until: string;
   recurringPattern: RecurringPattern | null;
   note: string | null;
+  dailyRateRupees: number | null;
   createdAt: string;
 }
 
@@ -162,6 +165,7 @@ const availabilitySchema = new Schema<Availability, AvailabilityModelType, Avail
       default: null,
     },
     note: { type: String, default: null, trim: true, maxlength: 240 },
+    dailyRateRupees: { type: Number, default: null, min: 0, max: 100000 },
   },
   { timestamps: true },
 );
@@ -194,6 +198,7 @@ availabilitySchema.method('toPublicJSON', function (
         }
       : null,
     note: this.note ?? null,
+    dailyRateRupees: this.dailyRateRupees ?? null,
     createdAt: this.createdAt.toISOString(),
   };
 });

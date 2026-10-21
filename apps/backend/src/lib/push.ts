@@ -1526,3 +1526,45 @@ export async function sendPayrollDuePush(input: {
     })),
   );
 }
+
+/** Mentor session lifecycle (booked / cancelled / payment). */
+export async function sendMentorSessionPush(input: {
+  recipientId: string;
+  title: string;
+  body: string;
+  sessionId: string;
+}): Promise<void> {
+  const deeplink = { screen: 'MentorSessions' };
+  void notifications.record({ recipientId: input.recipientId, kind: 'mentor_session', title: input.title, body: input.body, deeplink });
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to, title: input.title, body: input.body, sound: 'default', channelId: 'applications',
+      data: { type: 'mentor:session', deeplink, sessionId: input.sessionId },
+    })),
+  );
+}
+
+/** Employer: a worker nearby posted an open shift. */
+export async function sendWorkerAvailablePush(input: {
+  recipientId: string;
+  workerFirstName: string;
+  trade: string | null;
+  area: string | null;
+  dailyRateRupees: number | null;
+}): Promise<void> {
+  const trade = input.trade ? input.trade.replace(/[_-]+/g, ' ') : 'worker';
+  const title = `${trade.charAt(0).toUpperCase()}${trade.slice(1)} available now`;
+  const body = `${input.workerFirstName} is free${input.area ? ` in ${input.area}` : ' nearby'}${input.dailyRateRupees ? ` · ₹${input.dailyRateRupees}/day` : ''}. Tap to invite.`;
+  const deeplink = { screen: 'AvailableWorkers' };
+  void notifications.record({ recipientId: input.recipientId, kind: 'worker_available', title, body, deeplink });
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to, title, body, sound: 'default', channelId: 'applications',
+      data: { type: 'open_shift:available', deeplink, _vars: input as unknown as Record<string, unknown> },
+    })),
+  );
+}

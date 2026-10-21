@@ -71,6 +71,7 @@ export function inQuietHours(
 /** Employer-side toggles (NotifPreferencesScreen), keyed by push type. */
 const EMPLOYER_PREF: Record<string, 'newApplicant' | 'interviewReminder' | 'workerAbsent' | 'payrollDue'> = {
   'application:received': 'newApplicant',
+  'open_shift:available': 'newApplicant',
   'interview:reminder': 'interviewReminder',
   'worker:absent': 'workerAbsent',
   'payroll:due': 'payrollDue',
@@ -165,6 +166,7 @@ const HI: Record<string, Tpl> = {
   'application:received': (v) => ({ title: 'नया आवेदन', body: `${s(v.applicantName)} ने "${s(v.jobTitle)}" के लिए आवेदन किया।` }),
   'worker:absent': (v) => ({ title: 'कर्मचारी ने चेक-इन नहीं किया', body: `${s(v.workerName)} ने "${s(v.jobTitle)}" के लिए अभी तक चेक-इन नहीं किया (शिफ्ट ${s(v.startTime)} बजे शुरू)।` }),
   'payroll:due': (v) => ({ title: 'वेतन देने का दिन', body: `आज महीने का आख़िरी दिन है — ${s(v.workerCount)} कर्मचारियों को भुगतान करना है।` }),
+  'open_shift:available': (v) => ({ title: 'कारीगर अभी उपलब्ध', body: `${s(v.workerFirstName)} ${v.area ? `${s(v.area)} में ` : 'पास में '}खाली हैं${v.dailyRateRupees ? ` · ₹${s(v.dailyRateRupees)}/दिन` : ''}। बुलाने के लिए टैप करें।` }),
   'wage_alert:low': (v) => ({ title: 'कम मज़दूरी की चेतावनी', body: s(v.bodyHi) || s(v.body) }),
 };
 

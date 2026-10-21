@@ -35,6 +35,8 @@ export interface PublicAvailability {
   /** Weekly recurring window, when the seeker has standing availability. */
   recurringPattern: RecurringPattern | null;
   note: string | null;
+  /** Open-shift day rate the worker asked for (₹). */
+  dailyRateRupees?: number | null;
   createdAt: string;
 }
 
@@ -48,6 +50,8 @@ export interface PublishAvailabilityPayload {
   tradesAvailable?: string[];
   jobTypes?: JobType[];
   note?: string | null;
+  /** Open shift: the day rate the worker is asking for (₹). */
+  dailyRateRupees?: number | null;
   /**
    * Optional weekly recurring window. When set, the beacon stays in the
    * index for 30 days and the seeker is "live now" only inside the

@@ -14,7 +14,7 @@
 import { apiRequest } from './client';
 import type { PublicJob } from './types';
 
-export type VoiceIntentKind = 'search' | 'apply' | 'repeat' | 'help' | 'unknown';
+export type VoiceIntentKind = 'search' | 'apply' | 'repeat' | 'help' | 'interviews' | 'status' | 'messages' | 'unknown';
 
 export interface VoiceIntent {
   kind: VoiceIntentKind;
@@ -34,6 +34,9 @@ export type VoiceOutcome =
   | 'need_search_first'
   | 'repeat'
   | 'help'
+  | 'interviews'
+  | 'status'
+  | 'messages'
   | 'not_understood';
 
 export interface VoiceTurnResult {
@@ -47,6 +50,9 @@ export interface VoiceTurnResult {
   appliedJob: { id: string; title: string } | null;
   /** Result ids to pass back on the next turn so "the second one" resolves. */
   contextJobIds: string[];
+  interviews?: Array<{ jobTitle: string; at: string; mode: string; location: string | null }>;
+  status?: { pending: number; shortlisted: number; hired: number; rejected: number; latest: { jobTitle: string; status: string } | null };
+  messages?: Array<{ from: string; preview: string; at: string; unread: number; conversationId: string }>;
 }
 
 export interface VoiceTurnParams {

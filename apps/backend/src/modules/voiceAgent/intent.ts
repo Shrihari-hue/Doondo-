@@ -9,6 +9,9 @@
  *   apply   — "apply to the second one"    → apply to a result
  *   repeat  — "say that again"             → re-read the last reply
  *   help    — "what can I say?"            → explain the agent
+ *   interviews — "when is my interview?"   → read upcoming interviews
+ *   status  — "did I get the job?"         → summarise my applications
+ *   messages — "read my messages"          → read latest unread chats
  *   unknown — nothing was heard at all
  *
  * Everything here is deterministic and synchronous — no I/O, no async,
@@ -24,7 +27,15 @@
  * widen the South-Indian synonym sets over time.
  */
 
-export type VoiceIntentKind = 'search' | 'apply' | 'repeat' | 'help' | 'unknown';
+export type VoiceIntentKind =
+  | 'search'
+  | 'apply'
+  | 'repeat'
+  | 'help'
+  | 'interviews'
+  | 'status'
+  | 'messages'
+  | 'unknown';
 
 export interface VoiceIntent {
   kind: VoiceIntentKind;
@@ -273,6 +284,21 @@ function extractIndex(lc: string): number | undefined {
  * checked, so "helper jobs" searches for helper work rather than being
  * mistaken for a cry for help.
  */
+/** "When is my interview?" across languages. */
+const INTERVIEW_WORDS = ['interview', 'इंटरव्यू', 'साक्षात्कार', 'intervyu', 'நேர்காணல்', 'ఇంటర్వ్యూ', 'ಸಂದರ್ಶನ'];
+/** "What happened to my applications?" */
+const STATUS_WORDS = [
+  'my application', 'application status', 'did i get', 'got the job', 'selected', 'status',
+  'मेरा आवेदन', 'आवेदन का', 'नौकरी मिली', 'चुना गया', 'naukri mili', 'kya hua',
+  'விண்ணப்ப', 'దరఖాస్తు', 'ಅರ್ಜಿ',
+];
+/** "Read my messages." */
+const MESSAGE_WORDS = [
+  'message', 'messages', 'read my', 'chat', 'reply', 'replies',
+  'मैसेज', 'संदेश', 'मेसेज', 'sandesh', 'jawab',
+  'செய்தி', 'సందేశ', 'ಸಂದೇಶ',
+];
+
 export function parseVoiceIntent(rawTranscript: string): VoiceIntent {
   const transcript = (rawTranscript ?? '').trim();
   if (!transcript) return { kind: 'unknown' };
@@ -294,6 +320,11 @@ export function parseVoiceIntent(rawTranscript: string): VoiceIntent {
   if (REPEAT_WORDS.some((w) => lc.includes(w))) {
     return { kind: 'repeat' };
   }
+
+  // ─── my interviews / status / messages ──────────────────────────────
+  if (INTERVIEW_WORDS.some((w) => lc.includes(w))) return { kind: 'interviews' };
+  if (MESSAGE_WORDS.some((w) => lc.includes(w))) return { kind: 'messages' };
+  if (STATUS_WORDS.some((w) => lc.includes(w))) return { kind: 'status' };
 
   // ─── search (trade recognised) ──────────────────────────────────────
   const trade = matchTrade(lc);

@@ -92,6 +92,8 @@ import { WorkerActivityScreen } from '@/screens/employer/WorkerActivityScreen';
 import { WorkerDocumentsScreen } from '@/screens/employer/WorkerDocumentsScreen';
 import { RunPayrollScreen } from '@/screens/employer/RunPayrollScreen';
 import { WorkerPerformanceScreen } from '@/screens/employer/WorkerPerformanceScreen';
+import { MentorSessionsScreen } from '@/screens/seeker/MentorSessionsScreen';
+import { RejectionExplainerScreen } from '@/screens/seeker/RejectionExplainerScreen';
 import { NotifPreferencesScreen } from '@/screens/employer/NotifPreferencesScreen';
 import { RosterScreen } from '@/screens/employer/RosterScreen';
 import { TimeOffRequestsScreen } from '@/screens/employer/TimeOffRequestsScreen';
@@ -195,6 +197,16 @@ export function AppNavigator() {
       <Stack.Screen
         name="WorkerPerformance"
         component={WorkerPerformanceScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="MentorSessions"
+        component={MentorSessionsScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="RejectionExplainer"
+        component={RejectionExplainerScreen}
         options={{ presentation: 'card', animation: 'slide_from_right' }}
       />
       <Stack.Screen

@@ -52,6 +52,12 @@ export type VoiceOutcome =
   | 'repeat'
   /** The worker asked what the agent can do. */
   | 'help'
+  /** Upcoming interviews (`interviews` populated; may be empty). */
+  | 'interviews'
+  /** Application summary (`status` populated). */
+  | 'status'
+  /** Latest unread messages (`messages` populated; may be empty). */
+  | 'messages'
   /** Nothing intelligible was heard. */
   | 'not_understood';
 
@@ -78,6 +84,15 @@ export interface VoiceTurnResult {
   appliedJob: { id: string; title: string } | null;
   /** Result ids the client should send back on the next turn. */
   contextJobIds: string[];
+  /** Upcoming interviews, soonest first (outcome 'interviews'). */
+  interviews?: Array<{ jobTitle: string; at: string; mode: string; location: string | null }>;
+  /** Application counts + the latest change (outcome 'status'). */
+  status?: {
+    pending: number; shortlisted: number; hired: number; rejected: number;
+    latest: { jobTitle: string; status: string } | null;
+  };
+  /** Latest conversations with unread messages (outcome 'messages'). */
+  messages?: Array<{ from: string; preview: string; at: string; unread: number; conversationId: string }>;
 }
 
 /** How many results the agent reads back — kept small, it is spoken aloud. */
@@ -123,6 +138,9 @@ export async function runVoiceTurn(
   if (intent.kind === 'unknown') return { ...base, outcome: 'not_understood' };
   if (intent.kind === 'help') return { ...base, outcome: 'help' };
   if (intent.kind === 'repeat') return { ...base, outcome: 'repeat' };
+  if (intent.kind === 'interviews') return { ...base, outcome: 'interviews', interviews: await upcomingInterviews(input.seekerId) };
+  if (intent.kind === 'status') return { ...base, outcome: 'status', status: await applicationStatus(input.seekerId) };
+  if (intent.kind === 'messages') return { ...base, outcome: 'messages', messages: await latestMessages(input.seekerId) };
 
   // ─── search ───────────────────────────────────────────────────────────
   if (intent.kind === 'search') {
@@ -173,4 +191,77 @@ export async function runVoiceTurn(
     logger.warn({ err, seekerId: input.seekerId, jobId }, 'voice agent apply failed');
     return { ...base, outcome: 'apply_failed' };
   }
+}
+
+
+// ─── Read-only "about me" intents ─────────────────────────────────────────
+
+async function titlesFor(jobIds: Array<{ toString(): string }>): Promise<Map<string, string>> {
+  const { JobModel } = await import('@/modules/jobs/job.model');
+  const jobs = await JobModel.find({ _id: { $in: jobIds.map((j) => j.toString()) } }).select('title').lean();
+  return new Map(jobs.map((j) => [String(j._id), (j as { title?: string }).title ?? 'a job']));
+}
+
+async function upcomingInterviews(seekerId: string): Promise<NonNullable<VoiceTurnResult['interviews']>> {
+  const { ApplicationModel } = await import('@/modules/applications/application.model');
+  const { Types } = await import('mongoose');
+  const apps = await ApplicationModel.find({
+    seekerId: new Types.ObjectId(seekerId),
+    'interview.status': 'scheduled',
+    'interview.scheduledAt': { $gte: new Date(Date.now() - 30 * 60 * 1000) },
+  })
+    .select('jobId interview')
+    .sort({ 'interview.scheduledAt': 1 })
+    .limit(3)
+    .lean();
+  const titles = await titlesFor(apps.map((a) => a.jobId));
+  return apps.map((a) => {
+    const iv = a.interview as unknown as { scheduledAt: Date; mode?: string; location?: string | null; meetingUrl?: string | null };
+    return {
+      jobTitle: titles.get(a.jobId.toString()) ?? 'a job',
+      at: new Date(iv.scheduledAt).toISOString(),
+      mode: iv.mode ?? 'in_person',
+      location: iv.location ?? null,
+    };
+  });
+}
+
+async function applicationStatus(seekerId: string): Promise<NonNullable<VoiceTurnResult['status']>> {
+  const { ApplicationModel } = await import('@/modules/applications/application.model');
+  const { Types } = await import('mongoose');
+  const since = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+  const apps = await ApplicationModel.find({ seekerId: new Types.ObjectId(seekerId), createdAt: { $gte: since } })
+    .select('jobId status updatedAt')
+    .sort({ updatedAt: -1 })
+    .limit(100)
+    .lean();
+  const count = (st: string) => apps.filter((a) => a.status === st).length;
+  const latest = apps.find((a) => a.status !== 'pending' && a.status !== 'withdrawn');
+  const titles = latest ? await titlesFor([latest.jobId]) : new Map<string, string>();
+  return {
+    pending: count('pending') + count('viewed'),
+    shortlisted: count('shortlisted'),
+    hired: count('hired'),
+    rejected: count('rejected'),
+    latest: latest ? { jobTitle: titles.get(latest.jobId.toString()) ?? 'a job', status: latest.status } : null,
+  };
+}
+
+async function latestMessages(seekerId: string): Promise<NonNullable<VoiceTurnResult['messages']>> {
+  const { ConversationModel } = await import('@/modules/chat/conversation.model');
+  const { UserModel } = await import('@/modules/users/user.model');
+  const { Types } = await import('mongoose');
+  const convs = await ConversationModel.find({ seekerId: new Types.ObjectId(seekerId), unreadSeeker: { $gt: 0 } })
+    .sort({ lastMessageAt: -1 })
+    .limit(3)
+    .lean();
+  const users = await UserModel.find({ _id: { $in: convs.map((c) => c.employerId) } }).select('name companyName').lean();
+  const nm = new Map(users.map((u) => [String(u._id), (u as { companyName?: string | null; name?: string }).companyName || (u as { name?: string }).name || 'An employer']));
+  return convs.map((c) => ({
+    from: nm.get(c.employerId.toString()) ?? 'An employer',
+    preview: c.lastMessagePreview ?? '',
+    at: c.lastMessageAt.toISOString(),
+    unread: c.unreadSeeker,
+    conversationId: String(c._id),
+  }));
 }

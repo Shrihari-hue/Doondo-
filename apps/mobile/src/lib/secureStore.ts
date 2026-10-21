@@ -78,6 +78,12 @@ export type SecureKey =
    */
   | 'notifPrefs'
   /**
+   * Last Doondo Pulse snapshot (JSON) for the Android home-screen widget.
+   * Written by the app whenever /me/pulse loads; read by the headless
+   * widget task so the widget renders without a network call.
+   */
+  | 'pulseWidget'
+  /**
    * Employer shortlist folders — JSON map of folderId → { name, applicationIds[] }.
    * Lets employers organise applicants into named buckets.
    */

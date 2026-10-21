@@ -142,6 +142,30 @@ function composeReply(turns: VoiceConversationTurn[], idx: number, t: TFn): stri
       return t('voice_agent.reply.help');
     case 'not_understood':
       return t('voice_agent.reply.not_understood');
+    case 'interviews': {
+      const list = result.interviews ?? [];
+      if (list.length === 0) return t('voice_agent.reply.no_interviews');
+      const first = list[0]!;
+      const when = new Date(first.at).toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' });
+      return t(list.length === 1 ? 'voice_agent.reply.interview_one' : 'voice_agent.reply.interview_many', {
+        job: first.jobTitle, when, count: list.length, place: first.location ?? '',
+      });
+    }
+    case 'status': {
+      const st = result.status;
+      if (!st || st.pending + st.shortlisted + st.hired + st.rejected === 0) return t('voice_agent.reply.no_applications');
+      const latest = st.latest
+        ? t('voice_agent.reply.status_latest', { job: st.latest.jobTitle, status: t(`voice_agent.status_word.${st.latest.status}`) })
+        : '';
+      return `${t('voice_agent.reply.status_summary', { pending: st.pending, shortlisted: st.shortlisted, hired: st.hired })} ${latest}`.trim();
+    }
+    case 'messages': {
+      const msgs = result.messages ?? [];
+      if (msgs.length === 0) return t('voice_agent.reply.no_messages');
+      return msgs
+        .map((m) => t('voice_agent.reply.message_line', { from: m.from, text: m.preview }))
+        .join(' ');
+    }
     case 'repeat': {
       // Re-state the most recent reply that wasn't itself a "repeat".
       for (let i = idx - 1; i >= 0; i--) {
@@ -544,6 +568,8 @@ function VoiceAgentScreenInner() {
   const EXAMPLES: ReadonlyArray<string> = [
     t('voice_agent.example_search'),
     t('voice_agent.example_apply'),
+    t('voice_agent.example_interview'),
+    t('voice_agent.example_messages'),
     t('voice_agent.example_help'),
   ];
 

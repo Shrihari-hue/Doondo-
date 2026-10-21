@@ -202,7 +202,10 @@
         "hint_need_trade": "Pick at least one type of work to broadcast.",
         "hint_need_day": "Pick at least one day for the weekly schedule.",
         "time_error": "Enter a valid window — HH:MM (24h), end after start.",
-        "summary_ready": "Ready — nearby employers will see you the moment you broadcast."
+        "summary_ready": "Ready — nearby employers will see you the moment you broadcast.",
+        "rate_title": "Your day rate (optional)",
+        "rate_placeholder": "e.g. 700",
+        "rate_hint": "Employers nearby who hire your trade get a ping that you're free."
       }
     },
     "wage": {
@@ -2645,7 +2648,10 @@
     "stat_endorsements": "Endorsements",
     "share": "Share passport",
     "back": "Back",
-    "error": "Couldn't load your passport."
+    "error": "Couldn't load your passport.",
+    "qr_cta": "Get a verified passport QR",
+    "qr_caption": "Employers scan this to verify your {{n}} verified skills. Valid until {{date}}.",
+    "verify_at": "Verify"
   },
   "reverse_interview": {
     "post_section": "What you offer workers",
@@ -2839,7 +2845,23 @@
       "help": "You can say things like 'driver jobs near me', or 'apply to the first one'. What work are you looking for?",
       "not_understood": "Sorry, I didn't catch that. Please say it again.",
       "nothing_to_repeat": "There's nothing to repeat yet. Tell me what work you're looking for.",
-      "error": "Sorry, something went wrong. Check your connection and try again."
+      "error": "Sorry, something went wrong. Check your connection and try again.",
+      "no_interviews": "You don't have any interviews coming up.",
+      "interview_one": "Your interview for {{job}} is on {{when}}. {{place}}",
+      "interview_many": "You have {{count}} interviews. The next one is {{job}} on {{when}}.",
+      "no_applications": "You haven't applied anywhere recently. Tell me what work you want.",
+      "status_summary": "{{pending}} applications waiting, {{shortlisted}} shortlisted, {{hired}} hired.",
+      "status_latest": "Latest: {{job}} — {{status}}.",
+      "no_messages": "No new messages.",
+      "message_line": "{{from}} says: {{text}}."
+    },
+    "example_interview": "When is my interview?",
+    "example_messages": "Read my messages",
+    "status_word": {
+      "viewed": "seen by the employer",
+      "shortlisted": "shortlisted",
+      "hired": "you got the job",
+      "rejected": "not selected"
     }
   },
   "hire_share": {
@@ -3318,5 +3340,43 @@
     "done": "Mark done",
     "completed": "Done",
     "save_failed": "Couldn't update the task. Check your connection."
+  },
+  "why_rejected": {
+    "cta": "Why wasn't I picked?",
+    "title": "Why wasn't I picked?",
+    "error": "Couldn't load this right now",
+    "applicants": "{{n}} applied",
+    "missing": "Not on your profile: {{skill}}",
+    "next_steps": "WHAT TO DO NEXT",
+    "ai_note": "Written by Doondo AI from the facts above."
+  },
+  "mentor_sessions": {
+    "title": "Mentor sessions",
+    "short": "My sessions",
+    "failed": "Couldn't do that",
+    "with": "With {{name}}",
+    "booked_by": "Booked by {{name}}",
+    "open": "Open — not booked yet",
+    "free": "Free",
+    "done": "Done",
+    "pay_confirmed": "Payment received ✓",
+    "pay_claimed": "Mentee says paid — waiting for mentor to confirm",
+    "pay_due": "Payment due",
+    "pay_upi": "Pay by UPI",
+    "no_upi": "No UPI app found",
+    "i_paid": "I've paid",
+    "confirm_received": "I received it",
+    "mark_done": "Mark done",
+    "cancel": "Cancel session",
+    "cancel_confirm": "Cancel this session? The other person will be told.",
+    "my_bookings": "MY BOOKINGS",
+    "as_mentor": "AS A MENTOR",
+    "none_title": "No sessions booked",
+    "none_message": "Open a mentor from the list and pick a time.",
+    "publish_title": "Offer your time",
+    "publish_hint": "Mentors: pick a day and times. Workers in your trade can book them. Set ₹0 for free help.",
+    "publish_cta": "Publish {{n}} slot(s)",
+    "book_title": "Book a 1:1 session",
+    "book_cta": "Book"
   }
 }

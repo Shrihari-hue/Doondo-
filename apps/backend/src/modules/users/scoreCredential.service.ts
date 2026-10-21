@@ -101,7 +101,7 @@ export interface VerifiedCredential {
 }
 
 /** Encode a string into a QR module matrix (auto version, ECC level M). */
-function buildQrMatrix(text: string): QrMatrix {
+export function buildQrMatrix(text: string): QrMatrix {
   const qr = new QRCode(0, 0); // typeNumber 0 = auto-size; ECC 0 = level M
   qr.addData(text);
   qr.make();
@@ -116,7 +116,7 @@ function buildQrMatrix(text: string): QrMatrix {
 }
 
 /** One random code from the unambiguous alphabet. */
-function randomCode(length: number): string {
+export function randomCode(length: number): string {
   const bytes = randomBytes(length);
   let out = '';
   for (let i = 0; i < length; i++) {

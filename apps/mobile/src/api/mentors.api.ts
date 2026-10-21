@@ -27,7 +27,40 @@ export interface PublicMentorshipRequest {
   createdAt: string;
 }
 
+export type SessionMode = 'call' | 'video' | 'in_person';
+export interface MentorSession {
+  id: string;
+  mentorUserId: string;
+  mentorName: string;
+  menteeId: string | null;
+  menteeName: string | null;
+  startAt: string;
+  durationMinutes: number;
+  priceRupees: number;
+  mode: SessionMode;
+  topic: string | null;
+  note: string | null;
+  status: 'open' | 'booked' | 'completed' | 'cancelled';
+  payment: { ref: string; upiUri: string | null; menteeMarkedPaidAt: string | null; mentorConfirmedAt: string | null } | null;
+  cancelledBy: 'mentor' | 'mentee' | null;
+}
+
 export const mentorsApi = {
+  // ── Bookable sessions ──
+  slotsFor: (mentorUserId: string) =>
+    apiRequest<{ sessions: MentorSession[] }>(`/mentors/${mentorUserId}/slots`).then((r) => r.sessions),
+  mySessions: () => apiRequest<{ asMentor: MentorSession[]; asMentee: MentorSession[] }>('/mentors/sessions/mine'),
+  publishSlots: (slots: Array<{ startAt: string; durationMinutes: number; priceRupees: number; mode?: SessionMode; topic?: string | null }>) =>
+    apiRequest<{ sessions: MentorSession[] }>('/mentors/slots', { method: 'POST', body: { slots } }).then((r) => r.sessions),
+  book: (sessionId: string, note?: string) =>
+    apiRequest<{ session: MentorSession }>(`/mentors/sessions/${sessionId}/book`, { method: 'POST', body: { note: note ?? null } }).then((r) => r.session),
+  cancelSession: (sessionId: string) =>
+    apiRequest<{ session: MentorSession }>(`/mentors/sessions/${sessionId}/cancel`, { method: 'POST', body: {} }).then((r) => r.session),
+  markSessionPaid: (sessionId: string) =>
+    apiRequest<{ session: MentorSession }>(`/mentors/sessions/${sessionId}/paid`, { method: 'POST', body: {} }).then((r) => r.session),
+  completeSession: (sessionId: string) =>
+    apiRequest<{ session: MentorSession }>(`/mentors/sessions/${sessionId}/complete`, { method: 'POST', body: {} }).then((r) => r.session),
+
   list: (trade: string, city: string) =>
     apiRequest<{ mentors: PublicMentor[] }>(
       `/mentors?trade=${encodeURIComponent(trade)}&city=${encodeURIComponent(city)}`,

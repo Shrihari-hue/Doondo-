@@ -111,6 +111,8 @@ export type AppStackParamList = {
   WorkerDocuments: { applicationId: string; workerName: string };
   /** Modal: monthly performance review form for a hired worker. */
   WorkerPerformance: { applicationId: string; workerName: string };
+  MentorSessions: undefined;
+  RejectionExplainer: { applicationId: string };
   /** Modal: batch payroll summary — mark all workers as paid. */
   RunPayroll: undefined;
   /** Modal: weekly roster / schedule grid. */
