@@ -210,3 +210,28 @@ Because six tabs is above the recommended count, the following are **mandatory**
 - Does Worker insurance belong in Earnings, or in Profile → Account & settings? (Spec places it in Earnings.)
 - Is "Chat" a brand-new feature, or does Doondo already have messaging to migrate?
 - What three metrics should the new stats row show in place of the duplicated completion figure?
+
+---
+
+## 13. Decisions & implementation status (2026-10-21)
+
+The §12 open questions were resolved as follows (decided during the
+October audit; revisit with real-device testing):
+
+| Question | Decision |
+|---|---|
+| 6-tab bar at 320 dp / regional labels | **Keep 6 tabs** (+ the centre voice button). Labels are single-line with `adjustsFontSizeToFit`, `minimumFontScale 0.9` (never below 9 sp) and `maxFontSizeMultiplier 1.2`, so long labels shrink slightly instead of truncating. Fall back to 5 tabs only if on-device QA still shows clipping. |
+| Application tracking | **Its own screen** (`MyApplications`), reachable from a "My applications ›" link at the top of Jobs, from notifications, and from Profile. A segmented view inside Jobs would crowd the List/Map toggle. |
+| Worker insurance | **Earnings** tab (as built) — it is a money/protection topic. |
+| Is Chat new? | Existing messaging, **migrated** into the Chat tab (done). |
+| Stats row metrics | **Applications · Saved jobs · Rating** (as built, §7). |
+
+Implemented in this pass:
+
+- Bottom-bar badges: Chat shows the unread-thread count; Home shows a dot for unread notifications. Badges overlay the icon and never widen a tab.
+- Collapsible groups now **persist** their open/closed state per device (`profileGroupsOpen` in secure storage); "Grow your career" still opens by default on first visit.
+- Copy pass (§6): "Your Work Rules" → **Work preferences**; "Find friends on Doondo" → **Find work buddies**; "Trade buddies" → **Mentors in your trade** (en + hi). Skill tests and Skill passport remain separate rows (each is its own screen).
+- Employer tab bar Chat badge was always 0 (read `unreadCount`, server sends `unread`) — fixed.
+
+Still to do: native-speaker QA of the ta/te/kn strings and a real-device check at 320 dp with the largest font scale.
+

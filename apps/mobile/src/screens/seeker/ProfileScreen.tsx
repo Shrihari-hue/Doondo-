@@ -24,7 +24,8 @@
  * tasteful CTAs (e.g. "Add what you'd like to earn") instead of zeros.
  */
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { getSecure, setSecure } from '@/lib/secureStore';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -907,6 +908,7 @@ export function ProfileScreen() {
             glyph="📈"
             tint="#DDD6FE"
             title={t('profile_groups.grow')}
+            storageId="grow"
             defaultOpen
           >
             <MenuRow
@@ -973,6 +975,7 @@ export function ProfileScreen() {
             glyph="🤝"
             tint="#D1FAE5"
             title={t('profile_groups.connect')}
+            storageId="connect"
           >
             <MenuRow
               icon="📇"
@@ -1001,6 +1004,7 @@ export function ProfileScreen() {
             glyph="🛡️"
             tint="#FEE2E2"
             title={t('profile_groups.rights')}
+            storageId="rights"
           >
             <MenuRow
               icon="📜"
@@ -1040,6 +1044,7 @@ export function ProfileScreen() {
             glyph="⚙️"
             tint="#E0E7FF"
             title={t('profile_groups.account')}
+            storageId="account"
           >
             <MenuRow
               icon="★"
@@ -1479,16 +1484,43 @@ function CollapsibleGroup({
   tint,
   title,
   defaultOpen,
+  storageId,
   children,
 }: {
   glyph: string;
   tint: string;
   title: string;
   defaultOpen?: boolean;
+  /** Persist this group's open/closed choice across app restarts (spec §8.2). */
+  storageId?: string;
   children: ReactNode;
 }) {
   const { theme } = useTheme();
-  const [open, setOpen] = useState(Boolean(defaultOpen));
+  const [open, setOpenState] = useState(Boolean(defaultOpen));
+  useEffect(() => {
+    if (!storageId) return;
+    void getSecure('profileGroupsOpen')
+      .then((raw) => {
+        const saved = raw ? (JSON.parse(raw) as Record<string, boolean>)[storageId] : undefined;
+        if (typeof saved === 'boolean') setOpenState(saved);
+      })
+      .catch(() => undefined);
+  }, [storageId]);
+  const setOpen = (fn: (o: boolean) => boolean) => {
+    setOpenState((prev) => {
+      const next = fn(prev);
+      if (storageId) {
+        void getSecure('profileGroupsOpen')
+          .then((raw) => {
+            const map = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+            map[storageId] = next;
+            return setSecure('profileGroupsOpen', JSON.stringify(map));
+          })
+          .catch(() => undefined);
+      }
+      return next;
+    });
+  };
   return (
     <View style={cardBase(theme)}>
       <Pressable

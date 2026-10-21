@@ -410,7 +410,8 @@
       "title_one": "{{count}} employer wants to hire you",
       "title_other": "{{count}} employers want to hire you",
       "subtitle": "Tap to view and respond"
-    }
+    },
+    "my_applications_link": "My applications"
   },
   "job_detail": {
     "apply_now": "Apply Now",
@@ -581,9 +582,9 @@
       "worker_insurance_subtitle": "₹49/month accident cover · opt-in any time",
       "interview_prep": "Interview prep",
       "interview_prep_subtitle": "Common questions, what to bring, how to talk pay",
-      "find_friends": "Find friends on Doondo",
+      "find_friends": "Find work buddies",
       "find_friends_subtitle": "Match your contacts · invite friends, earn ₹100 per hire",
-      "trade_buddies": "Trade buddies",
+      "trade_buddies": "Mentors in your trade",
       "trade_buddies_subtitle": "Find a mentor in your trade — or mentor others",
       "my_resume": "My resume",
       "my_resume_subtitle_one": "{{count}} job · tap to view or share",
@@ -872,7 +873,7 @@
     "lang_default": "App language (default)"
   },
   "find_friends": {
-    "title": "Find friends",
+    "title": "Find work buddies",
     "subtitle": "Match your phone contacts against Doondo. Numbers never leave your device in plaintext.",
     "scanning": "Scanning your contacts privately…",
     "permission_eyebrow": "PERMISSION",
@@ -915,7 +916,7 @@
     "older_jobs_footer_other": "{{n}} older jobs have been filled or closed."
   },
   "mentors": {
-    "title": "Trade buddies",
+    "title": "Mentors in your trade",
     "subtitle": "Connect with experienced workers in {{trade}} near you.",
     "fallback_trade": "your trade",
     "setup_eyebrow": "SET UP FIRST",
@@ -2669,7 +2670,7 @@
     }
   },
   "constitution": {
-    "title": "Your Work Rules",
+    "title": "Work preferences",
     "tagline": "Set your boundaries — employers see them upfront.",
     "back": "Back",
     "max_distance_label": "Maximum distance you'll travel",

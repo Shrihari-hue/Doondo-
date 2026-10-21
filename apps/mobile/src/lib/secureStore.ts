@@ -83,6 +83,8 @@ export type SecureKey =
    * widget task so the widget renders without a network call.
    */
   | 'pulseWidget'
+  /** JSON map groupId → open? for the Profile tab's collapsible groups. */
+  | 'profileGroupsOpen'
   /**
    * Employer shortlist folders — JSON map of folderId → { name, applicationIds[] }.
    * Lets employers organise applicants into named buckets.

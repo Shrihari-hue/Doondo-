@@ -118,8 +118,9 @@ function DoondoEmployerTabBar({ state, descriptors, navigation }: BottomTabBarPr
 
   const pendingCount = (applicantsQuery.data?.applications ?? [])
     .filter((a) => a.status === 'pending').length;
+  // Conversations with unread messages (the server field is `unread`).
   const unreadCount = (chatQuery.data?.conversations ?? [])
-    .filter((c) => (c as any).unreadCount > 0).length;
+    .filter((c) => (c.unread ?? 0) > 0).length;
 
   /** badge count per tab route name */
   const badges: Partial<Record<keyof typeof TAB_META, number>> = {

@@ -13,6 +13,9 @@
 
 import { Pressable, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useQuery } from '@tanstack/react-query';
+import { chatApi } from '@/api/chat.api';
+import { useUnreadCount } from '@/hooks/useNotifications';
 import {
   createBottomTabNavigator,
   type BottomTabBarProps,
@@ -73,6 +76,16 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { theme } = useTheme();
   const t = useTranslate();
   const rootNavigation = useNavigation<AppNav>();
+  // Badges (spec §8.1): Chat shows the number of unread threads, Home a dot
+  // for unread notifications. Badges overlay the icon — never widen a tab.
+  const chatQuery = useQuery({
+    queryKey: ['conversations', 'tab-badge'],
+    queryFn: chatApi.listMine,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+  const unreadThreads = (chatQuery.data?.conversations ?? []).filter((c) => (c.unread ?? 0) > 0).length;
+  const unreadNotifs = useUnreadCount().data?.count ?? 0;
 
   function renderTab(routeIndex: number) {
     const route = state.routes[routeIndex]!;
@@ -112,19 +125,35 @@ function DoondoTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           gap: 2,
         }}
       >
-        <Text
-          style={{
-            color: isFocused ? theme.brand.hero : theme.text.tertiary,
-            fontSize: 20,
-            lineHeight: 22,
-          }}
-        >
-          {meta.glyph}
-        </Text>
+        <View>
+          <Text
+            style={{
+              color: isFocused ? theme.brand.hero : theme.text.tertiary,
+              fontSize: 20,
+              lineHeight: 22,
+            }}
+          >
+            {meta.glyph}
+          </Text>
+          {name === 'Chat' && unreadThreads > 0 && (
+            <View style={{ position: 'absolute', top: -4, right: -10, minWidth: 16, height: 16, borderRadius: 8,
+              backgroundColor: theme.status.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '700' }}>{unreadThreads > 9 ? '9+' : unreadThreads}</Text>
+            </View>
+          )}
+          {name === 'Home' && unreadNotifs > 0 && (
+            <View style={{ position: 'absolute', top: -1, right: -5, width: 8, height: 8, borderRadius: 4, backgroundColor: theme.status.danger }} />
+          )}
+        </View>
         <Text
           variant="caption"
           weight={isFocused ? 'medium' : 'regular'}
           numberOfLines={1}
+          // Spec §8.1: never truncate — shrink slightly on 320 dp / long
+          // regional labels instead, and cap system font scaling.
+          adjustsFontSizeToFit
+          minimumFontScale={0.9}
+          maxFontSizeMultiplier={1.2}
           style={{
             fontSize: 10,
             color: isFocused ? theme.brand.hero : theme.text.tertiary,

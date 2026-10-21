@@ -549,6 +549,7 @@ function Header({
   safeForWomenOnly,
   onToggleSafeForWomen,
 }: HeaderProps) {
+  const navigation = useNavigation<Nav>();
   const { theme } = useTheme();
 
   const subtitle = searchPlaceLabel
@@ -712,6 +713,21 @@ function Header({
             </Pressable>
           )}
         </View>
+
+        {/* Application tracking entry (spec §12 decision: its own screen,
+            reachable from Jobs, Home notifications and Profile). */}
+        <Pressable
+          onPress={() => {
+            haptic('selection');
+            navigation.navigate('MyApplications');
+          }}
+          hitSlop={6}
+          style={{ alignSelf: 'flex-start', paddingVertical: 4 }}
+        >
+          <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
+            {t('jobs.my_applications_link')} ›
+          </Text>
+        </Pressable>
 
         {/* List / Map segmented toggle */}
         <View
