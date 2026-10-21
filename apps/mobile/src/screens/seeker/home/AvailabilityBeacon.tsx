@@ -29,7 +29,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Text } from '@/components';
+import { Text, UsuallyFree } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { haptic } from '@/lib/haptics';
 import { TRADES, tradeShortLabel } from '@/lib/trades';
@@ -228,6 +228,11 @@ export function AvailabilityBeaconChip({
           ) : null}
         </View>
       </Pressable>
+      {!isLive && (
+        <View style={{ paddingHorizontal: spacing.md, paddingBottom: spacing.sm }}>
+          <UsuallyFree self />
+        </View>
+      )}
       </View>
 
       <AvailabilityBeaconSheet

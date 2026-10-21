@@ -626,6 +626,9 @@ export async function createJob(
     });
   }
 
+  // Wage Watch: compare this pay with the local going rate (async).
+  void import('@/modules/wageWatch/wageWatch.service').then((m) => m.refreshWageCheck(job.id)).catch(() => undefined);
+
   return publicJob;
 }
 
@@ -1014,6 +1017,7 @@ export async function updateJob(
   }
 
   await job.save();
+  void import('@/modules/wageWatch/wageWatch.service').then((m) => m.refreshWageCheck(job.id)).catch(() => undefined);
   return job.toPublicJSON();
 }
 
@@ -1118,6 +1122,10 @@ export function formatRawJob(r: Record<string, unknown>): PublicJob {
     escalationStage:
       ((r.escalation as { stage?: number } | null | undefined)?.stage as number | undefined) ?? 0,
     viewsCount: (r.viewsCount as number | undefined) ?? 0,
+    wageCheck: (() => {
+      const w = r.wageCheck as { localMedianPaise: number; ratio: number; label: 'below' | 'fair' | 'above'; samples: number } | null | undefined;
+      return w ? { localMedianPaise: w.localMedianPaise, ratio: w.ratio, label: w.label, samples: w.samples } : null;
+    })(),
     boostedUntil: (() => {
       const v = (r.escalation as { boostedUntil?: Date | string | null } | null | undefined)?.boostedUntil;
       return v && new Date(v).getTime() > Date.now() ? new Date(v).toISOString() : null;

@@ -116,3 +116,17 @@ export const availabilityApi = {
       })}`,
     ),
 };
+
+export type DayPart = 'morning' | 'afternoon' | 'evening';
+export interface AvailabilityPrediction {
+  likelihood: Array<Record<DayPart, number>>;
+  top: Array<{ weekday: number; part: DayPart; likelihood: number }>;
+  basedOn: number;
+}
+
+export const availabilityPredictionApi = {
+  mine: () =>
+    apiRequest<{ prediction: AvailabilityPrediction | null }>('/me/availability/prediction').then((r) => r.prediction),
+  forSeeker: (seekerId: string) =>
+    apiRequest<{ prediction: AvailabilityPrediction | null }>(`/availabilities/prediction/${seekerId}`).then((r) => r.prediction),
+};

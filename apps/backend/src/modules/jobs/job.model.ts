@@ -189,6 +189,8 @@ export interface Job {
     lastEscalatedAt?: Date | null;
     boostedUntil?: Date | null;
   } | null;
+  /** Wage Watch: pay vs the local going rate (see modules/wageWatch). */
+  wageCheck?: { localMedianPaise: number; ratio: number; label: 'below' | 'fair' | 'above'; samples: number; computedAt: Date } | null;
   schedule?: Schedule | null;
   status: JobStatus;
   /**
@@ -295,6 +297,8 @@ export interface PublicJob {
   viewsCount: number;
   /** ISO time the feed-boost is active until, or null. */
   boostedUntil: string | null;
+  /** Wage Watch: how this pay compares to the local going rate. Null = not enough data. */
+  wageCheck: { localMedianPaise: number; ratio: number; label: 'below' | 'fair' | 'above'; samples: number } | null;
   schedule: Schedule | null;
   status: JobStatus;
   /** True if the employer has marked this posting as time-sensitive. */
@@ -435,6 +439,7 @@ const jobSchema = new Schema<Job, JobModelType, JobMethods>(
       ),
       default: null,
     },
+    wageCheck: { type: Schema.Types.Mixed, default: null },
     workMode: {
       type: String,
       enum: WORK_MODES,
@@ -514,6 +519,9 @@ jobSchema.method('toPublicJSON', function (this: JobDocument): PublicJob {
       this.escalation?.boostedUntil && this.escalation.boostedUntil.getTime() > Date.now()
         ? this.escalation.boostedUntil.toISOString()
         : null,
+    wageCheck: this.wageCheck
+      ? { localMedianPaise: this.wageCheck.localMedianPaise, ratio: this.wageCheck.ratio, label: this.wageCheck.label, samples: this.wageCheck.samples }
+      : null,
     workMode: this.workMode ?? 'onsite',
     schedule: this.schedule ?? null,
     status: this.status,

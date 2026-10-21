@@ -47,3 +47,21 @@ availabilitiesRouter.get(
   validate(nearbyAvailabilitiesQuerySchema),
   controller.nearby,
 );
+
+// Predictive availability — "usually free" windows.
+seekerAvailabilityRouter.get('/availability/prediction', requireAuth, requireRole('seeker'), async (req, res, next) => {
+  try {
+    const { predictAvailability } = await import('./availabilityPrediction.service');
+    res.json({ ok: true, data: { prediction: await predictAvailability(req.user!.id) }, requestId: req.id });
+  } catch (err) {
+    next(err);
+  }
+});
+availabilitiesRouter.get('/prediction/:seekerId', requireAuth, requireRole('employer'), async (req, res, next) => {
+  try {
+    const { predictAvailability } = await import('./availabilityPrediction.service');
+    res.json({ ok: true, data: { prediction: await predictAvailability(req.params.seekerId!) }, requestId: req.id });
+  } catch (err) {
+    next(err);
+  }
+});

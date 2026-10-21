@@ -34,6 +34,8 @@ export const NOTIFICATION_KINDS = [
   'payroll_due',
   'mentor_session',
   'worker_available',
+  'wage_alert',
+  'cohort_update',
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

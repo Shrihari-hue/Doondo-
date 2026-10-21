@@ -1568,3 +1568,51 @@ export async function sendWorkerAvailablePush(input: {
     })),
   );
 }
+
+/** Wage Watch: the going rate for the worker's trade in their city dropped. */
+export async function sendWageAlertPush(input: {
+  recipientId: string;
+  skill: string;
+  city: string;
+  period: string;
+  nowPaise: number;
+  prevPaise: number;
+}): Promise<void> {
+  const trade = input.skill.replace(/[_-]+/g, ' ');
+  const per = input.period === 'day' ? 'day' : input.period;
+  const now = Math.round(input.nowPaise / 100);
+  const prev = Math.round(input.prevPaise / 100);
+  const title = 'Wage Watch';
+  const body = `${trade} pay in ${input.city} fell to ₹${now}/${per} (was ₹${prev}). Know your rate before you accept.`;
+  const bodyHi = `${input.city} में ${trade} की मज़दूरी ₹${prev} से घटकर ₹${now}/${per === 'day' ? 'दिन' : per} हुई। काम लेने से पहले अपना रेट जानें।`;
+  const deeplink = { screen: 'WageWatch' };
+  void notifications.record({ recipientId: input.recipientId, kind: 'wage_alert', title, body, deeplink });
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to, title, body, sound: 'default', channelId: 'jobs',
+      data: { type: 'wage_alert:low', deeplink, _vars: { ...input, body, bodyHi } as unknown as Record<string, unknown> },
+    })),
+  );
+}
+
+/** Course group (cohort) activity. Messages use the chat category. */
+export async function sendCohortPush(input: {
+  recipientId: string;
+  cohortId: string;
+  title: string;
+  body: string;
+  message?: boolean;
+}): Promise<void> {
+  const deeplink = { screen: 'Cohort', params: { cohortId: input.cohortId } };
+  void notifications.record({ recipientId: input.recipientId, kind: 'cohort_update', title: input.title, body: input.body, deeplink });
+  const tokens = await tokensFor(input.recipientId);
+  if (tokens.length === 0) return;
+  await sendRaw(
+    tokens.map((to) => ({
+      to, title: input.title, body: input.body, sound: 'default', channelId: input.message ? 'chat' : 'default',
+      data: { type: input.message ? 'chat:cohort_message' : 'cohort:joined', deeplink },
+    })),
+  );
+}

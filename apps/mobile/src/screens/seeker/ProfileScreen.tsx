@@ -923,6 +923,39 @@ export function ProfileScreen() {
             />
             <Divider color={theme.border.subtle} />
             <MenuRow
+              icon="🛠️"
+              tint="#FFEDD5"
+              label={t('profile.menu.trade_tools')}
+              subtitle={t('profile.menu.trade_tools_subtitle')}
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('TradeTools');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="👥"
+              tint="#E0F2FE"
+              label={t('profile.menu.cohorts')}
+              subtitle={t('profile.menu.cohorts_subtitle')}
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('Cohorts');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
+              icon="📊"
+              tint="#DCFCE7"
+              label={t('profile.menu.wage_watch')}
+              subtitle={t('profile.menu.wage_watch_subtitle')}
+              onPress={() => {
+                haptic('selection');
+                navigation.navigate('WageWatch');
+              }}
+            />
+            <Divider color={theme.border.subtle} />
+            <MenuRow
               icon="🧠"
               tint="#FEF3C7"
               label={t('profile.menu.skill_tests')}

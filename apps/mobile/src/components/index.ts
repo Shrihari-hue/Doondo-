@@ -31,3 +31,4 @@ export { QrCode, type QrMatrix } from './QrCode';
 export { OfflineBanner } from './OfflineBanner';
 export { AnimatedPressable } from './AnimatedPressable';
 export { BlurOverlay } from './BlurOverlay';
+export { UsuallyFree } from './UsuallyFree';

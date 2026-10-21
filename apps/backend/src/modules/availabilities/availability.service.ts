@@ -93,6 +93,10 @@ export async function publish(input: PublishInput): Promise<PublicAvailability> 
   );
 
   if (!doc) throw errors.internal();
+  // History for predictive availability (beacons themselves TTL out).
+  void import('./availabilityPrediction.service')
+    .then(({ logBeacon }) => logBeacon({ seekerId: input.seekerId, durationMinutes: input.durationMinutes, recurringPattern: input.recurringPattern ?? null }))
+    .catch(() => undefined);
   // Open shift: tell nearby employers who hire this trade. Fire-and-forget.
   void import('./openShiftNotify.service')
     .then(({ notifyNearbyEmployers }) => notifyNearbyEmployers(doc))
@@ -212,7 +216,7 @@ export async function findNearby(input: NearbyInput): Promise<NearbyAvailability
   // Bulk-hydrate seekers in a single query.
   const seekerIds = rows.map((r) => r.seekerId as Types.ObjectId);
   const seekers = await UserModel.find({ _id: { $in: seekerIds } })
-    .select('name photoUrl skills isVerified phone')
+    .select('name photoUrl skills isVerified phone privacy')
     .lean();
 
   // Bulk rating lookup — reuse the existing ratings aggregation so the
@@ -229,7 +233,9 @@ export async function findNearby(input: NearbyInput): Promise<NearbyAvailability
         photoUrl: s.photoUrl ?? null,
         skills: s.skills ?? [],
         isVerified: Boolean(s.isVerified),
-        phone: s.phone ?? null,
+        // Privacy mode (Doondo for Women): no phone to browsing employers.
+        phone: (s as { privacy?: { maskLocation?: boolean } }).privacy?.maskLocation ? null : s.phone ?? null,
+        masked: Boolean((s as { privacy?: { maskLocation?: boolean } }).privacy?.maskLocation),
       },
     ]),
   );
@@ -238,6 +244,13 @@ export async function findNearby(input: NearbyInput): Promise<NearbyAvailability
     const seekerIdStr = (r.seekerId as Types.ObjectId).toString();
     const seekerInfo = seekerMap.get(seekerIdStr);
     const rating = ratingMap.get(seekerIdStr);
+    const masked = Boolean(seekerInfo?.masked);
+    // ~1.1 km grid + 500 m distance buckets — enough to judge commute,
+    // not enough to find someone's door.
+    const coords = r.location.geo.coordinates as [number, number];
+    const shownCoords: [number, number] = masked
+      ? [Math.round(coords[0] * 100) / 100, Math.round(coords[1] * 100) / 100]
+      : coords;
     return {
       id: (r._id as Types.ObjectId).toString(),
       seekerId: seekerIdStr,
@@ -246,14 +259,17 @@ export async function findNearby(input: NearbyInput): Promise<NearbyAvailability
       location: {
         city: r.location?.city ?? null,
         area: r.location?.area ?? null,
-        coordinates: r.location.geo.coordinates,
+        coordinates: shownCoords,
+        approximate: masked,
       },
       until: (r.until as Date).toISOString(),
       recurringPattern: r.recurringPattern ?? null,
       note: r.note ?? null,
       dailyRateRupees: (r as { dailyRateRupees?: number | null }).dailyRateRupees ?? null,
       createdAt: (r.createdAt as Date).toISOString(),
-      distanceMeters: Math.round(r.distanceMeters as number),
+      distanceMeters: masked
+        ? Math.max(500, Math.round((r.distanceMeters as number) / 500) * 500)
+        : Math.round(r.distanceMeters as number),
       seeker: seekerInfo
         ? {
             ...seekerInfo,

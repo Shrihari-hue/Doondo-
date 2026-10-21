@@ -16,6 +16,7 @@
 
 import { create } from 'zustand';
 import { getSecure, setSecure } from '@/lib/secureStore';
+import { womenSafetyApi } from '@/api/womenSafety.api';
 
 interface WomenModeState {
   /** The seeker has turned Women's Mode on (persisted preference). */
@@ -51,5 +52,9 @@ export const useWomenModeStore = create<WomenModeState>((set) => ({
     } catch {
       /* best-effort — the in-memory value still holds for this session */
     }
+    // Mirror to the server: turning Women's Mode on also blurs the worker's
+    // location and hides their phone from browsing employers (they can turn
+    // that part off separately in the Women hub). Best-effort.
+    void womenSafetyApi.setPrivacy(on ? { womenMode: true, maskLocation: true } : { womenMode: false }).catch(() => undefined);
   },
 }));

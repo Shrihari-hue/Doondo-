@@ -73,6 +73,9 @@ import whatsappRouter from '@/modules/whatsapp/whatsapp.routes';
 import * as employerInterestController from '@/modules/employerInterest/employerInterest.controller';
 import workforceRouter from '@/modules/workforce/workforce.routes';
 import rejectionExplainerRouter from '@/modules/rejectionExplainer/rejectionExplainer.routes';
+import womenSafetyRouter from '@/modules/womenSafety/womenSafety.routes';
+import wageWatchRouter from '@/modules/wageWatch/wageWatch.routes';
+import cohortsRouter from '@/modules/cohorts/cohort.routes';
 import {
   expressInterestSchema,
   employerIdParamSchema,
@@ -669,5 +672,11 @@ v1.get(
 v1.use('/workforce', workforceRouter);
 // "Why wasn't I picked?" — grounded rejection explanation + next steps (seeker).
 v1.use('/rejection-explainer', rejectionExplainerRouter);
+// Doondo for Women — privacy (location blur), peer workplace-safety confirmations.
+v1.use('/women-safety', womenSafetyRouter);
+// Wage Watch — local going rates + trend for my trades (seeker).
+v1.use('/wage-watch', wageWatchRouter);
+// Peer cohorts — 5-person course groups with progress + message board (seeker).
+v1.use('/cohorts', cohortsRouter);
 
 export default v1;

@@ -309,6 +309,13 @@ export interface User {
    * (notifications on). Used by the push fan-out service to filter
    * sends before they hit the device.
    */
+  /**
+   * Privacy (Doondo for Women). `maskLocation` blurs the worker's beacon
+   * position (~1 km) and hides their phone from employers browsing
+   * available workers. `womenMode` mirrors the on-device Women's Mode so
+   * the server can ask for workplace-safety confirmations.
+   */
+  privacy?: { maskLocation?: boolean; womenMode?: boolean };
   notificationPrefs?: {
     jobs?: boolean;
     applications?: boolean;
@@ -805,6 +812,16 @@ const userSchema = new Schema<User, UserModel, UserMethods>(
         { _id: false },
       ),
       default: null,
+    },
+    privacy: {
+      type: new Schema(
+        {
+          maskLocation: { type: Boolean, default: false },
+          womenMode: { type: Boolean, default: false },
+        },
+        { _id: false },
+      ),
+      default: () => ({}),
     },
     notificationPrefs: {
       type: new Schema(

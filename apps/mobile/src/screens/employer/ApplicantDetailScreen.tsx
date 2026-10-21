@@ -23,7 +23,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
 import { spacing, radii } from '@doondo/tokens';
-import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, TextField, FormError, PaymentConfirmationPanel, CraftShowcase, HireCelebration, DisputeSection, BlurOverlay} from '@/components';
+import { Screen, Text, Pill, Card, Button, Avatar, SkeletonCard, EmptyState, TextField, FormError, PaymentConfirmationPanel, CraftShowcase, HireCelebration, DisputeSection, BlurOverlay, UsuallyFree } from '@/components';
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { applicationsApi, type ApplicantEntry, type SchedulePayload } from '@/api/applications.api';
@@ -940,6 +940,7 @@ export function ApplicantDetailScreen() {
               applicationId={applicant.id} skills={seeker?.skills ?? []} canVerify={applicant.status === 'hired'} />
             {seeker?.constitution ? <ConstitutionPanel constitution={seeker.constitution} t={t} /> : null}
             {seeker?.id ? <ApplicantBadgesSection seekerId={seeker.id} /> : null}
+            {seeker?.id ? <UsuallyFree seekerId={seeker.id} /> : null}
             {seeker?.id && applicant.status === 'hired' ? (
               <EndorsementsSection seekerId={seeker.id} seekerSkills={seeker.skills ?? []} applicationId={applicant.id} />
             ) : null}

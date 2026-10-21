@@ -31,6 +31,7 @@ import { runShiftConfirmationSweep } from '@/modules/applications/shiftConfirmat
 import { runOfferExpirySweep } from '@/modules/applications/offerExpiry.service';
 import { runEscalationSweep } from '@/modules/jobs/escalation.service';
 import { runReengagementSweep } from '@/modules/notifications/reengagement.service';
+import { runWageWatchSweep } from '@/modules/wageWatch/wageWatch.service';
 import { runAbsenceSweep, runPayrollDueSweep } from '@/modules/workforce/workforceAlerts.service';
 import { runPushReceiptSweep } from '@/lib/pushReceipts';
 
@@ -276,6 +277,23 @@ export function bootScheduler(): void {
     logger.info({ cron: env.PAYROLL_DUE_CRON }, 'scheduler: payroll due sweep registered');
   } else {
     logger.error({ cron: env.PAYROLL_DUE_CRON }, 'scheduler: invalid PAYROLL_DUE_CRON, payroll due sweep not registered');
+  }
+
+  // ─── wage watch sweep ───
+  if (cron.validate(env.WAGE_WATCH_CRON)) {
+    const task = cron.schedule(
+      env.WAGE_WATCH_CRON,
+      () => {
+        runWageWatchSweep().catch((err) => {
+          logger.error({ err }, 'wage watch sweep run failed');
+        });
+      },
+      { timezone: 'UTC' },
+    );
+    registered.push(task);
+    logger.info({ cron: env.WAGE_WATCH_CRON }, 'scheduler: wage watch sweep registered');
+  } else {
+    logger.error({ cron: env.WAGE_WATCH_CRON }, 'scheduler: invalid WAGE_WATCH_CRON, wage watch sweep not registered');
   }
 
   // ─── Dormant-user re-engagement sweep ──────────────────────────────────

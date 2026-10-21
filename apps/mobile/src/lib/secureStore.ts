@@ -85,6 +85,8 @@ export type SecureKey =
   | 'pulseWidget'
   /** JSON map groupId → open? for the Profile tab's collapsible groups. */
   | 'profileGroupsOpen'
+  /** JSON map toolId → { day, done[] } for Trade tools checklists (reset daily). */
+  | 'tradeChecklists'
   /**
    * Employer shortlist folders — JSON map of folderId → { name, applicationIds[] }.
    * Lets employers organise applicants into named buckets.

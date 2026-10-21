@@ -92,6 +92,10 @@ import { WorkerActivityScreen } from '@/screens/employer/WorkerActivityScreen';
 import { WorkerDocumentsScreen } from '@/screens/employer/WorkerDocumentsScreen';
 import { RunPayrollScreen } from '@/screens/employer/RunPayrollScreen';
 import { WorkerPerformanceScreen } from '@/screens/employer/WorkerPerformanceScreen';
+import { TradeToolsScreen } from '@/screens/seeker/TradeToolsScreen';
+import { CohortScreen } from '@/screens/seeker/CohortScreen';
+import { CohortsScreen } from '@/screens/seeker/CohortsScreen';
+import { WageWatchScreen } from '@/screens/seeker/WageWatchScreen';
 import { MentorSessionsScreen } from '@/screens/seeker/MentorSessionsScreen';
 import { RejectionExplainerScreen } from '@/screens/seeker/RejectionExplainerScreen';
 import { NotifPreferencesScreen } from '@/screens/employer/NotifPreferencesScreen';
@@ -197,6 +201,26 @@ export function AppNavigator() {
       <Stack.Screen
         name="WorkerPerformance"
         component={WorkerPerformanceScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="TradeTools"
+        component={TradeToolsScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="Cohort"
+        component={CohortScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="Cohorts"
+        component={CohortsScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="WageWatch"
+        component={WageWatchScreen}
         options={{ presentation: 'card', animation: 'slide_from_right' }}
       />
       <Stack.Screen

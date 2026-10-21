@@ -205,6 +205,7 @@ const schema = z.object({
    * stalling post is detected and boosted within the hour, cheaply.
    */
   ESCALATION_CRON: z.string().default('5 * * * *'),
+  WAGE_WATCH_CRON: z.string().default('30 3 * * 1'),
   PAYROLL_DUE_CRON: z.string().default('30 4 * * *'),
   ABSENCE_CRON: z.string().default('*/15 * * * *'),
   PUSH_RECEIPTS_CRON: z.string().default('*/30 * * * *'),

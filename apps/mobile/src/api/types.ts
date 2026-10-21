@@ -458,6 +458,8 @@ export interface PublicJob {
   escalationStage: number;
   /** How many times the job detail has been opened. */
   viewsCount?: number;
+  /** Wage Watch: how this pay compares to the local going rate. Null = not enough data. */
+  wageCheck?: { localMedianPaise: number; ratio: number; label: 'below' | 'fair' | 'above'; samples: number } | null;
   /** ISO time the auto-escalation feed-boost is live until, or null. */
   boostedUntil: string | null;
   /** Where the role is performed — defaults to onsite. */

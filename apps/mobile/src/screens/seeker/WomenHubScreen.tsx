@@ -27,6 +27,7 @@ import { haptic } from '@/lib/haptics';
 import { getCurrentCoords } from '@/lib/location';
 import { WOMEN_SAFETY_TIPS } from '@/lib/womenSafetyCatalog';
 import { useWomenModeStore } from '@/stores/womenMode.store';
+import { PrivacyToggle, SafetyQuestions } from './WomenSafetyPanels';
 import { jobsApi } from '@/api/jobs.api';
 import type { PublicJob } from '@/api/types';
 import type { AppStackParamList } from '@/navigation/types';
@@ -171,6 +172,10 @@ function WomenHubScreenInner() {
             thumbColor="#FFFFFF"
           />
         </View>
+
+        {womenModeEnabled && <PrivacyToggle />}
+
+        <SafetyQuestions />
 
         {/* Curated women-safe feed */}
         <View style={{ gap: spacing.sm }}>

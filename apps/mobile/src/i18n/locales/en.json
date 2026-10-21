@@ -249,7 +249,13 @@
       "settings_subtitle": "Language, notifications, theme",
       "my_job_subtitle": "Attendance, shifts and payslips",
       "edit_profile": "Edit Profile Details",
-      "edit_profile_subtitle": "Name, bio, experience, availability"
+      "edit_profile_subtitle": "Name, bio, experience, availability",
+      "wage_watch": "Wage Watch",
+      "wage_watch_subtitle": "What your trade pays in your city",
+      "cohorts": "Course groups",
+      "cohorts_subtitle": "Learn with up to 4 friends",
+      "trade_tools": "Trade tools",
+      "trade_tools_subtitle": "Calculators & checklists for your work"
     },
     "sections": {
       "activity": "ACTIVITY",
@@ -3022,7 +3028,19 @@
       "safe_commute_body": "Prefer well-lit routes and busy hours. Note the workplace's address before your first day.",
       "trust_instincts_title": "Trust your instincts",
       "trust_instincts_body": "If a workplace feels unsafe, you can leave. Use SOS and your Trust Circle if you ever need help."
-    }
+    },
+    "privacy_title": "Hide my exact location & phone",
+    "privacy_desc": "Employers browsing nearby workers see only your rough area (about 1 km) and can't see your number until you're shortlisted.",
+    "confirm_section": "HELP OTHER WOMEN",
+    "confirm_title": "Was {{employer}} ({{job}}) a safe place to work as a woman?",
+    "confirm_yes": "Yes, safe",
+    "confirm_no": "No",
+    "confirm_signals": "Which of these were true?",
+    "confirm_send": "Send",
+    "confirm_private": "Private: employers only ever see totals from 2+ women, never your name.",
+    "confirm_failed": "Couldn't send. Try again.",
+    "peer_none": "Not yet confirmed by women who worked here.",
+    "peer_confirmed": "Confirmed safe by {{safe}} of {{total}} women who worked here."
   },
   "reels": {
     "back": "Back",
@@ -3379,5 +3397,212 @@
     "publish_cta": "Publish {{n}} slot(s)",
     "book_title": "Book a 1:1 session",
     "book_cta": "Book"
+  },
+  "wage_watch": {
+    "title": "Wage Watch",
+    "subtitle": "What your work pays in {{city}} right now",
+    "empty_title": "Not enough data yet",
+    "empty_message": "We need a few more job posts for your trade in your city. Add your skills and city in your profile.",
+    "range": "Most jobs pay {{low}}–{{high}} ({{n}} posts, last 4 weeks)",
+    "trend": "{{dir}} {{pct}}% vs the 4 weeks before",
+    "up": "Up",
+    "down": "Down",
+    "note": "Based on job posts on Doondo. Use it to know your rate before you say yes.",
+    "per": {
+      "hour": "hour",
+      "day": "day",
+      "week": "week",
+      "month": "month"
+    },
+    "job_below": "Pays about {{pct}}% below the local rate (usually {{median}}). Tap to see going rates.",
+    "job_above": "Pays about {{pct}}% above the local rate 👍"
+  },
+  "cohorts": {
+    "title": "Course groups",
+    "intro": "Study a course with up to 4 friends. See each other's progress and keep each other going.",
+    "empty_title": "No groups yet",
+    "empty_message": "Open any course and tap \"Study with friends\" to start one.",
+    "browse_courses": "Browse courses",
+    "members": "{{n}}/5 members",
+    "join_title": "Have a group code?",
+    "join_cta": "Join group",
+    "join_failed": "Couldn't join",
+    "create_failed": "Couldn't start a group",
+    "study_with_friends": "👥 Study with friends",
+    "you": "you",
+    "invite": "Invite friends · code {{code}}",
+    "share_message": "Join my Doondo course group for \"{{course}}\"! Open Doondo → Profile → Course groups and enter code {{code}}",
+    "board": "GROUP BOARD",
+    "board_empty": "Say hi and set a goal — e.g. one lesson a day.",
+    "message_placeholder": "Write to your group…",
+    "send": "Send",
+    "send_failed": "Couldn't send",
+    "leave": "Leave group",
+    "leave_confirm": "Leave this group? Your course progress stays."
+  },
+  "usually_free": {
+    "self": "You're usually free: {{when}}",
+    "other": "Usually free: {{when}}",
+    "day": {
+      "sun": "Sun",
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat"
+    },
+    "part": {
+      "morning": "morning",
+      "afternoon": "afternoon",
+      "evening": "evening"
+    }
+  },
+  "trade_tools": {
+    "title": "Trade tools",
+    "estimate_note": "Rule-of-thumb estimate — always check on site.",
+    "checklist_note": "Resets every day.",
+    "earnings": {
+      "title": "My earnings",
+      "in_days": "Days worked",
+      "in_rate": "Day rate",
+      "in_ot_hours": "Overtime hours",
+      "in_ot_rate": "Overtime per hour",
+      "out_base": "Days pay",
+      "out_overtime": "Overtime",
+      "out_total": "Total"
+    },
+    "electric_load": {
+      "title": "Load, wire & MCB",
+      "in_watts": "Total load",
+      "in_volts": "Supply",
+      "out_current": "Current",
+      "out_wire": "Copper wire (min.)",
+      "out_mcb": "MCB rating"
+    },
+    "electric_safety": {
+      "title": "Before you start",
+      "mains_off": "Mains switched off",
+      "tester": "Line tested dead",
+      "insulated_tools": "Insulated tools",
+      "dry_hands": "Dry hands, rubber shoes",
+      "earthing": "Earthing checked"
+    },
+    "paint": {
+      "title": "Paint needed (one room)",
+      "in_length": "Room length",
+      "in_width": "Room width",
+      "in_height": "Wall height",
+      "in_openings": "Doors + windows",
+      "in_coats": "Coats",
+      "out_area": "Wall area",
+      "out_paint": "Emulsion",
+      "out_primer": "Primer (1 coat)"
+    },
+    "paint_prep": {
+      "title": "Prep checklist",
+      "cover_floor": "Floor & furniture covered",
+      "scrape": "Loose paint scraped",
+      "putty": "Cracks filled",
+      "primer": "Primer applied",
+      "ventilation": "Windows open"
+    },
+    "bricks": {
+      "title": "Bricks & cement for a wall",
+      "in_length": "Wall length",
+      "in_height": "Wall height",
+      "in_thick_in": "Thickness (4.5 or 9)",
+      "out_area": "Wall area",
+      "out_bricks": "Bricks (+5%)",
+      "out_cement": "Cement bags (mortar)"
+    },
+    "site_safety": {
+      "title": "Site safety",
+      "helmet": "Helmet on",
+      "shoes": "Safety shoes",
+      "gloves": "Gloves",
+      "scaffold": "Scaffold checked",
+      "water": "Drinking water nearby"
+    },
+    "tank": {
+      "title": "Tank capacity",
+      "in_length": "Length",
+      "in_width": "Width",
+      "in_height": "Depth",
+      "out_litres": "Capacity"
+    },
+    "weld_safety": {
+      "title": "Welding safety",
+      "mask": "Welding mask",
+      "gloves": "Leather gloves",
+      "apron": "Apron",
+      "no_flammables": "No flammables nearby",
+      "extinguisher": "Extinguisher ready"
+    },
+    "ac_tonnage": {
+      "title": "AC size for a room",
+      "in_sqft": "Room size (sq ft)",
+      "in_top_floor": "Top floor? (1 = yes)",
+      "in_people": "People usually in room",
+      "out_estimate": "Needed",
+      "out_recommend": "Suggest"
+    },
+    "trip": {
+      "title": "Trip earnings",
+      "in_km": "Distance (km)",
+      "in_fare_km": "Fare per km",
+      "in_fuel_price": "Fuel per litre",
+      "in_mileage": "Mileage",
+      "out_gross": "Fare",
+      "out_fuel": "Fuel cost",
+      "out_net": "You keep"
+    },
+    "vehicle_check": {
+      "title": "Vehicle check",
+      "tyres": "Tyre pressure",
+      "brakes": "Brakes",
+      "lights": "Lights & indicators",
+      "documents": "Licence, RC, insurance",
+      "fuel": "Fuel / charge"
+    },
+    "recipe": {
+      "title": "Scale a recipe",
+      "in_base_servings": "Recipe serves",
+      "in_target_servings": "Need to serve",
+      "in_qty": "Ingredient amount",
+      "out_multiplier": "Multiply by",
+      "out_scaled": "New amount"
+    },
+    "kitchen_hygiene": {
+      "title": "Kitchen hygiene",
+      "wash_hands": "Hands washed",
+      "hair_cover": "Hair covered",
+      "clean_board": "Clean chopping board",
+      "fridge_temp": "Fridge cold",
+      "gas_off": "Gas off when done"
+    },
+    "fabric": {
+      "title": "Cloth for a kurta",
+      "in_length_in": "Kurta length",
+      "in_sleeve_in": "Sleeve length",
+      "in_width_in": "Cloth width",
+      "out_metres": "Cloth needed"
+    },
+    "home_tasks": {
+      "title": "Today's tasks",
+      "sweep": "Sweeping",
+      "mop": "Mopping",
+      "dishes": "Dishes",
+      "laundry": "Laundry",
+      "dusting": "Dusting"
+    },
+    "guard_shift": {
+      "title": "Shift checklist",
+      "register": "Visitor register updated",
+      "round": "Rounds done",
+      "cctv": "CCTV working",
+      "lights": "Lights checked",
+      "handover": "Handover to next shift"
+    }
   }
 }

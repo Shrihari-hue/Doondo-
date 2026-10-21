@@ -59,6 +59,7 @@ import {
 import { ApplyCelebration } from './apply-moment/ApplyCelebration';
 import { WORKPLACE_QUESTIONS, hasAnyAnswer } from '@/lib/reverseInterviewCatalog';
 import { WOMEN_SAFETY_SIGNAL_DEFS } from '@/lib/womenSafetyCatalog';
+import { PeerConfirmedLine } from './WomenSafetyPanels';
 import type { AppStackParamList } from '@/navigation/types';
 import type {
   PublicJob,
@@ -528,14 +529,30 @@ function JobDetailScreenInner() {
           <WorkplaceAnswersPanel answers={job.workplaceAnswers} t={t} />
         ) : null}
 
+        {/* Wage Watch — pay vs the local going rate (needs ≥5 comparable posts). */}
+        {job.wageCheck && job.wageCheck.label !== 'fair' ? (
+          <Pressable onPress={() => navigation.navigate('WageWatch')}>
+            <Card>
+              <Text variant="footnote" weight="medium" tone={job.wageCheck.label === 'below' ? 'warning' : 'success'}>
+                {job.wageCheck.label === 'below'
+                  ? t('wage_watch.job_below', { pct: Math.round((1 - job.wageCheck.ratio) * 100), median: `₹${Math.round(job.wageCheck.localMedianPaise / 100).toLocaleString('en-IN')}` })
+                  : t('wage_watch.job_above', { pct: Math.round((job.wageCheck.ratio - 1) * 100) })}
+              </Text>
+            </Card>
+          </Pressable>
+        ) : null}
+
         {/* Doondo for Women — the employer's declared women-safety
            signals. Self-hides when the employer declared none. */}
         {job.womenSafety && job.womenSafetyTier !== 'none' ? (
-          <WomenSafetyPanel
-            womenSafety={job.womenSafety}
-            tier={job.womenSafetyTier}
-            t={t}
-          />
+          <View style={{ gap: spacing.xs }}>
+            <WomenSafetyPanel
+              womenSafety={job.womenSafety}
+              tier={job.womenSafetyTier}
+              t={t}
+            />
+            {job.employer?.id ? <PeerConfirmedLine employerId={job.employer.id} /> : null}
+          </View>
         ) : null}
 
         {/* Smart Resume — tailor the worker's own history to this exact

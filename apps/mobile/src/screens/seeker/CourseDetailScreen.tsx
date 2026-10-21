@@ -9,6 +9,7 @@
  */
 
 import { useState } from 'react';
+import { cohortsApi } from '@/api/cohorts.api';
 import {
   Alert,
   Modal,
@@ -300,6 +301,22 @@ function CourseDetailInner() {
               )}
             </Pressable>
           ) : null}
+          {/* Peer cohort — study this course with up to 4 friends. */}
+          <Pressable
+            onPress={async () => {
+              try {
+                const c = await cohortsApi.create(courseId);
+                void queryClient.invalidateQueries({ queryKey: ['cohorts'] });
+                if (!enrolment) enrollMutation.mutate();
+                navigation.navigate('Cohort', { cohortId: c.id });
+              } catch (e) {
+                Alert.alert(t('cohorts.create_failed'), e instanceof Error ? e.message : undefined);
+              }
+            }}
+            style={{ marginTop: spacing.sm, alignItems: 'center', paddingVertical: 8 }}
+          >
+            <Text style={{ color: '#2563EB', fontSize: 14, fontWeight: '600' }}>{t('cohorts.study_with_friends')}</Text>
+          </Pressable>
         </View>
 
         {/* Lessons */}

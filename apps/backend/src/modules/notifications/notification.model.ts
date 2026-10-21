@@ -65,6 +65,8 @@ export const NOTIFICATION_KINDS = [
   'payroll_due',               // month-end reminder to pay the team (to employer)
   'mentor_session',            // a mentor session was booked / cancelled / paid
   'worker_available',          // a worker near you posted an open shift (to employer)
+  'wage_alert',                // the going rate for your trade in your city changed (Wage Watch)
+  'cohort_update',             // your course group got a new message / member
   'system',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
