@@ -714,45 +714,6 @@ function Header({
           )}
         </View>
 
-        {/* Application tracking entry (spec §12 decision: its own screen,
-            reachable from Jobs, Home notifications and Profile). */}
-        <Pressable
-          onPress={() => {
-            haptic('selection');
-            navigation.navigate('MyApplications');
-          }}
-          hitSlop={6}
-          style={{ alignSelf: 'flex-start', paddingVertical: 4 }}
-        >
-          <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
-            {t('jobs.my_applications_link')} ›
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => {
-            haptic('selection');
-            navigation.navigate('ArJobVision');
-          }}
-          hitSlop={6}
-          style={{ alignSelf: 'flex-start', paddingVertical: 4 }}
-        >
-          <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
-            📷 {t('jobs.ar_link')} ›
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => {
-            haptic('selection');
-            navigation.navigate('Auctions');
-          }}
-          hitSlop={6}
-          style={{ alignSelf: 'flex-start', paddingVertical: 4 }}
-        >
-          <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
-            🔨 {t('jobs.auctions_link')} ›
-          </Text>
-        </Pressable>
-
         {/* List / Map segmented toggle */}
         <View
           style={{
@@ -789,6 +750,45 @@ function Header({
           })}
         </View>
       </View>
+
+      {/* Quick links — own scrollable row so they never squeeze the
+         greeting / List-Map toggle row above (that pushed search, km chips
+         and the map off-screen). */}
+      <HScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0 }}
+        contentContainerStyle={{ gap: spacing.xs, paddingRight: spacing.xl }}
+      >
+        {(
+          [
+            { key: 'apps', route: 'MyApplications', label: t('jobs.my_applications_link') },
+            { key: 'ar', route: 'ArJobVision', label: `📷 ${t('jobs.ar_link')}` },
+            { key: 'auctions', route: 'Auctions', label: `🔨 ${t('jobs.auctions_link')}` },
+          ] as const
+        ).map((l) => (
+          <Pressable
+            key={l.key}
+            onPress={() => {
+              haptic('selection');
+              navigation.navigate(l.route as never);
+            }}
+            hitSlop={6}
+            style={{
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.xs,
+              borderRadius: radii.pill,
+              borderWidth: 0.5,
+              borderColor: theme.border.default,
+              backgroundColor: theme.bg.surface,
+            }}
+          >
+            <Text variant="footnote" weight="medium" style={{ color: theme.brand.hero }}>
+              {l.label} ›
+            </Text>
+          </Pressable>
+        ))}
+      </HScrollView>
 
       {/* Search input — softer radius, generous touch target */}
       <View
