@@ -1,327 +1,362 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   View,
   useWindowDimensions,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import Constants from 'expo-constants';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { radii, spacing } from '@doondo/tokens';
-import { Screen, Text, DoondoMark } from '@/components';
+import { Text } from '@/components';
 import { haptic } from '@/lib/haptics';
-import {
-  getNotificationPermissionStatus,
-  requestPushPermissionFromLanding,
-} from '@/lib/push';
-import type { UserRole } from '@/api/types';
 import type { AuthStackParamList } from '@/navigation/types';
 import { useTheme } from '@/theme/useTheme';
 import { useTranslate } from '@/i18n/useTranslate';
 import { useLocale } from '@/i18n/LanguageProvider';
 import { SUPPORTED_LOCALES, type SupportedLocale } from '@/i18n';
+import {
+  useJobSearchLocationStore,
+  type JobSearchPlace,
+} from '@/stores/jobSearchLocation.store';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'RolePicker'>;
-type Choice = Exclude<UserRole, 'admin'>;
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const FIND_WORK_IMAGE = require('../../../assets/images/find-work-card.jpeg');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const HIRE_WORKERS_IMAGE = require('../../../assets/images/workers-hero.png');
+const CITY_IMAGE = require('../../../assets/images/welcome-city.jpg');
 
-// Language toggle on the role picker now cycles through all 5 supported
-// locales, persisting via the LanguageProvider so the rest of the app
-// stays in sync. The legacy `lang: 'en' | 'hi'` COPY object was replaced
-// with i18next-backed t() calls; full translations live in role_picker.* in
-// each src/i18n/locales/<code>.json.
+// ─── Palette (this screen is always dark-on-photo, independent of theme) ────
+const INK = '#0E1A14'; // deep green-black used for the fade + dark text
+const LIME = '#DCF57E';
+const LIME_SOFT = '#F1FBCB';
+const WHITE = '#FFFFFF';
+const WHITE_DIM = 'rgba(255,255,255,0.72)';
+const GLASS = 'rgba(32,34,30,0.62)';
+const GLASS_BORDER = 'rgba(255,255,255,0.16)';
+
+/** Cities offered in the picker. Picking one re-centres job search there. */
+const CITIES: readonly JobSearchPlace[] = [
+  { label: 'Bengaluru', lat: 12.9716, lng: 77.5946 },
+  { label: 'Mumbai', lat: 19.076, lng: 72.8777 },
+  { label: 'Delhi NCR', lat: 28.6139, lng: 77.209 },
+  { label: 'Hyderabad', lat: 17.385, lng: 78.4867 },
+  { label: 'Chennai', lat: 13.0827, lng: 80.2707 },
+  { label: 'Pune', lat: 18.5204, lng: 73.8567 },
+  { label: 'Kolkata', lat: 22.5726, lng: 88.3639 },
+  { label: 'Ahmedabad', lat: 23.0225, lng: 72.5714 },
+  { label: 'Kochi', lat: 9.9312, lng: 76.2673 },
+  { label: 'Jaipur', lat: 26.9124, lng: 75.7873 },
+];
+
+/** Illustrative pins floating over the skyline. */
+interface PinSpec {
+  title: string;
+  area: string;
+  km: string;
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  iconBg: string;
+  pin: string;
+  /** Card top-left as a fraction of the pin region. */
+  x: number;
+  y: number;
+  avatars: readonly string[];
+}
+
+const PINS: readonly PinSpec[] = [
+  { title: 'Cafe Crew', area: 'Indiranagar', km: '1.2 km', icon: 'coffee-outline', iconBg: '#FCE7C3', pin: '#F6B73C', x: 0.04, y: 0.0, avatars: ['#C08457', '#8D5A3B', '#A86B4A'] },
+  { title: 'Store Assistant', area: 'HSR Layout', km: '2.5 km', icon: 'shopping-outline', iconBg: '#B9F3D2', pin: '#4ADE80', x: 0.53, y: 0.3, avatars: ['#9C6644', '#7F5539', '#B07D62'] },
+  { title: 'Delivery Partner', area: 'Koramangala', km: '1.8 km', icon: 'moped-outline', iconBg: '#FFC9C9', pin: '#F87171', x: 0.17, y: 0.58, avatars: ['#A47148', '#80583E', '#C9936B'] },
+  { title: 'Office Helper', area: 'Marathahalli', km: '3.4 km', icon: 'laptop', iconBg: '#DCD3FF', pin: '#A78BFA', x: 0.53, y: 1.0, avatars: ['#8B5E3C', '#B5835A', '#6F4E37'] },
+];
+
+const CARD_H = 66;
+const STEM_H = 34;
+const PIN_TOTAL = CARD_H + STEM_H + 16;
 
 export function RolePickerScreen() {
   const navigation = useNavigation<Nav>();
-  const { theme, scheme, setScheme } = useTheme();
-  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const t = useTranslate();
   const { locale, setLocale } = useLocale();
+  const setPlace = useJobSearchLocationStore((st) => st.setPlace);
 
-  const isLight = scheme === 'light';
-  const stacked = width < 1120;
-  const compact = width < 820;
-  // On phones / narrow tablets, the shell must hug the viewport.
-  // On wide screens we cap it so the layout doesn't go full-bleed.
-  // Subtracting outer padding (xl on either side = 32px on web, 16 on
-  // phones) keeps content from clipping at the screen edge.
-  const shellWidth = useMemo(() => {
-    const outerPad = compact ? spacing.md * 2 : spacing.xl * 2;
-    if (width > 1480) return 1360;
-    if (width > 1240) return 1240;
-    return Math.max(280, width - outerPad);
-  }, [width, compact]);
-
-  // For employers, go straight to Signup. For seekers, surface the
-  // Solo/Team sub-choice as a bottom sheet first so the choice persists
-  // through to the seeker's profile from day one.
   const [seekerChoiceOpen, setSeekerChoiceOpen] = useState(false);
+  const [cityOpen, setCityOpen] = useState(false);
+  // null = "use my current location" (GPS). Defaults to Bengaluru.
+  const [city, setCity] = useState<JobSearchPlace | null>(CITIES[0]!);
 
-  // Notification permission status for the bell-icon UX. Drives the
-  // toast/banner that appears after the user taps the bell.
-  const [pushStatus, setPushStatus] = useState<
-    'unknown' | 'granted' | 'denied' | 'unsupported' | null
-  >(null);
-  const [pushBanner, setPushBanner] = useState<string | null>(null);
+  // Pins live between the logo block and the headline block.
+  const [headerBottom, setHeaderBottom] = useState(0);
+  const [contentTop, setContentTop] = useState(0);
+  const pinRegion = Math.max(0, contentTop - headerBottom);
+  const pinsToShow =
+    pinRegion >= 330 ? PINS : pinRegion >= 236 ? PINS.slice(0, 3) : pinRegion >= 120 ? PINS.slice(0, 2) : [];
 
-  async function onTapBell() {
-    haptic('selection');
-    const before = await getNotificationPermissionStatus();
-    if (before === 'granted') {
-      setPushStatus('granted');
-      setPushBanner(t('role_picker.push_all_set'));
-    } else if (before === 'unsupported') {
-      setPushStatus('unsupported');
-      setPushBanner(t('role_picker.push_dev_build'));
-    } else {
-      const result = await requestPushPermissionFromLanding();
-      setPushStatus(result);
-      setPushBanner(
-        result === 'granted'
-          ? t('role_picker.push_granted')
-          : result === 'denied'
-            ? t('role_picker.push_denied')
-            : t('role_picker.push_dev_build'),
-      );
-    }
-    setTimeout(() => setPushBanner(null), 3500);
-  }
+  const compactH = height < 740;
 
-  function go(role: Choice) {
+  function explore() {
     haptic('medium');
-    if (role === 'seeker') {
-      setSeekerChoiceOpen(true);
-      return;
-    }
-    navigation.navigate('Signup', { role });
+    void setPlace(city);
+    setSeekerChoiceOpen(true);
   }
 
   function pickWorkType(workType: 'solo' | 'team', teamSize?: number) {
     haptic('selection');
     setSeekerChoiceOpen(false);
-    // "60-second first match" — show seekers real jobs before asking
-    // them to sign up. workType + teamSize ride along so Signup still
-    // gets the right presets once the seeker continues from preview.
     navigation.navigate(
       'FirstMatchPreview',
       teamSize != null ? { workType, teamSize } : { workType },
     );
   }
 
+  function cycleLanguage() {
+    const supported = SUPPORTED_LOCALES as readonly SupportedLocale[];
+    const idx = supported.indexOf(locale);
+    void setLocale(supported[(idx + 1) % supported.length]!);
+    haptic('selection');
+  }
+
   return (
-    <Screen>
-      <ScrollView
-        contentContainerStyle={{
-          alignItems: 'center',
-          paddingHorizontal: compact ? spacing.md : spacing.xl,
-          paddingTop: compact ? spacing.md : spacing.xl,
-          paddingBottom: spacing['3xl'],
+    <View style={{ flex: 1, backgroundColor: INK }}>
+      <StatusBar style="light" />
+
+      {/* Full-bleed skyline, anchored to the top */}
+      <Image
+        source={CITY_IMAGE}
+        resizeMode="cover"
+        style={{ position: 'absolute', top: 0, left: 0, width, height: Math.max(height, width * 2.2) }}
+      />
+      {/* Soft sky wash behind the logo + deep fade into the content */}
+      <LinearGradient
+        pointerEvents="none"
+        colors={['rgba(255,244,220,0.55)', 'rgba(255,244,220,0)', 'rgba(14,26,20,0)', 'rgba(14,26,20,0.85)', INK]}
+        locations={[0, 0.2, 0.42, 0.62, 0.74]}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+
+      {/* Top utilities — language + sign in */}
+      <View
+        style={{
+          paddingTop: insets.top + 6,
+          paddingHorizontal: spacing.lg,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
         }}
       >
-        <View
+        <GlassPill onPress={cycleLanguage}>
+          <Feather name="globe" size={14} color={INK} />
+          <Text variant="caption" weight="semibold" style={{ color: INK }}>
+            {locale.toUpperCase()}
+          </Text>
+        </GlassPill>
+        <GlassPill onPress={() => navigation.navigate('Login')}>
+          <Text variant="footnote" weight="semibold" style={{ color: INK }}>
+            {t('role_picker.sign_in')}
+          </Text>
+        </GlassPill>
+      </View>
+
+      {/* Logo + tagline */}
+      <View
+        onLayout={(e) => setHeaderBottom(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}
+        style={{ alignItems: 'center', marginTop: compactH ? 2 : 10 }}
+      >
+        <Wordmark size={compactH ? 40 : 48} />
+        <Text
           style={{
-            width: '100%',
-            maxWidth: shellWidth,
-            borderRadius: compact ? 28 : 40,
-            overflow: 'hidden',
-            backgroundColor: theme.bg.canvas,
-            borderWidth: 0.5,
-            borderColor: isLight ? theme.border.default : theme.premium.hairline,
+            marginTop: 8,
+            fontSize: compactH ? 11 : 12,
+            letterSpacing: 5,
+            color: 'rgba(14,26,20,0.75)',
+            fontWeight: '600',
           }}
         >
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundColor: theme.bg.canvas,
-            }}
-          />
+          {t('role_picker.hero_tagline')}
+        </Text>
+      </View>
 
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              top: -120,
-              left: -120,
-              width: compact ? 280 : 420,
-              height: compact ? 280 : 420,
-              borderRadius: 999,
-              backgroundColor: isLight ? 'rgba(211, 165, 86, 0.10)' : 'rgba(113, 74, 255, 0.08)',
-            }}
-          />
+      {/* Floating job pins over the skyline */}
+      {contentTop > 0 && headerBottom > 0 && (
+        <View
+          pointerEvents="none"
+          style={{ position: 'absolute', left: 0, right: 0, top: headerBottom + 4, height: pinRegion }}
+        >
+          {pinsToShow.map((p, i) => {
+            const n = pinsToShow.length;
+            // Re-space vertically when fewer pins fit.
+            const yFrac = n === PINS.length ? p.y : i / Math.max(1, n - 1);
+            return (
+              <FloatingPin
+                key={p.title}
+                spec={p}
+                delay={i * 450}
+                left={p.x * width}
+                top={yFrac * Math.max(0, pinRegion - PIN_TOTAL)}
+                maxWidth={Math.min(184, width * 0.45)}
+              />
+            );
+          })}
+        </View>
+      )}
 
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              right: -140,
-              bottom: 120,
-              width: compact ? 340 : 460,
-              height: compact ? 340 : 460,
-              borderRadius: 999,
-              backgroundColor: isLight ? 'rgba(14, 110, 84, 0.08)' : 'rgba(211, 165, 86, 0.08)',
-            }}
-          />
+      {/* Bottom content */}
+      <View style={{ flex: 1 }} />
+      <View
+        onLayout={(e) => setContentTop(e.nativeEvent.layout.y)}
+        style={{
+          paddingHorizontal: spacing.xl,
+          paddingBottom: insets.bottom + (compactH ? spacing.sm : spacing.md),
+        }}
+      >
+        <Text
+          style={{
+            color: WHITE,
+            fontSize: compactH ? 34 : 40,
+            lineHeight: compactH ? 38 : 44,
+            fontWeight: '800',
+            letterSpacing: -1.2,
+          }}
+        >
+          {t('role_picker.hero_title_1')}
+        </Text>
+        <Text
+          style={{
+            color: LIME,
+            fontSize: compactH ? 34 : 40,
+            lineHeight: compactH ? 40 : 46,
+            fontWeight: '800',
+            letterSpacing: -1.2,
+          }}
+        >
+          {t('role_picker.hero_title_2')}
+        </Text>
+        <Text
+          style={{
+            color: WHITE_DIM,
+            fontSize: compactH ? 14 : 15,
+            lineHeight: compactH ? 19 : 21,
+            marginTop: spacing.xs,
+            maxWidth: 330,
+          }}
+        >
+          {t('role_picker.hero_subtitle')}
+        </Text>
 
-          <View
+        {/* City selector */}
+        <Pressable
+          onPress={() => {
+            haptic('selection');
+            setCityOpen(true);
+          }}
+          accessibilityRole="button"
+          style={{
+            marginTop: compactH ? spacing.md : spacing.lg,
+            height: 50,
+            borderRadius: 25,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.22)',
+            backgroundColor: 'rgba(255,255,255,0.06)',
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: spacing.lg,
+            gap: spacing.sm,
+          }}
+        >
+          <MaterialCommunityIcons name="map-marker" size={20} color={WHITE} />
+          <Text style={{ color: WHITE, fontSize: 16, fontWeight: '500' }}>
+            {city?.label ?? t('role_picker.city_near_me')}
+          </Text>
+          <Feather name="chevron-down" size={18} color={WHITE} />
+        </Pressable>
+
+        {/* Primary CTA */}
+        <Pressable onPress={explore} accessibilityRole="button" style={{ marginTop: spacing.sm }}>
+          <LinearGradient
+            colors={[LIME, LIME_SOFT]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
             style={{
-              paddingHorizontal: compact ? spacing.lg : spacing['2xl'],
-              paddingTop: compact ? spacing.lg : spacing.xl,
-              paddingBottom: compact ? spacing.xl : spacing['2xl'],
+              height: 54,
+              borderRadius: 27,
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingLeft: spacing.xl,
+              paddingRight: 6,
             }}
           >
-            <TopBar
-              locale={locale}
-              signInLabel={t('role_picker.sign_in')}
-              pushOn={pushStatus === 'granted'}
-              onToggleLanguage={() => {
-                // Cycle through all 5 supported locales.
-                const supported = SUPPORTED_LOCALES as readonly SupportedLocale[];
-                const idx = supported.indexOf(locale);
-                const next = supported[(idx + 1) % supported.length]!;
-                void setLocale(next);
-                haptic('selection');
-              }}
-              onToggleTheme={() => {
-                setScheme(isLight ? 'dark' : 'light');
-                haptic('selection');
-              }}
-              onTapBell={onTapBell}
-              onSignIn={() => navigation.navigate('Login')}
-            />
-
-            {pushBanner && (
-              <View
-                style={{
-                  marginHorizontal: compact ? spacing.lg : spacing.xl,
-                  marginTop: spacing.sm,
-                  paddingVertical: spacing.sm,
-                  paddingHorizontal: spacing.md,
-                  borderRadius: radii.md,
-                  backgroundColor: theme.brand.heroSubtle,
-                  borderWidth: 0.5,
-                  borderColor: theme.brand.heroBorder,
-                }}
-              >
-                <Text variant="footnote" weight="medium" tone="hero">
-                  {pushBanner}
-                </Text>
-              </View>
-            )}
-
+            <Text style={{ flex: 1, textAlign: 'center', color: INK, fontSize: 17, fontWeight: '700' }}>
+              {t('role_picker.explore_cta')}
+            </Text>
             <View
               style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: '#14261C',
                 alignItems: 'center',
-                gap: compact ? spacing.xs : spacing.sm,
-                paddingTop: compact ? spacing.lg : spacing['2xl'],
-                paddingBottom: compact ? spacing.lg : spacing['2xl'],
+                justifyContent: 'center',
               }}
             >
-              <View
-                style={{
-                  borderRadius: radii.pill,
-                  paddingHorizontal: spacing.lg,
-                  paddingVertical: spacing.sm,
-                  borderWidth: 0.5,
-                  borderColor: isLight ? 'rgba(211, 165, 86, 0.35)' : 'rgba(141, 109, 255, 0.35)',
-                  backgroundColor: isLight ? 'rgba(255,255,255,0.72)' : 'rgba(19,16,35,0.72)',
-                  // Cap pill width so the longer eyebrow tagline wraps
-                  // gracefully into two centred lines instead of pushing
-                  // the pill all the way to the screen edges.
-                  maxWidth: '92%',
-                }}
-              >
-                <Text
-                  variant="footnote"
-                  weight="medium"
-                  style={{
-                    // Lower letter-spacing than the original ALL-CAPS chip
-                    // so the longer copy fits without feeling stretched.
-                    letterSpacing: 0.8,
-                    textAlign: 'center',
-                    color: isLight ? '#A97215' : '#B08CFF',
-                  }}
-                >
-                  {t('role_picker.eyebrow')}
-                </Text>
-              </View>
-
-              <Text
-                variant={compact ? 'titleLarge' : 'displayLarge'}
-                weight="medium"
-                display
-                style={{
-                  textAlign: 'center',
-                  color: theme.text.primary,
-                  maxWidth: 700,
-                }}
-              >
-                {t('role_picker.title')}
-              </Text>
-
-              <Text
-                variant={compact ? 'body' : 'title'}
-                tone="secondary"
-                style={{
-                  textAlign: 'center',
-                  maxWidth: 620,
-                  lineHeight: compact ? 22 : 34,
-                  paddingHorizontal: compact ? spacing.md : 0,
-                }}
-              >
-                {t('role_picker.subtitle')}
-              </Text>
+              <Feather name="arrow-right" size={22} color={WHITE} />
             </View>
+          </LinearGradient>
+        </Pressable>
 
-            <View
-              style={{
-                // Always side-by-side. On phones each card gets ~half the
-                // shell width with a tight gap so both fit on one screen.
-                flexDirection: 'row',
-                gap: compact ? spacing.sm : spacing.xl,
-                alignItems: 'stretch',
-              }}
-            >
-              <JourneyCard
-                accent={isLight ? '#2F774B' : '#7C5CFF'}
-                image={FIND_WORK_IMAGE}
-                badge={t('role_picker.seeker_badge')}
-                body={t('role_picker.seeker_body')}
-                cta={t('role_picker.seeker_cta')}
-                fullBleed
-                onPress={() => go('seeker')}
-              />
+        {/* Employers still need a door in */}
+        <Pressable
+          onPress={() => {
+            haptic('medium');
+            navigation.navigate('Signup', { role: 'employer' });
+          }}
+          hitSlop={8}
+          style={{ alignSelf: 'center', marginTop: spacing.sm }}
+        >
+          <Text style={{ color: WHITE_DIM, fontSize: 13 }}>
+            {t('role_picker.hire_prompt')}{' '}
+            <Text style={{ color: LIME, fontSize: 13, fontWeight: '600' }}>
+              {t('role_picker.hire_link')} →
+            </Text>
+          </Text>
+        </Pressable>
 
-              <JourneyCard
-                accent={isLight ? '#D29A17' : '#E3AE31'}
-                image={HIRE_WORKERS_IMAGE}
-                badge={t('role_picker.employer_badge')}
-                body={t('role_picker.employer_body')}
-                cta={t('role_picker.employer_cta')}
-                onPress={() => go('employer')}
-              />
-            </View>
-
-            <HowItWorks compact={compact} t={t} />
-
-            <ActivityTicker compact={compact} t={t} />
-
-            <BrandFooter compact={compact} t={t} />
-          </View>
+        {/* Feature strip */}
+        <View
+          style={{
+            flexDirection: 'row',
+            marginTop: compactH ? spacing.md : spacing.lg,
+            alignItems: 'center',
+          }}
+        >
+          <Feature icon="zap" a={t('role_picker.feature_realtime_a')} b={t('role_picker.feature_realtime_b')} />
+          <Divider />
+          <Feature icon="shield" a={t('role_picker.feature_verified_a')} b={t('role_picker.feature_verified_b')} accent />
+          <Divider />
+          <Feature icon="map-pin" a={t('role_picker.feature_local_a')} b={t('role_picker.feature_local_b')} accent />
         </View>
-      </ScrollView>
+      </View>
+
+      <CitySheet
+        visible={cityOpen}
+        selected={city}
+        onClose={() => setCityOpen(false)}
+        onPick={(c) => {
+          haptic('selection');
+          setCity(c);
+          setCityOpen(false);
+        }}
+        t={t}
+      />
 
       {seekerChoiceOpen && (
         <SeekerWorkTypeSheet
@@ -330,7 +365,304 @@ export function RolePickerScreen() {
           t={t}
         />
       )}
-    </Screen>
+    </View>
+  );
+}
+
+// ─── Wordmark: D [pin] N D O ────────────────────────────────────────────────
+
+function Wordmark({ size }: { size: number }) {
+  const letter = { fontSize: size, lineHeight: size * 1.1, fontWeight: '900' as const, color: INK, letterSpacing: -1 };
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <Text style={letter}>D</Text>
+      <View style={{ width: size * 0.78, height: size, alignItems: 'center', justifyContent: 'center', marginHorizontal: 1 }}>
+        <MaterialCommunityIcons name="map-marker" size={size * 1.02} color="#7ED321" />
+        <View
+          style={{
+            position: 'absolute',
+            top: size * 0.24,
+            width: size * 0.3,
+            height: size * 0.3,
+            borderRadius: size,
+            backgroundColor: INK,
+          }}
+        />
+      </View>
+      <Text style={letter}>ONDO</Text>
+    </View>
+  );
+}
+
+// ─── Floating pin card ──────────────────────────────────────────────────────
+
+function FloatingPin({
+  spec,
+  left,
+  top,
+  maxWidth,
+  delay,
+}: {
+  spec: PinSpec;
+  left: number;
+  top: number;
+  maxWidth: number;
+  delay: number;
+}) {
+  const float = useRef(new Animated.Value(0)).current;
+  const appear = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(appear, {
+      toValue: 1,
+      duration: 500,
+      delay: 200 + delay,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(float, { toValue: 1, duration: 2200, delay, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(float, { toValue: 0, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [appear, float, delay]);
+
+  const translateY = Animated.add(
+    float.interpolate({ inputRange: [0, 1], outputRange: [0, -5] }),
+    appear.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }),
+  );
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        left,
+        top,
+        width: maxWidth,
+        opacity: appear,
+        transform: [{ translateY }],
+      }}
+    >
+      <View
+        style={{
+          height: CARD_H,
+          borderRadius: 18,
+          backgroundColor: GLASS,
+          borderWidth: 1,
+          borderColor: GLASS_BORDER,
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 10,
+          gap: 9,
+        }}
+      >
+        <View
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 19,
+            backgroundColor: spec.iconBg,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <MaterialCommunityIcons name={spec.icon} size={20} color={INK} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text numberOfLines={1} style={{ color: WHITE, fontSize: 13, fontWeight: '700' }}>
+            {spec.title}
+          </Text>
+          <Text numberOfLines={1} style={{ color: WHITE_DIM, fontSize: 11 }}>
+            {spec.area}
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
+            {spec.avatars.map((c, i) => (
+              <View
+                key={i}
+                style={{
+                  width: 15,
+                  height: 15,
+                  borderRadius: 8,
+                  backgroundColor: c,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.9)',
+                  marginLeft: i === 0 ? 0 : -5,
+                }}
+              />
+            ))}
+            <View style={{ flex: 1 }} />
+            <Text style={{ color: WHITE_DIM, fontSize: 11 }}>{spec.km}</Text>
+          </View>
+        </View>
+      </View>
+      {/* Stem + glowing dot */}
+      <View style={{ alignItems: 'center' }}>
+        <View style={{ width: 2, height: STEM_H, backgroundColor: spec.pin, opacity: 0.85 }} />
+        <View
+          style={{
+            width: 16,
+            height: 16,
+            borderRadius: 8,
+            backgroundColor: WHITE,
+            borderWidth: 4,
+            borderColor: spec.pin,
+            marginTop: -2,
+            shadowColor: spec.pin,
+            shadowOpacity: 0.9,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 0 },
+            elevation: 6,
+          }}
+        />
+      </View>
+    </Animated.View>
+  );
+}
+
+// ─── Small pieces ───────────────────────────────────────────────────────────
+
+function GlassPill({ children, onPress }: { children: React.ReactNode; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={6}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        height: 34,
+        paddingHorizontal: 14,
+        borderRadius: radii.pill,
+        backgroundColor: 'rgba(255,255,255,0.45)',
+        borderWidth: 0.5,
+        borderColor: 'rgba(255,255,255,0.7)',
+      }}
+    >
+      {children}
+    </Pressable>
+  );
+}
+
+function Feature({
+  icon,
+  a,
+  b,
+  accent = false,
+}: {
+  icon: React.ComponentProps<typeof Feather>['name'];
+  a: string;
+  b: string;
+  accent?: boolean;
+}) {
+  return (
+    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <Feather name={icon} size={18} color={WHITE} />
+      <View style={{ flexShrink: 1 }}>
+        <Text style={{ color: accent ? LIME : WHITE, fontSize: 11, lineHeight: 15 }} numberOfLines={1}>
+          {a}
+        </Text>
+        <Text style={{ color: WHITE_DIM, fontSize: 11, lineHeight: 15 }} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
+          {b}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function Divider() {
+  return <View style={{ width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.18)', marginHorizontal: 6 }} />;
+}
+
+// ─── City picker sheet ──────────────────────────────────────────────────────
+
+function CitySheet({
+  visible,
+  selected,
+  onClose,
+  onPick,
+  t,
+}: {
+  visible: boolean;
+  selected: JobSearchPlace | null;
+  onClose: () => void;
+  onPick: (c: JobSearchPlace | null) => void;
+  t: TFn;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+        <Pressable
+          onPress={(e) => e.stopPropagation()}
+          style={{
+            backgroundColor: '#13211A',
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            paddingTop: spacing.md,
+            paddingBottom: insets.bottom + spacing.lg,
+            maxHeight: '75%',
+            borderWidth: 0.5,
+            borderColor: GLASS_BORDER,
+          }}
+        >
+          <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)' }} />
+          <Text style={{ color: WHITE, fontSize: 20, fontWeight: '700', paddingHorizontal: spacing.xl, marginTop: spacing.md, marginBottom: spacing.sm }}>
+            {t('role_picker.city_sheet_title')}
+          </Text>
+          <ScrollView>
+            <CityRow
+              label={t('role_picker.city_use_location')}
+              icon="crosshairs-gps"
+              active={selected === null}
+              onPress={() => onPick(null)}
+            />
+            {CITIES.map((c) => (
+              <CityRow
+                key={c.label}
+                label={c.label}
+                icon="map-marker-outline"
+                active={selected?.label === c.label}
+                onPress={() => onPick(c)}
+              />
+            ))}
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function CityRow({
+  label,
+  icon,
+  active,
+  onPress,
+}: {
+  label: string;
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+        paddingHorizontal: spacing.xl,
+        paddingVertical: 14,
+      }}
+    >
+      <MaterialCommunityIcons name={icon} size={20} color={active ? LIME : WHITE_DIM} />
+      <Text style={{ flex: 1, color: active ? LIME : WHITE, fontSize: 16, fontWeight: active ? '600' : '400' }}>
+        {label}
+      </Text>
+      {active && <Feather name="check" size={18} color={LIME} />}
+    </Pressable>
   );
 }
 
@@ -529,703 +861,3 @@ function ChoiceCard({
   );
 }
 
-function TopBar({
-  locale,
-  signInLabel,
-  pushOn,
-  onToggleLanguage,
-  onToggleTheme,
-  onTapBell,
-  onSignIn,
-}: {
-  locale: SupportedLocale;
-  signInLabel: string;
-  pushOn: boolean;
-  onToggleLanguage: () => void;
-  onToggleTheme: () => void;
-  onTapBell: () => void;
-  onSignIn: () => void;
-}) {
-  const { theme, scheme } = useTheme();
-  const { width } = useWindowDimensions();
-  const isLight = scheme === 'light';
-  const compact = width < 820;
-  const tight = width < 420;       // phones — drop the wordmark to save horizontal space
-  const logoSize = compact ? 40 : 48;
-  const utilSize = compact ? 40 : 48;
-
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: compact ? spacing.sm : spacing.md,
-      }}
-    >
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: compact ? spacing.sm : spacing.md,
-          flexShrink: 1,
-        }}
-      >
-        {/* Brand mark — chunky D + 3 motion bars. Replaces the previous
-            tinted "D" placeholder. The mark's color follows the theme so
-            it reads cleanly on both dark canvas and light canvas. */}
-        <View
-          style={{
-            width: logoSize,
-            height: logoSize,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <DoondoMark
-            size={Math.round(logoSize * 0.78)}
-            color={isLight ? '#A97215' : '#B08CFF'}
-          />
-        </View>
-        {!tight && (
-          <Text
-            variant={compact ? 'body' : 'titleLarge'}
-            weight="medium"
-            style={{
-              letterSpacing: compact ? 3 : 6,
-              color: theme.text.primary,
-            }}
-            numberOfLines={1}
-          >
-            DOONDO
-          </Text>
-        )}
-      </View>
-
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: compact ? spacing.xs : spacing.sm,
-        }}
-      >
-        <UtilityButton
-          icon="globe"
-          label={tight ? undefined : locale.toUpperCase()}
-          size={utilSize}
-          onPress={onToggleLanguage}
-        />
-        <UtilityButton
-          icon={pushOn ? 'bell' : 'bell-off'}
-          size={utilSize}
-          onPress={onTapBell}
-        />
-        <UtilityButton
-          icon={isLight ? 'sun' : 'moon'}
-          size={utilSize}
-          onPress={onToggleTheme}
-        />
-        <Pressable
-          onPress={onSignIn}
-          style={{
-            minHeight: utilSize,
-            borderRadius: radii.pill,
-            paddingHorizontal: compact ? spacing.md : spacing.xl,
-            justifyContent: 'center',
-            alignItems: 'center',
-            borderWidth: 0.5,
-            borderColor: theme.border.default,
-            backgroundColor: theme.bg.surface,
-          }}
-        >
-          <Text variant={compact ? 'footnote' : 'bodyLarge'} weight="medium">
-            {signInLabel}
-          </Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-function UtilityButton({
-  icon,
-  onPress,
-  label,
-  size = 48,
-}: {
-  icon: React.ComponentProps<typeof Feather>['name'];
-  onPress: () => void;
-  label?: string;
-  size?: number;
-}) {
-  const { theme } = useTheme();
-
-  return (
-    <Pressable
-      onPress={onPress}
-      style={{
-        minWidth: size,
-        height: size,
-        borderRadius: 24,
-        paddingHorizontal: label ? spacing.md : 0,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: spacing.xs,
-        borderWidth: 0.5,
-        borderColor: theme.border.default,
-        backgroundColor: theme.bg.surface,
-      }}
-    >
-      <Feather name={icon} size={18} color={theme.text.primary} />
-      {label ? (
-        <Text variant="caption" weight="medium">
-          {label}
-        </Text>
-      ) : null}
-    </Pressable>
-  );
-}
-
-function JourneyCard({
-  accent,
-  image,
-  badge,
-  body,
-  cta,
-  fullBleed = false,
-  onPress,
-}: {
-  accent?: string;
-  image: number;
-  badge?: string;
-  body?: string;
-  items?: ReadonlyArray<readonly [string, string]>;
-  cta?: string;
-  /** When true, the image fills the entire card (seeker card — full card design baked into JPEG). */
-  fullBleed?: boolean;
-  onPress: () => void;
-}) {
-  const { theme, scheme } = useTheme();
-  const { width } = useWindowDimensions();
-  const compact = width < 820;
-  const isLight = scheme === 'light';
-
-  const imageAspect = 2 / 3;
-  const cardRadius = compact ? 24 : 36;
-  const cardAccent = accent ?? (isLight ? '#D29A17' : '#E3AE31');
-
-  const cardStyle = {
-    flex: 1,
-    alignSelf: 'flex-start' as const,
-    aspectRatio: imageAspect,
-    borderRadius: cardRadius,
-    overflow: 'hidden' as const,
-    backgroundColor: theme.bg.surface,
-    borderWidth: 0.5,
-    borderColor: isLight ? theme.border.default : theme.premium.hairline,
-    shadowColor: isLight ? '#B99968' : '#000000',
-    shadowOpacity: isLight ? 0.12 : 0.24,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 16 },
-    elevation: 6,
-  };
-
-  if (fullBleed) {
-    return (
-      <Pressable onPress={onPress} style={cardStyle}>
-        <Image
-          source={image}
-          resizeMode="cover"
-          style={{ width: '100%', height: '100%', backgroundColor: theme.bg.surface }}
-        />
-      </Pressable>
-    );
-  }
-
-  // Composed layout — illustration on top, text content below.
-  // Used for the employer card where the asset is an illustration (not a
-  // full-card-design JPEG).
-  return (
-    <Pressable onPress={onPress} style={cardStyle}>
-      {/* Illustration hero — takes ~55% of the card height */}
-      <View
-        style={{
-          flex: 55,
-          backgroundColor: isLight ? '#EEF2FF' : '#1A1535',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: compact ? spacing.md : spacing.lg,
-        }}
-      >
-        <Image
-          source={image}
-          resizeMode="contain"
-          style={{ width: '85%', height: '85%' }}
-        />
-      </View>
-
-      {/* Content area — badge, headline, body, CTA */}
-      <View
-        style={{
-          flex: 45,
-          backgroundColor: theme.bg.surface,
-          paddingHorizontal: compact ? spacing.md : spacing.lg,
-          paddingTop: compact ? spacing.sm : spacing.md,
-          paddingBottom: compact ? spacing.sm : spacing.md,
-          gap: compact ? 4 : spacing.xs,
-          justifyContent: 'space-between',
-        }}
-      >
-        <View style={{ gap: compact ? 4 : spacing.xs }}>
-          {badge ? (
-            <View
-              style={{
-                alignSelf: 'flex-start',
-                borderRadius: radii.pill,
-                paddingHorizontal: compact ? spacing.sm : spacing.md,
-                paddingVertical: 3,
-                backgroundColor: isLight ? 'rgba(211,165,86,0.14)' : 'rgba(141,109,255,0.16)',
-                borderWidth: 0.5,
-                borderColor: isLight ? 'rgba(211,165,86,0.4)' : 'rgba(141,109,255,0.4)',
-              }}
-            >
-              <Text
-                variant="caption"
-                weight="medium"
-                style={{
-                  letterSpacing: 0.8,
-                  fontSize: compact ? 9 : 11,
-                  color: cardAccent,
-                }}
-              >
-                {badge}
-              </Text>
-            </View>
-          ) : null}
-
-          {body ? (
-            <Text
-              variant={compact ? 'caption' : 'footnote'}
-              weight="medium"
-              style={{ color: theme.text.primary, lineHeight: compact ? 14 : 18 }}
-              numberOfLines={3}
-            >
-              {body}
-            </Text>
-          ) : null}
-        </View>
-
-        {cta ? (
-          <View
-            style={{
-              borderRadius: radii.md,
-              paddingVertical: compact ? 6 : spacing.sm,
-              paddingHorizontal: compact ? spacing.sm : spacing.md,
-              backgroundColor: cardAccent,
-              alignItems: 'center',
-              flexDirection: 'row',
-              justifyContent: 'center',
-              gap: spacing.xs,
-            }}
-          >
-            <Text
-              variant={compact ? 'caption' : 'footnote'}
-              weight="medium"
-              style={{ color: '#FFFDF7', fontSize: compact ? 10 : 12 }}
-              numberOfLines={1}
-            >
-              {cta}
-            </Text>
-            <Feather name="arrow-right" size={compact ? 10 : 12} color="#FFFDF7" />
-          </View>
-        ) : null}
-      </View>
-    </Pressable>
-  );
-}
-
-// ─── How it works (3 mini steps) ────────────────────────────────────────────
-
-function HowItWorks({ compact, t }: { compact: boolean; t: TFn }) {
-  const { theme, scheme } = useTheme();
-  const isLight = scheme === 'light';
-  const steps: ReadonlyArray<readonly [string, string]> = [
-    [t('role_picker.how_step1_title'), t('role_picker.how_step1_body')],
-    [t('role_picker.how_step2_title'), t('role_picker.how_step2_body')],
-    [t('role_picker.how_step3_title'), t('role_picker.how_step3_body')],
-  ];
-
-  return (
-    <View
-      style={{
-        marginTop: compact ? spacing.xl : spacing['3xl'],
-        gap: compact ? spacing.md : spacing.lg,
-      }}
-    >
-      <View style={{ alignItems: 'center', gap: spacing.xs }}>
-        <Text
-          variant="footnote"
-          weight="medium"
-          style={{
-            letterSpacing: 1.4,
-            color: isLight ? '#A97215' : '#B08CFF',
-          }}
-        >
-          {t('role_picker.how_eyebrow')}
-        </Text>
-      </View>
-
-      <View
-        style={{
-          flexDirection: 'row',
-          gap: compact ? spacing.xs : spacing.md,
-        }}
-      >
-        {steps.map(([title, sub], idx) => (
-          <View
-            key={title}
-            style={{
-              flex: 1,
-              borderRadius: compact ? 14 : 18,
-              borderWidth: 0.5,
-              borderColor: isLight ? theme.border.default : theme.premium.hairline,
-              backgroundColor: theme.bg.surface,
-              padding: compact ? spacing.sm : spacing.lg,
-              gap: compact ? spacing.xs : spacing.sm,
-              alignItems: 'flex-start',
-            }}
-          >
-            <View
-              style={{
-                width: compact ? 28 : 36,
-                height: compact ? 28 : 36,
-                borderRadius: compact ? 14 : 18,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: isLight
-                  ? 'rgba(211, 165, 86, 0.16)'
-                  : 'rgba(141, 109, 255, 0.16)',
-                borderWidth: 0.5,
-                borderColor: theme.premium.hairline,
-              }}
-            >
-              <Text
-                variant="caption"
-                weight="medium"
-                style={{
-                  fontSize: compact ? 11 : 13,
-                  color: isLight ? '#A97215' : '#B08CFF',
-                }}
-              >
-                0{idx + 1}
-              </Text>
-            </View>
-            <Text
-              variant={compact ? 'footnote' : 'bodyLarge'}
-              weight="medium"
-              numberOfLines={2}
-              style={{ color: theme.text.primary }}
-            >
-              {title}
-            </Text>
-            {!compact && (
-              <Text variant="footnote" tone="secondary" numberOfLines={2}>
-                {sub}
-              </Text>
-            )}
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-// ─── Activity ticker (slow horizontal scroll) ───────────────────────────────
-
-/**
- * Live-feeling activity strip. Items are seeded for v1; Phase 5 swaps in
- * real recent activity from /api/v1/activity/recent (derived from
- * application transitions and new job posts).
- *
- * The marquee uses a single Animated.Value translating the text strip
- * leftward, then jumping back. Two copies of the items are rendered
- * back-to-back so the loop wraps without a visible jump.
- */
-const TICKER_ITEMS: readonly string[] = [
-  'Priya was hired in Indiranagar · 12 min ago',
-  'Aarti accepted a salon gig in HSR · just now',
-  '7 new jobs in Koramangala this morning',
-  'Rahul shortlisted for a delivery role · 3 min ago',
-  'A bakery in 12th Main posted a new shift',
-  'Dev was hired as an electrician in Domlur',
-];
-
-function ActivityTicker({ compact, t }: { compact: boolean; t: TFn }) {
-  const { theme, scheme } = useTheme();
-  const isLight = scheme === 'light';
-  const translate = useRef(new Animated.Value(0)).current;
-  const [textWidth, setTextWidth] = useState(0);
-
-  // Once we know the on-screen width of one strip of items, animate
-  // the parent leftward by that amount in a 28s loop. Two copies of
-  // the strip are rendered side by side; when the first scrolls fully
-  // off-screen we reset, and the second is now in position 0 — visually
-  // seamless.
-  useEffect(() => {
-    if (textWidth === 0) return;
-    translate.setValue(0);
-    const loop = Animated.loop(
-      Animated.timing(translate, {
-        toValue: -textWidth,
-        duration: 28000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [textWidth, translate]);
-
-  const accent = isLight ? '#A97215' : '#B08CFF';
-
-  // Render one strip. The first copy reports its width via onLayout so
-  // we know how far to translate; the second copy renders identically
-  // but has unique keys to satisfy React's reconciliation.
-  const renderStrip = (idPrefix: string, measure: boolean) => (
-    <View
-      onLayout={
-        measure
-          ? (e) => {
-              if (textWidth === 0) setTextWidth(e.nativeEvent.layout.width);
-            }
-          : undefined
-      }
-      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg }}
-    >
-      {TICKER_ITEMS.map((item, i) => (
-        <View
-          key={`${idPrefix}-${i}`}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg }}
-        >
-          <View
-            style={{
-              width: 4,
-              height: 4,
-              borderRadius: 2,
-              backgroundColor: accent,
-              opacity: 0.7,
-            }}
-          />
-          <Text
-            variant="footnote"
-            tone="secondary"
-            style={{ fontSize: compact ? 12 : 13 }}
-          >
-            {item}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
-
-  return (
-    <View
-      style={{
-        marginTop: compact ? spacing.lg : spacing['2xl'],
-        marginHorizontal: -(compact ? spacing.lg : spacing['2xl']),
-        paddingVertical: compact ? spacing.sm : spacing.md,
-        borderTopWidth: 0.5,
-        borderBottomWidth: 0.5,
-        borderColor: isLight ? theme.border.default : theme.premium.hairline,
-        backgroundColor: theme.bg.muted,
-        overflow: 'hidden',
-      }}
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-        <View
-          style={{
-            paddingHorizontal: compact ? spacing.md : spacing.lg,
-            paddingVertical: 4,
-            borderRadius: radii.pill,
-            backgroundColor: isLight
-              ? 'rgba(211, 165, 86, 0.16)'
-              : 'rgba(141, 109, 255, 0.18)',
-            borderWidth: 0.5,
-            borderColor: theme.premium.hairline,
-            marginLeft: compact ? spacing.lg : spacing['2xl'],
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-          }}
-        >
-          <View
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: '#22C55E',
-            }}
-          />
-          <Text
-            variant="caption"
-            weight="medium"
-            style={{
-              letterSpacing: 1.0,
-              fontSize: compact ? 10 : 11,
-              color: accent,
-            }}
-          >
-            {t('role_picker.ticker_live')}
-          </Text>
-        </View>
-
-        <View style={{ flex: 1, overflow: 'hidden' }}>
-          <Animated.View
-            style={{
-              flexDirection: 'row',
-              transform: [{ translateX: translate }],
-            }}
-          >
-            {renderStrip('a', true)}
-            {/* second copy back-to-back, separated by the same gap so
-                the loop wraps without a visible seam */}
-            <View style={{ width: spacing.lg }} />
-            {renderStrip('b', false)}
-          </Animated.View>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-// ─── Brand sign-off footer ──────────────────────────────────────────────────
-
-/**
- * Closing signature for the landing screen. The page ENDS here on
- * purpose — empty space below would feel unfinished. Premium products
- * always sign off cleanly: wordmark, tagline, place + version, legal.
- *
- * Legal links are inert for v1 (the routes don't exist yet); Phase 7
- * will hook them up to actual Terms / Privacy / Help screens. For now
- * they exist mostly so app-store reviewers can see them at submission.
- */
-function BrandFooter({ compact, t }: { compact: boolean; t: TFn }) {
-  const { theme, scheme } = useTheme();
-  const isLight = scheme === 'light';
-  const version =
-    (Constants.expoConfig?.version as string | undefined) ?? '0.1.0';
-
-  return (
-    <View
-      style={{
-        marginTop: compact ? spacing['2xl'] : spacing['3xl'],
-        alignItems: 'center',
-        gap: compact ? spacing.sm : spacing.md,
-        paddingTop: compact ? spacing.lg : spacing.xl,
-        paddingBottom: compact ? spacing.lg : spacing.xl,
-        borderTopWidth: 0.5,
-        borderTopColor: isLight ? theme.border.default : theme.premium.hairline,
-      }}
-    >
-      {/* Brand lockup — mark + wordmark together. Anchors the footer with
-          a real visual signature instead of plain text. */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: compact ? 12 : 16,
-        }}
-      >
-        <DoondoMark size={compact ? 28 : 36} />
-        <Text
-          variant="titleLarge"
-          weight="medium"
-          style={{
-            letterSpacing: compact ? 5 : 8,
-            color: theme.text.primary,
-            fontSize: compact ? 22 : 28,
-          }}
-        >
-          DOONDO
-        </Text>
-      </View>
-
-      {/* Tagline — quiet, italic-ish via letterspacing.
-          Note: this string is also used as a brand line and shows up on
-          screenshots / app-store copy. Emoji renders the same on iOS +
-          Android. */}
-      <Text
-        variant="footnote"
-        tone="secondary"
-        style={{
-          letterSpacing: 0.6,
-          textAlign: 'center',
-        }}
-      >
-        {t('role_picker.footer_tagline')}
-      </Text>
-
-      {/* Meta line — place + flag, year, version */}
-      <Text
-        variant="caption"
-        tone="tertiary"
-        style={{
-          letterSpacing: 1.0,
-          textAlign: 'center',
-        }}
-      >
-        {t('role_picker.footer_meta', { version })}
-      </Text>
-
-      {/* Legal links */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: spacing.sm,
-          marginTop: spacing.xs,
-        }}
-      >
-        <FooterLink label={t('role_picker.footer_terms')} />
-        <FooterDot />
-        <FooterLink label={t('role_picker.footer_privacy')} />
-        <FooterDot />
-        <FooterLink label={t('role_picker.footer_support')} />
-      </View>
-    </View>
-  );
-}
-
-function FooterLink({ label, onPress }: { label: string; onPress?: () => void }) {
-  const { theme } = useTheme();
-  return (
-    <Pressable onPress={onPress} hitSlop={8}>
-      <Text
-        variant="caption"
-        weight="medium"
-        style={{
-          color: theme.text.secondary,
-          letterSpacing: 0.4,
-        }}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-function FooterDot() {
-  const { theme } = useTheme();
-  return (
-    <View
-      style={{
-        width: 3,
-        height: 3,
-        borderRadius: 1.5,
-        backgroundColor: theme.text.tertiary,
-        opacity: 0.5,
-      }}
-    />
-  );
-}

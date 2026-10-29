@@ -115,6 +115,12 @@ export type AppStackParamList = {
   AuctionDetail: { auctionId?: string; jobId?: string; suggestedMaxRupees?: number };
   Auctions: undefined;
   ArJobVision: undefined;
+  /** Look Inside — a business's workplace portfolio (photos, role pins, video). */
+  LookInside: { employerId: string; photoId?: string; distanceM?: number };
+  /** One vacancy inside its workplace: Overview / Workplace / Team / FAQs. */
+  WorkplaceJob: { jobId: string; employerId: string; distanceM?: number };
+  /** Employer: build the Look Inside portfolio. */
+  WorkplacePortfolio: undefined;
   TradeTools: undefined;
   Cohort: { cohortId: string };
   Cohorts: undefined;

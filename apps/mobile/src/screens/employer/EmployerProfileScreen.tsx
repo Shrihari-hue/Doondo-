@@ -209,6 +209,18 @@ export function EmployerProfileScreen() {
           t={t}
         />
 
+        {/* Workplace portfolio — the "Look Inside" tour seekers see */}
+        <SectionCard
+          label={t('employer.profile.section_portfolio')}
+          title={t('employer.profile.portfolio_title')}
+          subtitle={t('employer.profile.portfolio_subtitle')}
+          onPress={() => {
+            haptic('selection');
+            navigation.navigate('WorkplacePortfolio');
+          }}
+          t={t}
+        />
+
         {/* Compliance */}
         <SectionCard
           label={t('employer.profile.section_compliance')}

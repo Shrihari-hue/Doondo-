@@ -359,6 +359,12 @@ const schema = z.object({
   FILE_UPLOAD_URL: z.string().url().optional(),
   /** Optional bearer token sent with the file-upload request. */
   FILE_UPLOAD_TOKEN: z.string().optional(),
+  /**
+   * Disk directory for workplace-portfolio media (Look Inside photos,
+   * team photos, workplace video) when FILE_STORAGE_PROVIDER=mock. Served
+   * statically at /media/portfolio. Resolved relative to the backend cwd.
+   */
+  PORTFOLIO_STORAGE_DIR: z.string().default('storage/portfolio'),
 });
 
 const parsed = schema.safeParse(process.env);

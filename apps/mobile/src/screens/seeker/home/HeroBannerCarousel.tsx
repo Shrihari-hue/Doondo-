@@ -45,6 +45,9 @@ let _sessionSlide = 0;
 const AUTO_ADVANCE_MS = 4500;
 const SLIDE_ANIM_MS = 380;
 const { width: SCREEN_W } = Dimensions.get('window');
+// Fallback before the first onLayout: screen width minus the Home
+// screen's horizontal padding.
+const DEFAULT_CARD_W = SCREEN_W - spacing.xl * 2;
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -57,10 +60,15 @@ interface Props {
 export function HeroBannerCarousel({ onExploreJobs, navigation, t }: Props) {
   const [activeIndex, setActiveIndex] = useState(_sessionSlide);
   const [reducedMotion, setReducedMotion] = useState(false);
+  // Actual rendered width of the carousel (it sits inside the screen's
+  // horizontal padding, so it is NOT the screen width). Every slide and
+  // every translate step must use this same value or slides drift.
+  const [cardW, setCardW] = useState(DEFAULT_CARD_W);
+  const cardWRef = useRef(DEFAULT_CARD_W);
 
   // translateX controls the slide position. We keep it in a ref so
   // the gesture handler can update it synchronously without re-renders.
-  const translateX = useRef(new Animated.Value(-_sessionSlide * SCREEN_W)).current;
+  const translateX = useRef(new Animated.Value(-_sessionSlide * DEFAULT_CARD_W)).current;
   const autoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Track the last tap time to debounce rapid double-taps on dots/slides.
   const lastTapRef = useRef(0);
@@ -83,12 +91,12 @@ export function HeroBannerCarousel({ onExploreJobs, navigation, t }: Props) {
       setActiveIndex(clamped);
       if (animated && !reducedMotion) {
         Animated.timing(translateX, {
-          toValue: -clamped * SCREEN_W,
+          toValue: -clamped * cardWRef.current,
           duration: SLIDE_ANIM_MS,
           useNativeDriver: true,
         }).start();
       } else {
-        translateX.setValue(-clamped * SCREEN_W);
+        translateX.setValue(-clamped * cardWRef.current);
       }
     },
     [reducedMotion, translateX],
@@ -158,6 +166,14 @@ export function HeroBannerCarousel({ onExploreJobs, navigation, t }: Props) {
         shadowRadius: 20,
         elevation: 8,
       }}
+      onLayout={(e) => {
+        const w = Math.round(e.nativeEvent.layout.width);
+        if (w > 0 && w !== cardWRef.current) {
+          cardWRef.current = w;
+          setCardW(w);
+          translateX.setValue(-_sessionSlide * w);
+        }
+      }}
       onTouchStart={(e) => handleTouchStart(e.nativeEvent.pageX)}
       onTouchEnd={(e) => handleTouchEnd(e.nativeEvent.pageX)}
       accessibilityRole="adjustable"
@@ -168,17 +184,17 @@ export function HeroBannerCarousel({ onExploreJobs, navigation, t }: Props) {
       <Animated.View
         style={{
           flexDirection: 'row',
-          width: SCREEN_W * SLIDE_COUNT,
+          width: cardW * SLIDE_COUNT,
           transform: [{ translateX }],
         }}
       >
         {/* Slide 0 — Explore Jobs (existing hero, pixel-identical) */}
-        <View style={{ width: SCREEN_W - spacing.xl * 2 }}>
+        <View style={{ width: cardW }}>
           <ExploreJobsSlide onPress={handleExploreJobs} t={t} />
         </View>
 
         {/* Slide 1 — Same-day Swipe */}
-        <View style={{ width: SCREEN_W - spacing.xl * 2 }}>
+        <View style={{ width: cardW }}>
           <SameDaySwipeSlide onPress={handleSwiping} t={t} />
         </View>
       </Animated.View>
@@ -207,8 +223,6 @@ export function HeroBannerCarousel({ onExploreJobs, navigation, t }: Props) {
                 i === activeIndex
                   ? '#FFFFFF'
                   : 'rgba(255,255,255,0.38)',
-              // Smooth pill-expand on active dot
-              ...(reducedMotion ? {} : { transition: 'width 0.3s' }),
             }}
           />
         ))}
@@ -353,7 +367,7 @@ function SameDaySwipeSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
               color: '#C4B5FD',
             }}
           >
-            NEW FEATURE
+            {t('home.hero_swipe.eyebrow')}
           </Text>
         </View>
 
@@ -366,7 +380,7 @@ function SameDaySwipeSlide({ onPress, t }: { onPress: () => void; t: TFn }) {
             letterSpacing: -0.5,
           }}
         >
-          Same-day Swipe
+          {t('home.hero_swipe.title')}
         </Text>
         <Text
           style={{

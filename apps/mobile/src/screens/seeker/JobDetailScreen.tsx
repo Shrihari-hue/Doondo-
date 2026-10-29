@@ -60,6 +60,7 @@ import { ApplyCelebration } from './apply-moment/ApplyCelebration';
 import { WORKPLACE_QUESTIONS, hasAnyAnswer } from '@/lib/reverseInterviewCatalog';
 import { WOMEN_SAFETY_SIGNAL_DEFS } from '@/lib/womenSafetyCatalog';
 import { PeerConfirmedLine } from './WomenSafetyPanels';
+import { LookInsideBanner } from './workplace/LookInsideBanner';
 import type { AppStackParamList } from '@/navigation/types';
 import type {
   PublicJob,
@@ -462,6 +463,9 @@ function JobDetailScreenInner() {
           {/* Pay transparency — "Typical pay for X in Y: ₹450–600 / day" */}
           <PayTransparencyLine job={job} t={t} />
         </View>
+
+        {/* Look Inside — only renders when the employer has a portfolio */}
+        <LookInsideBanner employerId={job.employer?.id} employerName={employerName} distanceM={job.distanceMeters} />
 
         {/* Pills with icon prefix */}
         <View style={{ gap: spacing.sm }}>

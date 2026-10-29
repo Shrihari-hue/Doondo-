@@ -78,6 +78,8 @@ export function buildApp(): BuiltApp {
   // smaller global cap still protects every other endpoint.
   app.use('/api/v1/reels', express.json({ limit: '60mb' }));
   app.use('/api/v1/reels', express.urlencoded({ extended: true, limit: '60mb' }));
+  // Workplace video upload (Look Inside) — same ceiling as Hire Reels.
+  app.use('/api/v1/portfolio/mine/video', express.json({ limit: '60mb' }));
   // 2mb fits the base64-encoded profile photo (~350KB raw → ~470KB encoded
   // + JSON overhead) with comfortable headroom.
   // 4mb fits a compressed chat image (~1MB raw → ~1.4MB base64) plus
@@ -115,6 +117,30 @@ export function buildApp(): BuiltApp {
       }),
     );
     logger.info({ reelDir }, 'serving Hire Reels media from local disk');
+  }
+
+  // ─── Static media — workplace portfolio (Look Inside) mock provider ─────
+  if (env.FILE_STORAGE_PROVIDER === 'mock') {
+    const portfolioDir = path.resolve(process.cwd(), env.PORTFOLIO_STORAGE_DIR);
+    fs.mkdirSync(portfolioDir, { recursive: true });
+    app.use(
+      '/media/portfolio',
+      (_req, res, next) => {
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        next();
+      },
+      express.static(portfolioDir, {
+        fallthrough: false,
+        index: false,
+        maxAge: '1h',
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith('.mp4')) res.type('video/mp4');
+          else if (filePath.endsWith('.mov')) res.type('video/quicktime');
+          else if (filePath.endsWith('.webm')) res.type('video/webm');
+        },
+      }),
+    );
+    logger.info({ portfolioDir }, 'serving workplace portfolio media from local disk');
   }
 
   // ─── Health ─────────────────────────────────────────────────────────────

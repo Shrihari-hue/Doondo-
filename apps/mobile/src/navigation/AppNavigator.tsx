@@ -96,6 +96,9 @@ import { DiasporaScreen } from '@/screens/employer/DiasporaScreen';
 import { AuctionDetailScreen } from '@/screens/employer/AuctionDetailScreen';
 import { AuctionsScreen } from '@/screens/seeker/AuctionsScreen';
 import { ArJobVisionScreen } from '@/screens/seeker/ArJobVisionScreen';
+import { LookInsideScreen } from '@/screens/seeker/LookInsideScreen';
+import { WorkplaceJobScreen } from '@/screens/seeker/WorkplaceJobScreen';
+import { WorkplacePortfolioScreen } from '@/screens/employer/WorkplacePortfolioScreen';
 import { TradeToolsScreen } from '@/screens/seeker/TradeToolsScreen';
 import { CohortScreen } from '@/screens/seeker/CohortScreen';
 import { CohortsScreen } from '@/screens/seeker/CohortsScreen';
@@ -225,6 +228,21 @@ export function AppNavigator() {
       <Stack.Screen
         name="ArJobVision"
         component={ArJobVisionScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="LookInside"
+        component={LookInsideScreen}
+        options={{ presentation: 'card', animation: 'fade' }}
+      />
+      <Stack.Screen
+        name="WorkplaceJob"
+        component={WorkplaceJobScreen}
+        options={{ presentation: 'card', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="WorkplacePortfolio"
+        component={WorkplacePortfolioScreen}
         options={{ presentation: 'card', animation: 'slide_from_right' }}
       />
       <Stack.Screen

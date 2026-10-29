@@ -21,6 +21,7 @@
  * keeps the page density tight (no scrollbars on small phones).
  */
 
+import { useJobSearchLocationStore } from '@/stores/jobSearchLocation.store';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -63,7 +64,9 @@ export function FirstMatchPreviewScreen() {
       setLoading(true);
       setError(null);
       try {
-        const coords = (await getCurrentCoords()) ?? FALLBACK_COORDS;
+        // City picked on the welcome screen wins over GPS.
+        const picked = useJobSearchLocationStore.getState().place;
+        const coords = picked ?? (await getCurrentCoords()) ?? FALLBACK_COORDS;
         const res = await jobsApi.preview({
           lat: coords.lat,
           lng: coords.lng,

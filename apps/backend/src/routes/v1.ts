@@ -66,6 +66,7 @@ import favoritesRouter from '@/modules/favorites/favorites.routes';
 import crewDocumentsRouter from '@/modules/crewDocuments/crewDocument.routes';
 import siteBriefingRouter from '@/modules/siteBriefing/siteBriefing.routes';
 import reelsRouter from '@/modules/reels/reel.routes';
+import portfolioRouter from '@/modules/portfolio/portfolio.routes';
 import communityRouter from '@/modules/community/post.routes';
 import hiringRequestsRouter from '@/modules/hiringRequests/hiringRequest.routes';
 import accountActivityRouter from '@/modules/accountActivity/accountActivity.routes';
@@ -163,6 +164,8 @@ v1.use('/crew-documents', crewDocumentsRouter);
 v1.use('/site-briefing', siteBriefingRouter);
 // Hire Reels — worker intro videos + the employer discovery feed.
 v1.use('/reels', reelsRouter);
+// Workplace portfolio — "Look Inside" tours of an employer's place.
+v1.use('/portfolio', portfolioRouter);
 // Community — the worker feed: posts, likes, comments, reposts.
 v1.use('/community', communityRouter);
 // Two-way discovery — the employer→worker outbound invite flow.
