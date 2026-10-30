@@ -1,0 +1,10 @@
+# `railway up` honours every ignore file it finds, including your global
+# git excludes. A generic "storage" rule there (common in Laravel/PHP
+# templates) silently drops src/modules/storage and breaks the build.
+# Keep runtime uploads out, but always ship the storage *source code*.
+/storage/
+!src/modules/storage/
+!src/modules/storage/**
+node_modules/
+dist/
+.env

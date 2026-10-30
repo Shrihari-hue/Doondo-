@@ -79,7 +79,7 @@ export function ArJobVisionScreen() {
 
   const jobsQ = useQuery({
     queryKey: ['ar-jobs', me?.lat.toFixed(3), me?.lng.toFixed(3)],
-    queryFn: () => jobsApi.nearby({ lat: me!.lat, lng: me!.lng, radius: RANGE_M, limit: 80 }),
+    queryFn: () => jobsApi.nearby({ lat: me!.lat, lng: me!.lng, radius: RANGE_M, limit: 50 }), // server max is 50
     enabled: Boolean(me),
     staleTime: 60_000,
   });
@@ -188,7 +188,9 @@ export function ArJobVisionScreen() {
     ? t('ar.location_needed')
     : !me || !pose
       ? t('ar.finding')
-      : jobsQ.isSuccess && businesses.length === 0
+      : jobsQ.isError
+        ? t('ar.load_error')
+        : jobsQ.isSuccess && businesses.length === 0
         ? t(chip === 'all' && !search ? 'ar.no_jobs' : 'ar.no_jobs_category', { km: RANGE_M / 1000 })
         : null;
 

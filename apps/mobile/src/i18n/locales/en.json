@@ -3686,7 +3686,8 @@
       "transport": "Driving & Delivery",
       "services": "Services",
       "other": "Other"
-    }
+    },
+    "load_error": "Couldn't load nearby jobs. Check your connection and try again."
   },
   "auctions": {
     "title": "Urgent jobs",
